@@ -84,10 +84,10 @@ paths:
 
 | 目录 | 放什么 | **禁止**放什么 |
 |------|--------|--------------|
-| `doc/0_architecture/` | 架构级红线（PRD、需求、约束、roadmap） | 阶段性总结、临时计划 |
+| `doc/0_architecture/` | 架构级红线（PRD、需求、约束、roadmap）+ **acceptance.md（正在做的验收）** + **TODO-INDEX.md（暂时没空做的短期 todo + 远期 backlog 索引）** | 阶段性总结、临时计划 |
 | `doc/3_design/` | 模块实现的最终形态（项目自产的模块设计） | 第三方 API 文档、协议参考、外部截图 |
-| `doc/1_plan/` | 按主题归集的活跃推进 + 协作记录 | 已完成归档项 |
-| `doc/2_pending/` | 未决问题备忘 + 未决讨论（短期没精力解决） | 已完成 / 已废弃的文档 |
+| `doc/1_plan/` | 按主题归集的活跃推进 + 协作记录 + `sprints/` Sprint 级日程 | 已完成归档项 |
+| `doc/2_pending/` | 未决问题备忘 + 未决讨论（短期没精力解决，有上下文要展开的）| 已完成 / 已废弃的文档；**TODO-INDEX.md 不放此处**（在 `0_architecture/`）|
 | `doc/4_archive/` | 已完成归档 | 仍在推进中的文档 |
 | `doc/9_reference/` | 外部/第三方参考资料（协议文档、竞品截图、AI prompt） | 项目自产的设计或规范 |
 

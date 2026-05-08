@@ -9,7 +9,7 @@
 - **双层 CLAUDE.md**：全局 `~/.claude/CLAUDE.md` 管沟通/安全/执行协议；项目 `<repo>/CLAUDE.md` 管架构红线 + rules 索引 + skills 表
 - **rules 分层加载**：`.claude/rules/<topic>.md` 按文件路径触发，CLAUDE.md 维护索引表
 - **Memory junction**：系统 memory 路径链回 `.claude/memory/`，纳入项目 git
-- **doc/ 三层归档**：`1_plan / 2_pending / 4_archive / 9_reference`
+- **doc/ 分层归档**：`0_architecture（含 acceptance + TODO-INDEX）/ 1_plan（含 sprints）/ 2_pending / 3_design / 4_archive / 9_reference` — 二分语义"正在做（acceptance + sprints）vs 暂时没空（TODO-INDEX 主表）vs 远期 backlog（TODO-INDEX §远期索引）"
 - **工作流红线**：鬼打墙觉察 + 渐进升级（lvl 0→3）、修 bug 前确认根因、UI 偶现 bug 主动问 4 件事
 - **可移植性约束**：pip 陷阱、hooks 路径、换机 checklist
 

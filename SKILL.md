@@ -53,7 +53,7 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/rules/*.md` | `<project>/.claude/rules/` |
 | `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` |
 | `templates/doc/README.md` | `<project>/doc/README.md` |
-| 创建空目录 | `<project>/doc/{1_plan,2_pending,4_archive,9_reference}/` |
+| 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` |
 
 ### Step 4：替换占位符
 
@@ -138,4 +138,4 @@ git status        # 给用户 review
 | `rules/workflow.md` | **通用** | 同步文档 / 主动写规则 / 经验总结 / 任务收尾自查 |
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
-| `doc/README.md` | 索引模板 | 1_plan / 2_pending / 4_archive / 9_reference 分层说明 |
+| `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |

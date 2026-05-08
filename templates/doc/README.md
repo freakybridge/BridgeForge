@@ -27,6 +27,8 @@
 | `1_PRD.md` | 产品需求 |
 | `2_约束与红线.md` | 不可变约束 |
 | `3_数据结构与常量.md` | 核心数据对象 |
+| `acceptance.md` | **正在做的验收清单**（全项目 Milestone 验收单一勾选位置）|
+| `TODO-INDEX.md` | **暂时没空做的短期 TODO + 远期 backlog 索引**（与 acceptance 形成"做 vs 暂缓"二分）|
 -->
 
 ## 1_plan/
@@ -35,15 +37,18 @@
 | 文件 / 子目录 | 说明 |
 |------|------|
 | [`feature_x/`](1_plan/feature_x/) | 特性 X 的设计 + 验收 + collab 记录 |
+| [`sprints/`](1_plan/sprints/) | **正在做的 Sprint / Task 级日程**（per Milestone 一份）|
 -->
 
 ## 2_pending/
 
-<!-- TODO: 未决问题清单，例：
+<!-- TODO: 未决问题备忘（已识别但有上下文要展开的），例：
 | 文件 | 说明 |
 |------|------|
-| `TODO-INDEX.md` | 全局 TODO 索引 |
+| `YYYY-MM-DD_<topic>.md` | 单个未决问题的展开备忘 |
 | `debates_YYYY-MM-DD_<topic>.md` | 多 agent 辩论记录 |
+
+注：TODO-INDEX.md 不放此处，已迁至 0_architecture/。
 -->
 
 ## 3_design/
