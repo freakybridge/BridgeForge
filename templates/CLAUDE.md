@@ -192,3 +192,33 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 - ❌ 单凭描述就猜测修（必须有数据 / 截图 / 复现）
 - ❌ 一次只问 1 个问题挤牙膏（一次问全 4 个）
 - ❌ 假装"我懂你的感受"绕开量化
+
+---
+
+## 10. 上下文预算红线 — `[ctx-budget]` 信号响应
+
+**触发**：`UserPromptSubmit` hook（`.claude/hooks/context_warning.py`）在每次用户提交 prompt 时估算上下文用量，超阈值时输出 `[ctx-budget]` system reminder。我**必须**按下表响应：
+
+| 信号级别 | 用量 | 我的行为 |
+|---------|-----|---------|
+| 无信号 | < 75% | 正常执行任务 |
+| **MEDIUM** | 75-84% | 执行任务，**完成后**主动建议 "/snapshot 锁状态准备换会话" |
+| **HIGH** | 85-94% | **响应开头**告知用户当前用量 + 建议 /snapshot + 询问是否继续。**只接受小任务**（单文件读 / 1-2 行改 / 询问），**拒绝复杂多文件改动** |
+| **CRITICAL** | ≥ 95% | **立即拒绝**任务，告知"上下文几乎满，继续做事会被自动 compact 吞状态。请先 /snapshot 然后开新会话 /resume 接续。" 不开始任何新工作 |
+
+### 红线
+
+- **CRITICAL 信号下禁止开始任何新任务** — 即使用户说"快做"，也要拒绝。允许的只有 `/snapshot` 这种保命操作（slash command 已被 hook 自动豁免）
+- **HIGH 信号下禁止启动复杂多文件改动** — 即使可能勉强做完，后续 compact 会丢上下文，不值得
+- 信号判定基于 char/4 启发式，精度 ±10%。CRITICAL/HIGH 边界附近以信号为准，不要二次判断"我感觉还行"
+- **不要悄悄忽略信号继续做事** — 用户配置这个 hook 就是因为容易忘，我必须主动响应
+
+### slash command 豁免
+
+`/snapshot` / `/resume` / `/git-sync` 等以 `/` 开头的 prompt 不触发预警 — 否则用户连保命操作都被拦，死锁。所以**响应 CRITICAL 时建议用户做的就是 `/snapshot`**，不会自相矛盾。
+
+### 配置
+
+- Hook 入口：`.claude/hooks/context_warning.py`（项目内）
+- 注册位置：`.claude/settings.json` → `hooks.UserPromptSubmit`
+- 调参：在 hook 文件开头改 `WINDOW`（窗口大小，按模型选 1M / 200k）和 `THR_MEDIUM/HIGH/CRITICAL`（三个阶梯阈值，默认 75/85/95）

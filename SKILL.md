@@ -22,6 +22,8 @@ git rev-parse --is-inside-work-tree # 是否已 git init
 
 **若 cwd 已有 CLAUDE.md 或 `.claude/rules/`** → 立即停下问用户："检测到已存在 CLAUDE.md/rules，要 (A) 跳过已存在的文件只补缺失部分；(B) 备份后覆盖；(C) 退出？"
 
+**若 cwd 已有 `.claude/settings.json`** → **禁止直接覆盖**（会丢已有 hook/permission/env）。必须读现存 settings.json，把模板里的 `hooks.UserPromptSubmit` 条目 **merge** 进去（数组追加，不替换）；其他字段保持原样。merge 完后给用户 review 一次再保存。
+
 **若 cwd 不是新项目根** → 问用户预期的目标项目根路径。
 
 ### Step 2：收集项目元信息
@@ -52,8 +54,20 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/CLAUDE.md` | `<project>/CLAUDE.md` |
 | `templates/rules/*.md` | `<project>/.claude/rules/` |
 | `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` |
+| `templates/hooks/context_warning.py` | `<project>/.claude/hooks/context_warning.py` |
+| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）|
 | `templates/doc/README.md` | `<project>/doc/README.md` |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` |
+
+**ctx-budget hook 适配**（复制完后必做）：
+
+1. 检查目标项目用的 Python 解释器路径是否匹配 `templates/settings.json` 里的 `.venv/Scripts/python.exe`
+   - 项目用 conda → 改成 `python` 或 conda env 绝对路径
+   - 项目无 venv → 改成系统 `python`
+2. 检查目标项目使用的 Claude 模型窗口，调 `context_warning.py:27` 的 `WINDOW` 常量
+   - Opus 4.7 / Sonnet 4.6 1M context → `1_000_000`（默认）
+   - 200k context 模型 → `200_000`
+3. 提示用户：CLAUDE.md §10 ctx-budget 红线生效，新会话开始即享受预警保护
 
 ### Step 4：替换占位符
 
@@ -131,11 +145,13 @@ git status        # 给用户 review
 
 | 文件 | 性质 | 说明 |
 |------|------|------|
-| `CLAUDE.md` | 部分模板 + 部分占位 | §1/§3/§7 占位，其余通用直接给 |
+| `CLAUDE.md` | 部分模板 + 部分占位 | §1/§3/§7 占位，其余通用直接给（含 §8 鬼打墙红线 / §9 UI 主动问范式 / §10 ctx-budget 信号约定） |
 | `rules/architecture.md` | 骨架 | 职责边界 / 数据流 / 禁止反向横向（占位） |
 | `rules/modules.md` | 骨架 | 新增模块流程 / 禁止事项表（占位） |
 | `rules/debugging.md` | **通用** | 鬼打墙红线 + 修 bug 前确认根因 + 性能先量化 |
 | `rules/workflow.md` | **通用** | 同步文档 / 主动写规则 / 经验总结 / 任务收尾自查 |
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
+| `hooks/context_warning.py` | **通用** | UserPromptSubmit hook，跨 75/85/95% 阈值输出 [ctx-budget] 信号给 Claude |
+| `settings.json` | **通用** | 注册 ctx-budget hook 到 UserPromptSubmit；已存在则 merge 不覆盖 |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
