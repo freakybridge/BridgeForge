@@ -1,0 +1,82 @@
+# Changelog
+
+格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本按 `templates/rules/workflow.md §9` **简版**（小项目退化版）：
+
+- **major (X)** — 破坏性变更 / 范式重写
+- **minor (Y)** — 新功能（新 hook / 新 skill / 新 rule / 新模板）
+- **patch (Z)** — bug 修复 / 文档调整 / refactor
+
+> **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
+
+---
+
+## [Unreleased]
+
+## [0.8.0] - 2026-05-24
+
+### Added
+- `VERSION` 文件（单一事实源，符合 workflow.md §9.1）
+- `CHANGELOG.md` 本文件
+- `SKILL.md` frontmatter `version: 0.8.0` 字段
+- `skills/resume/SKILL.md` **Step 5**：用户确认接续后主动建议对话框重命名（避免 `/resume` 默认 session 名 "resume" 无指导性，多 session 并发时无法区分内容）
+
+### Fixed
+- 自打脸：setup_agent 之前要求下游用版本号但自己没用 → 本版补齐版本号机制
+
+## [0.7.0] - 2026-05-24（追溯，commit 4b976da）
+
+### Added
+- 反哺 5 个通用 hook：`memory_lint.py` / `rule_index_check.py` / `rule_size_check.py` / `find_doc_reminder.py` / `show_state.py`（脱敏简化版）
+- `templates/settings.json` 扩展到 6 类 hook 注册段（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit / SessionStart）
+- `templates/rules/modules.md §3.1 §3.2` 从 causis_risk_suite 反哺（协调中枢三块分层 + 提炼共享常量三件套）
+- `docs/sync-from-upstream-playbook.md`（与 reverse-sync-playbook 互为镜像，按业务专属程度分 4 层决定覆盖策略）
+
+### Changed
+- `SKILL.md` Step 3 改造：加 Python hook 体系条件复制（基于 Q2 主语言）+ 无 `.venv` fallback + 非 Python 项目跳过说明
+- `docs/reverse-sync-playbook.md §7` 改为引用新 sync-from-upstream playbook 的精简版
+
+## [0.6.0] - 2026-05-24（追溯，commit 9cfa7ae）
+
+### Added
+- `templates/hooks/session_snapshot.py`（脱敏简化版 ~150 行，去 tag 逻辑 + 通用版本检测）
+- `templates/scripts/archive_scan.py`（通用版直接 cp）
+- `templates/settings.json` 加 PostCompact + Stop hook 注册
+- `README.md` "Python 依赖（agent 安装前必读）"段
+- `docs/reverse-sync-playbook.md §4` 白名单扩展（加 `templates/hooks/` + `templates/scripts/`）
+- `skills/find-doc` + `skills/sync-docs` SKILL.md 末尾加 placeholder 检测与提醒段
+
+## [0.5.0] - 2026-05-24（追溯，commit d73ea5a）
+
+### Added
+- 反哺 StratusAgent + causis_risk_suite 经验：
+  - `templates/rules/portability.md §4.3-§4.5` 多项可移植性约束
+  - `templates/rules/workflow.md §9` 拆细为 §9.1-§9.7（Milestone-bound SemVer 详细版）
+  - `templates/rules/meta_rule_design.md`（新建，元规则）
+- `README.md` "适合/不适合"诚实段
+- OPTIONAL 段落物理裁剪机制（`<!-- OPTIONAL_BEGIN PLATFORM/LANG/SCENARIO -->`）
+- `templates/CLAUDE.md §11` doc/ 红线化
+
+### Removed
+- `session-tag` skill（过度设计，整目录删 + snapshot/resume 里的 tag 引用清理）
+
+## [0.4.0] - 2026-05-23（追溯，commit fa8c75f）
+
+### Added
+- 13 个通用协作 skill：`archive-scan` / `collab` / `debate` / `escalate` / `find-doc` / `git-sync` / `plan` / `resume` / `session-tag` / `snapshot` / `summary` / `sync-docs` / `todo`（**`session-tag` 后于 v0.5.0 删除**）
+- setup_agent SKILL.md 加 skill 自检流程
+
+## [0.3.0] - 2026-05-09（追溯，commit 88db438）
+
+### Added
+- `templates/hooks/context_warning.py`（ctx-budget 红线 hook — 跨 75/85/95% 阈值预警）
+- `templates/CLAUDE.md §10` ctx-budget 信号响应红线
+
+## [0.2.0] - 2026-05-08（追溯，commit 2ed5df2）
+
+### Added
+- doc/ 分层引入 acceptance + TODO-INDEX 二分语义（短期 vs 远期 backlog）
+
+## [0.1.0] - 2026-05-01（追溯，commit 7f30c9a）
+
+### Added
+- setup_agent skill 骨架初始化（CLAUDE.md / rules / memory junction / doc 基础模板）

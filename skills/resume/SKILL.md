@@ -76,6 +76,34 @@ ls -1t .runtime/session_state/*.md | head -1
 - 一致 → 直接接续
 - **不一致**（用户这期间改了别的）→ 提示："当前 git 状态和 snapshot 不一致，你期间可能动了别的事，要先 git stash 还是直接覆盖式接续？"
 
+### Step 5：建议对话框重命名（必做）
+
+用户在 Step 3 回 yes 接续后，**主动**提议把当前 Claude Code 对话框（session）从默认的 "resume" 改成描述性名称。
+
+**为什么必做**：
+- `/resume` 启动的 session 默认 title 就是 "resume"，无指导性
+- 多 session 并发时 "resume" / "resume (2)" 无法区分内容
+- 在 Claude Code 对话历史列表里翻找旧 session 时，描述性名称才能一眼定位
+
+**抽取主题**（agent 自己想，不要问用户）：
+- 优先从 snapshot 的"本轮做了什么" / "下一步打算" 段抽**动词 + 对象**，3-12 字
+- snapshot 主观段为空时（如 root 自动存档只有客观状态）→ 从 uncommitted 改动模式 + branch 名推断（例：`branch=feature/oms-refactor` → 建议「OMS 重构」）
+- 主题示例：「修 EVENT_ACCOUNT 订阅 bug」/「重构 Cache pending_orders」/「setup_agent 通用化整理」/「M2.A ladder 性能优化」
+
+**呈现**（可与 Step 4 git 对齐结果合并到同一 message）：
+
+```
+💡 建议把当前对话框重命名为「<主题>」
+   （/resume 默认 session 名是 "resume" 无指导性，描述性命名后续在 Claude Code 历史列表好找）
+```
+
+**命名机制提示**：agent 没有 API 直接改 Claude Code session title（截至 2026-05）。用户需在 Claude Code UI 手动改（点击 session 名 → 编辑）。如果未来 CC 暴露 rename API，本 Step 可升级为自动改。
+
+**禁止**：
+- ❌ 空泛名（"继续工作" / "新任务" / "X 项目"）— 必须含**动作语义**
+- ❌ 强制重命名 — 用户回"不用"就闭嘴，不要追问
+- ❌ 在 Step 3 之前提（用户还没确认接续就提命名是冗余的）
+
 ## 何时主动建议
 
 - 用户在新 session 开场说"继续" / "接着昨天" / "我刚才做到哪了"
