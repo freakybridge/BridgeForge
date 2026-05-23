@@ -1,6 +1,6 @@
 ---
 description: 在新项目里铺设标准化的 CLAUDE.md / rules / memory junction / doc 分层骨架。复制深度模板（含鬼打墙红线、UI 主动问范式、可移植性约束、文档管理规则）后让用户填项目特定占位。同时自检并补齐用户级通用 skill（plan / escalate / snapshot / summary 等）。
-version: 0.8.0
+version: 0.9.0
 ---
 
 # /setup_agent — 项目协作骨架初始化
@@ -107,6 +107,8 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/scripts/*.py` | `<project>/.claude/scripts/` | **仅 Python 项目** |
 | `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是；但**非 Python 项目要删 hook 注册段**（见下方"Python hook 体系条件复制"） |
 | `templates/doc/README.md` | `<project>/doc/README.md` | 总是 |
+| `templates/VERSION` | `<project>/VERSION` | **条件复制**（见下方"版本号 SoT 条件复制"） |
+| `templates/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
 
 **Python hook 体系条件复制**（基于 Step 2 Q2 主语言答案）：
@@ -121,6 +123,24 @@ else (Q2 ∈ {rust, node, go} 等非 Python):
   ✗ 从已复制的 .claude/settings.json 删除 PostCompact / Stop / UserPromptSubmit 全部
     hook 注册段（这些段引用的 .py 脚本没复制过来，留着会报错）
   → 跳到下方 "非 Python 项目跳过说明" 段，向用户告知失去的功能
+```
+
+**版本号 SoT 条件复制**（基于项目原生版本源检测）：
+
+```
+检测项目根是否已有原生版本源：
+  - package.json （Node）
+  - Cargo.toml （Rust）
+  - pyproject.toml / setup.py （Python，且文件里有 version 字段）
+
+if 任一原生版本源存在:
+  ✗ 跳过 templates/VERSION 复制（避免双 SoT 冲突，详见 templates/rules/workflow.md §9.1）
+  ✓ 仍复制 templates/CHANGELOG.md（不冲突，所有项目都需要）
+  → 向用户说明："检测到 <package.json/Cargo.toml/...>，已跳过 VERSION 文件复制。后续 bump 版本号请改原生源；CHANGELOG.md 仍统一在根目录维护。"
+else (无原生版本源):
+  ✓ 复制 templates/VERSION（初始内容 `0.1.0`）
+  ✓ 复制 templates/CHANGELOG.md
+  → 提示用户：CHANGELOG.md 的 `## [0.1.0] - {{TODAY}}` section 已带初始 entry，后续 bump 时按 workflow.md §9 规则追加新 section
 ```
 
 **OPTIONAL 段落自动裁剪**（复制完后、替换占位符前必做）：
@@ -289,4 +309,6 @@ git status        # 给用户 review
 | `settings.json` | **通用** | 注册 ctx-budget hook 到 UserPromptSubmit；已存在则 merge 不覆盖 |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
+| `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
+| `CHANGELOG.md` | 通用骨架 | Keep a Changelog 格式 + 引用 `rules/workflow.md §9` 语义；含 `[0.1.0] - {{TODAY}}` 初始 entry，所有项目都复制 |
 | `skills/<12 个>/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / summary / sync-docs）。Step 0 自检补齐到 `~/.claude/skills/` 平级。 |

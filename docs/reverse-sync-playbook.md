@@ -111,6 +111,48 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 - 段落里如果出现版本号/日期超过 3 处 → 信号说明案例越界 → 重写成 normative 表述
 - 公开技术名（IB / Schwab / Deribit / CTP / Python / Rust / Node 等开源或公开品牌）**不算敏感**，可保留
 
+### 3.1 实战记录（2026-05-24 三次反哺批次）
+
+本会话 3 次反哺到 setup_agent（v0.6.0 / v0.7.0 / v0.8.0）实测脱敏的典型场景。新人做反哺时对照参考。
+
+#### 批次 1（v0.6.0 / commit `9cfa7ae`）— hooks/scripts 首次反哺
+
+源：StratusAgent → `templates/hooks/session_snapshot.py` + `templates/scripts/archive_scan.py`
+
+实测应用的 checklist 项：
+
+- **#1 项目名**：StratusAgent 原版含"stratus session ..."类日志前缀 → 通用化为"session ..."
+- **#2 内部包名**：原版从 stratus 内部 config 模块读版本号 → 改为读项目根 `VERSION` 文件 fallback（通用版本检测）
+- **#6 绝对路径**：原版含 `D:/Quant/StratusAgent/...` 硬编码 → 改为 `Path(__file__).resolve().parents[2]` 推断项目根
+- **删 session-tag 残留**（§5 日志原话）：v0.5.0 已删 session-tag skill，hook 里相关引用一并清掉
+- **公开技术名豁免**：`subprocess` / `pathlib` / `json` 等标准库不脱敏
+
+#### 批次 2（v0.7.0 / commit `4b976da`）— 5 hook + modules.md 反哺
+
+源：StratusAgent 5 hook（`memory_lint` / `rule_index_check` / `rule_size_check` / `find_doc_reminder` / `show_state`）+ causis_risk_suite `modules.md §3.1/§3.2`
+
+实测应用的 checklist 项：
+
+- **#1 项目名**：hook 错误信息里的"stratus ..."前缀全部去掉
+- **#2 内部包名**（modules.md §3.2 重灾区）：`risk_daily.config / causis_api.const.login / BusyTracker` 等具体类名 → 占位为 `<config 模块> / <const 子包> / <横切服务类>`，案例改写为 normative 模式描述
+- **#7 业务术语**（§5 日志原话："脱敏 risk_daily / causis_api / BusyTracker 等业务专属"）：删 / 通用化
+- **公开技术名豁免**：`PreToolUse` / `PostToolUse` 等 Claude Code 内置 hook 名称保留
+
+#### 批次 3（v0.8.0 / commit `12c7c16`）— **非反哺批次**对照
+
+本批次**全是 setup_agent 自身改动**（VERSION / CHANGELOG.md / SKILL.md frontmatter / resume Step 5），**没有从上游脱敏反哺**。作为对照记录，说明：
+
+- 不是每次 bump 版本号都涉及反哺 — 自身演进版本（如本批次）reverse-sync-playbook 不参与
+- 版本号语义直接引用 `templates/rules/workflow.md §9`，**不重复**定义规则
+- §5 反哺日志这种情况不记（日志只记真正从上游脱敏拉回的批次）
+
+### 3.2 实战记录的元规则
+
+- 每次反哺后**当场**写实战记录到 §3.1（不要攒），否则 7 天后细节就忘了
+- 实战记录的价值在"checklist 7 项的实例化"，不在"做了什么"（做了什么记 §5 日志即可）
+- 攒 5+ 个批次后回头看 §3.1 是否有**重复出现的脱敏陷阱** → 提炼成 checklist 第 8 项（机制升级，不是案例堆积）
+- **禁止虚构踩坑故事** — 实战记录只写真实发生 + 可从 git log / §5 日志核实的内容，宁可简略不可编造
+
 ---
 
 ## 4. 冲突仲裁规则
