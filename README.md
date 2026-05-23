@@ -21,6 +21,32 @@
 
 ---
 
+## Python 依赖（agent 安装前必读）
+
+setup_agent 分两类内容。agent 在跑 `/setup_agent` 时，**先检测项目根目录是否存在 `.venv/Scripts/python.exe`（Windows）或 `.venv/bin/python`（Unix）**，再按下表决定装哪些：
+
+**核心模板（无 Python 依赖，所有项目无条件复制）**：
+- `templates/rules/` — rule 文件（按文件路径触发加载）
+- `templates/CLAUDE.md` — 项目级 CLAUDE.md
+- `templates/doc/` — `doc/` 六层骨架（红线，强制）
+- `skills/<name>/SKILL.md` — skill 描述（agent 加载的指令）
+- `templates/memory/` — memory junction 框架
+
+**Python 依赖功能（需 `.venv` 存在才复制 + 注册）**：
+- `templates/hooks/*.py` — hook 自动化（PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式校验、rules 索引同步检查、ctx 预警等）
+- `templates/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` skill 用）
+- `templates/.claude/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
+
+**非 Python 项目（agent 检测到无 `.venv`）行为**：
+- 跳过复制 `templates/hooks/` 和 `templates/scripts/`
+- 注册 `settings.json` 时省略 `hooks` 段
+- 向用户说明：本项目装了 setup_agent 核心模板，但**失去**以下自动化兜底 — PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式自动检查、rules 索引同步检查、ctx 预警
+- **保留**：所有手动 skill（`/snapshot` / `/archive-scan` / `/find-doc` / `/summary` 等 agent 用 Bash + Write 直接做，不依赖 Python hook）
+
+> 设计 rationale：hook 体系沿用 StratusAgent / causis_risk_suite 的 Python 栈，未做 multi-runtime（PowerShell / Bash / Node）抽象。多 runtime 拆分工作量大且收益不明确，先接受 Python 依赖现实。
+
+---
+
 ## 这是什么
 
 把一个长期沉淀过的"Claude Code 协作管理体系"打包成可复用 skill，进新项目跑一次 `/setup_agent` 就能拿到：

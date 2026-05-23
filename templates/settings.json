@@ -1,5 +1,27 @@
 {
   "hooks": {
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/session_snapshot.py post-compact",
+            "comment": "compact 自动存档 — 防止压缩后细节丢失。详见 /snapshot skill 描述。"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/session_snapshot.py stop",
+            "comment": "每轮停止时自动存档（5min 节流，类似 Word 自动保存）。详见 /snapshot skill 描述。"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

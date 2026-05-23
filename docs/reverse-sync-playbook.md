@@ -53,9 +53,21 @@ ls D:/Quant/setup_agent/templates/rules/
 
 ### Step 4：写 setup_agent
 
-- 写入路径**只允许**：`templates/rules/`、`templates/CLAUDE.md`、`templates/memory/`、`templates/doc/`、`docs/`
-- **禁止**自动写：`skills/`（用户级 skill，独立维护）、`scripts/`、`SKILL.md`、`README.md` 核心段
+- 写入路径**允许**：
+  - `templates/rules/` — rule 文件
+  - `templates/CLAUDE.md` — 项目级 CLAUDE.md 模板
+  - `templates/memory/` — memory 模板
+  - `templates/doc/` — doc 分层模板
+  - `templates/hooks/` — Python hook 脚本（2026-05-24 加入：sessoin_snapshot.py / memory_lint.py / rule_index_check.py / context_warning.py 等，agent 检测项目有 `.venv` 时复制）
+  - `templates/scripts/` — Python 工具脚本（2026-05-24 加入：archive_scan.py 等给 skill 调用的脚本）
+  - `docs/` — playbook / rationale 等 setup_agent 自身文档
+- **禁止**自动写：
+  - `skills/<name>/SKILL.md` — 用户级 skill 描述，独立维护（**例外**：当下游已实测验证的 SKILL.md 改动需要回灌时，单条修改允许 — 不允许批量改写多个 SKILL.md）
+  - `scripts/` — setup_agent 自身工具（如 `setup-junction.ps1`），不是给下游模板的
+  - `SKILL.md` — setup_agent 自身 skill 描述
+  - `README.md` 核心段 — 用户对外文档，措辞要审；**例外**：加新独立 section（如 "Python 依赖"）允许，覆写已有段不允许
 - 写完用 `git diff --stat` 看改动规模，**逐文件 review**（不批量 confirm）
+- **hook / script 反哺额外要求**：每个 `.py` 文件按 §3 脱敏 checklist 逐项过；hook 文件名 / 主名需与 SKILL.md 引用一致（如 `session_snapshot.py` 给 `/snapshot` 用，不要随便改名）
 
 ### Step 5：review + 手动 push
 
@@ -122,6 +134,8 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-24 | causis_risk_suite | portability.md | +§4.3 venv 不可移植 + §4.4 CRLF + §4.4.1 入口脚本 ASCII + §4.5 editable 安装 | bridgexue |
 | 2026-05-24 | StratusAgent | workflow.md | §9 版本号简版 → Milestone-bound SemVer 详细版 | bridgexue |
 | 2026-05-24 | StratusAgent | meta_rule_design.md（新建） | 整体脱敏搬入元规则（强制力梯度 / 加载策略 / 反模式速查） | bridgexue |
+| 2026-05-24 | ClaudeBridgeAssist | playbook.md §4 | 白名单加入 `templates/hooks/` + `templates/scripts/`；明确 SKILL.md / README 的反哺例外条件 | bridgexue |
+| 2026-05-24 | ClaudeBridgeAssist | README.md | 加 "Python 依赖" 段，明确核心模板跨语言 vs hook 功能需 `.venv` | bridgexue |
 
 ---
 

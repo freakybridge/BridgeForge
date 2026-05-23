@@ -145,4 +145,29 @@ topic_to_rules:
 
 ---
 
+## Step 4：placeholder 检测与提醒（任务收尾）
+
+聚合输出已呈现给用户后，**额外**做一件事：
+
+1. 检查 Step 2 的 `topic_to_rules` 字典是否仍含 `<!-- TODO:` 占位
+2. 如仍是占位 **且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 rule 文件** → 在回复末尾追加提醒：
+
+   ```
+   💡 字典提醒：本次涉及 <topic_a> / <topic_b>，find-doc Step 2 字典还是 placeholder。
+   要不要顺手加这几行？候选：
+     <topic_a>:
+       - .claude/rules/<guessed_rule_a>.md
+     <topic_b>:
+       - .claude/rules/<guessed_rule_b>.md
+   ```
+
+3. **禁止**：
+   - 凭空提醒（本次没接触到具体 topic 时不提醒，符合"宁缺毋滥"）
+   - 强制要求用户填（用户说"不用"就立刻闭嘴）
+   - 同一会话内对同一 topic 重复提醒
+
+**Why this exists**：字典是项目演进中自然沉淀的（StratusAgent 演了很久才填出 11+ topic）。早期项目字典空着 agent 走 grep fallback 也能跑，但永远空着 agent 跑得慢。本段保证用户在 doc/ 结构稳定后顺手填表，不依赖用户自觉。
+
+---
+
 输入：$ARGUMENTS
