@@ -2,6 +2,25 @@
 
 > Claude Code 项目协作骨架初始化器。一行 skill 命令铺好 CLAUDE.md / rules / memory junction / doc 分层归档。
 
+## 适合 / 不适合什么项目
+
+模板素材出自 [StratusAgent](https://github.com/freakybridge/StratusAgent)（量化交易终端，中大型 Rust + Python 项目）+ [causis_risk_suite](https://github.com/freakybridge/causis_risk_suite)（金融风控 Python 项目）长期沉淀。所以默认体系**偏中大型项目 + 多模块 + 长周期 + Sprint 节奏**。
+
+| ✅ 适合 | ⚠️ 不太适合（裁剪后可用） |
+|--------|---------------------------|
+| 中大型应用（≥ 5 个模块） | 单脚本 / 周末玩具 |
+| 长周期项目（≥ 3 个月） | 一次性 demo |
+| 有 Milestone / Sprint 节奏 | Jupyter Notebook 数据分析 |
+| 多人协作 + AI 协作 | 静态文档站（如 Hugo / VitePress） |
+| 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
+| 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
+
+**不太适合的项目也能用** — 跑 `/setup_agent` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 12 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+
+> ⚠️ **使用 setup_agent = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/CLAUDE.md §11` + `templates/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
+
+---
+
 ## 这是什么
 
 把一个长期沉淀过的"Claude Code 协作管理体系"打包成可复用 skill，进新项目跑一次 `/setup_agent` 就能拿到：
@@ -48,10 +67,11 @@ setup_agent/
 │   ├── CLAUDE.md               ← 项目级 CLAUDE.md 深度模板
 │   ├── rules/
 │   │   ├── architecture.md     ← 骨架（职责边界占位）
-│   │   ├── modules.md          ← 骨架（模块组织范式占位）
+│   │   ├── modules.md          ← 骨架（模块组织 + .runtime/ + 根目录极简）
 │   │   ├── debugging.md        ← 通用（鬼打墙红线 / 修 bug 前确认根因）
-│   │   ├── workflow.md         ← 通用（同步文档 / 主动写规则 / 经验总结）
-│   │   └── portability.md      ← 通用（换机可移植性 / pip 陷阱 / hooks 约束）
+│   │   ├── workflow.md         ← 通用（同步文档 / 主动写规则 / Milestone-bound SemVer）
+│   │   ├── portability.md      ← 通用（换机可移植性 / venv 重建 / CRLF / 入口脚本 ASCII）
+│   │   └── meta_rule_design.md ← 元规则（强制力梯度 / 加载策略 / 反模式速查）
 │   ├── memory/MEMORY.md        ← 空索引模板
 │   └── doc/README.md           ← 文档分层索引模板
 ├── scripts/

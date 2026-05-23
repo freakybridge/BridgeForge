@@ -101,9 +101,81 @@ mypackage==1.0.0
 
 部分工具（如 Windows 上的 pip）默认用本地编码（GBK / cp936）解析依赖清单。**保险做法**：注释只用 ASCII，中文说明放 `README.md` 或 `doc/setup/`。
 
-### 4.3 关键 binary / DLL / 模型文件由项目自带
+<!-- OPTIONAL_BEGIN LANG: python -->
+### 4.3 venv 不可移植，目录改名 / 移位后必须重建（红线）
 
-> 仅当本项目依赖 native binary（.dll / .so / .dylib）/ 模型文件 / 数据文件时启用本节。
+Python `venv` 在 `pyvenv.cfg` + `activate.bat` + `activate` 三处硬编码创建时的项目绝对路径。**项目目录改名 / 整体移动 / clone 到新机后复用旧 venv** 都会让 activate **静默失败**（errorlevel = 0 不报错），后续命令回落到系统 Python，装包阶段才以"requires Python >=X.Y"等版本不符报错。
+
+**正确做法**：改名 / 移位后直接 `rm -rf .venv`，让启动脚本重建。**禁止**用 sed 改路径（容易漏文件，且未来 venv 内部可能藏其他路径引用）。
+
+**诊断信号**：装包日志里 `Requirement already satisfied: pip in <系统 python 路径>` ≠ `.venv/...` → activate 失效。
+<!-- OPTIONAL_END -->
+
+<!-- OPTIONAL_BEGIN PLATFORM: windows -->
+### 4.4 Windows 批处理 / PowerShell 脚本必须 CRLF（红线）
+
+`.bat` / `.cmd` / `.ps1` 文件**必须**用 CRLF (`\r\n`) 行尾。LF 行尾在 `cmd.exe` 下会让 `goto label` 静默失败，症状是"闪退"或 `The system cannot find the batch label specified`。
+
+**正确做法**：
+
+- 项目根 `.gitattributes` 锁定：
+  ```
+  *.bat text eol=crlf
+  *.cmd text eol=crlf
+  *.ps1 text eol=crlf
+  ```
+- AI / Linux 工具链生成这些文件后**必须** verify：`od -c file.bat | head -3` 应见 `\r\n`
+- 不要依赖 Git autocrlf — `.gitattributes` 才是单一权威
+
+**调试 trick**：用户报"双击 .bat 闪退" → **先查行尾**，不要从 batch 逻辑找 bug。
+
+### 4.4.1 入口启动脚本 `.vbs` / `.bat` 必须 ASCII-only（红线）
+
+**双击运行的入口脚本（如 `start.vbs` / `start.bat`）的注释、字符串字面量、MsgBox / echo 文案一律只用 ASCII，中文说明放 `README.md` / `doc/`。**
+
+**Why**：`.vbs` / `.bat` 由 Windows 原生解释器（WSH / cmd.exe）执行，编码处理跟用户系统区域设置强耦合（GBK / cp936 / UTF-8 codepage 不同行为），任何"含中文 + 编码不是当前 codepage"的组合都会爆。即使规定"用 GBK 无 BOM"也不可靠 — VSCode / git / AI 工具默认 UTF-8，编辑后极易被改回 UTF-8 而不察觉。
+
+典型症状：
+
+- start.bat 中文 echo 在同事 cmd（GBK 环境）下 GBK 解析失败 → 启动闪退
+- start.vbs 用 UTF-8 无 BOM 保存 → WSH 在中文 Windows 下按 GBK 解析 → MsgBox 字符串截断 → 报 `800A0409 未结束的字符串常量`
+
+**唯一可靠做法**：入口脚本**完全 ASCII**，注释和文案都用英文。中文写到 `README.md`。
+
+**How to apply**：
+
+- 新增 / 修改 `start.vbs` / `start.bat` / `*.cmd` / `*.ps1` 等"用户双击运行"的脚本时，禁止写中文
+- 已有中文的入口脚本 → 改 ASCII 时**整文件 rewrite**，不要 Edit 替换（避免漏改残留中文字节）
+- Verify：`Select-String -Pattern '[一-鿿]' -Path start.vbs` 应无匹配；或 `Get-Content start.vbs -Encoding Byte | ? { $_ -gt 127 }` 应为空
+
+**调试 trick**：用户报"双击 .vbs / .bat 报错 800A04xx / 闪退 / 字符串未结束 / unexpected token" → **先查文件里有没有非 ASCII 字符**，不要从脚本逻辑找 bug。
+
+**例外**：内部工具脚本（不双击运行、由其他脚本调用、且不会被同事机器执行）可保留中文，但建议同样 ASCII 化以防未来误用。
+<!-- OPTIONAL_END -->
+
+<!-- OPTIONAL_BEGIN LANG: python -->
+### 4.5 项目内源码包必须由启动脚本显式 editable 安装（红线）
+
+项目内自带的源码包（如 `libs/<pkg>/setup.py`）**不能**只靠 `requirements.txt` 拉起 — pip 不会自动扫 `libs/`。必须在启动脚本里显式跑：
+
+```bat
+"%UV%" pip install --python "%PY%" -e libs/<pkg> --no-deps
+```
+
+**为什么必须装到 venv**：哪怕 `sys.path` 能 import 到 `libs/<pkg>/<pkg>/`，包内若用了 `pkg_resources.get_distribution("<pkg>").version` 之类的反射查询，**找不到 distribution 就返回 None**，下游做版本比较 / 鉴权时静默崩溃（`TypeError: '<' not supported between NoneType and str` 是典型症状）。
+
+**为什么 `--no-deps`**：editable 安装不应再走一遍依赖解析（依赖已在 `requirements.txt` 里锁版本），否则源码包里 `install_requires` 会拉到不兼容的新版本覆盖锁定版本。
+
+**启动脚本必须幂等**，避免每次启动都重复装：
+
+```bat
+dir /B "%~dp0.venv\Lib\site-packages\__editable__.<pkg>*" >nul 2>&1
+if not errorlevel 1 goto skip_install
+```
+<!-- OPTIONAL_END -->
+
+<!-- OPTIONAL_BEGIN SCENARIO: native-binary -->
+### 4.6 关键 binary / DLL / 模型文件由项目自带
 
 **禁止**依赖第三方 pip 包 / npm 包 / cargo crate 提供"运行时关键 binary"，因为：
 
@@ -114,6 +186,7 @@ mypackage==1.0.0
 **正确做法**：关键 binary 直接 ship 到项目内（如 `<project>/native/<platform>/lib.dll`），git 管理或 git-lfs 管理。
 
 **升级时**用工具核实真实版本（如 native binary 自带的 `GetVersion` API），不要信文件名或包版本号。
+<!-- OPTIONAL_END -->
 
 ---
 

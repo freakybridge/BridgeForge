@@ -41,9 +41,8 @@ paths:
 
 ---
 
+<!-- OPTIONAL_BEGIN SCENARIO: native-binary -->
 ## 4. 跨语言 / 跨层级崩溃诊断顺序（红线）
-
-> 仅当本项目存在 FFI / 跨语言绑定 / native binary 时启用本节，否则可删。
 
 **access violation / 进程闪退** 时，高级语言（Python / Node 等）的 traceback 常是误导。它给出的是"崩溃瞬间各线程碰巧在哪里"的快照，不是因果。
 
@@ -55,6 +54,7 @@ paths:
 4. **排除 FFI 层之后**，才去怀疑高级语言侧的线程 / 信号 / 框架
 
 ---
+<!-- OPTIONAL_END -->
 
 ## 5. 修复前必须确认影响范围
 
@@ -122,11 +122,10 @@ paths:
 
 ---
 
+<!-- OPTIONAL_BEGIN SCENARIO: build-product-mismatch -->
 ## 7. "改完代码 → 让用户测试" 前必做的验证（红线）
 
-> 仅当本项目编译产物或部署产物与源码不同步（如 native binary / 容器镜像 / build 缓存）时启用本节。
-
-**触发**：改动了**会编入运行时产物**的代码后，让用户运行验证**之前**。
+**触发**：改动了**会编入运行时产物**的代码后（native binary / 容器镜像 / build 缓存），让用户运行验证**之前**。
 
 ### 必做的 3 步验证
 
@@ -143,6 +142,7 @@ paths:
 - ❌ "用户应该会自动重新构建"——某些 build 工具在 cache 异常时会静默 fallback 旧产物
 
 ---
+<!-- OPTIONAL_END -->
 
 ## 8. 复现不稳定的 bug：先重启再分析
 

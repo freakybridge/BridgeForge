@@ -80,6 +80,27 @@ paths:
 
 ---
 
+## 5.5 doc/ 是项目级强制（红线）
+
+**本项目必须用 `doc/` 分层管理所有文档**，不接受跳过 / 改名 / 合并 / 散落根目录。
+
+| 强制项 | 内容 |
+|--------|------|
+| **必须存在** | 项目根目录下必须有 `doc/` 目录 + §6 列出的六个子目录（即使为空也要建，用 `.gitkeep` 占位）|
+| **必须按六层结构** | `0_architecture / 1_plan / 2_pending / 3_design / 4_archive / 9_reference`，序号 + 名称都不可改 |
+| **禁止散落根目录** | `README.md` / `CHANGELOG.md` / `LICENSE` 这种**根级元数据文件**可留根，**其余所有 .md 文档**必须挂 `doc/<层>/` |
+| **禁止新增同级目录** | 想加 `doc/notes/` / `doc/wip/` / `doc/legacy/` → 必须归到 §6 现有六层之一（活跃的归 1_plan，未决归 2_pending，归档归 4_archive）|
+
+**Why**：详见 `CLAUDE.md §11`。简短理由 — 文档分层是 setup_agent 与 rules / memory / 4 个 doc-依赖 skill 深度耦合的核心范式；散落即失控。
+
+**How to apply**：
+
+- 写新文档前先想"它属于六层中的哪一层"，找不到归属 → 文档定位本身有问题，先想清楚再写
+- AI 创建文档时**默认走 doc/**，**禁止**在 `src/<module>/README.md` / 项目根目录 / 临时位置写设计文档
+- 项目早期可能六层中多数为空，**这是正常状态**，不要因为"看着空"就删层 / 合层
+
+---
+
 ## 6. 文档目录职责边界
 
 | 目录 | 放什么 | **禁止**放什么 |
@@ -123,27 +144,71 @@ paths:
 
 ---
 
-## 9. 版本号管理
+## 9. 版本号管理（红线）
 
-<!-- TODO: 本节按项目是否有版本号需求选择保留或删除
+> 本节适合**有 Milestone 节奏 + 长期演进**的项目。小项目（< 5 人、无明确 Milestone）可退化为简版：patch=bug 修复 / minor=新功能 / major=破坏性改动。退化时整节用 TODO 注释包住即可。
 
-**触发**：项目有可发布产物（CLI / app / library）且需要语义化版本
+**每次 commit 前必须提升一次版本号。**
 
-**单一事实源**：项目主版本号文件（如 `package.json` / `Cargo.toml` / `pyproject.toml` / `VERSION`）
+### 9.1 单一事实源 + 展示位置
 
-**递增规则**（语义化版本 SemVer）：
-| 改动类型 | 递增位 | 示例 |
-|---------|--------|------|
-| bug 修复、小调整、UI 微调 | **patch** | `0.1.0 → 0.1.1` |
-| 新增功能、模块 | **minor** | `0.1.1 → 0.2.0` |
-| 破坏性改动（接口变更、数据不兼容） | **major** | `0.2.0 → 1.0.0` |
+- 版本号写在**唯一一处**主版本号文件（如 `package.json` / `Cargo.toml` / `pyproject.toml` / `VERSION`），所有 crate / 子包通过继承机制（如 Cargo workspace 的 `version.workspace = true`）共享
+- 编译期由构建工具嵌入（如 Rust 的 `env!("CARGO_PKG_VERSION")` / Node 的 `package.json` 引用），bump 后必须重新 build 才生效
+- **展示位置**（按本项目实际填）：
+  - <!-- TODO: 主窗口标题栏 / CLI `--version` / 关于对话框 等 -->
 
-**触发时机**：在执行 `git commit` 之前，先编辑版本号，一并 `git add` 进本次 commit。
+### 9.2 三段语义（Milestone 绑定 SemVer）
 
-**commit message 规范**：message 末尾附 ` (vX.Y.Z)`，便于 `git log --oneline` 一眼识别版本。
+| 段 | 含义 | 触发条件 |
+|---|------|---------|
+| **Major (X)** | **Milestone ship** | 当前 Milestone 整体验收通过 — M1 ship → 1.0.0 / M2 ship → 2.0.0 |
+| **Minor (Y)** | **用户多了一件能干的事** | 新模块 / 新面板 / 新接入 / 新可感知功能上线 |
+| **Patch (Z)** | **日常 commit** | bug 修复 / 小调整 / 文档 / refactor / Sprint 内常规推进 |
 
-**禁止**：跳过 patch 直接跳 minor、一次 commit 跳多级、忘记编辑版本号就 commit。
--->
+**判断 minor vs patch 的核心问题**：这次 commit 后用户能不能多干一件之前不能干的事？能 → minor，否则 → patch。
+
+**重置规则**：major+1 → minor 和 patch 归 0；minor+1 → patch 归 0。
+
+### 9.3 Phase / Sprint / Task 不进版本号
+
+颗粒度细于 Milestone 的层级通过其他机制记录：
+
+| 层 | 记录方式 |
+|---|---------|
+| **Milestone** | 版本号 Major（ship 时 +1） |
+| **Phase** | git tag |
+| **Sprint** | commit message prefix |
+| **Task** | commit message prefix + 1 commit 1 task |
+
+**Phase 完成本身不强制 bump minor** — 只看该 Phase 是否引入用户可感知的新功能。
+
+### 9.4 Git tag 规范
+
+- **Phase 完成**：`m<N>.<phase>-complete`（如 `m1.a-complete` / `m1.d-complete`），tag message 链接到 Phase 验收报告
+- **Milestone ship**：`m<N>-shipped`（如 `m1-shipped`），同时 bump major
+
+### 9.5 Commit message 规范
+
+格式：`<类型>(M<N>.<Phase>.S<Sprint>): <描述> (vX.Y.Z)`
+
+- **类型**：`feat`/`fix`/`refactor`/`perf`/`docs`/`chore`
+- **括号内 phase/sprint 标识**：标明本 commit 属于哪个 Phase / Sprint
+  - 例：`feat(M1.D.S1): 接入新数据源 (v0.10.5)`
+  - 例：`fix(M1.A.S2): 平今 frozen 漏解冻 (v0.10.6)`
+  - 跨 Phase 或无 phase 概念的 commit 不带前缀：`<类型>: <描述> (vX.Y.Z)`
+- **末尾必带 `(vX.Y.Z)`** 便于 `git log --oneline` 一眼识别版本
+
+### 9.6 触发时机
+
+`git commit` 前先编辑主版本号文件提升版本号，一并 `git add` 进本次 commit。
+
+### 9.7 禁止
+
+- ❌ 跳过 patch 直接跳 minor
+- ❌ 一次 commit 跳多级（如 0.9.102 → 1.1.0 一步）
+- ❌ 忘记编辑版本号就 commit（如果忘了，后续 commit 补一次并在 message 里注明"版本补齐"）
+- ❌ 在 Milestone 整体验收通过前自己 bump major（v1.0.0 必须等 M1 ship）
+- ❌ 用 4 段版本号（不兼容 SemVer / Cargo / npm）
 
 ---
 

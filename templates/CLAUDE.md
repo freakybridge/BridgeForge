@@ -29,6 +29,7 @@
 | `rules/debugging.md` | 调试检查项 + 鬼打墙红线 + 修 bug 前确认根因 | 编辑 `tests/**` 或核心代码目录 |
 | `rules/workflow.md` | 范式同步文档 + 文档索引同步 + 经验总结 | 编辑 `doc/**`、`.claude/rules/**` |
 | `rules/portability.md` | 换机可移植性 + 包安装陷阱 + hooks 路径约束 | 编辑 `.claude/**`、配置文件、依赖清单 |
+| `rules/meta_rule_design.md` | 元规则：怎么写 rule（强制力梯度 + 加载策略 + 反模式速查） | 编辑 `.claude/rules/**` 或 `CLAUDE.md` |
 
 <!-- TODO: 按需追加项目特定 path-rule，例如：
 | `rules/api.md` | API 设计约束 | 编辑 `src/api/**` |
@@ -170,14 +171,22 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ---
 
-## 9. UI / 偶现 bug 主动问范式（红线）
+## 9. 主观体验报告主动问范式（红线）
 
-**触发**：用户报 UI bug 或主观体验问题（"有点黏" / "偶尔不响应" / "位置不对" / "感觉慢"）。
+**触发**：用户报"从外部观察到的怪现象"或主观体验问题。常见场景：
+
+- **UI / 桌面应用**："有点黏" / "偶尔不响应" / "位置不对" / "感觉慢"
+- **CLI / 脚本**："有时候没输出" / "跑到一半卡住" / "时快时慢"
+- **API / library**："偶尔返回空" / "QPS 上去就超时" / "某些参数下行为怪"
+- **后端服务**："半夜偶尔重启" / "某接口偶发 500" / "内存慢慢涨"
+- **数据 pipeline**："这一批结果跟上一批不一样" / "某天突然没数据"
+
+核心特征：用户基于**外部观察**报告，缺乏数据 / 缺乏稳定复现路径。
 
 ### 我必须主动问全这 4 件事（一次性问完，不要挤牙膏）
 
-1. **能截图吗？** — UI 视觉/位置问题首选
-2. **能描述前 N 步操作吗？** — 触发序列
+1. **能给一个可观察的证据吗？** — UI 用截图、CLI 用完整 input + output、API 用 request/response、后端用日志片段
+2. **能描述前 N 步操作 / 触发条件吗？** — 触发序列
 3. **大概多久发生一次？** — 偶发率（1/10 vs 1/100 决定打法）
 4. **能存档当前状态吗？** — 锁现场（如果项目有 `/snapshot` skill）
 
@@ -189,7 +198,7 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ### 禁止
 
-- ❌ 单凭描述就猜测修（必须有数据 / 截图 / 复现）
+- ❌ 单凭描述就猜测修（必须有数据 / 截图 / 复现 / 日志）
 - ❌ 一次只问 1 个问题挤牙膏（一次问全 4 个）
 - ❌ 假装"我懂你的感受"绕开量化
 
@@ -222,3 +231,39 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 - Hook 入口：`.claude/hooks/context_warning.py`（项目内）
 - 注册位置：`.claude/settings.json` → `hooks.UserPromptSubmit`
 - 调参：在 hook 文件开头改 `WINDOW`（窗口大小，按模型选 1M / 200k）和 `THR_MEDIUM/HIGH/CRITICAL`（三个阶梯阈值，默认 75/85/95）
+
+---
+
+## 11. 文档管理（红线）
+
+**本项目必须用 `doc/` 分层管理所有文档。结构按 `rules/workflow.md §6` 六层定义**：
+
+```
+doc/
+├── 0_architecture/  ← 架构红线 + acceptance + TODO-INDEX
+├── 1_plan/          ← 活跃推进 + sprints
+├── 2_pending/       ← 未决问题展开备忘
+├── 3_design/        ← 模块实现设计
+├── 4_archive/       ← 已完成归档
+└── 9_reference/     ← 外部参考资料
+```
+
+### 红线
+
+- **禁止** 文档散落项目根目录或随便挂在其他位置（设计文档放 `doc/3_design/` 而不是 `src/<module>/README.md`）
+- **禁止** 跳过六层中的任何一层（即使当前为空，目录也必须存在 — 占位 `.gitkeep` 即可）
+- **禁止** 给六层改名 / 合并（`doc/design/` ≠ `doc/3_design/`，序号前缀是排序约定）
+- **禁止** 新增同级目录（如 `doc/notes/` `doc/wip/`）— 新增需求按 §6 边界归到现有六层之一
+- **强制** `doc/README.md` 作为唯一索引，任何 `doc/*.md` 文件的新增 / 删除 / 重命名都要同步本文件（详见 `rules/workflow.md` §5）
+
+### 为什么是红线
+
+文档分层是 setup_agent 的**核心范式**之一，与 rules / memory 等机制深度耦合：
+
+- 13 个协作 skill 中 4 个（`/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
+- `rules/workflow.md` §6-§7 + `rules/meta_rule_design.md` 的"案例下沉" 范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
+- 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
+
+**如果不接受 doc/ 强制 → 不应该使用 setup_agent** — 改用其他更宽松的脚手架。
+
+详细规则见 `rules/workflow.md` §5-§7。

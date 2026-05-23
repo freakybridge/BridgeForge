@@ -1,5 +1,5 @@
 ---
-description: 手动存档当前 session 的工作状态到 .runtime/session_state/ — 与自动 hook 互补，能写入 Claude 主观的"本轮做了啥 / 下一步打算"。支持 session tag 隔离命名空间。
+description: 手动存档当前 session 的工作状态到 .runtime/session_state/ — 与自动 hook 互补，能写入 Claude 主观的"本轮做了啥 / 下一步打算"。
 ---
 
 # /snapshot — 主动存档当前工作状态
@@ -17,30 +17,13 @@ description: 手动存档当前 session 的工作状态到 .runtime/session_stat
 
 `/snapshot` = 短期工作状态（session state）；`/summary` = 长期知识（memory）。
 
-## Tag 处理（关键）
-
-**先判断本 session 是否已 `/session-tag <name>`**：
-
-1. 在 context 历史里搜索 `/session-tag <name>` 调用：
-   - 找到 → 记 `current_tag = <name>`
-   - 没找到 → `current_tag = None`
-
-2. 如果 `current_tag = None` 但 `.runtime/session_state/` 下有过去 1 小时内活跃的 tag 子目录：
-   - 调 `python .claude/hooks/session_snapshot.py --list-tags` 查看
-   - 只有 1 个 → 询问用户："是不是 `<tag>`？" 等确认
-   - 多个 → 询问用户哪个或不要 tag
-
-3. 决定写入位置：
-   - 有 tag → 命令带 `--tag <name>`
-   - 无 tag → 命令不带 `--tag`（写根目录）
-
 ## 执行步骤
 
 1. **跑 hook 脚本抓客观状态 + 落盘**：
    ```bash
-   .venv/Scripts/python.exe .claude/hooks/session_snapshot.py manual [--tag <tag>]
+   .venv/Scripts/python.exe .claude/hooks/session_snapshot.py manual
    ```
-   会在 `.runtime/session_state/[<tag>/]<ts>.md` 写客观快照。
+   会在 `.runtime/session_state/<ts>.md` 写客观快照。
 
 2. **读取刚写的 snapshot 文件**（拿到完整路径 + 当前客观状态）。
 
@@ -59,7 +42,7 @@ description: 手动存档当前 session 的工作状态到 .runtime/session_stat
 
 4. **回复用户**一行摘要：
    ```
-   ✓ snapshot → <相对路径> [tag=<tag>]
+   ✓ snapshot → <相对路径>
    含本轮 X 件事 + Y 个未验假设 + Z 条下一步
    ```
 
@@ -75,4 +58,3 @@ description: 手动存档当前 session 的工作状态到 .runtime/session_stat
 - 不要调 `/summary`（那是长期 memory）
 - 不要把主观内容放磁盘以外的地方
 - 不要删旧 snapshot（脚本自己 cap 20 份会清理）
-- 不要在已 tag 的 session 里再 tag 成别的 name（会让 snapshot 跨命名空间分裂）
