@@ -97,15 +97,30 @@ cp -r "$SKILL_DIR/templates/." .
 
 实际复制清单：
 
-| 模板 | 目标 |
-|------|------|
-| `templates/CLAUDE.md` | `<project>/CLAUDE.md` |
-| `templates/rules/*.md` | `<project>/.claude/rules/` |
-| `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` |
-| `templates/hooks/context_warning.py` | `<project>/.claude/hooks/context_warning.py` |
-| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）|
-| `templates/doc/README.md` | `<project>/doc/README.md` |
-| 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` |
+| 模板 | 目标 | 条件 |
+|------|------|------|
+| `templates/CLAUDE.md` | `<project>/CLAUDE.md` | 总是 |
+| `templates/rules/*.md` | `<project>/.claude/rules/` | 总是 |
+| `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` | 总是 |
+| `templates/hooks/*.py` | `<project>/.claude/hooks/` | **仅 Python 项目**（Q2 ∈ `python` / `mixed`） |
+| `templates/scripts/*.py` | `<project>/.claude/scripts/` | **仅 Python 项目** |
+| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是；但**非 Python 项目要删 hook 注册段**（见下方"Python hook 体系条件复制"） |
+| `templates/doc/README.md` | `<project>/doc/README.md` | 总是 |
+| 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
+
+**Python hook 体系条件复制**（基于 Step 2 Q2 主语言答案）：
+
+```
+if Q2 ∈ {python, mixed}:
+  ✓ 复制 templates/hooks/ + templates/scripts/ 全部
+  ✓ 保留 settings.json 的 PostCompact / Stop / UserPromptSubmit 全段
+  → 进入下方 "Python 解释器路径适配" 段
+else (Q2 ∈ {rust, node, go} 等非 Python):
+  ✗ 跳过 templates/hooks/ + templates/scripts/ 复制
+  ✗ 从已复制的 .claude/settings.json 删除 PostCompact / Stop / UserPromptSubmit 全部
+    hook 注册段（这些段引用的 .py 脚本没复制过来，留着会报错）
+  → 跳到下方 "非 Python 项目跳过说明" 段，向用户告知失去的功能
+```
 
 **OPTIONAL 段落自动裁剪**（复制完后、替换占位符前必做）：
 
@@ -153,15 +168,38 @@ for each .md file in 已复制的模板:
 - `SCENARIO` 类默认保留标记，方便用户后续判断（如项目从纯应用变为含 native 绑定时，搜 `SCENARIO: native-binary` 解开）
 - 裁剪后用 `grep -c "OPTIONAL_BEGIN PLATFORM\|OPTIONAL_BEGIN LANG" <file>` 验证应为 0（确认所有 PLATFORM/LANG 段落都被处理）
 
-**ctx-budget hook 适配**（复制完后必做）：
+**Python 解释器路径适配**（仅 Python 项目，复制完 hooks/scripts 后必做）：
 
-1. 检查目标项目用的 Python 解释器路径是否匹配 `templates/settings.json` 里的 `.venv/Scripts/python.exe`
-   - 项目用 conda → 改成 `python` 或 conda env 绝对路径
-   - 项目无 venv → 改成系统 `python`
-2. 检查目标项目使用的 Claude 模型窗口，调 `context_warning.py:27` 的 `WINDOW` 常量
+1. **检测 .venv** 是否存在于目标项目根：
+   - Windows：`.venv/Scripts/python.exe`
+   - Unix：`.venv/bin/python`
+2. **改写 settings.json 里所有 hook 命令的 Python 解释器路径**：
+   - `.venv` 存在 → 用默认 `.venv/Scripts/python.exe`（Windows）/ `.venv/bin/python`（Unix）
+   - `.venv` 不存在 → 改成裸 `python`，每个 hook 的 `comment` 字段尾部加："建好 .venv 后改回 .venv/Scripts/python.exe"
+   - 项目用 conda → 改成 conda env 绝对路径
+3. **调 `context_warning.py` 的 `WINDOW` 常量**（约 line 27）适配模型窗口：
    - Opus 4.7 / Sonnet 4.6 1M context → `1_000_000`（默认）
    - 200k context 模型 → `200_000`
-3. 提示用户：CLAUDE.md §10 ctx-budget 红线生效，新会话开始即享受预警保护
+4. **跑通验证**：在目标项目根执行 `python .claude/hooks/session_snapshot.py manual`，期望输出 `[session snapshot manual] -> .runtime/session_state/<ts>.md`。失败 → 检查 Python 解释器路径 / .runtime/ 目录权限。
+5. **提示用户**：
+   - CLAUDE.md §10 ctx-budget 红线生效，新会话开始即享受预警保护
+   - PostCompact / Stop hook 自动启用 → 防 compact 吞状态 + Word-style 自动保存
+   - `find-doc` / `sync-docs` 两个 SKILL.md 里有 placeholder 表（topic→rule 字典 / 源码→文档映射），**现在不必填**，项目演进出稳定目录结构后再补；agent 在任务收尾时会主动提醒
+   - 详见 README.md `## Python 依赖（agent 安装前必读）` 段
+
+**非 Python 项目跳过说明**（非 Python 项目时必做）：
+
+向用户明确说明：
+> 本项目装了 setup_agent 核心模板（rules / CLAUDE.md / doc 分层 / skill 描述），但因为 Q2 答非 Python，**跳过**了以下内容：
+> - `templates/hooks/` 全部（PostCompact 自动 snapshot / Stop 5min 节流 / ctx 预警）
+> - `templates/scripts/` 全部（archive_scan.py 等）
+> - `settings.json` 里的 PostCompact / Stop / UserPromptSubmit hook 注册段
+>
+> **失去**：以上 Python hook 自动化兜底
+> **保留**：所有手动 skill（`/snapshot` / `/archive-scan` / `/find-doc` / `/summary` 等 agent 用 Bash + Write 直接做，不依赖 Python hook）
+> **若以后想启用 hook**：项目根建 `.venv` + 装 Python → 手动 cp `templates/hooks/` + `templates/scripts/` → 改回 settings.json
+>
+> 详见 README.md `## Python 依赖（agent 安装前必读）` 段。
 
 ### Step 4：替换占位符
 

@@ -1,5 +1,39 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Grep|Glob|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/find_doc_reminder.py",
+            "comment": "搜 doc/ 时提醒优先用 /find-doc skill（省 50-70% token）+ 记录调用统计到 .runtime/find-doc-stats.log"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/memory_lint.py",
+            "comment": "memory 文件改动后校验 MEMORY.md 行数（≤200）+ 孤儿/死链接"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/rule_index_check.py",
+            "comment": "rule 文件改动后校验 CLAUDE.md §2 索引 ↔ rules/*.md 一致性"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/rule_size_check.py",
+            "comment": "rule 文件改动后检查大小红线（详见 templates/rules/meta_rule_design.md §5）"
+          }
+        ]
+      }
+    ],
     "PostCompact": [
       {
         "hooks": [
@@ -27,8 +61,24 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/show_state.py prompt-state",
+            "comment": "每次 prompt 前注入仓库状态（branch / dirty / ahead-behind / version）到 Claude 上下文"
+          },
+          {
+            "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/context_warning.py",
             "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值时输出 [ctx-budget] 信号给 Claude (详见 CLAUDE.md §10)。slash command 自动豁免不死锁。"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/show_state.py session-start",
+            "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
           }
         ]
       }

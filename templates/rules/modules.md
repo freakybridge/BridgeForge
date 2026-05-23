@@ -76,6 +76,28 @@ crates/<feature>/
 
 **判断标准**：被 2 个以上 feature 模块使用的代码 → 抽到协调中枢的 `utils/` 或 `base/`；只被单个模块使用的 → 留在该模块目录下。
 
+### 3.1 协调中枢内部分层（红线）
+
+协调中枢（`core/` / `app/core/` / 同等位置）内部必须按职责分三块，**禁止**直接堆杂项文件，也**禁止**在仓库根放横切服务：
+
+| 子目录 | 放什么 | 禁止 |
+|--------|--------|------|
+| `<core>/config.py` 或 `<core>/constants.py` | 跨 feature 共用的纯常量（路径 / URL / 配置 key） | 任何副作用（`load_dotenv` / 读 env / SDK import / IO）|
+| `<core>/bootstrap.py` | 幂等的运行时引导函数（`ensure_env()` 等） | 把状态写成模块级副作用（必须包成函数 + flag 幂等） |
+| `<core>/services/` | 横切服务模块（被多个 feature 调用的服务：logger / tracker / 自更新 / 健康检查等） | 任何只被单 feature 用的工具（应留 feature 目录） |
+
+**Why**：纯常量文件混入副作用 import → 非该 feature 的调用点也会被拖累启动时间 + 拉起不需要的依赖。集中到中枢分层让"共享 vs 私有"边界一眼可见，副作用全部在 `bootstrap` 内显式调用而不是 import 时静默触发。
+
+### 3.2 提炼共享常量的迁移范式
+
+把某 feature 模块里的共享常量提炼到中枢时，**禁止**简单搬常量；必须三件套：
+
+1. **纯常量文件**：常量搬到中枢的 `config.py` / `constants.py`（零副作用）
+2. **幂等引导函数**：原模块级副作用包成中枢的 `bootstrap.py::ensure_env()`（重复调零开销，靠 flag 防重入）
+3. **原模块改 re-export + 调引导**：保持向后兼容，旧 `from old.module import X` 调用点不破
+
+迁移过程中**任一步漏做**都会留下隐患：只搬常量 → 副作用消失导致下游运行时报错；不做 re-export → 大量调用点要同步改。
+
 ---
 
 ## 4. 运行时数据目录（红线）

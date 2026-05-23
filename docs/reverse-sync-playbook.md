@@ -136,6 +136,10 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-24 | StratusAgent | meta_rule_design.md（新建） | 整体脱敏搬入元规则（强制力梯度 / 加载策略 / 反模式速查） | bridgexue |
 | 2026-05-24 | ClaudeBridgeAssist | playbook.md §4 | 白名单加入 `templates/hooks/` + `templates/scripts/`；明确 SKILL.md / README 的反哺例外条件 | bridgexue |
 | 2026-05-24 | ClaudeBridgeAssist | README.md | 加 "Python 依赖" 段，明确核心模板跨语言 vs hook 功能需 `.venv` | bridgexue |
+| 2026-05-24 | ClaudeBridgeAssist | SKILL.md Step 3 | 加 Python hook 体系条件复制 + 无 .venv fallback + 非 Python 项目跳过说明 | bridgexue |
+| 2026-05-24 | StratusAgent | templates/hooks/ (5 个 hook) | 反哺 memory_lint / rule_index_check / rule_size_check / show_state / find_doc_reminder（脱敏 stratus 路径 + 删 session-tag 残留 + 通用版本检测） | bridgexue |
+| 2026-05-24 | StratusAgent | templates/settings.json | 加 PreToolUse / PostToolUse / SessionStart hook 注册段（对应新反哺的 5 个 hook） | bridgexue |
+| 2026-05-24 | causis_risk_suite | templates/rules/modules.md | 加 §3.1 协调中枢内部分层（纯常量 / 幂等引导 / 横切服务）+ §3.2 提炼共享常量三件套范式（脱敏 `risk_daily` / `causis_api` / `BusyTracker` 等业务专属） | bridgexue |
 
 ---
 
@@ -153,11 +157,17 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 ## 7. 反哺的反方向：从 setup_agent 拉新东西回下游
 
-下游项目（StratusAgent 等）**不会自动拿到** setup_agent 的更新。如果想把 setup_agent 的新内容拉回下游：
+完整流程详见 **[sync-from-upstream-playbook.md](sync-from-upstream-playbook.md)**（2026-05-24 新建）。
 
-- **手动 diff**：对比 `D:/Quant/setup_agent/templates/rules/` 和 `D:/Quant/<下游>/.claude/rules/`
-- **选择性吸收**：下游可能已经在某段上自行演进，不要无脑覆盖
-- **没有 skill 自动做** — 跟反哺一样，靠人脑判断，这是有意为之
+核心要点：
+- 同步分三类策略，按下游消费者**业务专属程度**决定：
+  - **零业务专属**（hooks / scripts / 用户级 skill）→ 直接覆盖
+  - **低业务专属**（settings.json）→ merge 不覆盖（保留下游 permissions / 自定义 hook）
+  - **中-高业务专属**（rules / CLAUDE.md）→ 手动 diff 选择性吸收
+  - **极高业务专属**（memory / doc）→ 绝对不动
+- **没有 skill 自动做** — 跟反哺一样，靠人脑判断（与本 playbook 共用 §6 工具化标准）
+
+reverse-sync 和 sync-from-upstream 互为镜像：通常**先 sync-from-upstream 拉新 → 再 reverse-sync 推增量**。
 
 ---
 
