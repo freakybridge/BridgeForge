@@ -3,6 +3,7 @@ name: summary
 description: 总结本次对话中的重要决策和经验，写入 memory/rules/docs。
 user-invocable: true
 argument: 可选的本次总结重点提示
+model: sonnet
 ---
 
 # 对话总结

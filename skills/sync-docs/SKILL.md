@@ -3,6 +3,7 @@ name: sync-docs
 description: 根据本次代码变更，同步更新对应的设计文档。
 user-invocable: true
 argument: 可选的额外上下文提示（如本次改动的重点）
+model: sonnet
 ---
 
 # 同步设计文档

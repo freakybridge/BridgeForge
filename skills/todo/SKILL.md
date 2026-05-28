@@ -3,6 +3,7 @@ name: todo
 description: 对话中冒出的新问题或情报，不打断主线前提下归档到正确位置（默认落 doc/0_architecture/TODO-INDEX.md）。todo 是新问题的开始，summary 是老问题的结束。
 user-invocable: true
 argument: 问题描述（可带提示词："新问题" / "之前遇过" / "查下 memory" 等）
+model: haiku
 ---
 
 # /todo — 新问题的开始
