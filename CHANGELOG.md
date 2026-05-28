@@ -12,6 +12,16 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-05-29
+
+### Changed
+- 4 个写文档/轻量类 skill 的 `SKILL.md` frontmatter 加 `model:` 字段（利用官方机制 skill 激活期间临时切模型，结束自动恢复）：
+  - `sync-docs` / `summary` → `sonnet`（写文档为主，能力够用速度更快）
+  - `todo` / `archive-scan` → `haiku`（轻量追加 / 批量 git mv，无需推理）
+
+### Fixed
+- 版本号自打脸 v3：v0.9.0 commit (`4aa57c2`) 写了 CHANGELOG 但漏打 git tag → 本次补打 `v0.9.0` tag；`50edbac` 改 skill 配置时也漏走版本号流程 → 本版补齐
+
 ## [0.9.0] - 2026-05-24
 
 ### Added

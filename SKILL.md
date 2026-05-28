@@ -1,6 +1,6 @@
 ---
 description: 在新项目里铺设标准化的 CLAUDE.md / rules / memory junction / doc 分层骨架。复制深度模板（含鬼打墙红线、UI 主动问范式、可移植性约束、文档管理规则）后让用户填项目特定占位。同时自检并补齐用户级通用 skill（plan / escalate / snapshot / summary 等）。
-version: 0.9.0
+version: 0.9.1
 ---
 
 # /setup_agent — 项目协作骨架初始化
