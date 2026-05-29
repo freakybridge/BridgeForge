@@ -210,6 +210,18 @@ paths:
 - ❌ 在 Milestone 整体验收通过前自己 bump major（v1.0.0 必须等 M1 ship）
 - ❌ 用 4 段版本号（不兼容 SemVer / Cargo / npm）
 
+### 9.8 自动强制（hook 兜底，非自觉）
+
+本节红线**不依赖 agent 自觉** —— Python 项目装有 `.claude/hooks/version_check.py`（PreToolUse / Bash），
+`git commit` 前自动检查 staged 改动是否含版本号文件，没 bump 直接 `exit 2` 阻断并提示。
+
+- **触发**：任何 `git commit`（非 commit 命令立即放行）
+- **放行条件**：staged 含版本号 SoT 文件（`VERSION` / `package.json` / `Cargo.toml` / `pyproject.toml`）
+- **豁免**：commit message 加 `[skip-version]`（纯 merge / 紧急 hotfix）/ `--amend` / 正在 merge
+- **非 Python 项目**：无此 hook，退化为只靠本节 §9 软规则（agent 自觉 + 收尾自查 §4）
+
+> 历史教训：本机制存在前，§9 仅作软规则被反复忘记（多次「忘 bump / 漏打 tag」自打脸）。hook 是把红线从「自觉」升级为「机制强制」。
+
 ---
 
 ## 10. 大版本依赖升级必做 spike 验证

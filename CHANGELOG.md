@@ -12,6 +12,17 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-29
+
+### Added
+- `templates/hooks/version_check.py` 新 hook：PreToolUse(Bash) 拦截 `git commit`，staged 改动未含版本号 SoT 文件（`VERSION`/`package.json`/`Cargo.toml`/`pyproject.toml`）则 `exit 2` 阻断 → 把 workflow.md §9「每次 commit 必 bump」从软规则升级为**机制硬强制**。`[skip-version]` / `--amend` / 正在 merge / 无版本号文件 可豁免。**未来所有 Python 项目装 setup_agent 时自动注册**（随 templates/hooks + settings.json 下沉）
+- `templates/settings.json` PreToolUse 新增 Bash matcher 注册 version_check.py
+- `templates/rules/workflow.md` §9.8「自动强制」：说明 hook 兜底机制 + 历史教训（§9 软规则被忘过多次）
+
+### Changed
+- `SKILL.md` Step 3 hook 条件复制：修正非 Python 项目应删**整个 hooks 块**（原文漏列 PreToolUse / PostToolUse，会残留死 hook）；明确 `permissions` 块必须保留
+- `SKILL.md` 非 Python 跳过说明 + 模板速查表：补 version_check.py / find-doc / permissions 等丢失/保留项
+
 ## [0.10.0] - 2026-05-29
 
 ### Added

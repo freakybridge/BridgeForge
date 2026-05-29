@@ -121,12 +121,13 @@ cp -r "$SKILL_DIR/templates/." .
 ```
 if Q2 ∈ {python, mixed}:
   ✓ 复制 templates/hooks/ + templates/scripts/ 全部
-  ✓ 保留 settings.json 的 PostCompact / Stop / UserPromptSubmit 全段
+  ✓ 保留 settings.json 整个 hooks 块（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit）
   → 进入下方 "Python 解释器路径适配" 段
 else (Q2 ∈ {rust, node, go} 等非 Python):
   ✗ 跳过 templates/hooks/ + templates/scripts/ 复制
-  ✗ 从已复制的 .claude/settings.json 删除 PostCompact / Stop / UserPromptSubmit 全部
-    hook 注册段（这些段引用的 .py 脚本没复制过来，留着会报错）
+  ✗ 从已复制的 .claude/settings.json 删除整个 hooks 块（PreToolUse / PostToolUse /
+    PostCompact / Stop / UserPromptSubmit 全部 hook 注册段；这些段引用的 .py 脚本没复制
+    过来，留着会报错）。**permissions 块必须保留**（与 Python 无关，所有项目通用）
   → 跳到下方 "非 Python 项目跳过说明" 段，向用户告知失去的功能
 ```
 
@@ -216,12 +217,13 @@ for each .md file in 已复制的模板:
 **非 Python 项目跳过说明**（非 Python 项目时必做）：
 
 向用户明确说明：
-> 本项目装了 setup_agent 核心模板（rules / CLAUDE.md / doc 分层 / skill 描述），但因为 Q2 答非 Python，**跳过**了以下内容：
-> - `templates/hooks/` 全部（PostCompact 自动 snapshot / Stop 5min 节流 / ctx 预警）
+> 本项目装了 setup_agent 核心模板（rules / CLAUDE.md / doc 分层 / skill 描述 / **permissions 少弹框配置**），但因为 Q2 答非 Python，**跳过**了以下内容：
+> - `templates/hooks/` 全部（ctx 预警 / find-doc 提醒 / **version_check 版本号硬检查** / memory·rule lint / PostCompact 自动 snapshot / Stop 5min 节流）
 > - `templates/scripts/` 全部（archive_scan.py 等）
-> - `settings.json` 里的 PostCompact / Stop / UserPromptSubmit hook 注册段
+> - `settings.json` 里整个 hooks 块（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit）
 >
-> **失去**：以上 Python hook 自动化兜底
+> **失去**：以上 Python hook 自动化兜底（含 §9 版本号 commit 硬拦——退化为只靠 workflow.md §9 软规则）
+> **保留**：`permissions` 少弹框配置（allowlist + acceptEdits + deny，与语言无关）
 > **保留**：所有手动 skill（`/snapshot` / `/archive-scan` / `/find-doc` / `/summary` 等 agent 用 Bash + Write 直接做，不依赖 Python hook）
 > **若以后想启用 hook**：项目根建 `.venv` + 装 Python → 手动 cp `templates/hooks/` + `templates/scripts/` → 改回 settings.json
 >
@@ -311,6 +313,7 @@ git status        # 给用户 review
 | `rules/workflow.md` | **通用** | 同步文档 / 主动写规则 / 经验总结 / 任务收尾自查 |
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
 | `hooks/context_warning.py` | **通用** | UserPromptSubmit hook，跨 75/85/95% 阈值输出 [ctx-budget] 信号给 Claude |
+| `hooks/version_check.py` | **通用** | PreToolUse(Bash) hook，拦 `git commit`：staged 未含版本号文件（VERSION/package.json/Cargo.toml/pyproject.toml）则 exit 2 阻断，强制落实 workflow.md §9「每次 commit 必 bump」。`[skip-version]` / `--amend` / merge 可豁免 |
 | `settings.json` | **通用** | ① `permissions` 块：精选 allowlist（只读工具 + git 看状态 + ls/cat）+ `defaultMode: acceptEdits`（文件编辑默认放行）+ deny 挡不可逆操作（`rm -rf` / `git push --force` / `git reset --hard` / 读 `.env`/密钥）；② 注册 ctx-budget 等 hook。已存在则 merge 不覆盖（详见 Step 1） |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
