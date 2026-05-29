@@ -12,6 +12,19 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-29
+
+### Changed
+- **策略变更：Python 从「可选」改为「硬依赖」**。所有下游项目（含纯 rust / node / go）安装 setup_agent 时都安装整个 Python hook 体系，不再因主语言非 Python 而跳过 hook。主因：`version_check` 等红线 hook 价值与语言无关，不该因语言失去
+  - `SKILL.md` Step 3：「Python hook 体系条件复制」→「所有项目无条件安装」+ 新增「前置硬检查」（无 Python 则停下要求先装）；「Python 解释器路径适配」适用范围改为所有项目；「非 Python 项目跳过说明」→「目标机无 Python 时的处理」（给装 Python 修复路径）
+  - `SKILL.md` 复制清单表：hooks/scripts 复制条件 `仅 Python 项目` → `总是`
+  - `README.md` 「Python 依赖」段重写：硬依赖声明 + 解释器优先级（.venv → 系统 python → 要求安装）+ 为什么强制 Python
+
+### Added
+- **setup_agent 自产自用**：dev 仓库自己装上 `version_check` hook（之前只把它作为模板分发给下游，自己 commit 不受约束 → 历史上自己反复忘 bump）
+  - `.claude/hooks/version_check.py`（从 templates 复制）
+  - `.claude/settings.json` 注册 PreToolUse(Bash) → version_check，用系统 `python`（dev 仓库无 .venv）
+
 ## [0.11.0] - 2026-05-29
 
 ### Added

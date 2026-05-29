@@ -28,5 +28,19 @@
       "Read(./**/*.key)",
       "Read(./**/*.pem)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/version_check.py",
+            "comment": "git commit 前强制版本号 bump 检查（workflow.md §9）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己也受此约束。"
+          }
+        ]
+      }
+    ]
   }
 }

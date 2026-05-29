@@ -108,28 +108,33 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/CLAUDE.md` | `<project>/CLAUDE.md` | 总是 |
 | `templates/rules/*.md` | `<project>/.claude/rules/` | 总是 |
 | `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` | 总是 |
-| `templates/hooks/*.py` | `<project>/.claude/hooks/` | **仅 Python 项目**（Q2 ∈ `python` / `mixed`） |
-| `templates/scripts/*.py` | `<project>/.claude/scripts/` | **仅 Python 项目** |
-| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是；但**非 Python 项目要删 hook 注册段**（见下方"Python hook 体系条件复制"） |
+| `templates/hooks/*.py` | `<project>/.claude/hooks/` | **总是**（Python 是硬依赖，见下方"Python hook 体系") |
+| `templates/scripts/*.py` | `<project>/.claude/scripts/` | **总是** |
+| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是（含 `permissions` + 整个 `hooks` 块） |
 | `templates/doc/README.md` | `<project>/doc/README.md` | 总是 |
 | `templates/VERSION` | `<project>/VERSION` | **条件复制**（见下方"版本号 SoT 条件复制"） |
 | `templates/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
 
-**Python hook 体系条件复制**（基于 Step 2 Q2 主语言答案）：
+**Python hook 体系（所有项目无条件安装 — Python 是硬依赖）**：
 
 ```
-if Q2 ∈ {python, mixed}:
+所有项目（不分主语言，含 rust / node / go）：
   ✓ 复制 templates/hooks/ + templates/scripts/ 全部
   ✓ 保留 settings.json 整个 hooks 块（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit）
   → 进入下方 "Python 解释器路径适配" 段
-else (Q2 ∈ {rust, node, go} 等非 Python):
-  ✗ 跳过 templates/hooks/ + templates/scripts/ 复制
-  ✗ 从已复制的 .claude/settings.json 删除整个 hooks 块（PreToolUse / PostToolUse /
-    PostCompact / Stop / UserPromptSubmit 全部 hook 注册段；这些段引用的 .py 脚本没复制
-    过来，留着会报错）。**permissions 块必须保留**（与 Python 无关，所有项目通用）
-  → 跳到下方 "非 Python 项目跳过说明" 段，向用户告知失去的功能
+
+前置硬检查（Step 2 后、复制 hooks 前必做）：确认目标机有可用 Python（≥ 3.8）
+  - 项目根有 .venv → 用 .venv 的 python（首选）
+  - 否则系统 `python` 在 PATH 上 → 用系统 python
+  - 两者都没有 → **停下，要求用户先装 Python 再继续**。hook 全是 .py，没 Python 跑不起来；
+    不允许"先跳过 hook 以后再说"——version_check 等红线 hook 不能缺。
 ```
+
+> **v0.12.0 起策略变更**：Python 从"可选（非 Python 项目跳过 hook）"改为"**硬依赖**（所有项目装 hook）"。
+> 主因：`version_check` 把"每次 commit 必 bump 版本号"从软规则升级为机制强制，价值与项目主语言无关，
+> 不该因主语言非 Python 而失去。即便是纯 Rust / Node 项目，也要求装 Python 让 hook 体系跑起来。
+> 不接受 Python 依赖 → 改用其他纯文档脚手架（见 README "适合 / 不适合"）。
 
 **版本号 SoT 条件复制**（基于项目原生版本源检测）：
 
@@ -195,15 +200,16 @@ for each .md file in 已复制的模板:
 - `SCENARIO` 类默认保留标记，方便用户后续判断（如项目从纯应用变为含 native 绑定时，搜 `SCENARIO: native-binary` 解开）
 - 裁剪后用 `grep -c "OPTIONAL_BEGIN PLATFORM\|OPTIONAL_BEGIN LANG" <file>` 验证应为 0（确认所有 PLATFORM/LANG 段落都被处理）
 
-**Python 解释器路径适配**（仅 Python 项目，复制完 hooks/scripts 后必做）：
+**Python 解释器路径适配**（所有项目，复制完 hooks/scripts 后必做）：
 
 1. **检测 .venv** 是否存在于目标项目根：
    - Windows：`.venv/Scripts/python.exe`
    - Unix：`.venv/bin/python`
 2. **改写 settings.json 里所有 hook 命令的 Python 解释器路径**：
    - `.venv` 存在 → 用默认 `.venv/Scripts/python.exe`（Windows）/ `.venv/bin/python`（Unix）
-   - `.venv` 不存在 → 改成裸 `python`，每个 hook 的 `comment` 字段尾部加："建好 .venv 后改回 .venv/Scripts/python.exe"
+   - `.venv` 不存在但系统 `python` 可用（如纯 Rust/Node 项目）→ 改成裸 `python`，每个 hook 的 `comment` 字段尾部加："建好 .venv 后可改回 .venv/Scripts/python.exe"
    - 项目用 conda → 改成 conda env 绝对路径
+   - **系统也没有 python** → 不要继续铺 hook；回到上方"前置硬检查"，要求用户先装 Python
 3. **调 `context_warning.py` 的 `WINDOW` 常量**（约 line 27）适配模型窗口：
    - Opus 4.7 / Sonnet 4.6 1M context → `1_000_000`（默认）
    - 200k context 模型 → `200_000`
@@ -214,19 +220,18 @@ for each .md file in 已复制的模板:
    - `find-doc` / `sync-docs` 两个 SKILL.md 里有 placeholder 表（topic→rule 字典 / 源码→文档映射），**现在不必填**，项目演进出稳定目录结构后再补；agent 在任务收尾时会主动提醒
    - 详见 README.md `## Python 依赖（agent 安装前必读）` 段
 
-**非 Python 项目跳过说明**（非 Python 项目时必做）：
+**目标机无 Python 时的处理**（前置硬检查未通过时必做）：
 
-向用户明确说明：
-> 本项目装了 setup_agent 核心模板（rules / CLAUDE.md / doc 分层 / skill 描述 / **permissions 少弹框配置**），但因为 Q2 答非 Python，**跳过**了以下内容：
-> - `templates/hooks/` 全部（ctx 预警 / find-doc 提醒 / **version_check 版本号硬检查** / memory·rule lint / PostCompact 自动 snapshot / Stop 5min 节流）
-> - `templates/scripts/` 全部（archive_scan.py 等）
-> - `settings.json` 里整个 hooks 块（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit）
+不要继续铺 hook（硬依赖缺失）。向用户明确说明并给出修复路径：
+> setup_agent 的 hook 自动化体系（含 `version_check` 版本号 commit 硬检查、ctx 预警、自动 snapshot、memory/rules lint 等）**全部用 Python 实现，是硬依赖**。检测到本机没有可用 Python（既无项目 `.venv`，PATH 上也没有 `python`）。
 >
-> **失去**：以上 Python hook 自动化兜底（含 §9 版本号 commit 硬拦——退化为只靠 workflow.md §9 软规则）
-> **保留**：`permissions` 少弹框配置（allowlist + acceptEdits + deny，与语言无关）
-> **保留**：所有手动 skill（`/snapshot` / `/archive-scan` / `/find-doc` / `/summary` 等 agent 用 Bash + Write 直接做，不依赖 Python hook）
-> **若以后想启用 hook**：项目根建 `.venv` + 装 Python → 手动 cp `templates/hooks/` + `templates/scripts/` → 改回 settings.json
+> **请先装 Python（≥ 3.8）再重跑 `/setup_agent`**：
+> - Windows：装 python.org 发行版 或 `winget install Python.Python.3`
+> - macOS：`brew install python` 或系统自带
+> - Linux：`apt install python3` / 发行版包管理器
+> - 建议在项目根建 `.venv`（`python -m venv .venv`）让 hook 用项目隔离解释器，更可移植
 >
+> 已铺好的核心模板（rules / CLAUDE.md / doc 分层 / skill / **permissions 少弹框配置**）不受影响，装好 Python 后重跑即补齐 hook 段。
 > 详见 README.md `## Python 依赖（agent 安装前必读）` 段。
 
 ### Step 4：替换占位符
