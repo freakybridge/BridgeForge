@@ -154,6 +154,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/context_warning.py",
+            "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值输出 [ctx-budget] 信号（CLAUDE.md §10）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己也享同款预警。"
+          }
+        ]
+      }
     ]
   }
 }

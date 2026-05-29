@@ -19,6 +19,13 @@
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-05-29
+
+### Added
+- `[repo]` **dogfood：setup_agent 自己也装上 ctx 预警 hook**。此前自身 `.claude/hooks/` 只有 `version_check`，缺它发给下游的 `context_warning`（"工厂不吃自己的狗粮"）
+  - 复制 `templates/hooks/context_warning.py` → `.claude/hooks/`，并在 `.claude/settings.json` 注册 `UserPromptSubmit`（系统 `python`，dev 仓库无 .venv）。WINDOW=1_000_000 适配 Opus 1M
+- 注：仍缺 session_snapshot / show_state 等其余 hook 的 dogfood（memory_lint / rule_index/size_check 因 setup_agent 自身无 .claude/rules、memory 结构，不适用）
+
 ## [0.18.0] - 2026-05-29
 
 ### Changed
