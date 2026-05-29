@@ -156,13 +156,17 @@ git push                              # 用户手动
 
 ## 6. 什么时候考虑工具化
 
-参考 [reverse-sync-playbook §6](reverse-sync-playbook.md#6-什么时候考虑工具化) 三条件**同时满足**：
+> **2026-05-29 更新（v0.14.0）**：机械半场已并入 `/setup_agent` **更新模式**——cwd 有 `.claude/.setup_agent_version` 时，`/setup_agent` 自动 `git pull` 上游 + 按 §2 表格分类 diff + 呈现 `[product]` 增量清单。**判断半场仍全程人脑**：类C（rules / CLAUDE.md）只 diff 不自动改，类D（memory / doc）碰都不碰。
+>
+> 之所以这次能工具化机械半场而不违反下方红线：把流程切成"机械（拉/diff/分类/呈现）vs 判断（选择性吸收）"两半，只自动化前者。这不是"把判断错误自动化"，是给判断装机械前台。新增 skill 反而是负担，故并入 `/setup_agent` 而非独立 skill。
+
+下方原则仍适用于**判断半场**——参考 [reverse-sync-playbook §6](reverse-sync-playbook.md#6-什么时候考虑工具化) 三条件**同时满足**才考虑把类C 选择性吸收也工具化：
 
 - [ ] 本 playbook 已用 ≥ 3 次，流程没大改
 - [ ] 各类同步策略（§2 表格）的边界判断都能机械化（无"凭直觉"项）
 - [ ] 多下游并发同步需求出现，手动协调成本变高
 
-否则**别工具化** — 上游同步的判断密集度高（rules / CLAUDE.md 是选择性吸收），工具化只会把判断错误自动化。
+否则**别把判断半场工具化** — rules / CLAUDE.md 选择性吸收判断密集度高，自动化只会把判断错误自动化。
 
 ---
 
@@ -175,6 +179,7 @@ git push                              # 用户手动
 | 2026-05-24 | 9cfa7ae + 后续未 push | ClaudeBridgeAssist | 5 hook（find_doc_reminder / memory_lint / rule_index_check / rule_size_check / show_state）+ settings.json 加 PreToolUse/PostToolUse/SessionStart 注册段 | bridgexue |
 | 2026-05-24 | 同上 | `~/.claude/skills/setup_agent/` | SKILL.md Step 3 改造（条件复制 + 无 .venv fallback）同步 | bridgexue |
 | 2026-05-24 | 同上 | causis_risk_suite | meta_rule_design.md 补全（之前缺失） | bridgexue |
+| 2026-05-29 | v0.14.0 | （机制本身）| 机械半场并入 `/setup_agent` 更新模式（版本戳 `.setup_agent_version` + 拉上游 + §2 分类 diff + `[product]` 增量清单）；判断半场仍人脑 | bridgexue |
 
 ---
 

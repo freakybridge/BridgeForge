@@ -19,6 +19,22 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-29
+
+### Added
+- `[product]` **`/setup_agent` 更新模式**：不新增 skill，把"拉上游增量到现有项目"并入 `/setup_agent` 自身（一个命令两用：全新项目 init / 已铺过项目更新）。下游在已铺过的项目里重跑 `/setup_agent` 即自动进更新模式
+  - `SKILL.md` 新增「前置」步骤：先 `git -C ~/.claude/skills/setup_agent pull --ff-only` 拉上游最新（init/更新都先拿最新，堵住"铺旧版本"坑）+ 按 `.claude/.setup_agent_version` 判定 init/更新模式
+  - `SKILL.md` 新增「更新模式」主段（U1 算增量→抓 `[product]` changelog / U2 按 sync-from-upstream §2 表格分类 diff / U3 路径适配 / U4 验证+收尾），机械半场自动、判断半场（类C rules/CLAUDE.md）全程人脑
+  - `SKILL.md` Step 7 + 复制清单 + 速查表：init 末尾写 `.claude/.setup_agent_version`（= 安装时版本，既作"上次同步到哪版"记录，又作 init/更新判定信号）
+- `[meta]` `README.md` 使用段重构：开头新增「新项目初始化——对 agent 说这一句」自带兜底引导（没装过先 clone+junction 自举、装过直接铺），并保留「更新已有项目（重跑即更新）」说明
+
+### Changed
+- `[meta]` `docs/sync-from-upstream-playbook.md` §6：标注机械半场已并入 `/setup_agent` 更新模式（判断半场仍人脑，不违反"别把判断错误自动化"红线）；§5 日志追加 v0.14.0 行
+
+### Note
+- **存量项目**（已装过但无版本戳，如早期下游）首次重跑 `/setup_agent` 时落到「前置」例外分支：当作 init 处理已存在文件 + 补写版本戳纳入管理
+- 「③ 镜像漂移检查 hook」仍未做（延续 v0.13.0 节奏）
+
 ## [0.13.0] - 2026-05-29
 
 ### Added

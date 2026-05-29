@@ -13,6 +13,27 @@ version: 0.9.1
 
 ## 执行流程
 
+### 前置：拉上游最新 + 判定 init / 更新模式
+
+**先拉上游**（无论 init 还是更新，都要先拿到最新模板，否则铺的是旧版本）：
+
+```bash
+git -C "$HOME/.claude/skills/setup_agent" pull --ff-only
+```
+
+- pull 失败（冲突 / 网络）→ 报告并停下，**不强拉**；让用户先手动处理 clone 再重跑。
+- clone 不是 git 仓库（用户手动拷的）→ 跳过 pull，提示"建议改用 `git clone` 以便后续 `/setup_agent` 自动拉更新"。
+
+**再判定模式**（看 cwd 是不是已被 setup_agent 铺过）：
+
+```bash
+test -f .claude/.setup_agent_version && cat .claude/.setup_agent_version
+```
+
+- **文件存在** → 【更新模式】，**跳到下方 "## 更新模式" 段**，不要走 Step 2-7 的全新铺设。（Step 0 自检仍先跑一遍——幂等补齐可能新增的通用 skill。）
+- **文件不存在** → 【init 模式】，继续 Step 0 → Step 7。
+  - 例外：cwd 已有 CLAUDE.md / `.claude/rules/` 但**没有**版本戳 → 这是非 setup_agent 管理的项目（或 pre-stamp 老安装）。问用户：(A) 当作全新 init（已存在文件按 Step 1 的备份/跳过处理）+ 末尾补写版本戳纳入管理；(B) 退出。
+
 ### Step 0：自检并补齐用户级通用 skill
 
 本 skill 仓库内的 `skills/` 子目录包含 12 个通用协作 skill（脱敏自 StratusAgent 长期沉淀）。Claude Code 只扫描 `~/.claude/skills/<name>/SKILL.md` 顶层，**不递归**——所以 `~/.claude/skills/setup_agent/skills/<name>/SKILL.md` 这样嵌套的 skill 扫不到，必须复制到 `~/.claude/skills/<name>/` 平级。
@@ -65,6 +86,8 @@ git rev-parse --is-inside-work-tree # 是否已 git init
 
 **若 cwd 已有 CLAUDE.md 或 `.claude/rules/`** → 立即停下问用户："检测到已存在 CLAUDE.md/rules，要 (A) 跳过已存在的文件只补缺失部分；(B) 备份后覆盖；(C) 退出？"
 
+> 注：若该 dir 有 `.claude/.setup_agent_version`，前置步骤已路由到**更新模式**，不会到这里。本分支只针对"有 CLAUDE.md 但无版本戳"的非托管项目。
+
 **若 cwd 已有 `.claude/settings.json`** → **禁止直接覆盖**（会丢已有 hook/permission/env）。必须读现存 settings.json，把模板里的下列条目 **merge** 进去（数组追加，不替换），其他字段保持原样：
 - `hooks.*`（各 hook 数组追加）
 - `permissions.allow` / `permissions.deny`（数组追加去重；**deny 优先级最高，绝不删用户已有 deny**）
@@ -114,6 +137,7 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/doc/README.md` | `<project>/doc/README.md` | 总是 |
 | `templates/VERSION` | `<project>/VERSION` | **条件复制**（见下方"版本号 SoT 条件复制"） |
 | `templates/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
+| 写版本戳 | `<project>/.claude/.setup_agent_version`（内容 = 本 skill clone 的 `VERSION`，如 `0.14.0`）| 总是（init 末尾写。既是"上次同步到哪版"记录，又是前置步骤判定 init/更新的信号） |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
 
 **Python hook 体系（所有项目无条件安装 — Python 是硬依赖）**：
@@ -278,9 +302,17 @@ git status        # 给用户 review
 
 **不自动 commit** — 等用户填完占位再 commit。
 
-### Step 7：输出 next-step 清单
+### Step 7：写版本戳 + 输出 next-step 清单
 
-呈现给用户：
+**先写版本戳**（让本项目纳入更新管理）：把本 skill clone 的 `VERSION` 内容写进 `<project>/.claude/.setup_agent_version`：
+
+```bash
+cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
+```
+
+之后用户在本项目重跑 `/setup_agent` 即自动进入**更新模式**（拉上游增量），不会再全新铺设。
+
+**再呈现给用户**：
 
 ```
 ✅ 骨架已铺设，下一步你需要手填这 3 处：
@@ -294,6 +326,41 @@ git status        # 给用户 review
 - doc/README.md 索引随项目展开补充
 - 跑 git commit 收尾
 ```
+
+---
+
+## 更新模式（cwd 已被 setup_agent 铺过时）
+
+> 触发：前置步骤检测到 `.claude/.setup_agent_version`。这是 `/setup_agent` 的"拉上游增量到现有项目"流程——**机械半场**（拉 / diff / 分类 / 呈现）由 skill 做，**判断半场**（rules/CLAUDE.md 选择性吸收）全程交用户。完整判据见 `~/.claude/skills/setup_agent/docs/sync-from-upstream-playbook.md`（下称 playbook）。
+
+### U1：算增量
+- 读 cwd 的 `.claude/.setup_agent_version`（下游上次同步的版本）vs clone 的 `VERSION`（上游当前版本，前置步骤已 pull 到最新）。
+- 相等 + 文件无差异 → 报告"已是最新（vX.Y.Z）"后退出。
+- 不等 → 从 clone 的 `CHANGELOG.md` 抓 `(上次, 现在]` 区间所有 **`[product]`** 条目，给用户一份"上游这些更新冲着下游来"的清单（`[repo]` / `[meta]` 条目不影响下游，过滤掉）。
+
+### U2：按 playbook §2 表格分类 diff
+逐类对比 clone 的 `templates/` 与 cwd 的 `.claude/`，**先给总览清单，再逐项过**：
+
+| 类 | 文件 | 策略 |
+|----|------|------|
+| A | `.claude/hooks/*.py` `.claude/scripts/*.py` + 用户级 `~/.claude/skills/` | 下游副本与模板**一致** → 提议覆盖（确认）；**被改过** → 标红给 diff 问用户（**不无脑覆盖**） |
+| B | `.claude/settings.json` | **merge 不覆盖**：上游通用 hook 段更新/加入；保留下游 `permissions` / `additionalDirectories` / 自定义 hook 注册。给 merge 预览，确认后写 |
+| C | `.claude/rules/*.md` `CLAUDE.md` | **只 diff，绝不自动改**。每个差异段贴 playbook §2 类C 判据：🟢 上游通用增量(吸收) / 🟡 下游业务补充(保留) / 🔴 上游脱敏后减弱(保留下游)，用户逐段定 |
+| D | `.claude/memory/` `doc/` | **碰都不碰** |
+
+### U3：路径适配
+更新进来的 hook 命令若引用 `.venv` 但 cwd 无 `.venv` → 同 init 的"Python 解释器路径适配"，改裸 `python`。
+
+### U4：验证 + 收尾
+- 跑更新过的 hook 看 exit 0：`python .claude/hooks/<hook>.py`。
+- 把 `.claude/.setup_agent_version` 写成 clone 的当前 `VERSION`。
+- **不自动 commit**：`git status` + `git diff` 给用户 review，提示自行 commit（参考 playbook §5）。
+
+### 更新模式禁止
+- ❌ 自动覆盖 rules / CLAUDE.md（类C 必须用户逐段定）
+- ❌ 动 memory / doc（类D 业务私有）
+- ❌ 跨多个项目批量同步（一次只对当前 cwd）
+- ❌ 自动 commit
 
 ---
 
@@ -324,4 +391,5 @@ git status        # 给用户 review
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
 | `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
 | `CHANGELOG.md` | 通用骨架 | Keep a Changelog 格式 + 引用 `rules/workflow.md §9` 语义；含 `[0.1.0] - {{TODAY}}` 初始 entry，所有项目都复制 |
+| `.claude/.setup_agent_version` | 生成（非模板文件）| init 末尾写 = 安装时 setup_agent 版本；重跑 `/setup_agent` 据此进**更新模式**（拉上游 `[product]` 增量）而非全新铺设 |
 | `skills/<12 个>/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / summary / sync-docs）。Step 0 自检补齐到 `~/.claude/skills/` 平级。 |

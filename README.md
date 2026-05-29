@@ -102,13 +102,31 @@ git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE
 
 ## 使用
 
-进任何新项目根目录（建议先 `git init`），调用：
+### 新项目初始化 —— 对 agent 说这一句（任何机器都成立）
+
+在新项目根目录开 Claude Code，把下面这句话发给 agent：
+
+> 如果这台机器还没装 setup_agent，就从 https://github.com/freakybridge/setup_agent.git clone 到本项目的上级目录并在 `~/.claude/skills/setup_agent` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
+
+这一句**自带兜底**：装过的机器直接铺，没装过的先自举（clone 到项目平级 + 建 junction）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
+
+> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/setup_agent` 和 12 个通用 skill 才会进 `/` 菜单。
+
+**已装过的机器**可用更短写法，直接调用：
 
 ```
 /setup_agent
 ```
 
-skill 会问你 4 个问题（项目名 / 主语言 / 是否需要换机 checklist / 是否建 doc/），然后铺骨架，最后告诉你哪 3 处占位需要手填。
+### 更新已有项目（重跑即更新）
+
+不需要单独的同步命令——**在已铺过的项目里再跑一次 `/setup_agent` 即进入"更新模式"**：
+
+1. 先 `git pull` 上游 clone 拿最新模板；
+2. 读项目里的 `.claude/.setup_agent_version`（上次安装/同步的版本），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
+3. 按业务专属程度分类处理：hooks/scripts 一致就覆盖、settings.json merge、**rules/CLAUDE.md 只 diff 让你逐段定**、memory/doc 碰都不碰。
+
+判断半场（rules/CLAUDE.md 吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
 
 ## 目录结构
 
