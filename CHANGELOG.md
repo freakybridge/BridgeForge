@@ -6,11 +6,31 @@
 - **minor (Y)** — 新功能（新 hook / 新 skill / 新 rule / 新模板）
 - **patch (Z)** — bug 修复 / 文档调整 / refactor
 
+**层标签**（每条 entry 前缀，让下游一眼看懂该不该 sync，语义见 `CLAUDE.md §3`）：
+
+- `[product]` — 改了 `templates/` / `skills/`，会下沉到下游 → 下游 sync-from-upstream 时**应当**拉取
+- `[repo]` — 只改了 setup_agent 自身配置 / 工具，不下沉 → 下游无关
+- `[meta]` — 只改了 `docs/` / `README` / `SKILL.md` 等说明 → 一般无关
+- 混合改动并列标，如 `[product][meta]`
+
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
 ---
 
 ## [Unreleased]
+
+## [0.13.0] - 2026-05-29
+
+### Added
+- `[repo]` **工厂自觉前门闸**：新建 setup_agent 自己的 `CLAUDE.md`（之前缺失，自产自用只落实了 version_check 一小块）。核心是 §1「传播三问」always-on 红线——每个改动落地前必须回答 (1) 属于哪一层（产品 `templates`/`skills` vs 自身配置 `.claude` vs 元文档 `docs`/README/SKILL）(2) 通用的话镜像进 `templates/` 了吗 (3) 要不要 bump + 记 CHANGELOG。附 §2 分层地图 + §3 CHANGELOG 层标签约定 + §4 传播机制指引
+- `[meta]` `docs/design-rationale.md` §9「setup_agent 的双重身份：工厂 + 自产自用」：固化 framing（工厂 vs 样板间两个身份）+ §9.1 前门闸 + §9.2 CHANGELOG 层标签为何能让下游有抓手 + §9.3 演进节奏（软规则先跑顺再升级为「镜像漂移检查 hook」机制）
+
+### Changed
+- `[meta]` `CHANGELOG.md` 顶部图例新增「层标签」说明（`[product]`/`[repo]`/`[meta]`），本版起所有 entry 打标签，下游 `grep "\[product\]"` 即得 sync 增量清单
+
+### Note
+- 本批次**全是 setup_agent 自身改动**（前门闸机制 + 元文档），**没有改产品层**——下游无新增量（故无 `[product]` 条目）。属 reverse-sync-playbook §3.1 批次 3 同类「非反哺批次」
+- 「③ 镜像漂移检查 hook」本版**未做**——按演进节奏，等三问软规则跑顺 2-3 次、误报场景摸清后再机制化（见 design-rationale §9.3）
 
 ## [0.12.0] - 2026-05-29
 

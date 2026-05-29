@@ -1,0 +1,61 @@
+# setup_agent — 项目级 CLAUDE.md
+
+> ⚠️ **这不是普通项目**。setup_agent 是个**"协作骨架工厂"**：它的产出（`templates/` + `skills/`）会被复印进每一个未来项目。
+> 所以在这个 repo 里干活，第一红线不是"把功能做对"，而是**"把改动放对层、该传播的传播出去"**。
+
+---
+
+## §1 工厂红线：每个改动落地前，过一遍「传播三问」（always-on）
+
+任何修改 / 新功能落地**之前**，必须显式回答这三句话（写不出答案就别动手）：
+
+1. **这属于哪一层？**
+   - **产品层** `templates/` `skills/` → 会被复印给所有下游项目
+   - **自身配置层** `.claude/` `CLAUDE.md`（本文件）→ 只影响 setup_agent 这个 repo 自己
+   - **元文档** `docs/` `README.md` `SKILL.md` `CHANGELOG.md` → 描述产品，但不随产品下沉
+2. **如果是通用改进，我写进 `templates/` / `skills/` 了吗？**
+   - 最常见的事故：把一条通用规矩只写进了自身配置层或元文档，**忘了镜像进产品层** → 下游永远拿不到。
+   - 反向也算事故：把项目特定的东西误塞进 `templates/` → 污染所有下游。判据见 [docs/design-rationale.md](docs/design-rationale.md) §6「模板 vs 占位」。
+3. **传播出去要不要 bump 版本 + 记 CHANGELOG？**
+   - 改动产品层 → 几乎一定要 bump（下游靠版本号判断该不该 sync）。
+   - 记 CHANGELOG 时**按 §3 打层标签**。
+
+> 这条之所以写在 CLAUDE.md 而不是 rules/：它在**任何任务里**都要遵守，不能等"编辑某个文件时"才加载（理由同 design-rationale §5）。
+
+---
+
+## §2 分层地图（哪个目录 = 哪一层）
+
+| 目录 / 文件 | 层 | 改动会不会传到下游 |
+|------------|----|------------------|
+| `templates/**` | 产品层 | ✅ 下游复印时全量继承 |
+| `skills/**` | 产品层 | ✅ 下游 `/setup_agent` Step 0 自检补齐到 `~/.claude/skills/` |
+| `.claude/**` `CLAUDE.md` | 自身配置层 | ❌ 只管 setup_agent 自己（自产自用：理论上应与 `templates/` 同款，见下） |
+| `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
+| `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/VERSION` |
+
+**自产自用（dogfood）约定**：setup_agent 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**。改了一边就该同步另一边（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠本条 + 三问自觉）。
+
+---
+
+## §3 CHANGELOG 层标签约定
+
+每条 CHANGELOG entry 前缀打一个标签，让下游一眼看懂"这次该不该拉"：
+
+| 标签 | 含义 | 下游动作 |
+|------|------|---------|
+| `[product]` | 改了 `templates/` / `skills/`，会下沉 | sync-from-upstream 时**应当**拉取 |
+| `[repo]` | 只改了 setup_agent 自身配置 / 工具，不下沉 | 无关，跳过 |
+| `[meta]` | 只改了 `docs/` / `README` / `SKILL.md` 等说明 | 一般无关（除非想了解设计） |
+
+混合改动就并列标，如 `[product][meta]`。这是让"下游同步收益"最直接的抓手——下游 `grep "\[product\]" CHANGELOG.md` 即知增量。
+
+---
+
+## §4 跨项目传播机制（详见 docs/）
+
+- **上游 → 下游**（拉新手册回老房子）：[docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)
+- **下游 → 上游**（把老房子攒的通用经验脱敏反哺回手册）：[docs/reverse-sync-playbook.md](docs/reverse-sync-playbook.md)
+- **整体设计 / 双重身份论述**：[docs/design-rationale.md](docs/design-rationale.md) §9
+
+两条 playbook 都**靠人脑判断、手动触发**——本文件 §1 的三问是它们的"前门闸"：保证每个改动进门时就被分层，而不是等季度盘点才补救。
