@@ -65,7 +65,12 @@ git rev-parse --is-inside-work-tree # 是否已 git init
 
 **若 cwd 已有 CLAUDE.md 或 `.claude/rules/`** → 立即停下问用户："检测到已存在 CLAUDE.md/rules，要 (A) 跳过已存在的文件只补缺失部分；(B) 备份后覆盖；(C) 退出？"
 
-**若 cwd 已有 `.claude/settings.json`** → **禁止直接覆盖**（会丢已有 hook/permission/env）。必须读现存 settings.json，把模板里的 `hooks.UserPromptSubmit` 条目 **merge** 进去（数组追加，不替换）；其他字段保持原样。merge 完后给用户 review 一次再保存。
+**若 cwd 已有 `.claude/settings.json`** → **禁止直接覆盖**（会丢已有 hook/permission/env）。必须读现存 settings.json，把模板里的下列条目 **merge** 进去（数组追加，不替换），其他字段保持原样：
+- `hooks.*`（各 hook 数组追加）
+- `permissions.allow` / `permissions.deny`（数组追加去重；**deny 优先级最高，绝不删用户已有 deny**）
+- `permissions.defaultMode`：**仅当用户原配置没设过**才写 `acceptEdits`；用户已设（哪怕设成 `default`）则保留其值，不覆盖
+
+merge 完后给用户 review 一次再保存。
 
 **若 cwd 不是新项目根** → 问用户预期的目标项目根路径。
 
@@ -306,7 +311,7 @@ git status        # 给用户 review
 | `rules/workflow.md` | **通用** | 同步文档 / 主动写规则 / 经验总结 / 任务收尾自查 |
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
 | `hooks/context_warning.py` | **通用** | UserPromptSubmit hook，跨 75/85/95% 阈值输出 [ctx-budget] 信号给 Claude |
-| `settings.json` | **通用** | 注册 ctx-budget hook 到 UserPromptSubmit；已存在则 merge 不覆盖 |
+| `settings.json` | **通用** | ① `permissions` 块：精选 allowlist（只读工具 + git 看状态 + ls/cat）+ `defaultMode: acceptEdits`（文件编辑默认放行）+ deny 挡不可逆操作（`rm -rf` / `git push --force` / `git reset --hard` / 读 `.env`/密钥）；② 注册 ctx-budget 等 hook。已存在则 merge 不覆盖（详见 Step 1） |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
 | `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
