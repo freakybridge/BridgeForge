@@ -15,7 +15,7 @@
 | 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
 | 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
 
-**不太适合的项目也能用** — 跑 `/setup_agent` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 12 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+**不太适合的项目也能用** — 跑 `/setup_agent` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
 > ⚠️ **使用 setup_agent = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/CLAUDE.md §11` + `templates/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
@@ -110,7 +110,7 @@ git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE
 
 这一句**自带兜底**：装过的机器直接铺，没装过的先自举（clone 到项目平级 + 建 junction）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
 
-> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/setup_agent` 和 12 个通用 skill 才会进 `/` 菜单。
+> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/setup_agent` 和 13 个通用 skill 才会进 `/` 菜单。
 
 **已装过的机器**可用更短写法，直接调用：
 

@@ -1,11 +1,11 @@
 ---
 description: 在新项目里铺设标准化的 CLAUDE.md / rules / memory junction / doc 分层骨架。复制深度模板（含鬼打墙红线、UI 主动问范式、可移植性约束、文档管理规则）后让用户填项目特定占位。同时自检并补齐用户级通用 skill（plan / escalate / snapshot / summary 等）。
-version: 0.9.1
+version: 0.18.0
 ---
 
 # /setup_agent — 项目协作骨架初始化
 
-**定位**：一次性给新项目装好"Claude Code 协作管理体系"——双层 CLAUDE.md、rules 分层加载、memory junction、doc 三层归档；**并自检 ~/.claude/skills/ 下的 12 个通用协作 skill，缺哪个补哪个**。运行后用户只需填占位（架构红线 / 快速命令 / 项目结构）即可上线。
+**定位**：一次性给新项目装好"Claude Code 协作管理体系"——双层 CLAUDE.md、rules 分层加载、memory junction、doc 三层归档；**并自检 ~/.claude/skills/ 下的 13 个通用协作 skill，缺哪个补哪个**。运行后用户只需填占位（架构红线 / 快速命令 / 项目结构）即可上线。
 
 > 模板素材出自 StratusAgent 项目长期沉淀（鬼打墙红线、UI 主动问 4 件事、换机可移植性、文档分层归档、通用协作 skill 集）。已剥离项目特定内容，只留通用骨架。
 
@@ -13,9 +13,9 @@ version: 0.9.1
 
 ## 执行流程
 
-### 前置：拉上游最新 + 判定 init / 更新模式
+### 前置：拉上游最新 + 认场子（工厂自检 / 更新 / 收编 / init 四分类）
 
-**先拉上游**（无论 init 还是更新，都要先拿到最新模板，否则铺的是旧版本）：
+**Step 前-1 先拉上游**（无论 init 还是更新，都要先拿到最新模板，否则铺的是旧版本）：
 
 ```bash
 git -C "$HOME/.claude/skills/setup_agent" pull --ff-only
@@ -24,38 +24,81 @@ git -C "$HOME/.claude/skills/setup_agent" pull --ff-only
 - pull 失败（冲突 / 网络）→ 报告并停下，**不强拉**；让用户先手动处理 clone 再重跑。
 - clone 不是 git 仓库（用户手动拷的）→ 跳过 pull，提示"建议改用 `git clone` 以便后续 `/setup_agent` 自动拉更新"。
 
-**再判定模式**（看 cwd 是不是已被 setup_agent 铺过）：
+**Step 前-2 工厂自检（最先判，硬闸）**：cwd 是不是 setup_agent 源头仓库**自己**？
+
+```bash
+# 同时满足才算源头：有产品层 templates/ + 根 SKILL.md 是 setup_agent 自己
+test -f templates/CLAUDE.md && grep -q "项目协作骨架初始化" SKILL.md && echo FACTORY_SELF
+```
+
+- 命中 `FACTORY_SELF` → **立即硬拒并退出**，告诉用户："这是 setup_agent 源头仓库（模板工厂），不能在它自己身上 bootstrap / 更新——要改框架请直接编辑 `templates/` / `SKILL.md`，不要跑 `/setup_agent`。"
+- 为什么这是第一闸：源头仓库**故意不带** `.claude/.setup_agent_version`（靠 `templates/` 存在性识别身份，比版本戳更本质，见 [docs/design-rationale.md](docs/design-rationale.md) §9.4）。没有这道闸，源头会落进下方"无戳 + 有 CLAUDE.md"分支被误当 init → 等于装修队拆自己样板间。
+
+**Step 前-3 认场子（判定模式）**：
 
 ```bash
 test -f .claude/.setup_agent_version && cat .claude/.setup_agent_version
 ```
 
-- **文件存在** → 【更新模式】，**跳到下方 "## 更新模式" 段**，不要走 Step 2-7 的全新铺设。（Step 0 自检仍先跑一遍——幂等补齐可能新增的通用 skill。）
-- **文件不存在** → 【init 模式】，继续 Step 0 → Step 7。
-  - 例外：cwd 已有 CLAUDE.md / `.claude/rules/` 但**没有**版本戳 → 这是非 setup_agent 管理的项目（或 pre-stamp 老安装）。问用户：(A) 当作全新 init（已存在文件按 Step 1 的备份/跳过处理）+ 末尾补写版本戳纳入管理；(B) 退出。
+按下表四分类：
+
+| 场景 | 判据 | 走哪 |
+|------|------|------|
+| **更新** | 有 `.claude/.setup_agent_version` | 【更新模式】跳到下方 "## 更新模式" 段（Step 0 自检仍先跑一遍，幂等补 skill） |
+| **收编 (adopt)** | 无戳，但已有 CLAUDE.md/rules **像 setup_agent 铺过的**（指纹 ≥2 项命中） | 【收编模式】跳到下方 "## 收编模式 (adopt)" 段 |
+| **全新 init** | 无戳，且 cwd 干净（无 CLAUDE.md / `.claude/rules/`） | 继续 Step 0 → Step 7 |
+| **有内容但不像衍生** | 无戳，有 CLAUDE.md/rules 但**不命中**衍生指纹 | 问用户：(A) 当作全新 init（已存在文件按 Step 1 备份/跳过处理）+ 末尾补写版本戳；(B) 退出 |
+
+**setup_agent 衍生指纹**（命中 **≥2 项**即判"像铺过的"，走收编；目的只是区分"我铺的 vs 别人的项目"，宁松勿严）：
+
+```bash
+grep -q "鬼打墙"     CLAUDE.md                  2>/dev/null   # §8 鬼打墙红线
+grep -q "ctx-budget" CLAUDE.md                  2>/dev/null   # §10 ctx-budget 信号
+grep -rq "OPTIONAL_BEGIN" .claude/rules/        2>/dev/null   # OPTIONAL 裁剪残留标记
+test -f .claude/rules/meta_rule_design.md                     # 元规则文件名
+test -f .claude/rules/workflow.md                             # 工作流 rule 文件名
+```
+
+> **判别树（文字版）**：
+> ① 工厂自检命中 → 硬拒退出
+> ② 有版本戳 → 更新模式
+> ③ 无戳 + 像衍生（指纹 ≥2）→ 收编模式（写戳转更新，**绝不覆盖**）
+> ④ 无戳 + 干净 → 全新 init（Step 0→7）
+> ⑤ 无戳 + 有内容但不像衍生 → 问用户 (A) init / (B) 退出
 
 ### Step 0：自检并补齐用户级通用 skill
 
-本 skill 仓库内的 `skills/` 子目录包含 12 个通用协作 skill（脱敏自 StratusAgent 长期沉淀）。Claude Code 只扫描 `~/.claude/skills/<name>/SKILL.md` 顶层，**不递归**——所以 `~/.claude/skills/setup_agent/skills/<name>/SKILL.md` 这样嵌套的 skill 扫不到，必须复制到 `~/.claude/skills/<name>/` 平级。
+本 skill 仓库内的 `skills/` 子目录包含 13 个通用协作 skill（脱敏自 StratusAgent 长期沉淀）。Claude Code 只扫描 `~/.claude/skills/<name>/SKILL.md` 顶层，**不递归**——所以 `~/.claude/skills/setup_agent/skills/<name>/SKILL.md` 这样嵌套的 skill 扫不到，必须复制到 `~/.claude/skills/<name>/` 平级。
 
-**自检逻辑（幂等，不覆盖已有）**：
+**自检逻辑（幂等：缺失→装 / 旧版→提议更新 / 定制→问，绝不静默覆盖）**：
 
 ```bash
 SKILL_DIR="$HOME/.claude/skills/setup_agent"   # 本 skill 的仓库 clone 位置
 SKILLS_SRC="$SKILL_DIR/skills"
 SKILLS_DST="$HOME/.claude/skills"
 
-for s in plan collab debate escalate snapshot resume git-sync archive-scan todo find-doc summary sync-docs; do
+for s in plan collab debate escalate snapshot resume git-sync archive-scan todo find-doc summary sync-docs harvest; do
   if [ ! -d "$SKILLS_DST/$s" ]; then
     cp -r "$SKILLS_SRC/$s" "$SKILLS_DST/$s"
-    echo "✓ 安装通用 skill: $s"
+    echo "✓ 安装缺失 skill: $s"
+  elif diff -rq "$SKILLS_SRC/$s" "$SKILLS_DST/$s" >/dev/null 2>&1; then
+    echo "- 已是最新，跳过: $s"
   else
-    echo "- 已存在，跳过: $s"
+    echo "⚠ 已存在但与上游不一致: $s（旧版 or 你的定制）→ 见下方处理"
   fi
 done
 ```
 
-**12 个通用 skill 速查**：
+**对 ⚠ 不一致的 skill 怎么处理**（复用「更新模式」类 A 判断，**堵传播缺口**）：
+
+之前这里是"逢重名一律跳过"——好心保护用户定制，但副作用是**"改进已有 skill"永远到不了已装下游**（如本次给 `summary` 加的捕捉反射，老项目会拿不到）。现在改为先**比对内容**：
+
+- **一致（只是旧版镜像）**→ 上面已"静默跳过"标记为最新；若上游确有更新会落到下面分支，逐个 `cp` 覆盖即可，无需问（没有定制要保护）。
+- **不一致（你改进过的定制版 / 或老版本被上游改进了）**→ **绝不静默覆盖**：逐个给用户看 `diff`，问"覆盖成上游版 (y) / 保留你的定制 (n)"。
+
+> 这样既保住了原来"不偷偷盖掉定制"的好心，又补上了"改进流不到老项目"的缺口。判断逻辑与「更新模式」§U2 类 A 完全一致——一个事实源，两处复用。
+
+**13 个通用 skill 速查**：
 
 | Skill | 触发 | 用途 |
 |------|------|------|
@@ -69,8 +112,9 @@ done
 | `archive-scan` | `/archive-scan` | 扫描 doc/2_pending/ 可归档候选 |
 | `todo` | `/todo <描述>` | 新问题归档到 TODO-INDEX 主表（短期）或 1_plan/ 远期文档 |
 | `find-doc` | agent 主动 | doc 综合检索（grep + read 一次性） |
-| `summary` | `/summary` | 总结对话决策写入 memory，并按需更新 rules/docs |
+| `summary` | `/summary` | 总结对话决策写入 memory，并按需更新 rules/docs；**顺手捕捉通用经验进反哺收件箱** |
 | `sync-docs` | `/sync-docs` | 根据代码变更同步设计文档 |
+| `harvest` | `/harvest` | 把下游攒的通用经验脱敏反哺回 setup_agent 上游（无参批量清收件箱 / 带描述立即单条） |
 
 **告知用户**：若复制了任何 skill，提示"需要重启 Claude Code 才能看到新 skill 在 / 列表里"。
 
@@ -90,7 +134,7 @@ git rev-parse --is-inside-work-tree # 是否已 git init
 
 **若 cwd 已有 `.claude/settings.json`** → **禁止直接覆盖**（会丢已有 hook/permission/env）。必须读现存 settings.json，把模板里的下列条目 **merge** 进去（数组追加，不替换），其他字段保持原样：
 - `hooks.*`（各 hook 数组追加）
-- `permissions.allow` / `permissions.deny`（数组追加去重；**deny 优先级最高，绝不删用户已有 deny**）
+- `permissions.allow` / `permissions.ask` / `permissions.deny`（三个数组各自追加去重；**deny 优先级最高，绝不删用户已有 deny**；ask 同样只增不删）
 - `permissions.defaultMode`：**仅当用户原配置没设过**才写 `acceptEdits`；用户已设（哪怕设成 `default`）则保留其值，不覆盖
 
 merge 完后给用户 review 一次再保存。
@@ -329,6 +373,31 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 
 ---
 
+## 收编模式 (adopt)（已有 setup_agent 衍生内容但无版本戳）
+
+> 触发：前置 Step 前-3 判定 cwd 无 `.claude/.setup_agent_version`，但已有 CLAUDE.md/rules 命中 setup_agent 衍生指纹（≥2 项）。常见于 **pre-stamp 老安装**（版本戳机制 v0.14.0 才引入）或手动拷过模板的项目。
+>
+> **核心红线：收编 = 登记纳管，绝不覆盖任何已有文件。** 用户已有内容大概率比上游脱敏模板更全（业务演进过），覆盖 = 倒退。
+
+### A1：确认 + 写戳（默认动作）
+1. 列出命中的指纹项，向用户说明："检测到本项目像是 setup_agent 铺过但缺版本戳，建议**收编**（仅登记纳管，不动你任何文件）。"
+2. 用户确认后写戳：
+   ```bash
+   cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
+   ```
+   > 戳值 = 上游**当前** VERSION，等于声明"以此为同步基线"。首次收编**不补历史增量**（视现状为最新），从下次 `/setup_agent` 起才按 `(此版, 新版]` 拉 `[product]` 增量。
+
+### A2：可选——顺便补上游差量
+- 用户若想"把上游比我新的通用增量也过一遍"，在写戳**前**先把戳临时写成一个更早的基线（用户记得的安装版本；记不得就保守取 `0.1.0`），再走 [更新模式](#更新模式cwd-已被-setup_agent-铺过时) U2 的类 C diff，让用户逐段吸收。
+- 拿不准基线就**不补** —— 收编默认语义是"以现状为基线"，宁可漏增量也不冒覆盖业务内容的风险。
+
+### 收编模式禁止
+- ❌ 覆盖（哪怕"备份后覆盖"）任何已有 CLAUDE.md / rules / settings —— 那是 fresh-init 分支的事，收编不做
+- ❌ 动 memory / doc
+- ❌ 不经用户确认直接写戳
+
+---
+
 ## 更新模式（cwd 已被 setup_agent 铺过时）
 
 > 触发：前置步骤检测到 `.claude/.setup_agent_version`。这是 `/setup_agent` 的"拉上游增量到现有项目"流程——**机械半场**（拉 / diff / 分类 / 呈现）由 skill 做，**判断半场**（rules/CLAUDE.md 选择性吸收）全程交用户。完整判据见 `~/.claude/skills/setup_agent/docs/sync-from-upstream-playbook.md`（下称 playbook）。
@@ -337,6 +406,7 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 - 读 cwd 的 `.claude/.setup_agent_version`（下游上次同步的版本）vs clone 的 `VERSION`（上游当前版本，前置步骤已 pull 到最新）。
 - 相等 + 文件无差异 → 报告"已是最新（vX.Y.Z）"后退出。
 - 不等 → 从 clone 的 `CHANGELOG.md` 抓 `(上次, 现在]` 区间所有 **`[product]`** 条目，给用户一份"上游这些更新冲着下游来"的清单（`[repo]` / `[meta]` 条目不影响下游，过滤掉）。
+- **`[product]` 短路**：若 `(上次, 现在]` 区间**没有任何 `[product]` 条目**（这次上游更新全是 `[repo]` / `[meta]`，与下游无关）→ **不跑 U2 全量 diff**，直接报"本次上游更新无 `[product]` 变更，下游无需同步"，把版本戳刷到当前 `VERSION`（U4）后退出。
 
 ### U2：按 playbook §2 表格分类 diff
 逐类对比 clone 的 `templates/` 与 cwd 的 `.claude/`，**先给总览清单，再逐项过**：
@@ -370,7 +440,8 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 - ❌ 自己编填架构红线 / 项目结构 — 这是用户必须自己写的核心内容
 - ❌ 自动 git commit — 留给用户
 - ❌ 跳过 memory junction 这步——它是项目协作体系能跨机复现的关键
-- ❌ 覆盖用户已有的同名 skill — Step 0 自检必须幂等，已存在的 skill 跳过不覆盖（用户可能有定制版）
+- ❌ **静默**覆盖用户已有的同名 skill — Step 0 对已存在 skill 先比对：一致则静默更新，不一致（可能是定制）必须给 diff 问用户，绝不静默盖掉
+- ❌ 在 setup_agent 源头仓库**自己身上**跑 bootstrap / 更新 — 前置 Step 前-2 工厂自检应已硬拒（源头改框架直接编辑 `templates/` / `SKILL.md`）
 
 ---
 
@@ -386,10 +457,10 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
 | `hooks/context_warning.py` | **通用** | UserPromptSubmit hook，跨 75/85/95% 阈值输出 [ctx-budget] 信号给 Claude |
 | `hooks/version_check.py` | **通用** | PreToolUse(Bash) hook，拦 `git commit`：staged 未含版本号文件（VERSION/package.json/Cargo.toml/pyproject.toml）则 exit 2 阻断，强制落实 workflow.md §9「每次 commit 必 bump」。`[skip-version]` / `--amend` / merge 可豁免 |
-| `settings.json` | **通用** | ① `permissions` 块：精选 allowlist（只读工具 + git 看状态 + ls/cat）+ `defaultMode: acceptEdits`（文件编辑默认放行）+ deny 挡不可逆操作（`rm -rf` / `git push --force` / `git reset --hard` / 读 `.env`/密钥）；② 注册 ctx-budget 等 hook。已存在则 merge 不覆盖（详见 Step 1） |
+| `settings.json` | **通用** | ① `permissions` **三档**（`defaultMode: acceptEdits`）：**allow 放宽**（日常 git 读写/shell 读/构建测试静默跑，压弹窗噪音）+ **ask 必弹**（push/rebase/reset/checkout 等慎重项强制确认）+ **deny 拦死**（跨平台：Bash `rm -rf`/git 历史销毁/发布 + **PowerShell `Remove-Item` 等 Windows 删除** + 读写 `.env`/密钥/`~/.ssh`）。优先级 deny>ask>allow；deny 在 bypass 下仍生效。设计目标=弹窗皆信号。注：deny 是减速带（子进程可绕过），防手滑非保险柜；② 注册 ctx-budget 等 hook。已存在则 merge 不覆盖（详见 Step 1） |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |
 | `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
 | `CHANGELOG.md` | 通用骨架 | Keep a Changelog 格式 + 引用 `rules/workflow.md §9` 语义；含 `[0.1.0] - {{TODAY}}` 初始 entry，所有项目都复制 |
 | `.claude/.setup_agent_version` | 生成（非模板文件）| init 末尾写 = 安装时 setup_agent 版本；重跑 `/setup_agent` 据此进**更新模式**（拉上游 `[product]` 增量）而非全新铺设 |
-| `skills/<12 个>/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / summary / sync-docs）。Step 0 自检补齐到 `~/.claude/skills/` 平级。 |
+| `skills/<13 个>/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / summary / sync-docs / harvest）。Step 0 自检补齐到 `~/.claude/skills/` 平级。 |

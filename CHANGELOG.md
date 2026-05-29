@@ -19,6 +19,59 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-05-29
+
+### Changed
+- `[product]` **`templates/settings.json` 权限机制重做为三档：放宽 allow（压噪音）+ 新增 ask（要紧项必弹）+ 加厚跨平台 deny（拦灾难）**。设计目标：**弹窗的每一个都尽量是"需慎重的决策"，而非被训练成无脑确认**
+  - **allow 放宽**（3 → 67 条）：日常安全命令静默放行——git 读/常规写（status/diff/log/add/commit/fetch/pull/stash…）+ shell 读（ls/cat/head/grep/find…）+ 构建测试（npm/cargo/pytest/python/node/go/make/maturin…）+ PowerShell 读 cmdlet。**allow 越全，弹窗噪音越少**（与"弹窗即信号"目标一致；deny 优先级更高，publish/branch -D 等危险子命令仍被 deny 碾过）
+  - **ask 新增**（7 条）：**强制弹窗**的"慎重决策"类——`git push / rebase / reset / checkout / restore / merge / cherry-pick`（远程/历史/可丢改动）。ask 优先级高于 allow，即使将来被"别再问"误加进 allow 也照样弹
+  - **deny 加厚**（11 → 60 条）：安全地板（优先级最高、`bypassPermissions` 下仍生效）。凭证读+写 / git 历史销毁 / POSIX 破坏性 / **Windows·PowerShell 破坏性（补上之前 POSIX-only 的洞）** / 对外发布 / 系统级；含 PowerShell 的 `Remove-Item`（别名自动覆盖 `rm`/`del`/`rmdir`）+ force-push/reset --hard/clean 镜像
+
+### Note
+- **三档 = 静默 / 弹窗 / 拦死**，对应"日常 / 慎重 / 灾难"。模式仍 `acceptEdits`：未在任何清单的陌生命令默认**弹窗**（安全），靠"别再问" + `/fewer-permission-prompts` 把 allow 养肥、噪音随时间递减。**不追求 dontAsk 的"100% 弹窗皆要紧"**，因其代价是陌生命令静默罢工（决策见本会话讨论）
+- **此前 deny 是 POSIX-only（只拦 Bash `rm`），但用户在 Windows** —— `Remove-Item -Recurse -Force` 完全没拦，是真实漏洞，本版用 PowerShell matcher（语法经 claude-code-guide 核实）+ 别名 canonicalization 补齐
+- `git push --force:*` 的空格词边界**不会**误伤 `--force-with-lease`（带安全检查的强推照常放行）
+- **deny 是减速带不是保险柜**：靠命令字样匹配，子进程（`python -c "open('.env')"`）可绕过。它防 agent **手滑误删/误推**，真正恢复底牌仍是 git 历史 + 备份。故意**未** blanket-deny `python`/`node`（会废掉跑脚本/测试）
+- **PowerShell 覆盖侧重**：Claude 主要走 Bash 工具，故 allow/ask 以 Bash 为主；PowerShell 侧覆盖读 cmdlet（allow）+ 破坏性命令（deny）。PS 跑构建若未 allow 会弹窗（B 模式安全默认），点"别再问"自增长
+- `[repo]` dogfood：setup_agent 自己的 `.claude/settings.json` permissions 块已镜像本版三档（allow/ask/deny），与 `templates/settings.json` 一致 —— 总部自己也受同款 Windows 删除防护，不再"卖防盗门自家门敞着"。hooks 段保持 repo 特异性（系统 `python` + 最小 hook 集，dev 仓库无 `.venv`），不在镜像范围
+
+## [0.17.0] - 2026-05-29
+
+### Fixed
+- `[meta]` **Step 0 自检堵住"改进流不到已装下游"的传播缺口**：原"逢重名 skill 一律跳过"虽保护用户定制，但副作用是**升级已有 skill 永远到不了老项目**（本会话给 `summary` 加捕捉反射就会卡在这）
+  - `SKILL.md` Step 0 循环改为三分支：缺失→装 / 与上游**一致**→静默更新（无定制可保护）/ **不一致**→给 diff 问用户（覆盖 or 保留定制），**绝不静默覆盖**
+  - 判断逻辑与「更新模式」§U2 类 A 对齐（一个事实源两处复用）；同步修正「禁止」段"已存在 skill 跳过不覆盖"为"先比对，不静默盖定制"
+
+## [0.16.0] - 2026-05-29
+
+### Added
+- `[product]` **反哺机制落地为两个命令：`/summary`（捕捉）+ `/harvest`（推送）**，捕捉/推送分离
+  - `skills/harvest/SKILL.md` **新建**（第 13 个通用 skill）：推送侧。无参=读下游 `.claude/harvest-inbox.md` 批量清；带描述=立即单条快车道。两入口汇进同一套脱敏 harvest 仪式（判通用性 → §3 七项脱敏 → 写 `templates/` → bump+CHANGELOG → 记日志 → 回收收件箱 → 给 diff 不自动 push）
+  - `skills/summary/SKILL.md` 新增**第 6 步「反哺候选捕捉」**：summary 顺手判"本轮经验是否通用"，通用的追加一行进 `.claude/harvest-inbox.md`（收件箱）。捕捉是 summary 副产品，零新纪律
+  - `SKILL.md` Step 0 自检循环加入 `harvest`（12→13 个 skill），各处计数 + 速查表 + 模板速查表同步
+- `[meta]` `docs/reverse-sync-playbook.md` §1 触发时机重写：标注 v0.16.0 起捕捉/推送分离；触发从"凭感觉≥3条"升级为"收件箱≥3行（可数）"+ `/harvest <描述>` 快车道；强调"两个入口一个仪式"不分叉
+- `[meta]` `docs/design-rationale.md` §7「不做什么」新增"**不监督下游合规**（不做 doctor / fleet）"——记录单项目体检 + 多项目合规盘探讨后**否决**的决定与理由（出版方非监管方 / 合理例外噪音 / 要可信须 PULL 而非 PUSH 自报 / junction 隐患已被开机自检覆盖），防止将来重提。与 §9.3"镜像漂移检查 hook"（工厂自查）区分
+
+### Note
+- **设计要点**：反哺真正的痛点不是"推送"（推送必须人工脱敏，公开 repo 不能自动化），而是"等盘点时已忘了学过啥"。故拆分——**捕捉做到当场零成本（搭车 `/summary`），推送保持人工批量**。复用 sync-from-upstream 的"机械半场/判断半场"拆分哲学
+- **收件箱文件** `.claude/harvest-inbox.md` 用 ASCII 名（可移植）；是 per-下游项目文件，纳入下游 git
+- 下游获得本能力需 sync：Step 0 自检会补 `harvest` skill（但**已存在的 skill 不覆盖**——存量下游的 `summary` 升级需手动覆盖或重装该 skill）
+
+## [0.15.0] - 2026-05-29
+
+### Added
+- `[meta]` **`/setup_agent` 进门「认场子」四分类 + 工厂自检硬闸**：前置步骤从"有戳=更新 / 无戳=init（含一个 A/B 例外）"重做成判别树
+  - `SKILL.md` 前置新增 **Step 前-2 工厂自检**：cwd 同时有 `templates/CLAUDE.md` + 自己的 `SKILL.md` → 硬拒（堵死"在 setup_agent 源头自己身上跑 bootstrap / 更新"的自伤，2026-05-29 实测可复现）
+  - `SKILL.md` 前置 **Step 前-3** 改为四分类表 + setup_agent 衍生指纹判据（鬼打墙 / ctx-budget / `OPTIONAL_BEGIN` 残留 / `meta_rule_design.md` 等，命中 ≥2 即判"像铺过的"）
+  - `SKILL.md` 新增 **「## 收编模式 (adopt)」** 主段：无戳但像衍生的项目走"登记纳管，绝不覆盖"——写戳=当前 VERSION 作同步基线，可选补差。固化此前靠 agent 临场判断的安全路径
+  - `SKILL.md` 更新模式 U1 新增 **`[product]` 短路**：`(上次, 现在]` 区间无 `[product]` 条目 → 不跑全量 diff，直接刷戳退出（CHANGELOG 标签分布实测近半 bump 与下游无关，省空跑）
+  - `SKILL.md` 禁止段补"不在源头仓库自己身上跑"
+- `[meta]` `docs/design-rationale.md` §9.4「工厂自身不带版本戳——靠 `templates/` 存在性识别」：把"源头无戳"从 v0.14.0 潜在自伤正式定性为设计意图，附推论"识别项目类型优先用结构性事实而非约定标记"
+
+### Note
+- 本批次**全是 setup_agent 自身行为（SKILL.md）+ 元文档（design-rationale）改动**，产品层 `templates/` / `skills/` 未动 → 下游无新增量（无 `[product]` 条目）。下游下次跑 `/setup_agent`（pull 到本版后）自动获得新的认场子行为，无需 per-project sync
+- frontmatter `version:` 字段顺手从滞后的 `0.9.1` 对齐到 `0.15.0`（自 v0.9.1 起漏更新的历史遗留）
+
 ## [0.14.0] - 2026-05-29
 
 ### Added
