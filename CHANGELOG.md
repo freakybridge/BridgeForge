@@ -19,6 +19,11 @@
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-05-31
+
+### Added
+- `[product]` **`SKILL.md` Step 0 新增"全局 CLAUDE.md 自检"**：`/setup_agent` 执行时自动检查并补全用户 `~/.claude/CLAUDE.md` 里的"Glob 查文件"规则（幂等，已有则跳过）。补完后，该用户所有项目、所有新对话都不会因为 agent 反射性用 shell 搜文件而触发权限弹窗。`~/.claude/CLAUDE.md` 不存在的新用户跳过此项（只靠项目级 `CLAUDE.md §2.5` 兜底）
+
 ## [0.20.0] - 2026-05-31
 
 ### Added

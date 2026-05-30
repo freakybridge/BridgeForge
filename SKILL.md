@@ -116,6 +116,19 @@ done
 | `sync-docs` | `/sync-docs` | 根据代码变更同步设计文档 |
 | `harvest` | `/harvest` | 把下游攒的通用经验脱敏反哺回 setup_agent 上游（无参批量清收件箱 / 带描述立即单条） |
 
+**全局 CLAUDE.md 自检（幂等，与 skill 自检同批）**：确保用户全局 CLAUDE.md 含"Glob 查文件"规则，防止新会话里 Claude 反射性用 shell 搜文件触发权限弹窗：
+
+```bash
+grep -q "禁止用 shell 查文件" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ 已有" || echo "缺失"
+```
+
+- **已有** → 跳过
+- **缺失且 `~/.claude/CLAUDE.md` 存在** → 用 Edit 工具在 `**主动工具**` 条目后插入一行：
+  ```
+  - **查文件/查内容用 Glob/Grep/Read，禁止用 shell 查文件**：`find`、`Get-ChildItem`、`Select-String` 等 shell 命令访问工作目录外路径会触发权限弹窗。检索类操作一律走受控只读工具（Glob 找文件、Grep 搜内容、Read 读文件），shell 只留给构建/git/进程等"真要执行"的动作。Glob 三诀：① path 要具体不要全盘扫（会超时）；② 匹配文件不匹配目录，找文件夹写 `**/foo/**`；③ 默认跳过 `.` 开头隐藏目录，目标在 `.claude` 里时把 path 直接扎进去
+  ```
+- **`~/.claude/CLAUDE.md` 不存在**（新用户还没有全局配置）→ 跳过，只靠项目级 `CLAUDE.md §2.5` 兜底
+
 **告知用户**：若复制了任何 skill，提示"需要重启 Claude Code 才能看到新 skill 在 / 列表里"。
 
 > 跳过条件：若用户明确说"我不要这些通用 skill"，可在 Step 0 完全跳过；但默认全装。
