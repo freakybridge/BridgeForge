@@ -457,6 +457,7 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 | `rules/portability.md` | **通用** | 换机可移植性 / pip 陷阱 / hooks 路径约束 |
 | `hooks/context_warning.py` | **通用** | UserPromptSubmit hook，跨 75/85/95% 阈值输出 [ctx-budget] 信号给 Claude |
 | `hooks/version_check.py` | **通用** | PreToolUse(Bash) hook，拦 `git commit`：staged 未含版本号文件（VERSION/package.json/Cargo.toml/pyproject.toml）则 exit 2 阻断，强制落实 workflow.md §9「每次 commit 必 bump」。`[skip-version]` / `--amend` / merge 可豁免 |
+| `hooks/allow_memory_write.py` | **通用** | PreToolUse(Write/Edit) hook，放行 memory `.md` 写入免弹窗。`.claude/` 是受保护目录，写入无视 acceptEdits/allow 规则强制弹窗；memory 在其下被连带保护。本 hook 在弹窗前返回 `permissionDecision:allow`，只放行 memory 的 `.md`，settings/hooks 本体不碰。**改完须开新会话生效**（hook 不热重载） |
 | `settings.json` | **通用** | ① `permissions` **三档**（`defaultMode: acceptEdits`）：**allow 放宽**（日常 git 读写/shell 读/构建测试静默跑，压弹窗噪音）+ **ask 必弹**（push/rebase/reset/checkout 等慎重项强制确认）+ **deny 拦死**（跨平台：Bash `rm -rf`/git 历史销毁/发布 + **PowerShell `Remove-Item` 等 Windows 删除** + 读写 `.env`/密钥/`~/.ssh`）。优先级 deny>ask>allow；deny 在 bypass 下仍生效。设计目标=弹窗皆信号。注：deny 是减速带（子进程可绕过），防手滑非保险柜；② 注册 ctx-budget 等 hook。已存在则 merge 不覆盖（详见 Step 1） |
 | `memory/MEMORY.md` | 空索引 | 含 4 类 memory 命名约定注释 |
 | `doc/README.md` | 索引模板 | 0_architecture (含 acceptance + TODO-INDEX) / 1_plan (含 sprints) / 2_pending / 3_design / 4_archive / 9_reference 分层说明 |

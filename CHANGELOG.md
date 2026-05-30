@@ -19,6 +19,24 @@
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-05-30
+
+### Added
+- `[product]` **新 hook `templates/hooks/target_cleanup.py`（SessionStart）：Rust 项目 target/incremental 缓存体积触发式清理**。源自下游实测——Rust workspace 的 `incremental/` 缓存会无界膨胀（实测可达数十万小文件 / 200GB+），拖垮磁盘 I/O 致整机发黏（CPU/内存却正常、重启才好）
+  - **为什么不用 cargo-sweep**：`cargo sweep --time N` 看文件**访问时间(atime)**，但 Windows 上 Defender 实时扫描 / 每次 build / 目录遍历都刷新 atime，陈年产物长期"看起来热"而清不动（下游实测 `--time 3` 对 200GB+ 缓存只肯清几百 KiB）。atime 在开杀软的 Windows 上不是可靠冷热信号
+  - **机制**：改用可信信号 incremental/ **体积**。超 `THRESHOLD_GB`(30) 时先把 `incremental` 瞬间改名为 `.trash`(cargo 立刻能建新的)，再后台慢删；量体积 + 删除全在 detached worker，不阻塞 session 启动。incremental 是纯缓存、100% 可再生，删整个目录绝对安全（cargo 下次 build 自动重建，deps 保留）
+  - **自门控 = 条件加载**：`find_workspace()` 无 Cargo.toml 即静默 no-op，故 `templates/settings.json` 无条件挂 SessionStart 对非 Rust 项目零影响，且项目后来新增 Rust crate 会自动激活——比"setup 时按主语言裁剪"更稳，无需改主 SKILL.md
+  - `templates/settings.json` SessionStart 注册该 hook（带 `comment` 说明 Rust-only + 自门控）
+  - 自测入口 `--dry-run`（前台量体积 + 报告会删什么，不删/不改名/不写时间戳），便于 harvest 后在新项目验证
+  - 扫描用 `target.glob("**/incremental")` 递归挖到底：既覆盖普通编译 `target/{debug,release}/incremental`，也覆盖交叉编译 `target/<triple>/debug/incremental`（多埋一层，`*/incremental` 单层 glob 会漏）
+- `[product]` **新 hook `templates/hooks/allow_memory_write.py`（PreToolUse Write/Edit）：放行 memory `.md` 写入免弹窗**。根因——`.claude/` 是 Claude Code 受保护目录（连同 `.git`/`.vscode`/`.idea`/`.husky`/`.cargo`），写入无视 `acceptEdits` 和 `permissions.allow` 规则强制弹窗（求值序 deny→ask→allow，受保护优先于 allow）；本范式 memory 在 `.claude/memory/` 下被连带保护，导致每次保存记忆都弹窗
+  - **试过的死路（实测全失败）**：① `permissions.allow` 加 `Write(...)`/`Edit(...)` 规则，三种路径格式（`C:\\` 反斜杠 / `//c/` POSIX / 项目相对）全被保护层压过；② `additionalDirectories` 列 memory 目录——只解除"能访问"不免确认；③ 把 memory 搬出 `.claude/`——能修但牺牲"记忆与配置内聚"，被否决
+  - **治本**：PreToolUse hook 抢在权限弹窗之前返回 `permissionDecision:allow`（位置比那道问话更靠前，实测能压过受保护目录）。只放行 memory 的 `.md`，settings/hooks 本体不碰，安全边界不破
+  - `templates/settings.json` PreToolUse 注册该 hook（matcher `Write|Edit|MultiEdit|NotebookEdit`）
+  - **改完须开新会话生效**（hook 不热重载）。详见下游 memory `feedback_claude_dir_protected_memory_write_hook`
+- `[repo]` **dogfood：上面两个产品层 hook 当场镜像进自身 `.claude/`**。`allow_memory_write.py` + `target_cleanup.py` 复制进 `.claude/hooks/`，`.claude/settings.json` 注册（命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。`allow_memory_write` 对 setup_agent 自己的 `.claude/memory/` 实有收益；`target_cleanup` 非 Rust 永远自门控 no-op，挂着 = 持续验证「无 Cargo.toml 静默跳过」这条产品承诺。已实测：JSON 合法、target dry-run 正确跳过、memory `.md` 放行 / 非 memory 不干预
+- `[repo][meta]` **「传播三问」升级为「传播四问」**：新增第 4 问——产品层 hook/settings 改动必须当场镜像进自身 `.claude/` 吃狗粮（红线）。本次正是漏了这一环才补立。同步更新 `CLAUDE.md §1`/§2/§4、`docs/design-rationale.md §9.1`/§9.3 的措辞
+
 ## [0.18.1] - 2026-05-29
 
 ### Added

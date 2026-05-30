@@ -153,6 +153,16 @@
             "comment": "git commit 前强制版本号 bump 检查（workflow.md §9）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己也受此约束。"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/allow_memory_write.py",
+            "comment": "放行 memory .md 写入免弹窗（.claude/ 受保护目录连带挡住 memory）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己存记忆也免弹窗。改完须开新会话生效。"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -162,6 +172,17 @@
             "type": "command",
             "command": "python .claude/hooks/context_warning.py",
             "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值输出 [ctx-budget] 信号（CLAUDE.md §10）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己也享同款预警。"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/target_cleanup.py",
+            "comment": "仅 Rust 项目生效：incremental/ 缓存超 30GB 后台清理。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 非 Rust 项目，此处永远自门控 no-op —— 挂着正是为了验证「无 Cargo.toml 静默跳过」这条产品承诺。"
           }
         ]
       }

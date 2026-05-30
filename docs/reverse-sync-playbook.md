@@ -152,6 +152,18 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 - 版本号语义直接引用 `templates/rules/workflow.md §9`，**不重复**定义规则
 - §5 反哺日志这种情况不记（日志只记真正从上游脱敏拉回的批次）
 
+#### 批次（v0.19.0 / 2026-05-30）— target_cleanup.py hook 反哺
+
+源：StratusAgent → `templates/hooks/target_cleanup.py` + `templates/settings.json`
+
+实测应用的 checklist 项：
+
+- **#1 项目名**：`find_workspace()` 原硬编码项目特定子目录（workspace 在子目录的布局）→ 通用化为"根 `Cargo.toml` 优先，再扫一层 `*/Cargo.toml`"。下游可保留特定子目录名，上游必须通用查找
+- **#5 具体数值**：docstring 原含下游事故实测数（"`--time 3` 只清 302KiB / 288GB"）→ 删，hook 内改 normative 表述（"陈年产物长期看起来热而清不动"）；具体动机数值只留在 CHANGELOG 作背景，不进可复用代码
+- **#6 绝对路径**：原版已用 `Path(__file__).resolve().parents[2]` 推断项目根，无硬编码 ✓
+- **#7 业务术语豁免**：`cargo` / `incremental` / `Defender` 是公开技术名，不脱敏
+- **设计层面**：条件加载用 hook 自门控（无 Cargo.toml → no-op）实现，而非 setup 时按主语言裁剪 settings.json —— 既免改受保护的主 `SKILL.md`，又比静态裁剪更稳（项目后增 Rust crate 自动激活）
+
 ### 3.2 实战记录的元规则
 
 - 每次反哺后**当场**写实战记录到 §3.1（不要攒），否则 7 天后细节就忘了
@@ -188,6 +200,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-24 | StratusAgent | templates/hooks/ (5 个 hook) | 反哺 memory_lint / rule_index_check / rule_size_check / show_state / find_doc_reminder（脱敏 stratus 路径 + 删 session-tag 残留 + 通用版本检测） | bridgexue |
 | 2026-05-24 | StratusAgent | templates/settings.json | 加 PreToolUse / PostToolUse / SessionStart hook 注册段（对应新反哺的 5 个 hook） | bridgexue |
 | 2026-05-24 | causis_risk_suite | templates/rules/modules.md | 加 §3.1 协调中枢内部分层（纯常量 / 幂等引导 / 横切服务）+ §3.2 提炼共享常量三件套范式（脱敏 `risk_daily` / `causis_api` / `BusyTracker` 等业务专属） | bridgexue |
+| 2026-05-30 | StratusAgent | templates/hooks/target_cleanup.py + settings.json | 新 hook：Rust target/incremental 缓存体积触发式清理（脱敏：项目特定子目录硬编码 → 通用 Cargo.toml 查找 + 删事故实测数值；自门控故无条件挂 SessionStart，不改主 SKILL.md） | bridgexue |
 
 ---
 

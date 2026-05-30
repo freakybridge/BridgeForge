@@ -5,7 +5,7 @@
 
 ---
 
-## §1 工厂红线：每个改动落地前，过一遍「传播三问」（always-on）
+## §1 工厂红线：每个改动落地前，过一遍「传播四问」（always-on）
 
 任何修改 / 新功能落地**之前**，必须显式回答这三句话（写不出答案就别动手）：
 
@@ -19,6 +19,11 @@
 3. **传播出去要不要 bump 版本 + 记 CHANGELOG？**
    - 改动产品层 → 几乎一定要 bump（下游靠版本号判断该不该 sync）。
    - 记 CHANGELOG 时**按 §3 打层标签**。
+4. **改的是 `templates/hooks/` 或 `templates/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
+   - **凡确认要进产品层的 hook / settings 改动，必须当场镜像进自身 `.claude/`** —— 不能只发给下游、自己不装（§2 dogfood 约定的强制版）。
+   - 镜像时按 dev 仓库约定改 hook 命令：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。
+   - 对 setup_agent 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
+   - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 注明「不 dogfood + 原因」。
 
 > 这条之所以写在 CLAUDE.md 而不是 rules/：它在**任何任务里**都要遵守，不能等"编辑某个文件时"才加载（理由同 design-rationale §5）。
 
@@ -34,7 +39,7 @@
 | `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/VERSION` |
 
-**自产自用（dogfood）约定**：setup_agent 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**。改了一边就该同步另一边（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠本条 + 三问自觉）。
+**自产自用（dogfood）约定**：setup_agent 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边。这条已被提升为 §1 第 4 问的红线（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠 §1 第 4 问 + 本条自觉）。
 
 ---
 
@@ -58,4 +63,4 @@
 - **下游 → 上游**（把老房子攒的通用经验脱敏反哺回手册）：[docs/reverse-sync-playbook.md](docs/reverse-sync-playbook.md)
 - **整体设计 / 双重身份论述**：[docs/design-rationale.md](docs/design-rationale.md) §9
 
-两条 playbook 都**靠人脑判断、手动触发**——本文件 §1 的三问是它们的"前门闸"：保证每个改动进门时就被分层，而不是等季度盘点才补救。
+两条 playbook 都**靠人脑判断、手动触发**——本文件 §1 的四问是它们的"前门闸"：保证每个改动进门时就被分层（且产品层 hook 当场吃狗粮），而不是等季度盘点才补救。

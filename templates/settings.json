@@ -163,6 +163,16 @@
             "comment": "git commit 前强制版本号 bump 检查（workflow.md §9 红线）：staged 未含版本号文件则 exit 2 阻断。非 commit 命令立即放行。"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/allow_memory_write.py",
+            "comment": "放行 memory .md 写入免弹窗：.claude/ 是受保护目录，写入无视 acceptEdits/allow 规则强制弹窗，memory 在其下被连带保护。本 hook 弹窗前返回 permissionDecision:allow，只放行 memory 的 .md，settings/hooks 本体不碰。改完须开新会话生效。"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -232,6 +242,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/show_state.py session-start",
             "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/target_cleanup.py",
+            "comment": "仅 Rust 项目生效：incremental/ 缓存超 30GB 时后台清理（atime 在 Windows 上不可靠，cargo-sweep 清不动热缓存）。自门控：无 Cargo.toml 静默 no-op，故对非 Rust 项目零影响，可无条件保留。"
           }
         ]
       }
