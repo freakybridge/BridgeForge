@@ -19,6 +19,15 @@
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-05-31
+
+### Added
+- `[product]` **`templates/CLAUDE.md` 新增 §2.5「工具选择：检索用 Glob/Grep，执行才用 shell」**。源自本仓实测——Windows 下 agent 反射性用 PowerShell `Get-ChildItem` 查文件，一旦访问工作目录外路径（如 C 盘根）就频繁触发权限弹窗，噪音大且无谓
+  - **结论**：找文件 / 查内容优先 `Glob` / `Grep` / `Read`（受控只读、零弹窗、跨平台、不可夹带删改），同时满足用户三诉求"能用 / 清净 / 底线安全"；shell（PowerShell / bash）保留给构建 / git / 进程 / 系统配置等"真要执行"的动作 —— 是各司其职，不是淘汰 shell
+  - **为什么进 `CLAUDE.md` 而非 `workflow.md`**：查文件是**每个任务**都会发生的反射，必须 always-on。`workflow.md` 是 `doc/` / `rules/` path-gated，只在改文档时加载，会漏掉最需要它的编码场景（同 §1「跨任务通用规矩进 CLAUDE.md」的逻辑）
+  - 附「Glob 三诀」防空手而归：`path` 给具体防超时 / 匹配文件非目录（找文件夹写 `**/foo/**`）/ 默认跳过 `.` 开头隐藏目录（目标在 `.claude` 内时把 path 扎进去）
+  - **不触发 dogfood 镜像红线**（§1 第4问只管 hook / settings，这是 rule 内容）；setup_agent 自身经验已存本仓 memory `feedback_glob_search_gotchas`，自产自用已覆盖
+
 ## [0.19.0] - 2026-05-30
 
 ### Added
