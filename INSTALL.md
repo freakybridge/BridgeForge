@@ -22,6 +22,29 @@ git clone https://github.com/<你的用户名>/setup_agent.git ~/.claude/skills/
 git clone https://github.com/<你的用户名>/setup_agent.git ~/.claude/skills/setup_agent
 ```
 
+### 开发者模式：junction 指向开发仓库（要改 setup_agent 本体时用这个）
+
+上面的直接 clone 适合**只用不改**的人——它在 `~/.claude/skills/` 下放一份真实副本。
+
+但如果你**既要用、又要维护 setup_agent 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），别用直接 clone，否则会出现"开发仓库一份 + skill 目录一份"两处副本、改了一边忘同步另一边。正确姿势是把开发仓库放在你自己的工作区，再让 skill 发现目录 **junction 指过去**，物理只留一份：
+
+```powershell
+# Windows：开发仓库放哪自己定，例 D:\Quant\setup_agent
+git clone https://github.com/<你的用户名>/setup_agent.git D:\Quant\setup_agent
+# skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\setup_agent" -Target "D:\Quant\setup_agent"
+```
+
+```bash
+# macOS / Linux：用 symlink
+git clone https://github.com/<你的用户名>/setup_agent.git ~/dev/setup_agent
+ln -s ~/dev/setup_agent ~/.claude/skills/setup_agent
+```
+
+**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.claude/skills/setup_agent` 只是 Claude Code 发现 skill 的透明入口，会实时看到改动，无需任何同步。以后所有操作（含 git）都在开发仓库里做，别去 `~/.claude/skills/` 那个路径操作。
+
+> **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.claude\skills\setup_agent" -Force` 看到 `LinkType: Junction`、`Target` 指向开发仓库，就是同一份。注意 **Glob / 文件列举会穿透 junction**，把两个路径列成一模一样的内容（连 `.git/objects` 哈希都对应）——那不是两份副本，是同一份。
+
 ## 验证安装
 
 打开任意项目，启动 Claude Code，输入：
@@ -42,6 +65,8 @@ git pull
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
 如果想把更新同步到已有项目，手动 diff `~/.claude/skills/setup_agent/templates/` 与 `<已有项目>/.claude/rules/` 对比。
+
+> 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，`~/.claude/skills/setup_agent` 会实时反映。
 
 ## 卸载
 

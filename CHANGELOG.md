@@ -19,7 +19,13 @@
 
 ## [Unreleased]
 
-## [0.21.0] - 2026-05-31
+## [0.21.1] - 2026-05-31
+
+### Added
+- `[meta]` **`INSTALL.md` 新增「开发者模式：junction 指向开发仓库（单一真相源）」小节**，并给「升级」节补注记。澄清一个长期文档缺口：INSTALL 主安装流程教的是直接 `git clone` 到 `~/.claude/skills/setup_agent`（在 C 盘留**真实副本**），但维护者本人（既用又改 setup_agent、做下游 harvest）实际跑的是 **junction 模式**——开发仓库放工作区（如 `D:\Quant\setup_agent`），`~/.claude/skills/setup_agent` 只是 junction 透明入口，物理一份、改即生效
+  - 此前该模式只在 `README.md` 自举提示里顺带提过一句，没有正式集中说明；文档系统大量讲的 junction 其实是 **memory junction**（另一回事）
+  - 附「验真 & 防骗」：`Get-Item ... -Force` 看 `LinkType: Junction` / `Target`；**Glob 会穿透 junction** 把同一份列成两份一模一样的内容（连 `.git/objects` 哈希都对应），别误判成两个独立副本。经验已存本仓 memory `project_skill_junction_single_source`
+  - **不触发 dogfood 镜像红线**（§1 第4问只管 hook / settings，这是元文档）；不下沉、下游无关
 
 ### Added
 - `[product]` **`SKILL.md` Step 0 新增"全局 CLAUDE.md 自检"**：`/setup_agent` 执行时自动检查并补全用户 `~/.claude/CLAUDE.md` 里的"Glob 查文件"规则（幂等，已有则跳过）。补完后，该用户所有项目、所有新对话都不会因为 agent 反射性用 shell 搜文件而触发权限弹窗。`~/.claude/CLAUDE.md` 不存在的新用户跳过此项（只靠项目级 `CLAUDE.md §2.5` 兜底）
