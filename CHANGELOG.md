@@ -19,6 +19,11 @@
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-06-03
+
+### Fixed
+- `[product]` **`templates/scripts/memory_search.py`** — `main()` 顶部加 stdout UTF-8 reconfigure（`sys.stdout.reconfigure(encoding="utf-8", errors="replace")`），防止 Windows 中文环境下 memory 文件名/内容输出乱码或报 UnicodeEncodeError；来源 CausisRiskSuite harvest
+
 ## [0.23.0] - 2026-06-03
 
 ### Added

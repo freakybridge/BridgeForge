@@ -14,6 +14,9 @@ from pathlib import Path
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     if len(sys.argv) < 2:
         print("用法: memory_search.py <关键词>")
         sys.exit(1)

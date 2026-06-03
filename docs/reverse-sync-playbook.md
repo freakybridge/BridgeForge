@@ -203,6 +203,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-30 | StratusAgent | templates/hooks/target_cleanup.py + settings.json | 新 hook：Rust target/incremental 缓存体积触发式清理（脱敏：项目特定子目录硬编码 → 通用 Cargo.toml 查找 + 删事故实测数值；自门控故无条件挂 SessionStart，不改主 SKILL.md） | bridgexue |
 | 2026-06-03 | StratusAgent | templates/hooks/memory_guard.py + skills/prune-memory/ + settings.json | 新 hook：MEMORY.md 写入行数硬阻断（PreToolUse，>185 行 exit 2）；新 skill：prune-memory 引导式清理流程（删留标准 + 用户确认 + archive 移档）；settings 注册同步 | bridgexue |
 | 2026-06-03 | StratusAgent | docs/memory-scoring-design.md + hooks/memory_access_tracker.py + scripts/memory_rebuild_index.py + scripts/memory_search.py + memory/_stats.json + skills/find-memory/ + settings.json + session_snapshot.py | Memory 热度评分系统（艾宾浩斯衰减）完整闭环：tracker→_stats.json→Stop时rebuild→MEMORY.md热区+MEMORY_COLD.md冷区；本次核实系统完整性并发版 v0.23.0 | bridgexue |
+| 2026-06-03 | CausisRiskSuite | templates/scripts/memory_search.py | main() 顶部加 stdout UTF-8 reconfigure，防 Windows 中文环境输出乱码 | bridgexue |
 
 ---
 
