@@ -193,6 +193,28 @@
         ]
       }
     ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/session_snapshot.py post-compact",
+            "comment": "compact 自动存档 — 防止压缩后细节丢失。dev 仓库无 .venv，用系统 python。"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/session_snapshot.py stop",
+            "comment": "每轮停止时自动存档 + 重建 MEMORY.md 热区/冷区（5min 节流）。dev 仓库无 .venv，用系统 python。"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
