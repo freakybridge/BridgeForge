@@ -5,7 +5,7 @@
   Write 工具  → 检查新 content 的行数，超限则阻断
   Edit 工具   → 检查写入后预计行数（当前 + 增量 > 0 时阻断）
 
-允许 prune-memory skill 写入行数更少的 MEMORY.md（Write 结果 < 上限）。
+MEMORY.md 由 memory_rebuild_index.py 自动管理，Claude 不应直接大量写入。
 """
 import json
 import os
@@ -39,7 +39,7 @@ def main() -> int:
         if new_lines > HARD_LIMIT:
             print(
                 f"⛔ [memory_guard] 阻断写入：新内容 {new_lines} 行，超过上限 {HARD_LIMIT} 行。\n"
-                f"   请先 /prune-memory 清理旧条目后再添加新条目。",
+                f"   MEMORY.md 由 Stop hook 自动重建，请勿手动大量写入。",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -67,7 +67,7 @@ def main() -> int:
                 print(
                     f"⛔ [memory_guard] 阻断写入：当前 {current_lines} 行 + 新增 {delta} 行 = {predicted} 行，"
                     f"超过上限 {HARD_LIMIT} 行。\n"
-                    f"   请先 /prune-memory 清理旧条目后再添加新条目。",
+                    f"   MEMORY.md 由 Stop hook 自动重建，请勿手动大量写入。",
                     file=sys.stderr,
                 )
                 sys.exit(2)

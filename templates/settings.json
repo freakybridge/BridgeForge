@@ -182,6 +182,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/memory_access_tracker.py",
+            "comment": "memory 访问追踪：Claude 读 .claude/memory/*.md 时，把今天日期写入 _stats.json（唯一日期去重）。Stop hook 重建 MEMORY.md 热区时用此数据计算艾宾浩斯衰减分。"
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {

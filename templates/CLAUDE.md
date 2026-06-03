@@ -108,6 +108,12 @@ ln -s '<项目内绝对路径>' '<系统路径>'
 
 后续 memory 读写用系统路径（junction 透明转发）。路径约束详见 `rules/portability.md` §2。
 
+**Memory 检索原则（热区优先）**：需要召回某类知识时，按顺序：
+
+1. **先查热区**：MEMORY.md 自动加载，直接检查是否有相关条目
+2. **热区无匹配 → 搜冷区**：调用 `/find-memory <关键词>` 搜索 `.claude/memory/` 全量文件
+3. **禁止**跳过热区直接遍历 memory/ 目录——热区覆盖则冷区搜索是浪费；直接 grep 目录则 token 消耗远高于 `/find-memory`
+
 ---
 
 ## 6. 换机首次启动 Checklist

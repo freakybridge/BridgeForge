@@ -19,6 +19,19 @@
 
 ## [Unreleased]
 
+### Added
+- `[meta]` **`docs/memory-scoring-design.md`（新文档）** — Memory 热度评分系统完整设计规范（艾宾浩斯衰减公式 + 五组件架构 + 决策记录），来源 2026-06-03 双轮 debate
+- `[product]` **`templates/hooks/memory_access_tracker.py`（新 hook）** — PostToolUse/Read：检测 memory 文件访问，快速预过滤后写入 `_stats.json` 唯一日期，防突发读取污染
+- `[product]` **`templates/hooks/session_snapshot.py`** — Stop 末尾追加调用 `memory_rebuild_index.py`，闭合触发链路
+- `[product]` **`templates/scripts/memory_rebuild_index.py`（新脚本）** — 按艾宾浩斯衰减分重建 MEMORY.md 热区 + MEMORY_COLD.md 冷区；Stop hook 末尾调用
+- `[product]` **`templates/scripts/memory_search.py`（新脚本）** — 关键词 grep 搜索 memory/ 所有文件，由 /find-memory skill 调用
+- `[product]` **`templates/memory/_stats.json`（新模板）** — 访问记录初始模板，含 config（hot_n/pinned）+ files{}
+- `[product]` **`skills/find-memory/SKILL.md`（新 skill）** — 按需 memory 搜索，Claude 找不到热区记录时调用
+- `[product]` **`templates/settings.json`** — PostToolUse/Read 追加 `memory_access_tracker.py` 注册
+
+### TODO
+- 端到端测试：新项目 setup → 写 memory → Stop → 验证 MEMORY.md 重建正确
+
 ## [0.22.0] - 2026-06-03
 
 ### Added

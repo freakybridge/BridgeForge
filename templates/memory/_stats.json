@@ -1,0 +1,8 @@
+{
+  "config": {
+    "hot_n": 40,
+    "pinned": [],
+    "_note": "pinned 最多5条，永不参与热度衰减。用完整文件名，如 user_overview.md"
+  },
+  "files": {}
+}
