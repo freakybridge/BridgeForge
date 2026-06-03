@@ -165,12 +165,17 @@
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/allow_memory_write.py",
             "comment": "放行 memory .md 写入免弹窗：.claude/ 是受保护目录，写入无视 acceptEdits/allow 规则强制弹窗，memory 在其下被连带保护。本 hook 弹窗前返回 permissionDecision:allow，只放行 memory 的 .md，settings/hooks 本体不碰。改完须开新会话生效。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/memory_guard.py",
+            "comment": "硬阻断 MEMORY.md 写入超过 185 行。Write 检查新 content 行数；Edit 检查增量后预计行数。超限 exit 2 阻断，提示 /prune-memory。"
           }
         ]
       }

@@ -19,6 +19,13 @@
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-06-03
+
+### Added
+- `[product]` **`templates/hooks/memory_guard.py`（新 hook）** — PreToolUse 硬阻断：Write/Edit 到 MEMORY.md 超 185 行时 exit 2，提示 `/prune-memory`。补全 `memory_lint.py`（PostToolUse 非阻塞警告）缺失的"阻止写入"环节
+- `[product]` **`skills/prune-memory/`（新 skill）** — 引导 Claude 按删留标准逐章节分析 MEMORY.md 条目，展示 🔴/🟡/🟢 候选清单，用户确认后执行删除并移档至 `memory/archive/`
+- `[product]` **`templates/settings.json`** — 在 PreToolUse `Write|Edit` hook 数组追加 `memory_guard.py` 注册
+
 ## [0.21.1] - 2026-05-31
 
 ### Added

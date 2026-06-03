@@ -155,12 +155,17 @@
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
             "command": "python .claude/hooks/allow_memory_write.py",
             "comment": "放行 memory .md 写入免弹窗（.claude/ 受保护目录连带挡住 memory）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己存记忆也免弹窗。改完须开新会话生效。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/memory_guard.py",
+            "comment": "硬阻断 MEMORY.md 写入超过 185 行。Write 检查新 content 行数；Edit 检查增量后预计行数。超限 exit 2 阻断，提示 /prune-memory。dev 仓库无 .venv，用系统 python。"
           }
         ]
       }

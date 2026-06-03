@@ -201,6 +201,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-24 | StratusAgent | templates/settings.json | 加 PreToolUse / PostToolUse / SessionStart hook 注册段（对应新反哺的 5 个 hook） | bridgexue |
 | 2026-05-24 | causis_risk_suite | templates/rules/modules.md | 加 §3.1 协调中枢内部分层（纯常量 / 幂等引导 / 横切服务）+ §3.2 提炼共享常量三件套范式（脱敏 `risk_daily` / `causis_api` / `BusyTracker` 等业务专属） | bridgexue |
 | 2026-05-30 | StratusAgent | templates/hooks/target_cleanup.py + settings.json | 新 hook：Rust target/incremental 缓存体积触发式清理（脱敏：项目特定子目录硬编码 → 通用 Cargo.toml 查找 + 删事故实测数值；自门控故无条件挂 SessionStart，不改主 SKILL.md） | bridgexue |
+| 2026-06-03 | StratusAgent | templates/hooks/memory_guard.py + skills/prune-memory/ + settings.json | 新 hook：MEMORY.md 写入行数硬阻断（PreToolUse，>185 行 exit 2）；新 skill：prune-memory 引导式清理流程（删留标准 + 用户确认 + archive 移档）；settings 注册同步 | bridgexue |
 
 ---
 
