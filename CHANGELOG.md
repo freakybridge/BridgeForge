@@ -19,6 +19,11 @@
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-06-03
+
+### Fixed
+- `[product][repo]` **`context_warning.py`** — `WINDOW` 默认值从 1M 改为 200k（标准版 Opus 4.8 / Sonnet 4.6 / Haiku 4.5 默认 200k context，1M 专用版才需改为 1_000_000）；同步更新注释中的模型版本说明；dogfood 同步 `.claude/hooks/` 与 `templates/hooks/`
+
 ## [0.23.1] - 2026-06-03
 
 ### Fixed

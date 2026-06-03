@@ -18,8 +18,8 @@ slash command (以 / 开头) 跳过预警 — 否则 /snapshot 自身也被拦, 
 
 【模板使用提示】
 - WINDOW 常量按实际使用模型调整:
-  * Opus 4.7 / Sonnet 4.6 / Haiku 4.5 1M context  → 1_000_000
-  * Sonnet 4.6 / Haiku 4.5 默认 200k context     →   200_000
+  * 标准版 Opus 4.8 / Sonnet 4.6 / Haiku 4.5      → 200_000  (默认)
+  * 1M 专用版 (model-id 含 [1m] 后缀)              → 1_000_000
 - 三个阶梯阈值 75/85/95 是经验值, 跑 5-10 次跨阈值场景后可校准
 """
 from __future__ import annotations
@@ -28,8 +28,8 @@ import json
 import sys
 from pathlib import Path
 
-# 上下文窗口大小 (tokens). 按使用模型调整, 默认 1M Opus 4.7
-WINDOW = 1_000_000
+# 上下文窗口大小 (tokens). 标准模型默认 200k; 1M 版需手动改为 1_000_000
+WINDOW = 200_000
 
 # 三个阶梯阈值 (百分比)
 THR_MEDIUM = 75
