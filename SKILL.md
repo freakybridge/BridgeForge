@@ -101,6 +101,23 @@ done
 
 > 这样既保住了原来"不偷偷盖掉定制"的好心，又补上了"改进流不到老项目"的缺口。判断逻辑与「更新模式」§U2 类 A 完全一致——一个事实源，两处复用。
 
+**退役清理（正向同步只增不减的补丁，「删除不传播」洞）**：上面那个 loop 只**增/改**，上游**下架**的 skill 不会被它清掉——已装下游会抱着"僵尸 skill"。这里补一步：读上游退役墓碑 `RETIRED.md`，把名单里**仍赖在用户级架子上**的列出来问用户删。
+
+```bash
+RETIRED="$SKILL_DIR/RETIRED.md"   # repo 根墓碑名单（$SKILL_DIR 见上方变量）
+if [ -f "$RETIRED" ]; then
+  # 每行 `- <name> | ...`，只取第一列 skill 名
+  grep '^- ' "$RETIRED" | sed -E 's/^- *([^ |]+).*/\1/' | while read -r s; do
+    [ -d "$SKILLS_DST/$s" ] && echo "⚠ 已退役但仍在架上: $s（上游已下架，见 RETIRED.md）→ 建议删 $SKILLS_DST/$s"
+  done
+fi
+```
+
+- **绝不静默删**（同 Step 0.5 范式）：把 `RETIRED.md` 里该行的"原因"念给用户，问"删（回收下架 skill）/ 留"。用户改过它当定制 → 尊重保留。
+- 退役的 **hook**（项目级，如 `memory_guard.py` 活在 `<project>/.claude/hooks/` + 项目 settings 注册里）**不在本步范围**——本步只清用户级 skill。退役 hook 仍按 CHANGELOG 提示手动删（见 `docs/skill-distribution-gaps.md` 支柱 B 待办）。
+
+> **（可选）GitHub 新鲜度**：以上比对的是**本机上游 clone 的工作区**。要对 GitHub 最新版，先 `git -C "$SKILL_DIR" pull` 再跑本步——但若 `$SKILL_DIR` 是**开发机 junction**（指向你的开发仓库），`pull` 会动到未提交工作区，**此时跳过 pull**。
+
 **通用 skill 速查（清单以 `skills/` 目录为准）**：
 
 | Skill | 触发 | 用途 |
@@ -338,6 +355,7 @@ for each .md file in 已复制的模板:
 5. **提示用户**：
    - CLAUDE.md §10 ctx-budget 红线生效，新会话开始即享受预警保护
    - PostCompact / Stop hook 自动启用 → 防 compact 吞状态 + Word-style 自动保存
+   - `skill_sync_check` SessionStart hook 自动启用 → 用户级通用 skill 与上游漂移时，session 开始会打印 `[skill-sync]` 提示跑 `/setup_agent` 同步（只读检测，不自动改）
    - `find-doc` / `sync-docs` 两个 SKILL.md 里有 placeholder 表（topic→rule 字典 / 源码→文档映射），**现在不必填**，项目演进出稳定目录结构后再补；agent 在任务收尾时会主动提醒
    - 详见 README.md `## Python 依赖（agent 安装前必读）` 段
 

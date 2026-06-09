@@ -17,7 +17,14 @@
 
 ---
 
-## [Unreleased]
+## [0.25.0] - 2026-06-09
+
+### Added
+- `[product]` **用户级 skill 漂移自检 + 退役检测（支柱 B / 开机自检，设计见 [docs/skill-distribution-gaps.md](docs/skill-distribution-gaps.md)）**：
+  - **`templates/hooks/skill_sync_check.py`（新 hook）+ dogfood `.claude/hooks/` + 两处 settings `SessionStart` 注册**：每次 session 开始比对 `~/.claude/skills/<skill>` 副本与上游源 `~/.claude/skills/setup_agent/skills/` 的内容哈希，**缺失/不一致/已退役**则打印一行 `[skill-sync]` 提示跑 `/setup_agent`。**只读不改**（补/更/删仍由 Step 0 在用户确认下做，绝不静默覆盖或删除）。自门控：本机没装 setup_agent → 静默 no-op（范式同 `target_cleanup.py`）。
+  - **`RETIRED.md`（新增 repo 根墓碑名单）**：机器可读的"已退役 skill"清单（首条 `prune-memory` v0.24.0），让自检 + Step 0 认出"下架的 skill 还赖在架子上"——补「删除不传播」洞（正向同步只增不减）。
+  - **`SKILL.md` Step 0 退役清理**：读 `RETIRED.md`，把仍在用户级架子上的退役 skill 列出来**问用户删**（Step 0.5 清"重复"副本的亲兄弟，本步清"退役"副本；绝不静默删）。
+  - **范围 v1**：离线比对本机上游 clone（不 git fetch，SessionStart 必须快）；退役 **hook**（项目级，如 `memory_guard`）不在自动清理内，仍手动删。**有意未做**：带版本号的 manifest —— 内容哈希自检已覆盖"漂移/落后"，再叠 manifest 属冗余机械（反膨胀取舍）。
 
 ## [0.24.0] - 2026-06-09
 

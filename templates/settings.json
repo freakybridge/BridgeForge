@@ -257,6 +257,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/target_cleanup.py",
             "comment": "仅 Rust 项目生效：incremental/ 缓存超 30GB 时后台清理（atime 在 Windows 上不可靠，cargo-sweep 清不动热缓存）。自门控：无 Cargo.toml 静默 no-op，故对非 Rust 项目零影响，可无条件保留。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/skill_sync_check.py",
+            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 setup_agent 时比对 ~/.claude/skills/ 副本与上游源，缺失/不一致则提示跑 /setup_agent。只读不改。自门控：没装 setup_agent 静默 no-op，对非用户零影响。"
           }
         ]
       }
