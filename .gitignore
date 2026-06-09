@@ -14,6 +14,10 @@ __pycache__/
 *.swo
 *~
 
+# Python 字节码缓存(templates/hooks 与 scripts 下的 .py 被执行/编译时产生)
+__pycache__/
+*.pyc
+
 # Claude Code 本地配置
 .claude/settings.local.json
 

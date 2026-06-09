@@ -164,6 +164,29 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 - **#7 业务术语豁免**：`cargo` / `incremental` / `Defender` 是公开技术名，不脱敏
 - **设计层面**：条件加载用 hook 自门控（无 Cargo.toml → no-op）实现，而非 setup 时按主语言裁剪 settings.json —— 既免改受保护的主 `SKILL.md`，又比静态裁剪更稳（项目后增 Rust crate 自动激活）
 
+#### 批次（v0.24.0 / 2026-06-05）— memory 冷启动引导脚本反哺
+
+源：StratusAgent → `templates/scripts/memory_bootstrap_cold.py` + `docs/memory-scoring-design.md`
+
+实测应用的 checklist 项：
+
+- **#5 具体数值**：下游实测分区数（"15/40/237"）+ "256 条 memory" 等具体数 → 删，脚本/文档只留 normative 表述（"top-N 随机 / 拨数周前 / 1-2 周自愈"）
+- **#6 绝对路径**：脚本用 `Path(__file__).resolve().parent.parent / "memory"` 推断项目根，无硬编码 ✓
+- **#7 业务术语豁免**：无业务术语（纯 memory 系统机制）
+- **定性校正（最关键）**：下游 `memory_rebuild.py` 有"假 Cold:0 + 静默截断" bug；上游 `memory_rebuild_index.py` 的 Cold = 排名溢出本就诚实、且 never-recalled 走 S=7 快衰减 → 反哺时**改定性**为"可选的冷启动加速引导"而非"bug 修复"，文档诚实标注上游自愈窗口。教训：**反哺前必须核对上游脚本逻辑，不能照搬下游 bug 叙事**
+
+#### 批次（v0.25.0 / 2026-06-05）— target_cleanup.py 加 L2 deps 变体裁剪（增量反哺已有 hook）
+
+源：StratusAgent → `templates/hooks/target_cleanup.py`（v0.19.0 已反哺 L1，本次叠加 L2）
+
+实测应用的 checklist 项：
+
+- **#5 具体数值**（本批主战场）：下游 docstring/对话里满是项目实测数 —— "deps 85GB"、"本地 stratus_* 各堆 280+ 变体"、"128GB 降到 ~9GB"、"删 15086 文件 / 82.6GB"。全部删，改 normative 表述（"旧 hash 变体无限堆积"、"本地 workspace crate 因频繁重编尤甚，长期可占 target 绝大头"）。具体数值只留 CHANGELOG 作背景，不进可复用代码
+- **#1 项目名**：下游 docstring 用 `stratus_*` 举例大户 → 上游改 "本地 workspace crate"，不点名
+- **不是脱敏、是"反向取上游更优实现"**：下游 L1 用 `*/incremental` + 硬编码 `stratus/` 子目录；上游 v0.19.0 早已通用化为 `**/incremental`（覆盖交叉编译）+ 通用 `find_workspace`。本次以**上游为基线**叠加 L2，并把 L2 的 `deps_dirs` 也写成 `**/deps` 与上游 L1 风格对齐 —— 反哺增量时基线选上游而非下游，避免把下游的项目特定退化带回上游
+- **公开技术名豁免**：`cargo` / `deps` / `rlib` / `rmeta` / `hash` / `mtime` / `Defender` 均不脱敏
+- **增量反哺的版本语义**：已反哺 hook 加新 pass = 新功能 = minor bump（0.24→0.25），不是 patch
+
 ### 3.2 实战记录的元规则
 
 - 每次反哺后**当场**写实战记录到 §3.1（不要攒），否则 7 天后细节就忘了
@@ -204,6 +227,8 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-06-03 | StratusAgent | templates/hooks/memory_guard.py + skills/prune-memory/ + settings.json | 新 hook：MEMORY.md 写入行数硬阻断（PreToolUse，>185 行 exit 2）；新 skill：prune-memory 引导式清理流程（删留标准 + 用户确认 + archive 移档）；settings 注册同步 | bridgexue |
 | 2026-06-03 | StratusAgent | docs/memory-scoring-design.md + hooks/memory_access_tracker.py + scripts/memory_rebuild_index.py + scripts/memory_search.py + memory/_stats.json + skills/find-memory/ + settings.json + session_snapshot.py | Memory 热度评分系统（艾宾浩斯衰减）完整闭环：tracker→_stats.json→Stop时rebuild→MEMORY.md热区+MEMORY_COLD.md冷区；本次核实系统完整性并发版 v0.23.0 | bridgexue |
 | 2026-06-03 | CausisRiskSuite | templates/scripts/memory_search.py | main() 顶部加 stdout UTF-8 reconfigure，防 Windows 中文环境输出乱码 | bridgexue |
+| 2026-06-05 | StratusAgent | templates/scripts/memory_bootstrap_cold.py + docs/memory-scoring-design.md | 新脚本：memory 冷启动一次性引导（拨 never-recalled 文件 created_at 入 Cold，跳过约 1-2 周自愈期；只动空 session_dates 文件，安全）+ 设计文档加「冷启动/首次激活」节（含手工 MEMORY.md 备份提醒；回收收件箱 line 24）| bridgexue |
+| 2026-06-05 | StratusAgent | templates/hooks/target_cleanup.py | 给已反哺的 hook 叠加 L2 deps 多版本变体裁剪（按 crate 分组、mtime 留最新 N=2、删旧变体）；脱敏下游实测数值（"deps 85GB / stratus_* 280+ 变体 / 降到 9GB"）为 normative 表述，复用上游已通用化的 find_workspace + `**` 递归 glob；快车道单条，无收件箱条目可回收 | bridgexue |
 | 2026-06-09 | StratusAgent | templates/hooks/{memory_junction_check,requirements_check}.py + rule_size_check.py + rules/meta_rule_design.md + settings.json | 把 3 条「机械可判定」的 rule 约束 hook 化（v0.26.0）：①新 SessionStart hook memory_junction_check 自愈 junction（通用 project-hash 推导 + rename-to-.bak 不硬删）②新 requirements_check 查绝对URL+非ASCII ③rule_size_check 加触发器宽度检查（单段通配=伪常驻）；meta_rule §6.4/§8 校准阈值消漂移。脱敏：§10「本项目实测案例库」含 stratus/**/gateway_ctp_sopt.md 等项目专属名，整段不反哺 | bridgexue |
 
 ---

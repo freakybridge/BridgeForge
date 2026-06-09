@@ -68,6 +68,17 @@
 ### Removed
 - `[product]` **废弃手动 MEMORY.md 治理整代：`memory_guard.py` hook + `prune-memory` skill 退役** — 删 `templates/hooks/memory_guard.py`（185 行硬阻断）+ dogfood `.claude/hooks/` + 两处 settings 注册；`prune-memory` skill 正式废弃（手动引导式裁剪）。动因：`memory_rebuild`（Stop hook 自动评分，封顶活跃 40 条 + >45 天冷区化）已把 MEMORY.md 自动控制在 ~45 条、且改由机器每轮重排 —— 185 cap 从不触发，手动 prune 成冗余。`summary` skill / `docs/memory-scoring-design.md` 内 `/prune-memory` 引用一并清理。**下游**：已装项目若有 `memory_guard.py` / `prune-memory/`，需手动删（update 模式暂不自动删"上游已移除"的文件）。
 
+## [0.25.0] - 2026-06-05
+
+### Added
+- `[product]` **`templates/hooks/target_cleanup.py` 加 L2 deps 变体裁剪** — 在原 L1（incremental/ 体积触发清）之上新增第二遍 pass：扫 `target/**/deps`，按 crate 分组、每组按 hash 的 max mtime 只留最新 `DEPS_KEEP_VARIANTS=2` 个变体、删更旧的。治本 deps/ 里同一 crate 旧 hash 变体无限堆积（本地 workspace crate 因频繁重编尤甚，长期占 target 绝大头）的问题。安全设计：留 2 给足余量（当前变体即便第二新也存活）、只动 ≥3 变体的 crate（稳定 deps 不碰）、无 hash 当前产物正则不匹配永不删、可回收 < `DEPS_MIN_FREE_GB=5` 跳过避免扰动；run_worker 重构成 L1+L2 两遍 pass 共用节流。下游实测删旧变体后 `cargo build` 仍为增量（仅本地 crate 因 incremental 缓存被清重编一次，deps 全复用）。来源 StratusAgent harvest
+
+## [0.24.0] - 2026-06-05
+
+### Added
+- `[product]` **`templates/scripts/memory_bootstrap_cold.py`（新脚本）** — 冷启动一次性引导：把从未被 recall（`session_dates` 为空）的 memory 的 `created_at` 拨到数周前，使其立即沉入 Cold 区，让 Hot 区在首次铺设/重置后立刻收敛成"近期 recall 过的"，跳过约 1-2 周自愈期；只动空 `session_dates` 文件（`created_at` 对已 recall 文件是死字段，绝对安全）。来源 StratusAgent harvest
+- `[meta]` **`docs/memory-scoring-design.md`** — 加「冷启动 / 首次激活」节：首次重建覆盖手工 MEMORY.md 的备份提醒 + Hot 区头 1-2 周随机的成因 + bootstrap 引导 + 安全不变量
+
 ## [0.23.2] - 2026-06-03
 
 ### Fixed

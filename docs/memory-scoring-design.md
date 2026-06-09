@@ -101,6 +101,22 @@ Top-40：按 score 降序取前40，超出的进 MEMORY_COLD.md
 
 ---
 
+## 冷启动 / 首次激活（重要）
+
+首次启用本系统、或手动重置过 `_stats.json` 时有两个坑：
+
+**1. 首次重建会覆盖手工 MEMORY.md。** rebuild 用 `<!-- AUTO-HOT-START/END -->` 标记区接管 Hot 区；若之前手工整理过 MEMORY.md，**首次激活前先备份**，激活后把仍想保留的条目改成 `pinned`（`_stats.json` 的 `config.pinned`）而非手改索引（手改会被下次 rebuild 覆盖）。
+
+**2. Hot 区头 1-2 周近乎随机。** `_stats.json` 的 `created_at` 是"追踪系统首次登记该文件的日期"，非真实创建日。铺设/重置后所有既有 memory 的 `created_at` 约等于同一天 → never-recalled 文件初始 score 全部 = 1.0，与刚 recall 的并列 → top-N 选取靠排序巧合。
+
+> 本设计 Cold 区 = 排名溢出（top-N 之外），数量始终诚实（总数 − pinned − N），无"静默截断不计数"问题。冷启动只影响 **Hot 区选取质量**，不影响 Cold 计数正确性。
+
+`created_at` 走 S=7 快衰减，约 1-2 周后 never-recalled 自然沉到 recalled 之下，自愈。想**立即**收敛，跑一次 `scripts/memory_bootstrap_cold.py`：把所有 `session_dates` 为空的文件 `created_at` 拨到数周前 → 下次重建积压立即入 Cold；recall 命中后自动升 Hot；新写 memory 默认仍进 Hot。
+
+**安全不变量**：`created_at` 只在 `session_dates` 为空时被评分用到（见 `memory_rebuild_index.py` 的 never-recalled 分支），对有 recall 记录的文件是死字段 → 只动空 `session_dates` 的文件绝不扰动已成型的 Hot 区。日常无需运行，仅铺设/重置后想跳过自愈期时用。
+
+---
+
 ## 实现 Checklist（给 setup_agent session）
 
 - [ ] `templates/hooks/memory_access_tracker.py` — PostToolUse/Read hook
