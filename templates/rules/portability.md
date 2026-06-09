@@ -26,8 +26,11 @@ paths:
 |------|-----------|------|
 | Memory | `.claude/memory/` | Junction/symlink，CLAUDE.md §5 自动恢复 |
 | Rules | `.claude/rules/` | 直接 git 管理 |
-| 项目 Skills | `.claude/skills/` | 直接 git 管理（用户级 skill 不算） |
+| 项目专属 Skill | `.claude/skills/` | 直接 git 管理。**仅项目独有、setup_agent 不出品的 skill**（如某项目的 restart-ui） |
+| 通用 skill 的项目数据 | `.claude/find-doc.map.md` / `.claude/sync-docs.map.md` 等 | 通用 skill 本体在 setup_agent，但其**项目专属映射表**留项目内，直接 git 管理 |
 | 项目设置 | `.claude/settings.json` | hooks、defaultMode、项目级权限 |
+
+> **通用协作 skill 不进项目 git（单一源拆分）**：plan / escalate / snapshot / find-doc 本体等通用 skill 的**单一源是 setup_agent**，装到用户级 `~/.claude/skills/`，**不在项目 `.claude/skills/` 留副本**（留副本会 shadow 单一源、各项目漂移；`/setup_agent` Step 0.5 会清掉）。换机恢复靠在该机跑 `/setup_agent`（装用户级），不靠 `git clone`。这是 DRY 对 clone-完整性的**有意取舍**；项目专属**数据**（上表 `.map.md`）仍在项目 git，可移植性不受影响。
 
 ---
 

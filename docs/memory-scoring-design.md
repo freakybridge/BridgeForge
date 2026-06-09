@@ -110,5 +110,5 @@ Top-40：按 score 降序取前40，超出的进 MEMORY_COLD.md
 - [ ] `skills/find-memory/SKILL.md` — /find-memory skill
 - [ ] `templates/settings.json` — 注册 memory_access_tracker PostToolUse hook
 - [ ] `templates/hooks/session_snapshot.py` — Stop 时追加调用 memory_rebuild_index.py
-- [ ] `skills/prune-memory/SKILL.md` — 更新：集成 _stats.json 冷却判断
+- [x] ~~`skills/prune-memory/SKILL.md` — 更新：集成 _stats.json 冷却判断~~ → **方案变更（2026-06-09）**：prune-memory + memory_guard 整套手动治理废弃，全交自动评分（`memory_rebuild` 封顶活跃 40 条 + >45 天冷区化），不再需要手动 prune skill
 - [ ] 测试：验证 score 公式在各场景下的行为

@@ -69,24 +69,14 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 - 输出：同时含两关键词的文件
 - 信号：极高（10× 降噪，相比 Path A 单关键词扩散）
 
-### Step 2：Rules 字典查表（不 grep）
+### Step 2：Rules 字典查表（不 grep，读项目本地映射文件）
 
-**项目接入时**，在下方维护本项目的 `topic → rule` 静态映射字典（避免 grep rules 全量产生的噪音）。模板格式：
+读项目本地映射文件 `.claude/find-doc.map.md`（topic → 关联 rule 的静态字典），把命中的 topic 映射到 rule 文件，避免全量 grep rules 的 60% 噪音。
 
-```yaml
-# <!-- TODO: 按本项目实际 rule 文件填写。例: -->
-topic_to_rules:
-  <topic_keyword_a> / <topic_keyword_b>:
-    - .claude/rules/<rule_file_1>.md
-    - .claude/rules/<rule_file_2>.md
-  <another_topic>:
-    - .claude/rules/<rule_file_3>.md
-  default (无 topic 命中):
-    - .claude/rules/architecture.md
-    - .claude/rules/workflow.md
-```
+- **文件存在** → 按其中 `topic_to_rules` 字典查表：命中 topic 取对应 rule 列表；无 topic 命中取 `default`。
+- **文件不存在**（新项目还没建）→ 跳过本步（不 grep rules），并在 Step 4 提醒用户创建。
 
-每个项目自行维护本字典，目的是"agent 不用 grep 也能定位关联 rule"。字典稳定，rule 改动时同步维护即可。
+> **为什么外置**：字典内容是**项目专属**的（引用本项目实际 rule 文件名，每个项目 rule 树不同），不能进 setup_agent 通用源。**单一源拆分**：skill 本体「怎么查」归 setup_agent 单一源（本文件）；字典「查什么」归项目 `.claude/find-doc.map.md`。模板格式见 Step 4。
 
 ### Step 3：聚合输出（结构化 markdown）
 
@@ -145,28 +135,34 @@ topic_to_rules:
 
 ---
 
-## Step 4：placeholder 检测与提醒（任务收尾）
+## Step 4：映射文件检测与提醒（任务收尾）
 
 聚合输出已呈现给用户后，**额外**做一件事：
 
-1. 检查 Step 2 的 `topic_to_rules` 字典是否仍含 `<!-- TODO:` 占位
-2. 如仍是占位 **且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 rule 文件** → 在回复末尾追加提醒：
+1. 检查项目根是否存在 `.claude/find-doc.map.md`
+2. **不存在 且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 rule 文件** → 在回复末尾追加提醒，附带可直接落盘的模板：
 
    ```
-   💡 字典提醒：本次涉及 <topic_a> / <topic_b>，find-doc Step 2 字典还是 placeholder。
-   要不要顺手加这几行？候选：
+   💡 映射提醒：本项目还没有 .claude/find-doc.map.md，find-doc 只能走 grep fallback。
+   本次涉及 <topic_a> / <topic_b>，要不要我建这个文件？初始内容候选：
+
+   # find-doc 项目映射表（topic → 关联 rules）
+   topic_to_rules:
      <topic_a>:
        - .claude/rules/<guessed_rule_a>.md
      <topic_b>:
        - .claude/rules/<guessed_rule_b>.md
+     default (无 topic 命中):
+       - .claude/rules/architecture.md
    ```
 
-3. **禁止**：
+3. **已存在但本次 topic 不在表里** → 提醒"要不要顺手给 `.claude/find-doc.map.md` 加 `<topic>` 这几行"。
+4. **禁止**：
    - 凭空提醒（本次没接触到具体 topic 时不提醒，符合"宁缺毋滥"）
    - 强制要求用户填（用户说"不用"就立刻闭嘴）
    - 同一会话内对同一 topic 重复提醒
 
-**Why this exists**：字典是项目演进中自然沉淀的（StratusAgent 演了很久才填出 11+ topic）。早期项目字典空着 agent 走 grep fallback 也能跑，但永远空着 agent 跑得慢。本段保证用户在 doc/ 结构稳定后顺手填表，不依赖用户自觉。
+**Why this exists**：字典是项目演进中自然沉淀的（StratusAgent 演了很久才填出 14+ topic）。外置成 `.claude/find-doc.map.md` 后，skill 本体保持通用单一源，项目只维护这一个数据文件。早期项目没有该文件 agent 走 grep fallback 也能跑，本段保证用户在 doc/ 结构稳定后顺手建表。
 
 ---
 

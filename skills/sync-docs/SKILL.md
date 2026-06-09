@@ -13,14 +13,11 @@ model: sonnet
 ## 步骤
 
 1. 运行 `git diff --stat HEAD` 和 `git status`，找出本次修改的文件
-2. 按以下映射规则找到对应设计文档（**项目接入时维护本项目的源码 → 文档映射表**）：
+2. 按映射规则找到对应设计文档（**映射表外置在项目，skill 本体通用**）：读项目本地映射文件 `.claude/sync-docs.map.md`（源码路径 → 设计文档 的静态映射表）。
+   - **文件存在** → 按表把本次改动的源码路径映射到对应文档。
+   - **文件不存在 / 表里无匹配路径** → 走 catchall：根据路径和内容判断最相关的文档（找不到则列出告诉用户，不自己新建）。
 
-   <!-- TODO: 按本项目实际目录结构填写源码 → 文档映射表。例：
-   - `src/<feature>/<file>.py` → `doc/3_design/<feature>/设计.md`
-   - `src/api/` → `doc/0_architecture/api-contract.md`
-   - `src/db/migrations/` → `doc/0_architecture/数据结构与常量.md`
-   - 其他文件根据路径和内容判断最相关的文档
-   -->
+   > **为什么外置**：映射表内容是**项目专属**的（引用本项目实际目录结构，每个项目不同），不能进 setup_agent 通用源。**单一源拆分**同 find-doc：skill 本体「怎么同步」归 setup_agent 单一源（本文件）；映射表「改哪个文档」归项目 `.claude/sync-docs.map.md`。模板格式见 Step 7。
 
 3. 读取对应设计文档的现有内容
 4. 根据实际代码变更，在文档中更新或补充：
@@ -37,16 +34,19 @@ model: sonnet
 - 如果找不到对应文档，列出来告诉用户，不要自己新建
 - `$ARGUMENTS` 如果有值，作为额外的上下文提示（比如本次改动的重点）
 
-## Step 7：placeholder 检测与提醒（任务收尾）
+## Step 7：映射文件检测与提醒（任务收尾）
 
 同步摘要已呈现后，**额外**做一件事：
 
-1. 检查 Step 2 的源码 → 文档映射表是否仍含 `<!-- TODO:` 占位
-2. 如仍是占位 **且** 本次 git diff 涉及到了**有规律的源码路径**（同一目录 / 同一模块多文件改动，能看出 pattern） → 在回复末尾追加：
+1. 检查项目根是否存在 `.claude/sync-docs.map.md`
+2. **不存在 / 本次路径不在表里 且** 本次 git diff 涉及到了**有规律的源码路径**（同一目录 / 同一模块多文件改动，能看出 pattern） → 在回复末尾追加：
 
    ```
-   💡 映射表提醒：本次改了 <path_pattern>，sync-docs Step 2 映射表还是 placeholder。
-   要不要顺手加这行？候选：
+   💡 映射提醒：本项目还没有 .claude/sync-docs.map.md（或本次路径不在表里），sync-docs 走的是 catchall。
+   本次改了 <path_pattern>，要不要我建/补这个文件？候选：
+
+   # sync-docs 项目映射表（源码 → 设计文档）
+   src_to_docs:
      - <src_pattern> → <guessed_doc_path>
    ```
 
@@ -55,6 +55,6 @@ model: sonnet
    - 强制要求用户填
    - 同一会话内对同一路径重复提醒
 
-**Why this exists**：映射表是项目目录结构稳定后才填得准的（StratusAgent 演化出 10+ 行 `stratus/ui/risk_panel.py → doc/3_design/engine/risk/面板.md` 这种细粒度映射）。早期项目映射空着 sync-docs 走 catchall（"其他文件根据路径和内容判断"），效果打折。本段保证用户在目录稳定后顺手补表。
+**Why this exists**：映射表是项目目录结构稳定后才填得准的（细粒度如 `src/<feature>/<file> → doc/3_design/<feature>/设计.md`）。外置成 `.claude/sync-docs.map.md` 后 skill 本体保持通用单一源，项目只维护这一个数据文件。早期项目没有该文件 sync-docs 走 catchall 也能跑，本段保证用户在目录稳定后顺手补表。
 
 $ARGUMENTS

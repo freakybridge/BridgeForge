@@ -3,6 +3,10 @@
 Thumbs.db
 desktop.ini
 
+# Python 字节码缓存（hook 跑过自动生成的一次性垃圾，绝不可下沉进 templates/）
+__pycache__/
+*.pyc
+
 # Editor
 .vscode/
 .idea/

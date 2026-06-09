@@ -19,6 +19,21 @@
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-06-09
+
+### Added
+- `[product]` **`SKILL.md` Step 0.5（新增）— 清理项目级通用 skill 重复副本（单一源红线）** — 通用 skill 单一源在 setup_agent（装用户级 `~/.claude/skills/`）；项目 `.claude/skills/` 里的同名副本会 shadow 单一源、各项目各自漂移。Step 0.5 对 `skills/` 清单逐个比对：DUP-IDENTICAL / 纯旧版镜像 → 删；含项目专属数据（find-doc/sync-docs 旧内联字典 → 先迁 `.map.md` 再删；其他用户定制 → 给 diff 问用户）→ **绝不静默删**。init / 更新 / 收编三模式都跑（幂等，fresh-init 空跑）。项目专属 skill（不在 `skills/` 清单里的）绝不碰。
+
+### Changed
+- `[product]` **`skills/find-doc/SKILL.md` + `skills/sync-docs/SKILL.md` — 项目专属字典/映射表外置** — find-doc 的 `topic→rule` 字典、sync-docs 的源码→文档映射，从 skill 本体内联 placeholder 改为**读项目本地** `.claude/find-doc.map.md` / `.claude/sync-docs.map.md`。skill 本体回归纯通用单一源（怎么查），项目只维护数据文件（查什么）；这是让 find-doc/sync-docs 也能安全去重（Step 0.5）的前提。Step 4/7 收尾提醒同步改为"建/补 `.map.md`"。
+- `[product]` **`SKILL.md` Step 0 install loop — 改 `ls` 派生（修 find-memory 漏装）** — 安装清单从硬编码 13 名改为 `ls "$SKILLS_SRC"` 派生；历史硬编码漏了 `find-memory`（仓库 ship 但从不装用户级），`ls` 派生杜绝此类漂移，且日后增删 skill 只动目录、不改这段。
+- `[product]` **`templates/rules/portability.md §2` — 记录 skills 单一源拆分** — 明确"项目专属 skill + 通用 skill 的项目数据（`.map.md`）进项目 git；通用 skill 本体**不进**项目 git，靠 `/setup_agent` 装用户级恢复"。DRY 对 clone-完整性的有意取舍。
+- `[product]` **`templates/hooks/context_warning.py` + dogfood `.claude/hooks/`** — 移植下游 (StratusAgent) 已验证的「读真实 usage」机制回灌上游：弃用 char/4 文件大小估算（受 JSONL 结构开销 UUID/时间戳/JSON 信封污染、越聊越虚高），改为从 transcript 末尾倒查最近一条 assistant 消息的 `usage`（input + cache_creation + cache_read + output），与 Claude Code `/context` 一致、精确到个位 token；缺 usage 字段（旧 session/损坏）时 fallback char/4。模板侧此前一直是老的 char/4 版，本次补齐。
+- `[product]` **`context_warning.py`** — `WINDOW` 默认值 200k → `1_000_000`（**反转 v0.23.2**）。动因：Claude Code 不向任何 hook 暴露 model-id 的 `[1m]` 窗口标记（transcript 剥后缀、project/user settings 无 model 字段、`~/.claude.json` 无激活 model、env 无 model 变量、切 model 不触发 hook、仅 SessionStart 带 model 但同样剥 `[1m]`），hook 无法自动判窗口；默认 1M 让 1M Opus 主力用户开局即准。**权衡（已知并接受）**：标准 200k 模型项目若忘记手动下调 WINDOW，会因分母过大永不预警（静默 compact 风险），实例化后须手动改回 `200_000`。
+
+### Removed
+- `[product]` **废弃手动 MEMORY.md 治理整代：`memory_guard.py` hook + `prune-memory` skill 退役** — 删 `templates/hooks/memory_guard.py`（185 行硬阻断）+ dogfood `.claude/hooks/` + 两处 settings 注册；`prune-memory` skill 正式废弃（手动引导式裁剪）。动因：`memory_rebuild`（Stop hook 自动评分，封顶活跃 40 条 + >45 天冷区化）已把 MEMORY.md 自动控制在 ~45 条、且改由机器每轮重排 —— 185 cap 从不触发，手动 prune 成冗余。`summary` skill / `docs/memory-scoring-design.md` 内 `/prune-memory` 引用一并清理。**下游**：已装项目若有 `memory_guard.py` / `prune-memory/`，需手动删（update 模式暂不自动删"上游已移除"的文件）。
+
 ## [0.23.2] - 2026-06-03
 
 ### Fixed
