@@ -93,10 +93,16 @@
 
 **每次对话开始静默检查**：`~/.claude/projects/<project-hash>/memory/` 是否为 junction → 不是则恢复链接指向项目内 `.claude/memory/`。
 
-- **场景 A 首次迁移**（系统路径是普通目录）：创建 `.claude/memory/` → 复制内容 → 删系统目录 → 建 junction
-- **场景 B 新机 clone**（项目内已有 `.claude/memory/`）：删系统空目录（若存在）→ 直接建 junction
+由 `SessionStart` hook `.claude/hooks/memory_junction_check.py` 自动执行（无需手动），三情形：
 
-**建 junction 命令**：
+- **稳态**（系统路径已是 junction/symlink）→ noop（99% 的 session）
+- **场景 A 首次迁移**（系统路径是普通实目录）：复制内容进 `.claude/memory/` → 系统目录**改名 `memory.premigrate.bak`（绝不硬删）** → 建 junction。事后人工确认无误再删 `.bak`
+- **场景 B 新机 clone**（系统路径不存在 + 项目内已有 `.claude/memory/`）→ 直接建 junction
+- **冲突**（系统与项目内同时有内容）→ 不敢自动合并，打印提示请人工处理
+
+> 红线：**绝不硬删可能含数据的目录**。任何一步失败即中止并提示人工。
+
+**手动建 junction 命令**（hook 失效时兜底）：
 ```powershell
 # Windows
 New-Item -ItemType Junction -Path '<系统memory路径>' -Target '<项目内.claude/memory绝对路径>'

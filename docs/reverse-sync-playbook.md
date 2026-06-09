@@ -204,6 +204,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-06-03 | StratusAgent | templates/hooks/memory_guard.py + skills/prune-memory/ + settings.json | 新 hook：MEMORY.md 写入行数硬阻断（PreToolUse，>185 行 exit 2）；新 skill：prune-memory 引导式清理流程（删留标准 + 用户确认 + archive 移档）；settings 注册同步 | bridgexue |
 | 2026-06-03 | StratusAgent | docs/memory-scoring-design.md + hooks/memory_access_tracker.py + scripts/memory_rebuild_index.py + scripts/memory_search.py + memory/_stats.json + skills/find-memory/ + settings.json + session_snapshot.py | Memory 热度评分系统（艾宾浩斯衰减）完整闭环：tracker→_stats.json→Stop时rebuild→MEMORY.md热区+MEMORY_COLD.md冷区；本次核实系统完整性并发版 v0.23.0 | bridgexue |
 | 2026-06-03 | CausisRiskSuite | templates/scripts/memory_search.py | main() 顶部加 stdout UTF-8 reconfigure，防 Windows 中文环境输出乱码 | bridgexue |
+| 2026-06-09 | StratusAgent | templates/hooks/{memory_junction_check,requirements_check}.py + rule_size_check.py + rules/meta_rule_design.md + settings.json | 把 3 条「机械可判定」的 rule 约束 hook 化（v0.26.0）：①新 SessionStart hook memory_junction_check 自愈 junction（通用 project-hash 推导 + rename-to-.bak 不硬删）②新 requirements_check 查绝对URL+非ASCII ③rule_size_check 加触发器宽度检查（单段通配=伪常驻）；meta_rule §6.4/§8 校准阈值消漂移。脱敏：§10「本项目实测案例库」含 stratus/**/gateway_ctp_sopt.md 等项目专属名，整段不反哺 | bridgexue |
 
 ---
 

@@ -186,6 +186,21 @@
             "comment": "memory 访问追踪：Claude 读 .claude/memory/*.md 时，把今天日期写入 _stats.json（唯一日期去重）。Stop hook 重建 MEMORY.md 热区时用此数据计算艾宾浩斯衰减分。dev 仓库无 .venv，用系统 python。"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/rule_size_check.py",
+            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）。dev 仓库无 .venv，用系统 python。自产自用：本仓库编辑 .claude/rules 时受同款量化红线约束。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/requirements_check.py",
+            "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。dev 仓库无 .venv，用系统 python。自门控：非 requirements*.txt 静默 no-op —— setup_agent 无 requirements.txt，挂着正是验证「自门控 no-op」产品承诺。"
+          }
+        ]
       }
     ],
     "PostCompact": [
@@ -213,6 +228,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/memory_junction_check.py",
+            "comment": "memory junction 自愈：把 memory 纳入项目 git（.claude/memory/），系统路径 ~/.claude/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。dev 仓库无 .venv，用系统 python。"
+          },
           {
             "type": "command",
             "command": "python .claude/hooks/target_cleanup.py",

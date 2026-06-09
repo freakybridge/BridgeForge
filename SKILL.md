@@ -257,6 +257,20 @@ cp -r "$SKILL_DIR/templates/." .
 | `templates/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
 | 写版本戳 | `<project>/.claude/.setup_agent_version`（内容 = 本 skill clone 的 `VERSION`，如 `0.14.0`）| 总是（init 末尾写。既是"上次同步到哪版"记录，又是前置步骤判定 init/更新的信号） |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
+| `.gitignore` setup_agent 机制块 | `<project>/.gitignore`（**已存在则 merge-append 不覆盖**，详见下方）| 总是 |
+
+**`.gitignore` 兜底（堵 hook 生成物被误提交）**：setup_agent 装的 hook 会自动生成一批临时产物——Python 字节码、session 快照、hook 日志。若下游 `.gitignore` 不挡，用户 `git add .` 会把它们一并提交（污染历史）。这是机制化义务，不能只靠口头约定。**确保**下游 `.gitignore` 含以下"setup_agent 机制块"（**幂等**：缺哪行补哪行；已存在则 grep 守卫后 append；项目自己其他忽略项**绝不删**；下游无 `.gitignore` 则新建）：
+
+```gitignore
+# === setup_agent 协作骨架机制自动生成（勿提交，由 /setup_agent 维护）===
+__pycache__/
+*.pyc
+.claude/settings.local.json
+.runtime/session_state/
+.runtime/*.log
+```
+
+> 为何不整份 ship `templates/.gitignore`：完整 `.gitignore` 与项目主语言强耦合（Rust 忽略 `target/`、Node 忽略 `node_modules/`），setup_agent 不该越俎代庖。这里只挡**setup_agent 自身机制**产生的物（Python hook 是所有项目的硬依赖，故这几行语言无关）。`.runtime/` 下持久资产（嵌入工具/缓存）仍可 track，只忽略快照/日志，与 `rules/modules.md` 的「`.runtime/output` gitignored」选择性策略一致。
 
 **Python hook 体系（所有项目无条件安装 — Python 是硬依赖）**：
 
@@ -492,6 +506,7 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 | B | `.claude/settings.json` | **merge 不覆盖**：上游通用 hook 段更新/加入；保留下游 `permissions` / `additionalDirectories` / 自定义 hook 注册。给 merge 预览，确认后写 |
 | C | `.claude/rules/*.md` `CLAUDE.md` | **只 diff，绝不自动改**。每个差异段贴 playbook §2 类C 判据：🟢 上游通用增量(吸收) / 🟡 下游业务补充(保留) / 🔴 上游脱敏后减弱(保留下游)，用户逐段定 |
 | D | `.claude/memory/` `doc/` | **碰都不碰** |
+| E | `<project>/.gitignore` | 按 Step 3「`.gitignore` 机制块」**幂等 append** setup_agent 机制忽略项（缺行才补，项目自有忽略项不删）。存量项目早期没这块，更新时补上才不漏（否则 hook 生成物一直裸奔） |
 
 ### U3：路径适配
 更新进来的 hook 命令若引用 `.venv` 但 cwd 无 `.venv` → 同 init 的"Python 解释器路径适配"，改裸 `python`。

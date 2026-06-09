@@ -202,7 +202,12 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/rule_size_check.py",
-            "comment": "rule 文件改动后检查大小红线（详见 templates/rules/meta_rule_design.md §5）"
+            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/requirements_check.py",
+            "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。自门控：非 requirements*.txt 静默 no-op。"
           }
         ]
       }
@@ -248,6 +253,11 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/memory_junction_check.py",
+            "comment": "memory junction 自愈：把 memory 纳入项目 git（.claude/memory/），系统路径 ~/.claude/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。"
+          },
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/show_state.py session-start",

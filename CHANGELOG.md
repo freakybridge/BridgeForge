@@ -17,6 +17,28 @@
 
 ---
 
+## [0.26.0] - 2026-06-09
+
+### Added
+- `[product]` **`templates/hooks/memory_junction_check.py`（新 hook，SessionStart）+ settings 注册** — memory junction 自愈。把 memory 纳入项目 git（`.claude/memory/`），系统路径 `~/.claude/projects/<hash>/memory/` 透明转发；每次 session 开始静默检查，不是 junction 则恢复，让"clone 即恢复"无需人工。三情形：已链接 → noop（稳态）/ 系统缺失 + 项目内有 → 建 junction（新机 clone）/ 系统是实目录 → 首迁复制后 **rename-to-.bak（绝不硬删数据）**。project-hash 从 repo root 通用推导（**每个非字母数字字符 → `-`，大小写原样保留**，如 `d:\Quant\setup_agent` → `d--Quant-setup-agent`），项目无关。补 `portability.md §2.1` 自认欠账的"待迁 SessionStart hook"。
+- `[product]` **`templates/hooks/requirements_check.py`（新 hook，PostToolUse Edit|Write）+ settings 注册** — `requirements*.txt` 可移植性红线机械化：① 绝对路径 URL（`@ file://`，换机/换盘符即 fail）② 非 ASCII 字符（Windows pip 默认 GBK 解码会 UnicodeDecodeError）。非阻塞提醒。自门控：非 `requirements*.txt` 静默 no-op。对应 `portability.md §4.1/§4.2`。
+- `[product]` **下游 `.gitignore` 机制块（`SKILL.md` Step 3 + 更新模式 U2 类 E）** — setup_agent 的 hook 会自动生成临时产物（Python 字节码 `__pycache__`/`*.pyc`、session 快照 `.runtime/session_state/`、hook 日志 `.runtime/*.log`），下游若无 `.gitignore` 兜底会被 `git add .` 误提交。新增：init / 更新时**幂等 append** 一段"setup_agent 机制块"到下游 `.gitignore`（缺行才补，不删项目自有项，无则新建）。**不整份 ship `.gitignore`**（避免与项目主语言耦合），只挡 setup_agent 自身机制产生的物（Python hook 是所有项目硬依赖，故这几行语言无关）。
+
+### Changed
+- `[product]` **`templates/hooks/rule_size_check.py` 增强 — 新增触发器宽度检查** — 通用启发式：frontmatter `paths` 里单段目录通配（`a/**`）或裸 `**`/`*` 等同始终加载（伪常驻），flag 之；≥2 段前缀（`a/b/**`）才算够窄。不写死任何项目名。补 `meta_rule_design.md §4.2/§8` 此前只能靠人工 self-check 的盲点。
+- `[product]` **`templates/rules/meta_rule_design.md` §6.4 + §8 校准** — §6.4 TODO 占位补实：登记 rule_index_check / rule_size_check 两道护栏实际查什么 + 点明 normative 比例需人工判断。§8 self-check 阈值与 hook 对齐（版本 > 5 / 日期 > 8 / 触发器单段通配），消除"文档说 >3、hook 实际 >8"的漂移；已被 hook 覆盖的项标注【hook 已自动查】。
+
+### Fixed
+- `[product]` **`memory_junction_check.py` project-hash 编码修正（关键，dogfood 挖出）** — 旧实现只替换 `: \ /` 且强制盘符小写，**漏了 `_`/`.`** → 在路径含下划线/点的项目（`setup_agent` 自己正中此坑）算出错误 hash，找不到系统 memory 目录 → hook **静默失效（永不自愈）**。改为 `re.sub(r"[^A-Za-z0-9]", "-", path)`（非字母数字 → `-`，大小写保留），与 Claude Code 实测目录编码一致。本仓库 junction 现能正确识别。
+- `[product]` **`requirements_check.py` 输入读取改双兜底** — 原只读 legacy env-var `CLAUDE_TOOL_INPUT`，CC 仅走 stdin 时永不触发。改为 stdin JSON（`tool_input.file_path`）优先 + env-var fallback，与 `allow_memory_write.py` 一致。
+- `[product]` **两个新 hook 小瑕疵** — 冗余 `except (AttributeError, Exception)` → `except Exception`；`memory_junction_check._is_link` 改用 `normcase(abspath)` 规范化比较，避免实目录被误判为链接。
+- `[product]` **`templates/CLAUDE.md §5` 文档对齐** — 场景 A 由"删系统目录"改述为 hook 实际的 **rename-to-.bak（绝不硬删）**，并标明由 SessionStart hook 自动执行。
+- `[product]` **`templates/rules/portability.md` 补 §2.1（实体化死引用）** — 原 hook docstring / settings 注释 / 本 entry 均引用 `portability.md §2.1`，但该小节**实际从未创建**（声称补了实际没补）。本次补上，记述 memory junction 自愈机制 + project-hash 编码规则。
+
+### Dogfood
+- `[repo]` **v0.26.0 全部 hook + settings 改动镜像进自身 `.claude/`（§1 Q4 红线）** — `memory_junction_check` / `requirements_check`（新）+ `rule_size_check`（改）复制进 `.claude/hooks/` 并补 `.claude/settings.json` 注册（命令用系统 `python`）。
+- `[repo]` **顺带修复 `session_snapshot.py` 历史断链** — settings 早注册了它（PostCompact + Stop）但 `.claude/hooks/` 一直缺该文件 → 每轮 Stop/PostCompact `exit 2` 报错、**memory 自动重建（艾宾浩斯评分）从未运行**。本次镜像补齐。dev `.gitignore` 同步补 `.runtime/session_state/` + `.runtime/*.log`，防 hook 产物误提交。
+
 ## [0.25.1] - 2026-06-09
 
 ### Changed

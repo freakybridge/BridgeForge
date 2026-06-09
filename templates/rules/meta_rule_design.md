@@ -160,13 +160,10 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 ### 6.4 自动护栏
 
-可以写 hook 检查 rule 文件大小 + normative 比例。
+机械可判定的退化用 hook 自动查（只提醒不阻塞，见到信号后按 §5/§6 处置）；**normative 比例**（案例 vs 红线）需语义判断，hook 做不了 → 留人工 self-check（§8 前两项）。本骨架附带两道护栏（项目有 `.venv` 时由 setup_agent 复制 + settings.json 注册）：
 
-<!-- TODO: 如果本项目实现了 rule 自动检查 hook，在此列出
-示例：
-- `.claude/hooks/rule_index_check.py`（PostToolUse）— 检查改 rule 时索引是否同步
-- `.claude/hooks/rule_size_check.py`（PostToolUse）— 检查 rule 是否超 500 行
--->
+- `.claude/hooks/rule_index_check.py`（PostToolUse）— CLAUDE.md 规则索引 ↔ `rules/*.md` 一致性（死链接 / 未索引）
+- `.claude/hooks/rule_size_check.py`（PostToolUse）— 量化红线：大小 / 行数 / 版本戳 / 日期戳 / 长 code 块 / **触发器宽度**（单段目录通配 `a/**` 或裸 `**` = 伪常驻）
 
 ---
 
@@ -193,9 +190,9 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 - [ ] 这条约束真的需要 rule 吗？（不是 prompt 一次性？不是 hook 能强制？）
 - [ ] 内容里有没有完整事故案例？（有 → 抽 memory）
-- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/3_design）
-- [ ] 内容里有没有版本号 / 日期时间戳超过 3 处？（有 → 信号：案例越界）
-- [ ] 触发器 path 覆盖了多少开发场景？（> 50% → 太宽）
+- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/3_design）【hook 已自动查】
+- [ ] 内容里有没有版本号 > 5 处 / 日期 > 8 处？（有 → 信号：案例越界；阈值以 `rule_size_check.py` 为准）【hook 已自动查】
+- [ ] 触发器 path 是否单段目录通配（`a/**`）或裸 `**`？（是 → 伪常驻，收紧到 ≥2 段前缀）【hook 已自动查】
 - [ ] 跟现有哪条 rule 有重叠？（有 → 合并 / pointer）
 - [ ] 单 rule 改完后总大小 / 行数？（超 50KB / 500 行 → 拆）
 - [ ] 标题能不能 ≤ 20 字 + 作 anchor？
