@@ -1,6 +1,7 @@
 ---
 name: git-sync
 description: 全自动 Git 提交并推送到 GitHub。分析变更、生成中文消息并执行同步。与 /git-sync 斜杠命令配合使用时，所有命令行操作默认允许自动运行。
+model: sonnet
 ---
 
 # Git Sync Skill (全自动)

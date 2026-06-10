@@ -17,6 +17,11 @@
 
 ---
 
+## [0.26.2] - 2026-06-10
+
+### Changed
+- `[product]` **`skills/git-sync/SKILL.md` frontmatter 加 `model: sonnet`** — git-sync 是纯机械活（fetch / 分析 diff / 生成提交消息 / push），不需要会话主模型（Opus/Fable）的推理强度。加 `model: sonnet` 后该 skill 当轮临时切 Sonnet 执行，**轮结束自动回到会话原模型**（model 字段只管当轮，官方语义）。与 `summary` 已有的 `model: sonnet` 做法对齐——至此两个高频低难度 skill 都走轻模型省 token。
+
 ## [0.26.1] - 2026-06-10
 
 ### Changed
