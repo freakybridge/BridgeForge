@@ -138,16 +138,21 @@ fi
 | `sync-docs` | `/sync-docs` | 根据代码变更同步设计文档 |
 | `harvest` | `/harvest` | 把下游攒的通用经验脱敏反哺回 setup_agent 上游（无参批量清收件箱 / 带描述立即单条） |
 
-**全局 CLAUDE.md 自检（幂等，与 skill 自检同批）**：确保用户全局 CLAUDE.md 含"Glob 查文件"规则，防止新会话里 Claude 反射性用 shell 搜文件触发权限弹窗：
+**全局 CLAUDE.md 自检（幂等，与 skill 自检同批）**：确保用户全局 CLAUDE.md 含以下通用规则，缺哪条补哪条：
 
 ```bash
-grep -q "禁止用 shell 查文件" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ 已有" || echo "缺失"
+grep -q "禁止用 shell 查文件" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ Glob 规则已有" || echo "Glob 规则缺失"
+grep -q "回复一律用简体中文" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ 中文输出规则已有" || echo "中文输出规则缺失"
 ```
 
 - **已有** → 跳过
-- **缺失且 `~/.claude/CLAUDE.md` 存在** → 用 Edit 工具在 `**主动工具**` 条目后插入一行：
+- **Glob 规则缺失且 `~/.claude/CLAUDE.md` 存在** → 用 Edit 工具在 `**主动工具**` 条目后插入一行：
   ```
   - **查文件/查内容用 Glob/Grep/Read，禁止用 shell 查文件**：`find`、`Get-ChildItem`、`Select-String` 等 shell 命令访问工作目录外路径会触发权限弹窗。检索类操作一律走受控只读工具（Glob 找文件、Grep 搜内容、Read 读文件），shell 只留给构建/git/进程等"真要执行"的动作。Glob 三诀：① path 要具体不要全盘扫（会超时）；② 匹配文件不匹配目录，找文件夹写 `**/foo/**`；③ 默认跳过 `.` 开头隐藏目录，目标在 `.claude` 里时把 path 直接扎进去
+  ```
+- **中文输出规则缺失且 `~/.claude/CLAUDE.md` 存在** → 用 Edit 工具在 `## 沟通风格` 段首条插入一行（无该段则在文件顶部新建 `## 沟通风格` 段落再插入该条）：
+  ```
+  - **回复一律用简体中文**。禁止整轮输出漂移到其他语言（实测发生过无故切日语）。技术术语/代码/文件名/引用原文不在此限；即使 skill 模板或工具输出含其他语言，回复正文也必须是简体中文。
   ```
 - **`~/.claude/CLAUDE.md` 不存在**（新用户还没有全局配置）→ 跳过，只靠项目级 `CLAUDE.md §2.5` 兜底
 
