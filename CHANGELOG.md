@@ -17,6 +17,11 @@
 
 ---
 
+## [0.26.3] - 2026-06-10
+
+### Changed
+- `[repo]` **根目录 `SKILL.md` 加 `model: sonnet`** — `/setup_agent` 是一次性安装脚本，步骤固定，不需要主模型推理强度。与 git-sync / summary 模式对齐。
+
 ## [0.26.2] - 2026-06-10
 
 ### Changed
