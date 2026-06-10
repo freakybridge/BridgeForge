@@ -17,6 +17,14 @@
 
 ---
 
+## [0.26.4] - 2026-06-10
+
+### Changed
+- `[product]` **`find-memory` / `resume` / `snapshot` / `find-doc` 加 `model: sonnet`** — 四个 skill 均属纯读/搜/写操作，步骤固定，无主观判断，不需要主模型推理强度。至此高频低难度 skill 全部走轻模型（完整清单：git-sync / summary / sync-docs / find-memory / resume / snapshot / find-doc + setup_agent 入口）。
+
+### Fixed
+- `[meta]` **根目录 `SKILL.md` 全局 CLAUDE.md 自检描述修正** — 中文规则 fallback 从歧义的"在文件头部新建"改为"在文件顶部新建 `## 沟通风格` 段落再插入"，消除执行歧义。
+
 ## [0.26.3] - 2026-06-10
 
 ### Changed

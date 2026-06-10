@@ -2,6 +2,7 @@
 name: find-memory
 description: 按关键词搜索 .claude/memory/ 下所有文件，按需召回热区未覆盖的 memory。当 MEMORY.md 找不到所需知识时使用。
 user-invocable: true
+model: sonnet
 ---
 
 # /find-memory — 按需搜索 memory 冷区

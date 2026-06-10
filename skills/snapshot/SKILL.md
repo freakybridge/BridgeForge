@@ -1,5 +1,6 @@
 ---
 description: 手动存档当前 session 的工作状态到 .runtime/session_state/ — 与自动 hook 互补，能写入 Claude 主观的"本轮做了啥 / 下一步打算"。
+model: sonnet
 ---
 
 # /snapshot — 主动存档当前工作状态

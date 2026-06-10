@@ -1,5 +1,6 @@
 ---
 name: find-doc
+model: sonnet
 description: |
   **agent 主动调用**的文档定位 skill（用户极少手动 /find-doc）。当用户提问命中以下意图时，agent **应当无需用户提示主动调用**：
 
