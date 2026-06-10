@@ -17,6 +17,13 @@
 
 ---
 
+## [0.26.1] - 2026-06-10
+
+### Changed
+- `[product]` **`templates/hooks/rule_size_check.py` 新增横切规则白名单（`CROSS_CUTTING_RULES`）** — 骨架自带的 architecture / modules / debugging / workflow / portability 这几条规则，其宽触发器是**有意且合理**的（调试横切所有源码、工作流横切 doc、架构/模块常驻、可移植性横切 `.claude`/config/libs）。v0.26.0 新增的触发器宽度检查会对它们**永久误报** → 训练人忽略 `[rule-size]` 信号（狼来了）。改为：显式列名豁免触发器宽度检查（**禁用通配**，否则退化成"关掉这条 lint"；下游可按需增删）；**仅豁免触发器宽度，不豁免体积/行数/戳数**（宽 ≠ 可以无限胖）。
+- `[product]` **`templates/rules/meta_rule_design.md` §8 校准** — 触发器宽度 self-check 项注明"横切框架规则在 `rule_size_check.py` 白名单豁免"，与 hook 实际行为对齐。
+- `[repo]` **`.claude/hooks/rule_size_check.py` 同步上述白名单改动** — §1 第4问 dogfood 镜像红线，与产品层逐字一致。
+
 ## [0.26.0] - 2026-06-09
 
 ### Added

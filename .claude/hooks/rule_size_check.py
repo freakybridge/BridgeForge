@@ -43,6 +43,15 @@ LONG_CODE_BLOCK_LINES = 20
 # 通用启发式，不写死任何项目名。≥2 段前缀（如 `src/foo/**`）才算够窄。
 BROAD_PATH_RE = re.compile(r"^(?:\*\*?|[^/]+/\*\*?|\*\*/\*)$")
 
+# 横切/框架规则白名单：骨架自带的这几条规则宽触发器是**有意且合理**的——调试横切所有源码、
+# 工作流横切 doc、架构/模块常驻、可移植性横切 .claude/config/libs。豁免触发器宽度检查，
+# 否则 hook 对它们永久误报 → 训练人忽略 [rule-size] 信号（狼来了）。
+# 显式列名（meta_rule §4.2），**禁用通配**——否则退化成「关掉这条 lint」。下游可按需增删。
+# 注意：仅豁免触发器宽度，**不**豁免体积/行数/戳数检查（宽 ≠ 可以无限胖）。
+CROSS_CUTTING_RULES = {
+    "architecture.md", "modules.md", "debugging.md", "workflow.md", "portability.md",
+}
+
 
 def _frontmatter_paths(text: str) -> list[str]:
     """抽取 YAML frontmatter 里 `paths:` 列表的各 glob（不依赖 yaml 库）。"""
@@ -104,13 +113,14 @@ def check_rule(path: Path) -> list[str]:
             f"长 code 块 (>{LONG_CODE_BLOCK_LINES} 行) {len(long_blocks)} 个 > {MAX_LONG_CODE_BLOCKS} — 示例移 doc/3_design/"
         )
 
-    # 触发器宽度：单段目录通配 / 裸 ** = 伪常驻（meta_rule §4.2）
-    broad = [p for p in _frontmatter_paths(text) if BROAD_PATH_RE.match(p)]
-    if broad:
-        violations.append(
-            f"触发器过宽 {broad} — 单段目录通配等同始终加载（伪常驻）, "
-            f"收紧到具体子目录（≥2 段前缀如 a/b/**）或真红线进 CLAUDE.md"
-        )
+    # 触发器宽度：单段目录通配 / 裸 ** = 伪常驻（meta_rule §4.2）。横切规则白名单豁免。
+    if path.name not in CROSS_CUTTING_RULES:
+        broad = [p for p in _frontmatter_paths(text) if BROAD_PATH_RE.match(p)]
+        if broad:
+            violations.append(
+                f"触发器过宽 {broad} — 单段目录通配等同始终加载（伪常驻）, "
+                f"收紧到具体子目录（≥2 段前缀如 a/b/**）或真红线进 CLAUDE.md"
+            )
 
     return violations
 
