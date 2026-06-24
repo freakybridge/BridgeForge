@@ -1,4 +1,5 @@
 {
+  "effortLevel": "high",
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
@@ -172,6 +173,16 @@
             "type": "command",
             "command": "python .claude/hooks/context_warning.py",
             "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值输出 [ctx-budget] 信号（CLAUDE.md §10）。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自己也享同款预警。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/clarify_reminder.py",
+            "comment": "较大需求澄清提醒：便宜负向 gate（slash/极短/续接跳过）后注入 [clarify] 便利贴，模型精判是否真需澄清。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自身开发也享 clarify 防冲动动手。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/focus_reminder.py",
+            "comment": "任务防漂移 focus 锚：记第一条实质 prompt 为任务锚，之后每 FOCUS_EVERY 轮注入 [focus] 提醒拉回主线。dev 仓库无 .venv，用系统 python。自产自用：setup_agent 自身开发也享同款防漂移（dogfood）。"
           }
         ]
       }

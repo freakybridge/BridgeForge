@@ -1,4 +1,5 @@
 {
+  "effortLevel": "high",
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
@@ -246,6 +247,16 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/context_warning.py",
             "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值时输出 [ctx-budget] 信号给 Claude (详见 CLAUDE.md §10)。slash command 自动豁免不死锁。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/clarify_reminder.py",
+            "comment": "较大需求澄清提醒 — 候选轮(非 slash / 非续接词 / 非极短)注入 [clarify] 信号, 提示模型对大需求先用 AskUserQuestion 问 2-4 个背景问题再动手 (详见 CLAUDE.md §9.5)。混合判定: hook 粗筛 + 贴便利贴, 模型精判大小 + 真提问。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/focus_reminder.py",
+            "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 CLAUDE.md §9.6)。配套 /spinoff(派生交接) + /focus(锚控制) skill。"
           }
         ]
       }

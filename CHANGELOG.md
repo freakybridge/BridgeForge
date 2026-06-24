@@ -17,6 +17,18 @@
 
 ---
 
+## [0.27.0] - 2026-06-24
+
+### Added
+- `[product]` **`skills/focus/` + `skills/spinoff/`（2 新 skill）** — 任务防漂移双剑：`/focus` 手动查看/重置任务锚 + 当场自检跑没跑偏；`/spinoff` 把"推进 A 必须先解 B"的 B 干净甩到新对话交接，避免就地展开引起漂移。
+- `[product]` **`templates/hooks/clarify_reminder.py` + `templates/hooks/focus_reminder.py`（2 新 hook）** — 自动版防漂移：clarify 便宜负向 gate 后注入澄清提醒；focus 维护任务锚、攒够轮数后周期贴 `[focus]` 拉回主线。两者均已在 `templates/settings.json` 注册 + 自身 `.claude/` dogfood 镜像。
+- `[product]` **`templates/settings.json` 加 `effortLevel: high`** — 产品层默认推理深度，可在项目级 settings.json 按需覆盖（portability.md §1 唯一例外条款）。
+
+### Changed
+- `[product]` **`templates/CLAUDE.md`** — 新增 §9.5 较大需求澄清（`[clarify]` 信号）+ §9.6 任务防漂移（`[focus]` 信号 + 漂移分类响应）两节，与 §10 ctx-budget 同范式。
+- `[product]` **`templates/rules/portability.md`** — §1 补 `effortLevel` 唯一例外红线 + Why；§3 表注更新 effortLevel 分层语义。
+- `[meta]` **`SKILL.md` 表更新**、**`docs/repositioning-from-StratusAgent-2026-06-24.md`**（C1–C10 反哺总 spec）、**`.claude/harvest-inbox.md`** 指针。
+
 ## [0.26.4] - 2026-06-10
 
 ### Changed

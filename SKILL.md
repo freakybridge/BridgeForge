@@ -137,6 +137,8 @@ fi
 | `summary` | `/summary` | 总结对话决策写入 memory，并按需更新 rules/docs；**顺手捕捉通用经验进反哺收件箱** |
 | `sync-docs` | `/sync-docs` | 根据代码变更同步设计文档 |
 | `harvest` | `/harvest` | 把下游攒的通用经验脱敏反哺回 setup_agent 上游（无参批量清收件箱 / 带描述立即单条） |
+| `spinoff` | `/spinoff` | 前置阻塞问题派生交接 — 存档主任务 + 生成解前置的种子提示词 + 双向回链，去新对话解前置（配 focus_reminder.py 防漂移）|
+| `focus` | `/focus` | 任务锚控制 + 手动漂移自检（查/改/清本会话原始任务锚，配 focus_reminder.py hook）|
 
 **全局 CLAUDE.md 自检（幂等，与 skill 自检同批）**：确保用户全局 CLAUDE.md 含以下通用规则，缺哪条补哪条：
 
@@ -273,6 +275,7 @@ __pycache__/
 *.pyc
 .claude/settings.local.json
 .runtime/session_state/
+.runtime/focus/
 .runtime/*.log
 ```
 
@@ -561,4 +564,4 @@ cp "$HOME/.claude/skills/setup_agent/VERSION" .claude/.setup_agent_version
 | `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
 | `CHANGELOG.md` | 通用骨架 | Keep a Changelog 格式 + 引用 `rules/workflow.md §9` 语义；含 `[0.1.0] - {{TODAY}}` 初始 entry，所有项目都复制 |
 | `.claude/.setup_agent_version` | 生成（非模板文件）| init 末尾写 = 安装时 setup_agent 版本；重跑 `/setup_agent` 据此进**更新模式**（拉上游 `[product]` 增量）而非全新铺设 |
-| `skills/*/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / find-memory / summary / sync-docs / harvest）。Step 0 自检补齐到 `~/.claude/skills/` 平级；Step 0.5 清掉项目里的重复副本（单一源）。find-doc / sync-docs 的项目专属字典外置 `.claude/*.map.md`（不进 skill 本体）。 |
+| `skills/*/SKILL.md` | **通用** | 协作 skill 集（plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / find-memory / summary / sync-docs / harvest / spinoff / focus）。Step 0 自检补齐到 `~/.claude/skills/` 平级；Step 0.5 清掉项目里的重复副本（单一源）。find-doc / sync-docs 的项目专属字典外置 `.claude/*.map.md`（不进 skill 本体）。 |

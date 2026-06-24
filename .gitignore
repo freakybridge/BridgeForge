@@ -25,4 +25,5 @@ __pycache__/
 # 与 templates/rules/modules.md 的「.runtime/output gitignored」同理——.runtime 下
 # 持久资产可 track，但快照/日志属临时产物）
 .runtime/session_state/
+.runtime/focus/
 .runtime/*.log
