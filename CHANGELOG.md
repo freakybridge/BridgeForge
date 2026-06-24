@@ -17,6 +17,21 @@
 
 ---
 
+## [0.28.2] - 2026-06-25
+
+### Fixed
+- `[product]` **`templates/hooks/focus_reminder.py`(+ setup_agent 自用副本)防漂移 `[focus]` 措辞中性化 —— 治"反漂移机制自己变漂移源"**：
+  - 原措辞「本会话原始任务:「X」。这轮是否仍在推进它? … 别闷头做 … 前置阻塞→/spinoff …」是**审问 + 催办**语气,默认假设"用户漂了",诱导模型把当前正当的新任务误判为漂移 → 跑去谈旧任务 / 大谈该不该 `/spinoff` 交接 → **答非所问**
+  - 根因:hook 把"会话第一条实质 prompt"死锁为唯一 anchor,但真实会话里做完一件事后自然转入新任务是常态;陈旧 anchor + 催办措辞凑一起,在 `FOCUS_MIN_TURN` 后周期性把模型带跑
+  - 改为**中性措辞**:显式声明"用户转入新任务是【正常的】,默认忽略本提示",仅当模型察觉自己确实在【不知不觉】偏离一个用户没喊停的未完成任务时才按 §9.6 分类响应。把默认姿态从"纠偏"翻成"忽略"
+  - 单文件 `print` 块改动,零连锁(不碰 `/focus`、`/spinoff` skill、不改触发逻辑 / 存储)。下游 StratusAgent 已实测复现 + 修复后 5 项验证通过
+- `[product][meta]` **全局统一 hook/script 的 UTF-8 兜底 `except` 写法 —— 消除冗余 + 修正 v0.27.0 回归**：
+  - 27 个 `.py`(templates 16 + 自用 `.claude` 11) 顶部 UTF-8 兜底块里的 `except (AttributeError, Exception):` 统一改为 `except Exception:` —— `Exception` 本就是 `AttributeError` 父类，并列纯冗余，**行为完全等价**
+  - 同步修正 `docs/repositioning-from-StratusAgent-2026-06-24.md` 里把冗余写法定为 normative 规范的表述：v0.27.0 (见下方条目) 曾把两个 hook 改成 `except Exception`，但被后续 UTF-8 批量补丁按旧规范覆盖回去 → **悄悄回归**，本次连同规范源头一并纠正
+  - 纯 refactor，零行为变更；27 文件 `py_compile` 全过 + dogfood 双份逐字一致复验
+
+---
+
 ## [0.28.1] - 2026-06-24
 
 ### Fixed

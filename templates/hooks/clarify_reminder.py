@@ -32,7 +32,7 @@ import sys
 # Windows 终端默认非 UTF-8, 中文会乱码 → 强制 stdout 用 UTF-8
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 # 极短输入跳过: 只杀 1 字符噪声(嗯 / 哦 / ?), 不会误伤真需求

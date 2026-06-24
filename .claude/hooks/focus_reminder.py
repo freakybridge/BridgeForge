@@ -35,7 +35,7 @@ from pathlib import Path
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -118,10 +118,11 @@ def main() -> None:
         return
 
     print(
-        f"[focus] 本会话原始任务:「{anchor}」。这轮是否仍在推进它?\n"
-        f"[focus] 若在做偏离原任务的子问题, 别闷头做 — 按 CLAUDE.md §9.6 分类响应: "
-        f"前置阻塞→大用 /spinoff 交接+开新对话·小做完即回 | 附加→/todo | "
-        f"无关→/todo 或新对话 | 仍是原任务正当子步→忽略本提示"
+        f"[focus] 中性提醒(非指令): 本会话较早记录的一个任务是「{anchor}」。\n"
+        f"[focus] 用户在同一会话里做完一件事后自然转入新任务是【正常的】。"
+        f"若本轮已转入新任务 / 新问题, 直接正常作答, 忽略本提示。"
+        f"仅当你察觉自己确实在【不知不觉】偏离一个用户没喊停的未完成任务时, "
+        f"才按 CLAUDE.md §9.6 分类(前置阻塞 / 附加 / 无关 / 正当深入)响应。"
     )
 
 

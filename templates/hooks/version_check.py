@@ -36,7 +36,7 @@ from pathlib import Path
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 # 版本号单一事实源候选，按优先级（与 SKILL.md Step 3 "版本号 SoT 条件复制" 一致）

@@ -230,6 +230,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-06-05 | StratusAgent | templates/scripts/memory_bootstrap_cold.py + docs/memory-scoring-design.md | 新脚本：memory 冷启动一次性引导（拨 never-recalled 文件 created_at 入 Cold，跳过约 1-2 周自愈期；只动空 session_dates 文件，安全）+ 设计文档加「冷启动/首次激活」节（含手工 MEMORY.md 备份提醒；回收收件箱 line 24）| bridgexue |
 | 2026-06-05 | StratusAgent | templates/hooks/target_cleanup.py | 给已反哺的 hook 叠加 L2 deps 多版本变体裁剪（按 crate 分组、mtime 留最新 N=2、删旧变体）；脱敏下游实测数值（"deps 85GB / stratus_* 280+ 变体 / 降到 9GB"）为 normative 表述，复用上游已通用化的 find_workspace + `**` 递归 glob；快车道单条，无收件箱条目可回收 | bridgexue |
 | 2026-06-09 | StratusAgent | templates/hooks/{memory_junction_check,requirements_check}.py + rule_size_check.py + rules/meta_rule_design.md + settings.json | 把 3 条「机械可判定」的 rule 约束 hook 化（v0.26.0）：①新 SessionStart hook memory_junction_check 自愈 junction（通用 project-hash 推导 + rename-to-.bak 不硬删）②新 requirements_check 查绝对URL+非ASCII ③rule_size_check 加触发器宽度检查（单段通配=伪常驻）；meta_rule §6.4/§8 校准阈值消漂移。脱敏：§10「本项目实测案例库」含 stratus/**/gateway_ctp_sopt.md 等项目专属名，整段不反哺 | bridgexue |
+| 2026-06-25 | StratusAgent | templates/hooks/focus_reminder.py（+ 自用副本）| `[focus]` 措辞中性化（v0.28.2）：审问+催办语气（"还在推进它吗?…别闷头做…→/spinoff"）诱导模型把正当新任务误判为漂移 → 答非所问；改为"用户转入新任务是正常的,默认忽略"的中性提示,只在真不知不觉偏离时才纠偏。无业务术语,纯通用机制改进,7 项 checklist 全过；快车道单条无收件箱条目可回收 | bridgexue |
 
 ---
 

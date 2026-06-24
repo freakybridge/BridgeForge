@@ -24,7 +24,7 @@ from pathlib import Path
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 # F10: Unix 路径白名单——系统目录（可移植，非污染）

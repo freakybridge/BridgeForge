@@ -35,7 +35,7 @@ from pathlib import Path
 # Windows 终端默认不是 UTF-8，中文注入会乱码 → 强制 stdout 用 UTF-8（全 hook 统一约定）
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 # 跳过的目录名 (字节码缓存 / git 元数据 / 隐藏目录另行判)

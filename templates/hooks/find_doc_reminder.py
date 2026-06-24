@@ -28,7 +28,7 @@ LOG = REPO_ROOT / ".runtime" / "find-doc-stats.log"
 # 强制 stdout UTF-8 (Windows 默认 GBK 会乱码)
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 

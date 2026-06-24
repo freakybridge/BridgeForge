@@ -19,7 +19,7 @@ from pathlib import Path
 # Windows 终端默认不是 UTF-8，中文会乱码 → 强制 stdout 用 UTF-8
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

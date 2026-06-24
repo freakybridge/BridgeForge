@@ -67,7 +67,7 @@ StratusAgent 用户报 agent 工作异常（读串/空转/跑题/低效），查
 - **Note**：上游 `D:/Quant/setup_agent/skills/` 下已全是目录式 `SKILL.md`，扁平是历史**部署**遗留，Step0.5 该在用户级清。
 
 ### C7 · hook UTF-8 输出兜底（骨架红线）〔P1〕
-- **What**：所有**输出中文**的 python hook 必须在顶部 `try: sys.stdout.reconfigure(encoding="utf-8") except (AttributeError, Exception): pass`。Windows 控制台默认 GBK，漏设 → 中文经 stdout 被当 UTF-8 解 → **mojibake 注入 SessionStart 上下文**（StratusAgent 的 `target_cleanup.py` 曾是唯一漏设者，导致 agent"读串"）。
+- **What**：所有**输出中文**的 python hook 必须在顶部 `try: sys.stdout.reconfigure(encoding="utf-8") except Exception: pass`。Windows 控制台默认 GBK，漏设 → 中文经 stdout 被当 UTF-8 解 → **mojibake 注入 SessionStart 上下文**（StratusAgent 的 `target_cleanup.py` 曾是唯一漏设者，导致 agent"读串"）。
 - **Where**：核对 `templates/hooks/` 每个输出中文的 hook 都有此行；写进 hook 编写规范。
 - **Note**：可顺带在 `templates/settings.json` 给 python hook 命令统一前缀 `-X utf8` / `PYTHONIOENCODING=utf-8` 做全局兜底。另：**禁止用 PowerShell 编辑含中文的模板文件**（GBK 会写坏，固化成 U+FFFD）——StratusAgent 的 rule 文件就是这么被写坏的。
 

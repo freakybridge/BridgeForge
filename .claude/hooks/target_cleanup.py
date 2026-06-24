@@ -41,7 +41,7 @@ from pathlib import Path
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-except (AttributeError, Exception):
+except Exception:
     pass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .claude/hooks/ -> 项目根
