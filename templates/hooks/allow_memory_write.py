@@ -23,6 +23,12 @@ import json
 import os
 import sys
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except (AttributeError, Exception):
+    pass
+
 
 def is_memory_md(file_path: str) -> bool:
     if not file_path:

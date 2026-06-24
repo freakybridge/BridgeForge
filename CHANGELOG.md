@@ -17,6 +17,34 @@
 
 ---
 
+## [0.28.1] - 2026-06-24
+
+### Fixed
+- `[product]` **`templates/scripts/audit_user_allow.py` 5 处 bug 修正（F3/F4/F7/F8/F9/F10/F12）**：
+  - F3: 删除 `--fix` 功能（交互式删条目）——违反 C3 spec"只报不删"红线；同步修 `SKILL.md` 去掉 `--fix` 用法说明
+  - F4: Windows 路径正则改为只认反斜杠 `[A-Za-z]:\\`，跳过含 `://` 的 URL（原 `[A-Za-z]:[/\\]` 误报 `https://`）
+  - F7: IPv4 正则加 0-255 octet 约束 + 要求网络上下文（原正则误报 `pip install foo==1.2.3.4` 版本号）
+  - F8: 循环内加 `isinstance(entry, str)` 守卫（原代码遇 null/数字/对象 allow 条目直接 TypeError 崩）
+  - F9: `allow_list` 取出后加 `isinstance(allow_list, list)` 检查（原代码遇 dict 类型静默遍历 key 出乱报告）
+  - F10: Unix 路径正则改为白名单制（原 `/[a-z]+/[A-Za-z]` 误报 `/usr/bin/env`、漏报 `/Users/**`）
+  - F12: 删除死代码 `or data.get('allow', [])` 分支
+- `[repo]` **`.claude/hooks/` 4 文件补 dogfood 镜像（F1+F2，C7 红线收尾）** — `context_warning.py` / `allow_memory_write.py` / `memory_access_tracker.py` / `target_cleanup.py` 整体覆盖至 templates 版本：补 UTF-8 reconfigure（C7 之前只改了 templates/，.claude/ 镜像 0 处改动）；同步 `target_cleanup.py` 从旧 L1-only (174行) 升级至 L1+L2 deps 裁剪 (296行)。
+- `[repo]` **`.claude/scripts/audit_user_allow.py` 补 dogfood 镜像（F11）** — 与 templates/scripts/ 版本保持同步（已修正版）。
+
+### Notes
+- C9（用户级 env encoding 自动 merge）：SKILL.md 采方案①——安装期自动 merge `PYTHONUTF8/PYTHONIOENCODING` 进 `~/.claude/settings.json`；无实际生效物（安装期 hook 调用时才写入）。此方案未经用户明确追认，待下次 `/setup_agent` 实跑后确认或调整。
+
+## [0.28.0] - 2026-06-24
+
+### Added
+- `[product]` **`templates/scripts/audit_user_allow.py`（C3）** — 扫 `~/.claude/settings.json` `permissions.allow` 揪出疑似项目专属/一次性条目（绝对路径/PID/IP/一次性命令），只报不删，列给用户拍板后下沉到项目 `settings.local.json`。
+- `[product]` **`templates/rules/portability.md` §3.1（C4+C5）** — 新增"项目专属授权禁放用户级"范式文档：allow 下沉红线 + 合法/污染分类表 + 豁免边界（通用 skill 本体 = 合法 DRY；项目专属授权 = 污染）。
+
+### Changed
+- `[product]` **`templates/CLAUDE.md`（C1）** — §1/§3/§7 三处冗长 TODO 占位改成一行明确留白（"项目专属红线，随开发增量补充"），符合"init 时内容还不存在，不应预设填空"原则。
+- `[product]` **`templates/hooks/` 4 个 hook 补 UTF-8 兜底（C7）** — `context_warning.py` / `allow_memory_write.py` / `memory_access_tracker.py` / `target_cleanup.py` 补 `sys.stdout/stderr.reconfigure(encoding="utf-8")`，与已有的 12 个 hook 对齐（全 16 个覆盖）。防止 Windows GBK 控制台 mojibake 注入 context。
+- `[product]` **`SKILL.md` v0.19.0（C2+C3+C6+C8+C9+C10）** — Step 0 新增用户级 allow 审计步骤 + 全局 settings.json env 编码检查 + 写 rule 红线自检；Step 0.5 新增用户级扁平残留清理 + frontmatter key 标准化；Step 3 新增"这批各干嘛"速查表 + hook 成本最佳实践注释。
+
 ## [0.27.0] - 2026-06-24
 
 ### Added

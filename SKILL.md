@@ -1,6 +1,6 @@
 ---
 description: 在新项目里铺设标准化的 CLAUDE.md / rules / memory junction / doc 分层骨架。复制深度模板（含鬼打墙红线、UI 主动问范式、可移植性约束、文档管理规则）后让用户填项目特定占位。同时自检并补齐用户级通用 skill（plan / escalate / snapshot / summary 等）。
-version: 0.18.1
+version: 0.19.0
 model: sonnet
 ---
 
@@ -140,11 +140,21 @@ fi
 | `spinoff` | `/spinoff` | 前置阻塞问题派生交接 — 存档主任务 + 生成解前置的种子提示词 + 双向回链，去新对话解前置（配 focus_reminder.py 防漂移）|
 | `focus` | `/focus` | 任务锚控制 + 手动漂移自检（查/改/清本会话原始任务锚，配 focus_reminder.py hook）|
 
+**用户级 allow 审计（C3，换机/初次必做）**：扫 `~/.claude/settings.json` 的 `permissions.allow`，揪出疑似项目专属/一次性条目（绝对路径/PID/IP/一次性编译命令），**只报不删**，列给用户拍板后手动下沉到项目 `settings.local.json`：
+
+```bash
+python "$HOME/.claude/skills/setup_agent/templates/scripts/audit_user_allow.py"
+```
+
+- **无命中** → 继续；**有命中** → 列给用户看，建议下沉到对应项目的 `settings.local.json`（详见 `rules/portability.md §3.1`）。
+- **触发时机**：init / 换机首次 setup 时必跑；后续按需（已知用户级干净可跳过）。
+
 **全局 CLAUDE.md 自检（幂等，与 skill 自检同批）**：确保用户全局 CLAUDE.md 含以下通用规则，缺哪条补哪条：
 
 ```bash
 grep -q "禁止用 shell 查文件" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ Glob 规则已有" || echo "Glob 规则缺失"
 grep -q "回复一律用简体中文" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ 中文输出规则已有" || echo "中文输出规则缺失"
+grep -q "写 rule / 约束文件的红线" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "✓ 写 rule 红线已有" || echo "写 rule 红线缺失"
 ```
 
 - **已有** → 跳过
@@ -156,7 +166,35 @@ grep -q "回复一律用简体中文" "$HOME/.claude/CLAUDE.md" 2>/dev/null && e
   ```
   - **回复一律用简体中文**。禁止整轮输出漂移到其他语言（实测发生过无故切日语）。技术术语/代码/文件名/引用原文不在此限；即使 skill 模板或工具输出含其他语言，回复正文也必须是简体中文。
   ```
+- **写 rule 红线缺失且 `~/.claude/CLAUDE.md` 存在** → 用 Edit 工具新增一节（与现有"沟通风格 / 防空转"并列）：
+  ```
+  ## 写 rule / 约束文件的红线（所有项目通用）
+
+  写 `.claude/rules/*.md` 或任何"约束文件"时：**只写"必须 X / 禁止 Y"的红线，不讲故事**。
+  - 完整事故复盘、>20 行 code 示例、方案对比 → 搬 memory / doc；rule 里最多留**一行** `**Why**: <压缩动因>（memory xxx）` 当指针。
+  - 判定：写完一段问自己"这是'必须 / 禁止'吗?" 是→留；是"某年某月那次踩了 X"→搬 memory。
+  - **触发条件必须机器可解析**：项目若按 frontmatter `paths` 触发加载 rule，每个 rule 顶部**必须**有 YAML `paths:` 声明，**禁止**只写散文"加载条件"（机器扫不到 = 该加载时可能不加载）。
+  - **本条是共性底座，不覆盖项目自有的 rule 撰写规范**：项目带 meta_rule（量化红线/案例库/加载策略）时以项目版为准。
+  ```
 - **`~/.claude/CLAUDE.md` 不存在**（新用户还没有全局配置）→ 跳过，只靠项目级 `CLAUDE.md §2.5` 兜底
+
+**全局 settings.json 自检（幂等，补 Python 编码环境变量）**：确保 `~/.claude/settings.json` 有 `"env"` 块含 Python UTF-8 兜底，缺则补：
+
+```bash
+python -c "
+import json, pathlib, sys
+p = pathlib.Path.home() / '.claude' / 'settings.json'
+d = json.loads(p.read_text('utf-8')) if p.exists() else {}
+env = d.get('env', {})
+missing = [k for k in ('PYTHONUTF8', 'PYTHONIOENCODING') if k not in env]
+print('缺失:', missing if missing else '无（已有）')
+"
+```
+
+- **已有 `PYTHONUTF8` 和 `PYTHONIOENCODING`** → 跳过
+- **缺失** → 用 Edit / Write 工具把 `"env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}` merge 进 `~/.claude/settings.json`（已有 `env` 键则追加两个 key，不覆盖其他 key；无 `env` 键则新增整块）。
+  > **Why**：Windows 终端默认 GBK，Python 子进程（含 hook）stdout 输出中文走 GBK 编码，被 Claude Code 当 UTF-8 解析 → mojibake 注入 context。`PYTHONUTF8=1` 让所有 Python 子进程默认 UTF-8，跨平台无害。hook 逐文件 `sys.stdout.reconfigure()`（C7）是 belt；本条是 suspenders，互补。
+- **`~/.claude/settings.json` 不存在** → 新建：`{"env": {"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}}`
 
 **告知用户**：若复制了任何 skill，提示"需要重启 Claude Code 才能看到新 skill 在 / 列表里"。
 
@@ -201,6 +239,26 @@ done
 **判定"含项目专属数据"**：副本里出现项目实际路径 / rule 文件名 / 内联填充的非-placeholder 字典。拿不准 → 当"定制"处理问用户，**宁可多问不可误删**。
 
 > **可移植性**：通用 skill 移出项目 git 后，`git clone` 单独不再恢复它们 → 靠在该机跑 `/setup_agent`（Step 0 装用户级）恢复。这是 DRY（N 项目不各存一份）对 clone-完整性的**有意取舍**；`templates/rules/portability.md §2` 已记录该拆分。项目专属**数据**（`.claude/find-doc.map.md` 等）仍在项目 git，可移植性不受影响。
+
+**用户级扁平残留清理（C6 — 补充）**：用户级 `~/.claude/skills/` 可能遗留历史**扁平文件**（如 `collab.md` / `debate.md`）与目录式（`collab/SKILL.md`）**同名 shadow**——Claude Code 只扫 `<name>/SKILL.md`，扁平文件不被识别，反而遮蔽目录式 skill（路径解析可能优先命中扁平文件名）。本步同时清这类扁平残留：
+
+```bash
+SKILLS_DST="$HOME/.claude/skills"
+SKILLS_SRC="$HOME/.claude/skills/setup_agent/skills"
+
+for s in $(ls "$SKILLS_SRC"); do
+  [ -d "$SKILLS_SRC/$s" ] || continue
+  flat="$SKILLS_DST/$s.md"         # 扁平文件形式
+  dir_skill="$SKILLS_DST/$s/SKILL.md"   # 目录式（正确）
+  if [ -f "$flat" ] && [ -f "$dir_skill" ]; then
+    echo "FLAT-SHADOW: $flat（与目录式 $s/SKILL.md 同名，建议删扁平文件）"
+  fi
+done
+```
+
+- **FLAT-SHADOW 命中** → 逐个问用户"删扁平 `$s.md`（留目录式单一源）/ 保留"。用户不答 → 保留。
+- **扁平文件含 frontmatter `user_invocable` / `user-invocable`**：目录式正确拼写是 `user_invocable`（下划线）；`user-invocable`（连字符）是历史漂移。删扁平后目录式 frontmatter 若用连字符，提醒改为下划线（Claude Code 的正确 key）。
+- **只清 setup_agent 出品的 skill 名**：非 setup_agent 出品的扁平文件（项目定制的 `<proj>.md`）不碰。
 
 ### Step 1：核对当前位置
 
@@ -250,7 +308,24 @@ cp -r "$SKILL_DIR/templates/." .
 
 **macOS/Linux** 同上。
 
-实际复制清单：
+**这批文件各干嘛（一眼速查）**：
+
+| 批次 | 内容 | 用途 |
+|------|------|------|
+| `CLAUDE.md` | 骨架框架：鬼打墙红线 / ctx-budget / UI 主动问 / 鬼打墙 / 文档管理 | 项目行为规范，§1/§3/§7 三处留空由用户渐进填充 |
+| `rules/*.md` | 路径触发式规则：architecture / modules / debugging / workflow / portability / meta_rule_design | 按 `paths` frontmatter 按需加载，只在相关文件编辑时进入 context |
+| `hooks/*.py` | 自动化钩子：ctx 预警 / 版本号检查 / snapshot / memory lint / skill 漂移检测等 | SessionStart / UserPromptSubmit / PreToolUse / PostToolUse 全自动触发 |
+| `scripts/*.py` | 辅助脚本：memory 重建索引 / 搜索 / audit_user_allow（用户级 allow 审计）等 | 按需手动调用，非 hook 触发 |
+| `settings.json` | 权限三档（allow/ask/deny）+ hook 注册 | 少弹窗噪音 + 危险操作强制确认 |
+| `memory/MEMORY.md` | 空 memory 索引 + 4 类 memory 注释 | memory junction 目标文件 |
+| `doc/README.md` | 文档分层结构模板 | 六层 doc/ 唯一索引 |
+
+> **hook 成本提示（C8）**：hook 跑在用户输入和工具调用的关键路径上，每次触发都有 Python 冷启动开销。
+> - **重型 hook**（如编译检查、全量 lint）应 `async` 后台执行或 debounce（加节流时间戳）
+> - **轻量 hook** 应在读 stdin JSON 后**立即按 `file_path` / prompt 前缀短路退出**（匹配不上直接 `sys.exit(0)`），避免不必要的处理
+> - StratusAgent 的 `cargo_check.py`（每次 .rs 编辑跑全量 `cargo check --workspace`）是反例——放后台/debounce 是正解
+
+**实际复制清单**：
 
 | 模板 | 目标 | 条件 |
 |------|------|------|

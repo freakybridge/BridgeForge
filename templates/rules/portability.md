@@ -54,6 +54,22 @@ memory 纳入项目 git（`.claude/memory/`），但 Claude Code 读写走系统
 | `.claude/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
 | 用户级 `~/.claude/settings.json` | 全局默认（effortLevel 兜底等）| 内容简单，换机后手动设置；**effortLevel 的项目值写项目级 `.claude/settings.json`（git 管理，见 §1 例外），此处仅作未指定项目的全局 fallback** |
 
+### 3.1 项目专属授权禁放用户级（红线）
+
+**项目专属 `additionalDirectories` / `permissions.allow` 条目禁放 `~/.claude/settings.json`；被权限弹窗时，优先落本项目 `settings.local.json`（已 `.gitignore`），不扩散用户级。**
+
+用户级只放**共性条目**：通用协作 skill 本体（合法 DRY）、共性安全红线（`deny` 拦截敏感路径）、沟通风格等全项目通用规则。
+
+| 进用户级 = 合法 | 进用户级 = 污染 |
+|---|---|
+| setup_agent 出品的通用 skill 本体（plan/escalate/snapshot…） | 项目绝对路径的 allow（`d:\\Quant\\<proj>\\…`） |
+| 共性 deny 红线（`~/.ssh`/`.env`/`rm -rf`） | 本机 PID / IP 写死的 allow |
+| 沟通风格 / 防空转行为指令 | 一次性 clone / 编译命令的 allow |
+
+> **Why**: 项目专属 allow 跨机迁移时"随机器走"而非"随项目走"，会在新机污染全局并干扰其他项目。`settings.local.json` 已在 `.gitignore`，是项目专属本机配置的正确落点。
+>
+> **换机提示**: 新机 clone 后若缺项目所需的 allow，按需重建 `settings.local.json`，不要借 always-allow 写进用户级。
+
 ---
 
 ## 4. 包安装约束

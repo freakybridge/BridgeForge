@@ -28,6 +28,12 @@ import json
 import sys
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except (AttributeError, Exception):
+    pass
+
 # 上下文窗口大小 (tokens). 按实际使用模型调整:
 #   1M 专用版 Opus (model-id 含 [1m] 后缀)        → 1_000_000  (默认)
 #   标准版 Opus 4.8 / Sonnet 4.6 / Haiku 4.5      → 200_000  (标准 200k 模型需手动下调)
