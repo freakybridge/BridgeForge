@@ -19,9 +19,11 @@
 ## 🔥 Hot（Top-40，按访问时效自动维护）
 - [project-rename-bridgeforge.md](project-rename-bridgeforge.md) — v0.29.0 起项目/skill 由 setup_agent 更名为 bridgeforge；历史流水账故意保留旧名
 - [feedback-review-technique.md](feedback-review-technique.md) — setup_agent review 时的两条操作红线（并行编辑 + hook 删除安全检查）
+- [ghost-wall-threshold-conflict.md](ghost-wall-threshold-conflict.md) — 鬼打墙计数阈值在 CLAUDE.md §8(3) 与 debugging §6 T1(2) 不一致，待统一；属行为变更不混进瘦身，用户暂选不改
 - [project-v024-state.md](project-v024-state.md) — setup_agent v0.24.0 主要变更摘要（2026-06-09）
 - [project-v025-state.md](project-v025-state.md) — setup_agent v0.25.0 支柱 B 实现摘要（开机自检 + 退役检测，2026-06-09）
 - [project-v026-state.md](project-v026-state.md) — setup_agent v0.26.x 系列摘要（rule 约束 hook 化 + skill model 轻量化，2026-06-10）
+- [project-v030-state.md](project-v030-state.md) — v0.29.2 summary trim + v0.30.0 产品层全面瘦身：skill/CLAUDE.md/rules 总减 250+ 行，建立 redline-placement 原则 + external-references 模式
 - [utf8-garble-rootcause.md](utf8-garble-rootcause.md) — 中文 hook 输出在 GBK Windows 上糊成 U+FFFD 注入 context、曾高频致 agent 跑偏；根因/已修手段/残留/为何不过度加固的完整地图
 
 <!-- AUTO-HOT-END -->
