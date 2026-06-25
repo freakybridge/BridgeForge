@@ -126,6 +126,15 @@ bridgeforge 故意**不做**这些事，留给项目自己决定：
 >
 > 注：`docs/design-rationale.md §9.3` 的"镜像漂移检查 hook"是**工厂自查样板间**（bridgeforge 自己的 `.claude/hooks` vs `templates/hooks` 一致性），与"监督下游"是两回事，不受本决定影响。
 
+> **关于 focus 对"点击背书的 scope 升级"结构性盲区（2026-06-26 跑偏调查后否决重武装 focus）**
+>
+> 一次"评估仓库能否公开 → 被做成全量脱敏执行"的会话跑偏暴露：`focus_reminder.py` 拦不住"agent 把评估包装成 `AskUserQuestion` 执行菜单、用户顺手点选"这类 scope 升级。**按设计不修**，原因：
+> 1. **机制接不住**——focus 是 `UserPromptSubmit` hook、只吃 stdin 的 `prompt`；而决定性那一跳是用户**点击选项**而非打字，关键回合 hook 拿不到可判的 prompt。
+> 2. **锚判不准**——真实锚"现在仓库可以公开了吗"里"公开"本身是动作动词，纯字符串 `anchor_kind` gate 会误判。
+> 3. **重武装重蹈覆辙**——v0.28.2 刚把 focus 文案中性化（旧"审问+催办"语气诱导把正当新任务误判为漂移→答非所问）；再加"评估→执行"检测 = 旧病复发 + 高频误报。
+>
+> **改由三层兜底**：① 病根（答完不收口 / 思考空转）由用户级 `effort=medium` baseline 压（见 `CHANGELOG [0.31.0]`）；② 真正的门由 `templates/CLAUDE.md §9.5`「评估问答完即停、禁止主动开执行菜单」红线收（v0.32.0 已落）；③ `/focus` 被动入口供用户手动核锚。代价：这层防护靠纪律 / 被动触发而非 hook 自动拦截，是经多 agent 辩论权衡后的取舍（产品层 hook 加固性价比为负）。
+
 ---
 
 ## 8. 模板素材的来源

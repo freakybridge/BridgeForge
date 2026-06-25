@@ -1,5 +1,4 @@
 {
-  "effortLevel": "high",
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
@@ -253,6 +252,11 @@
             "type": "command",
             "command": "python .claude/hooks/skill_sync_check.py",
             "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：比对 ~/.claude/skills/ 副本与上游源，缺失/不一致则提示跑 /bridgeforge。只读不改。dev 仓库无 .venv，用系统 python。自产自用：本机上游是 junction→开发仓库，正好检测「改了 skills/ 源但没同步用户级副本」的开发期漂移。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/enforce_no_effortlevel.py",
+            "comment": "强制剔除项目级 effortLevel（hook 化机检，详见 memory effort-config-layering）。dev 仓库无 .venv，用系统 python。dogfood：本仓库 settings.json 已无 effortLevel，此处常驻 no-op，正好验证「自门控静默跳过」产品承诺。"
           }
         ]
       }

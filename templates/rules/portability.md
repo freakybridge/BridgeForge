@@ -17,9 +17,7 @@ paths:
 - 所有影响开发体验的配置 **必须** 存放在项目 `.claude/` 内，纳入 git 管理
 - **禁止** 在用户目录 (`~/.claude/`) 下创建仅特定机器才有的关键配置
 - 新增配置/技能/规则时，默认放项目内，除非明确只对当前机器有意义
-- **唯一例外 — `effortLevel`**：项目级 `.claude/settings.json` **允许且应当**写 `effortLevel` 覆盖用户级（CC 合并优先级 Project > User，是按项目定推理深度的正解）。这是**唯一**被批准的"项目级覆盖用户级"字段；其余字段一律守上三条，**禁止**借此口子扩散到别的 key。骨架默认 `effortLevel: high`。
-
-> **Why**：改 effort 的顺手入口（`/effort` / `/config` UI）**只写用户级全局**，会污染所有项目、且不随 git clone 走；要"本项目独立档位 + 可移植"只能手写项目级 settings.json。故对 effort 一字段豁免红线（项目级 settings.json 本就 git 管理，可移植性不受损）。
+- `effortLevel` 是上条的反向例外：**不放项目内、由用户级全局统一管**（项目级会盖全局、顶掉顺手的 slider/`/effort`）。此约束**不靠 rule，由 `SessionStart` hook `enforce_no_effortlevel.py` 机检强制剔除项目级值**（本骨架特征：能机检的红线一律 hook 化）。覆盖关系与决策见 memory `effort-config-layering`。
 
 ---
 
@@ -52,7 +50,7 @@ memory 纳入项目 git（`.claude/memory/`），但 Claude Code 读写走系统
 | 文件 | 说明 | 处理方式 |
 |------|------|---------|
 | `.claude/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
-| 用户级 `~/.claude/settings.json` | 全局默认（effortLevel 兜底等）| 内容简单，换机后手动设置；**effortLevel 的项目值写项目级 `.claude/settings.json`（git 管理，见 §1 例外），此处仅作未指定项目的全局 fallback** |
+| 用户级 `~/.claude/settings.json` | 全局默认（effortLevel 等）| 换机后手动设置；**effortLevel 一律在此（全局）管；项目级由 `enforce_no_effortlevel` SessionStart hook 自动剔除，本机配 `reset_effort` SessionEnd hook 还原 medium baseline** |
 
 ### 3.1 项目专属授权禁放用户级（红线）
 

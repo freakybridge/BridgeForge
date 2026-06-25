@@ -17,6 +17,27 @@
 
 ---
 
+## [0.32.0] - 2026-06-26
+
+### Added
+- `[product][meta]` **反漂移 / 反工具污染红线补强（"评估仓库能否公开"会话跑偏调查的落地）**——一次评估问被做成全量脱敏执行（实则全程 dry-run、一字未落盘）+ 工具"传结果线"概率性抽风（重影 / 命中 0 假空 / 幻影文件名 `clouddev` / 含大段中文的 `AskUserQuestion` 入参转义炸成 `__unparsedToolInput`）的复盘后，往 `templates/CLAUDE.md` 补 4 条软约束红线。**经多 agent 结构化辩论裁定：产品层 hook 加固性价比为负**（招牌污染标记一个对 `AskUserQuestion` call 隐形、一个在本 repo 高误报、一个时序慢一拍，正中 v0.28.2 focus 重武装"噪声诱导跑偏"覆辙），故**零新 hook、零 settings 改动**，只补软约束文本。
+  - `[product]` **`templates/CLAUDE.md §2.5`**：① 禁止自拼 `for`+管道 / 多命令 `;` 串做大检索 / 大输出（一律受控 `Grep`/`Glob` 单命令）——这是传话线抽风的首要触发器；② **红线·脏数据上不拍板**——返回现重影 / 命中 0 与预期矛盾 / 不认识文件名 / `__unparsedToolInput` 时禁止直接下结论或改盘，先 `wc -c`/`git status`/受控 `Grep` 二次验真（口诀"dry-run 报的 N 处 ≠ 已改 N 处"——调查中母对话正因误信 dry-run 数字而把"已改 81 处"传错）。
+  - `[product]` **`templates/CLAUDE.md §9.5`**：① 新增第三条红线——评估 / 咨询 / 可行性类问（"能不能 / 有没有 / 该不该"只要结论的诊断问）答完即收口，**禁止**主动把建议包装成 `AskUserQuestion` 执行菜单（要不要执行由用户下一条 prompt 决定）；同时收窄原第一分支为"已表达执行意图、但范围模糊"的需求——堵住本次跑偏的真门（评估被悄悄递成执行菜单、用户顺手点选）；② `AskUserQuestion` 选项 / 入参必须短、纯文本、避免大段中文（长中文→`\u` 长串是 `__unparsedToolInput` 转义炸的直接诱因）。
+  - `[meta]` **`docs/design-rationale.md §7`**：记一条 focus 对"点击背书的 scope 升级"结构性盲区的"按设计不修"指针（focus 是 `UserPromptSubmit` hook 抓不到"点击选项"那一跳、且重武装重蹈 v0.28.2 覆辙），改由 medium baseline + §9.5 红线 + `/focus` 被动入口三层兜底——作为后人不再重提此议的指针。
+  - 背景：病根（Opus 4.8 答完不收口 / 思考空转）不在本轮范围，已由 `[0.31.0]` effort 治理（`medium` baseline）接管；本轮只补 medium 够不着的"工具传话抽风"与"clarify 把评估推成执行"两条具体路径。调查 + 辩论存档见 `.runtime/spinoff/live-offtrack-FINDINGS.md`。
+
+## [0.31.0] - 2026-06-26
+
+### Changed
+- `[product][repo]` **effort 治理反转：项目层不再钉 `effortLevel`，改由用户级全局统一管 + 会话级临时提升 + SessionEnd 自动还原**。跨下游 transcript 法医调研确认"token 空转无回复"主因 = Opus 4.8 高 effort 下"拿到信息不收口"（每拿到一点工具结果 / 一句琐碎 prompt 就思考到 64k 输出上限被 `max_tokens` 截断、全程无字；触发分布：普通工具结果 61% / 琐碎 prompt 10% / 报错仅 ~6%）；而项目级 `effortLevel`（合并优先级 Project > User）会把"顺手的 `/config` slider / `/effort`"顶掉 → 用户"调了不生效、被锁在 high 难降"。
+  - `[product]` **`templates/settings.json`**：删除 `effortLevel: high`（不再随骨架下沉）。
+  - `[product]` **新 hook `enforce_no_effortlevel.py`（SessionStart）**：自愈式强制从项目 `.claude/settings.json` 剔除 effortLevel（原子删 + `.bak`，无则静默 no-op）——拦下游 sync/clone/手加"流入"，否则整套全局机制被架空。**机检 hook 替代散文 rule（本骨架特征）**；已 dogfood 镜像进 `.claude/hooks/` + 注册。
+  - `[product]` **`templates/rules/portability.md §1`**：删除旧"项目级**应当**写 effortLevel"红线，改为一行反向例外 + 指向 enforce hook（不再用散文约束）；§3 表述同步更新。
+  - `[repo]` **dogfood**：本仓库 `.claude/settings.json` 同步删除 effortLevel（与瘦后模板一致）。
+  - **用户级（不下沉，仅本机）**：`~/.claude/settings.json` baseline 设 `medium` + 新增 `SessionEnd` hook `reset_effort.py`——关对话把 effortLevel 原子还原回 medium（json 读改写 + temp+os.replace + `.bak`），使"临时 `/effort high` 顶一格、用完自动还原"成立。背景：平台无内建 effort 自动还原，且普通 `/effort` 落盘是已知 bug #53331（唯一会话级是 `ultracode`=xhigh+workflows）。**此 hook 为个人全局，刻意不进 `templates/`**（否则 N 个下游抢改同一全局文件）。
+  - **下游迁移**：sync 后各自删除项目级 `.claude/settings.json` 的 effortLevel，回落用户级全局（用户逐一在下游侧确认）。
+  - memory：新增 `effort-config-layering`（配置覆盖关系 + 反转决策全图）。
+
 ## [0.30.0] - 2026-06-25
 
 ### Changed
