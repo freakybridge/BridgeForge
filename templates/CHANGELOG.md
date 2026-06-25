@@ -24,7 +24,7 @@
 ## [0.1.0] - {{TODAY}}
 
 ### Added
-- 项目初始化（通过 `/setup_agent` 铺设骨架）
+- 项目初始化（通过 `/bridgeforge` 铺设骨架）
 
 <!-- TODO: 后续每次 bump 版本号时在上方追加新 section，格式：
 

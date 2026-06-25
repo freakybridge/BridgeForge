@@ -1,6 +1,6 @@
-# setup_agent — 项目级 CLAUDE.md
+# bridgeforge — 项目级 CLAUDE.md
 
-> ⚠️ **这不是普通项目**。setup_agent 是个**"协作骨架工厂"**：它的产出（`templates/` + `skills/`）会被复印进每一个未来项目。
+> ⚠️ **这不是普通项目**。bridgeforge 是个**"协作骨架工厂"**：它的产出（`templates/` + `skills/`）会被复印进每一个未来项目。
 > 所以在这个 repo 里干活，第一红线不是"把功能做对"，而是**"把改动放对层、该传播的传播出去"**。
 
 ---
@@ -11,7 +11,7 @@
 
 1. **这属于哪一层？**
    - **产品层** `templates/` `skills/` → 会被复印给所有下游项目
-   - **自身配置层** `.claude/` `CLAUDE.md`（本文件）→ 只影响 setup_agent 这个 repo 自己
+   - **自身配置层** `.claude/` `CLAUDE.md`（本文件）→ 只影响 bridgeforge 这个 repo 自己
    - **元文档** `docs/` `README.md` `SKILL.md` `CHANGELOG.md` → 描述产品，但不随产品下沉
 2. **如果是通用改进，我写进 `templates/` / `skills/` 了吗？**
    - 最常见的事故：把一条通用规矩只写进了自身配置层或元文档，**忘了镜像进产品层** → 下游永远拿不到。
@@ -22,7 +22,7 @@
 4. **改的是 `templates/hooks/` 或 `templates/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
    - **凡确认要进产品层的 hook / settings 改动，必须当场镜像进自身 `.claude/`** —— 不能只发给下游、自己不装（§2 dogfood 约定的强制版）。
    - 镜像时按 dev 仓库约定改 hook 命令：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。
-   - 对 setup_agent 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
+   - 对 bridgeforge 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
    - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 注明「不 dogfood + 原因」。
 
 > 这条之所以写在 CLAUDE.md 而不是 rules/：它在**任何任务里**都要遵守，不能等"编辑某个文件时"才加载（理由同 design-rationale §5）。
@@ -34,12 +34,12 @@
 | 目录 / 文件 | 层 | 改动会不会传到下游 |
 |------------|----|------------------|
 | `templates/**` | 产品层 | ✅ 下游复印时全量继承 |
-| `skills/**` | 产品层 | ✅ 下游 `/setup_agent` Step 0 自检补齐到 `~/.claude/skills/` |
-| `.claude/**` `CLAUDE.md` | 自身配置层 | ❌ 只管 setup_agent 自己（自产自用：理论上应与 `templates/` 同款，见下） |
+| `skills/**` | 产品层 | ✅ 下游 `/bridgeforge` Step 0 自检补齐到 `~/.claude/skills/` |
+| `.claude/**` `CLAUDE.md` | 自身配置层 | ❌ 只管 bridgeforge 自己（自产自用：理论上应与 `templates/` 同款，见下） |
 | `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/VERSION` |
 
-**自产自用（dogfood）约定**：setup_agent 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边。这条已被提升为 §1 第 4 问的红线（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠 §1 第 4 问 + 本条自觉）。
+**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边。这条已被提升为 §1 第 4 问的红线（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠 §1 第 4 问 + 本条自觉）。
 
 ---
 
@@ -50,7 +50,7 @@
 | 标签 | 含义 | 下游动作 |
 |------|------|---------|
 | `[product]` | 改了 `templates/` / `skills/`，会下沉 | sync-from-upstream 时**应当**拉取 |
-| `[repo]` | 只改了 setup_agent 自身配置 / 工具，不下沉 | 无关，跳过 |
+| `[repo]` | 只改了 bridgeforge 自身配置 / 工具，不下沉 | 无关，跳过 |
 | `[meta]` | 只改了 `docs/` / `README` / `SKILL.md` 等说明 | 一般无关（除非想了解设计） |
 
 混合改动就并列标，如 `[product][meta]`。这是让"下游同步收益"最直接的抓手——下游 `grep "\[product\]" CHANGELOG.md` 即知增量。

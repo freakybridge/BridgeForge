@@ -117,7 +117,7 @@ Top-40：按 score 降序取前40，超出的进 MEMORY_COLD.md
 
 ---
 
-## 实现 Checklist（给 setup_agent session）
+## 实现 Checklist（给 bridgeforge session）
 
 - [ ] `templates/hooks/memory_access_tracker.py` — PostToolUse/Read hook
 - [ ] `templates/scripts/memory_rebuild_index.py` — Stop 时重建 MEMORY.md

@@ -17,6 +17,19 @@
 
 ---
 
+## [0.29.0] - 2026-06-25
+
+### Changed
+- `[product][repo][meta]` **项目 / skill 更名：`setup_agent` → `bridgeforge`**：
+  - **更名说明**：自本版（v0.29.0）起，本骨架库 / skill 由 `setup_agent` 更名为 `bridgeforge`（`bridge` = 作者署名，亦取"跨接"之意——把一套上游骨架跨接到每个下游项目；`forge` = 锻造工厂，对应本仓库"协作骨架工厂"的自定位）。**历史 CHANGELOG / `.claude/memory/` 等流水账保留旧名 `setup_agent` 不改写**——本注脚是唯一的更名锚点。
+  - **改了什么**：活文档 + 活代码共 252 处 `setup_agent` 字样替换为 `bridgeforge`，覆盖 README / INSTALL / SKILL.md / CLAUDE.md / docs/ 活 playbook / `skills/*/SKILL.md` / `templates/`（含 `templates/hooks/skill_sync_check.py` 的 junction 名硬编码 `~/.claude/skills/bridgeforge/` + SKILL.md 里版本戳文件名 `.bridgeforge_version`）/ 自身 `.claude/hooks/`。
+  - **接口契约变更（下游必读）**：skill 名 `/setup_agent` → `/bridgeforge`，junction 名 `~/.claude/skills/setup_agent` → `~/.claude/skills/bridgeforge`，版本戳 `.claude/.setup_agent_version` → `.claude/.bridgeforge_version`。**下游每个项目需重建 junction + 改调用习惯 + 改版本戳文件名**（正向同步红线，属 `[product]`）。
+  - **故意未改**：① `memory_junction_check.py` 的两处 `setup_agent` 是讲解哈希下划线 bug 的教学例子（`bridgeforge` 同样无下划线，改了会让"本仓库正中此坑"的注释自相矛盾）→ 保留；② 历史流水账（本文件旧条目 / `.claude/memory/*` / dated docs）按"保留旧名 + 本注脚"决策不改写。
+  - **大小写约定（刻意，非不一致）**：人面向用 PascalCase（GitHub repo `BridgeForge` + 本机目录 `D:\Quant\BridgeForge`），机器面向用小写（skill 命令 `/bridgeforge`、junction `~/.claude/skills/bridgeforge`、版本戳 `.bridgeforge_version`、hook 硬编码）。同"仓库 VSCode → 命令 code"惯例。文档里 clone URL / dev-dir 路径示例用 PascalCase，其余小写。
+  - **未在本仓库内完成、需手动收尾**：GitHub repo 改名为 `BridgeForge` + `git remote set-url`、本机目录 `D:\Quant\setup_agent` → `D:\Quant\BridgeForge`、memory 系统路径哈希迁移（`d--Quant-setup-agent` → 新哈希，memory 数据 junction 在 repo 内随目录走、hook 下次 session 自愈）、本机 + 下游 junction 重建。
+
+---
+
 ## [0.28.2] - 2026-06-25
 
 ### Fixed

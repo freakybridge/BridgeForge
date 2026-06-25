@@ -77,7 +77,7 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 - **文件存在** → 按其中 `topic_to_rules` 字典查表：命中 topic 取对应 rule 列表；无 topic 命中取 `default`。
 - **文件不存在**（新项目还没建）→ 跳过本步（不 grep rules），并在 Step 4 提醒用户创建。
 
-> **为什么外置**：字典内容是**项目专属**的（引用本项目实际 rule 文件名，每个项目 rule 树不同），不能进 setup_agent 通用源。**单一源拆分**：skill 本体「怎么查」归 setup_agent 单一源（本文件）；字典「查什么」归项目 `.claude/find-doc.map.md`。模板格式见 Step 4。
+> **为什么外置**：字典内容是**项目专属**的（引用本项目实际 rule 文件名，每个项目 rule 树不同），不能进 bridgeforge 通用源。**单一源拆分**：skill 本体「怎么查」归 bridgeforge 单一源（本文件）；字典「查什么」归项目 `.claude/find-doc.map.md`。模板格式见 Step 4。
 
 ### Step 3：聚合输出（结构化 markdown）
 

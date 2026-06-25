@@ -1,4 +1,4 @@
-# setup_agent
+# bridgeforge
 
 > Claude Code 项目协作骨架初始化器。一行 skill 命令铺好 CLAUDE.md / rules / memory junction / doc 分层归档。
 
@@ -15,9 +15,9 @@
 | 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
 | 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
 
-**不太适合的项目也能用** — 跑 `/setup_agent` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+**不太适合的项目也能用** — 跑 `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
-> ⚠️ **使用 setup_agent = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/CLAUDE.md §11` + `templates/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
+> ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/CLAUDE.md §11` + `templates/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
 ---
 
@@ -25,7 +25,7 @@
 
 > **v0.12.0 起：Python 是硬依赖，所有项目都装 hook**（不再因主语言非 Python 而跳过）。
 
-setup_agent 分两类内容：
+bridgeforge 分两类内容：
 
 **核心模板（无 Python 依赖，所有项目无条件复制）**：
 - `templates/rules/` — rule 文件（按文件路径触发加载）
@@ -40,13 +40,13 @@ setup_agent 分两类内容：
 - `templates/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` skill 用）
 - `templates/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
 
-**Python 解释器选择**（agent 跑 `/setup_agent` 时按优先级确定）：
+**Python 解释器选择**（agent 跑 `/bridgeforge` 时按优先级确定）：
 1. 项目根有 `.venv/Scripts/python.exe`（Windows）/ `.venv/bin/python`（Unix）→ 用它（首选，最可移植）
 2. 否则系统 `python` 在 PATH 上 → 用系统 python（纯 Rust/Node 项目走这条）
 3. 两者都没有 → **停下，要求用户先装 Python（≥ 3.8）再继续**
 
 **为什么强制 Python（不再可选）**：
-hook 体系是 setup_agent 区别于"纯文档脚手架"的核心价值——尤其 `version_check` 把"每次 commit 必 bump 版本号"从软规则升级为**机制硬强制**（历史上软规则被反复忘记，CHANGELOG 多次自打脸为证）。这个价值与项目主语言无关，因此即便主语言不是 Python，也要求装 Python 让 hook 跑起来。
+hook 体系是 bridgeforge 区别于"纯文档脚手架"的核心价值——尤其 `version_check` 把"每次 commit 必 bump 版本号"从软规则升级为**机制硬强制**（历史上软规则被反复忘记，CHANGELOG 多次自打脸为证）。这个价值与项目主语言无关，因此即便主语言不是 Python，也要求装 Python 让 hook 跑起来。
 
 > 设计 rationale：hook 体系沿用 StratusAgent / causis_risk_suite 的 Python 栈，未做 multi-runtime（PowerShell / Bash / Node）抽象。多 runtime 拆分工作量大且收益不明确，先接受"统一要求 Python"的现实。不接受 Python 依赖 → 改用其他纯文档脚手架。
 
@@ -54,7 +54,7 @@ hook 体系是 setup_agent 区别于"纯文档脚手架"的核心价值——尤
 
 ## 未反哺的上游 hook（为什么不在 templates 里）
 
-setup_agent 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期从下游项目（StratusAgent / causis_risk_suite）拉新通用范式回 templates。但**不是所有上游 hook 都会反哺** — 以下类别**故意不反哺**：
+bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期从下游项目（StratusAgent / causis_risk_suite）拉新通用范式回 templates。但**不是所有上游 hook 都会反哺** — 以下类别**故意不反哺**：
 
 | 未反哺 hook | 来源 | 为什么不反哺 |
 |------------|------|--------------|
@@ -69,15 +69,15 @@ setup_agent 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 
 **用户视角**：
 
-- 装 setup_agent 后只看到通用 hook（context_warning / session_snapshot / memory_lint / rule_index_check / rule_size_check / show_state / find_doc_reminder / version_check 等 8 个）
-- 项目自己的语言/业务专属 hook 由用户在 `.claude/hooks/` 下自行添加，不依赖 setup_agent
-- 若发现某个上游 hook 抽象后**应该**反哺，欢迎在 [GitHub issue](https://github.com/freakybridge/setup_agent/issues) 提议
+- 装 bridgeforge 后只看到通用 hook（context_warning / session_snapshot / memory_lint / rule_index_check / rule_size_check / show_state / find_doc_reminder / version_check 等 8 个）
+- 项目自己的语言/业务专属 hook 由用户在 `.claude/hooks/` 下自行添加，不依赖 bridgeforge
+- 若发现某个上游 hook 抽象后**应该**反哺，欢迎在 [GitHub issue](https://github.com/freakybridge/BridgeForge/issues) 提议
 
 ---
 
 ## 这是什么
 
-把一个长期沉淀过的"Claude Code 协作管理体系"打包成可复用 skill，进新项目跑一次 `/setup_agent` 就能拿到：
+把一个长期沉淀过的"Claude Code 协作管理体系"打包成可复用 skill，进新项目跑一次 `/bridgeforge` 就能拿到：
 
 - **双层 CLAUDE.md**：全局 `~/.claude/CLAUDE.md` 管沟通/安全/执行协议；项目 `<repo>/CLAUDE.md` 管架构红线 + rules 索引 + skills 表
 - **rules 分层加载**：`.claude/rules/<topic>.md` 按文件路径触发，CLAUDE.md 维护索引表
@@ -92,10 +92,10 @@ setup_agent 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 
 ```bash
 # 1. clone 到 Claude Code 用户级 skill 目录
-git clone https://github.com/<你的用户名>/setup_agent.git ~/.claude/skills/setup_agent
+git clone https://github.com/<你的用户名>/bridgeforge.git ~/.claude/skills/bridgeforge
 
 # Windows（PowerShell）
-git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE\.claude\skills\setup_agent"
+git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
 ```
 
 详细安装说明见 [INSTALL.md](INSTALL.md)。
@@ -106,24 +106,24 @@ git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE
 
 在新项目根目录开 Claude Code，把下面这句话发给 agent：
 
-> 如果这台机器还没装 setup_agent，就从 https://github.com/freakybridge/setup_agent.git clone 到本项目的上级目录并在 `~/.claude/skills/setup_agent` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
+> 如果这台机器还没装 bridgeforge，就从 https://github.com/freakybridge/BridgeForge.git clone 到本项目的上级目录并在 `~/.claude/skills/bridgeforge` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
 
 这一句**自带兜底**：装过的机器直接铺，没装过的先自举（clone 到项目平级 + 建 junction）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
 
-> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/setup_agent` 和 13 个通用 skill 才会进 `/` 菜单。
+> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/bridgeforge` 和 13 个通用 skill 才会进 `/` 菜单。
 
 **已装过的机器**可用更短写法，直接调用：
 
 ```
-/setup_agent
+/bridgeforge
 ```
 
 ### 更新已有项目（重跑即更新）
 
-不需要单独的同步命令——**在已铺过的项目里再跑一次 `/setup_agent` 即进入"更新模式"**：
+不需要单独的同步命令——**在已铺过的项目里再跑一次 `/bridgeforge` 即进入"更新模式"**：
 
 1. 先 `git pull` 上游 clone 拿最新模板；
-2. 读项目里的 `.claude/.setup_agent_version`（上次安装/同步的版本），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
+2. 读项目里的 `.claude/.bridgeforge_version`（上次安装/同步的版本），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
 3. 按业务专属程度分类处理：hooks/scripts 一致就覆盖、settings.json merge、**rules/CLAUDE.md 只 diff 让你逐段定**、memory/doc 碰都不碰。
 
 判断半场（rules/CLAUDE.md 吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
@@ -131,7 +131,7 @@ git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE
 ## 目录结构
 
 ```
-setup_agent/
+bridgeforge/
 ├── SKILL.md                    ← skill 入口（Claude 读它执行 init）
 ├── README.md                   ← 本文件
 ├── INSTALL.md                  ← 安装与卸载指引

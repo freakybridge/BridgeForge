@@ -100,7 +100,7 @@ ls -1t .runtime/session_state/*.md | head -1
 **抽取主题**（agent 自己想，不要问用户）：
 - 优先从 snapshot 的"本轮做了什么" / "下一步打算" 段抽**动词 + 对象**，3-12 字
 - snapshot 主观段为空时（如 root 自动存档只有客观状态）→ 从 uncommitted 改动模式 + branch 名推断（例：`branch=feature/oms-refactor` → 建议「OMS 重构」）
-- 主题示例：「修 EVENT_ACCOUNT 订阅 bug」/「重构 Cache pending_orders」/「setup_agent 通用化整理」/「M2.A ladder 性能优化」
+- 主题示例：「修 EVENT_ACCOUNT 订阅 bug」/「重构 Cache pending_orders」/「bridgeforge 通用化整理」/「M2.A ladder 性能优化」
 
 **呈现**（可与 Step 4 git 对齐结果合并到同一 message）：
 

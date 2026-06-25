@@ -91,7 +91,7 @@ paths:
 | **禁止散落根目录** | `README.md` / `CHANGELOG.md` / `LICENSE` 这种**根级元数据文件**可留根，**其余所有 .md 文档**必须挂 `doc/<层>/` |
 | **禁止新增同级目录** | 想加 `doc/notes/` / `doc/wip/` / `doc/legacy/` → 必须归到 §6 现有六层之一（活跃的归 1_plan，未决归 2_pending，归档归 4_archive）|
 
-**Why**：详见 `CLAUDE.md §11`。简短理由 — 文档分层是 setup_agent 与 rules / memory / 4 个 doc-依赖 skill 深度耦合的核心范式；散落即失控。
+**Why**：详见 `CLAUDE.md §11`。简短理由 — 文档分层是 bridgeforge 与 rules / memory / 4 个 doc-依赖 skill 深度耦合的核心范式；散落即失控。
 
 **How to apply**：
 

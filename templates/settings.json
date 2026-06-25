@@ -282,7 +282,7 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/skill_sync_check.py",
-            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 setup_agent 时比对 ~/.claude/skills/ 副本与上游源，缺失/不一致则提示跑 /setup_agent。只读不改。自门控：没装 setup_agent 静默 no-op，对非用户零影响。"
+            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.claude/skills/ 副本与上游源，缺失/不一致则提示跑 /bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
           }
         ]
       }

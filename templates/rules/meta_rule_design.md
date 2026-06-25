@@ -160,7 +160,7 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 ### 6.4 自动护栏
 
-机械可判定的退化用 hook 自动查（只提醒不阻塞，见到信号后按 §5/§6 处置）；**normative 比例**（案例 vs 红线）需语义判断，hook 做不了 → 留人工 self-check（§8 前两项）。本骨架附带两道护栏（项目有 `.venv` 时由 setup_agent 复制 + settings.json 注册）：
+机械可判定的退化用 hook 自动查（只提醒不阻塞，见到信号后按 §5/§6 处置）；**normative 比例**（案例 vs 红线）需语义判断，hook 做不了 → 留人工 self-check（§8 前两项）。本骨架附带两道护栏（项目有 `.venv` 时由 bridgeforge 复制 + settings.json 注册）：
 
 - `.claude/hooks/rule_index_check.py`（PostToolUse）— CLAUDE.md 规则索引 ↔ `rules/*.md` 一致性（死链接 / 未索引）
 - `.claude/hooks/rule_size_check.py`（PostToolUse）— 量化红线：大小 / 行数 / 版本戳 / 日期戳 / 长 code 块 / **触发器宽度**（单段目录通配 `a/**` 或裸 `**` = 伪常驻）

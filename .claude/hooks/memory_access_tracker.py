@@ -6,7 +6,7 @@ PostToolUse hook — memory 访问追踪器。
 _stats.json 对应文件的 session_dates（唯一日期列表，同日去重）。
 
 触发：PostToolUse / Read
-设计：见 .claude/skills/setup_agent/docs/memory-scoring-design.md
+设计：见 .claude/skills/bridgeforge/docs/memory-scoring-design.md
 """
 import json
 import sys

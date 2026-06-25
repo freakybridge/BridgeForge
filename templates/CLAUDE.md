@@ -312,12 +312,12 @@ doc/
 
 ### 为什么是红线
 
-文档分层是 setup_agent 的**核心范式**之一，与 rules / memory 等机制深度耦合：
+文档分层是 bridgeforge 的**核心范式**之一，与 rules / memory 等机制深度耦合：
 
 - 13 个协作 skill 中 4 个（`/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
 - `rules/workflow.md` §6-§7 + `rules/meta_rule_design.md` 的"案例下沉" 范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
 - 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
 
-**如果不接受 doc/ 强制 → 不应该使用 setup_agent** — 改用其他更宽松的脚手架。
+**如果不接受 doc/ 强制 → 不应该使用 bridgeforge** — 改用其他更宽松的脚手架。
 
 详细规则见 `rules/workflow.md` §5-§7。

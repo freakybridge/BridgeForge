@@ -5,11 +5,11 @@
 
 ## 背景：当前分发机制（事实）
 
-- **单一源**：`D:\Quant\setup_agent`（GitHub: freakybridge/setup_agent）。
+- **单一源**：`D:\Quant\BridgeForge`（GitHub: freakybridge/BridgeForge）。
 - **用户级架子** `~/.claude/skills/`：Claude 真正加载 skill 的地方（全机共享，所有项目共用）。
-  - `setup_agent` 这一项 = **junction**（开发机）/ **git clone**（真下游），指向上游仓库。
-  - 各通用 skill（find-doc/summary/…）= 从 `setup_agent/skills/` 复印来的**实体副本**（非软链——`portability.md §2` 有意取舍：换可移植性）。
-- **正向同步**（`/setup_agent` Step 0）：缺→补、旧→更（给 diff 问用户）、**无删除语义**。
+  - `bridgeforge` 这一项 = **junction**（开发机）/ **git clone**（真下游），指向上游仓库。
+  - 各通用 skill（find-doc/summary/…）= 从 `bridgeforge/skills/` 复印来的**实体副本**（非软链——`portability.md §2` 有意取舍：换可移植性）。
+- **正向同步**（`/bridgeforge` Step 0）：缺→补、旧→更（给 diff 问用户）、**无删除语义**。
 - **反向同步**（`/harvest`）：下游收件箱→脱敏→写上游 `templates/`/`skills/`→**人工 review + push**（不自动 push）。
 
 ## 五个漏洞
@@ -36,9 +36,9 @@
 
 #### 第一块 — 开机自检（检测 + 通知）｜**已实现 v0.25.0（待发版）**
 - 落点：`templates/hooks/skill_sync_check.py` + dogfood `.claude/hooks/` + 两处 settings `SessionStart` 注册。
-- 做什么：每次 session 开始，**离线**比对 `~/.claude/skills/<skill>` 副本与上游源 `~/.claude/skills/setup_agent/skills/` 的**内容哈希**，缺失/不一致打印一行 `[skill-sync]` 提示跑 `/setup_agent`。
-- **只读不改**：hook 绝不动文件；真正的补/更/删仍由 `/setup_agent` Step 0 在用户确认下做（**绝不静默覆盖定制** —— 与既有原则一致，故 hook 只通知不自动盖）。
-- 自门控：没装 setup_agent → 静默 no-op（范式同 `target_cleanup.py`）。
+- 做什么：每次 session 开始，**离线**比对 `~/.claude/skills/<skill>` 副本与上游源 `~/.claude/skills/bridgeforge/skills/` 的**内容哈希**，缺失/不一致打印一行 `[skill-sync]` 提示跑 `/bridgeforge`。
+- **只读不改**：hook 绝不动文件；真正的补/更/删仍由 `/bridgeforge` Step 0 在用户确认下做（**绝不静默覆盖定制** —— 与既有原则一致，故 hook 只通知不自动盖）。
+- 自门控：没装 bridgeforge → 静默 no-op（范式同 `target_cleanup.py`）。
 - **v1 有意收窄**：离线比对本机上游 clone 工作区（不 git fetch —— SessionStart 必须快且不能联网失败）；只报缺失/漂移，**不报"已退役"**（需下方第二块的 provenance 标记/退役清单）。
 - 关键取舍（已定）：**不做"全自动悄悄盖"**（会毁定制 + 半路换砖）；自检只到"通知"，应用动作交 Step 0 分级处理（没动过的可自动更、改过的/退役的停下问）。
 

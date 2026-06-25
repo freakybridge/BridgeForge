@@ -1,8 +1,8 @@
 # 反哺工作流 Playbook
 
-> **定位**：把下游项目（StratusAgent / causis_risk_suite / ClaudeBridgeAssist 等）攒到的通用 agent 协作经验，提炼脱敏后写回 setup_agent 这个上游骨架库。
+> **定位**：把下游项目（StratusAgent / causis_risk_suite / ClaudeBridgeAssist 等）攒到的通用 agent 协作经验，提炼脱敏后写回 bridgeforge 这个上游骨架库。
 >
-> **为什么不做成 skill / 自动化**：反哺的核心是"通用 vs 业务专属"判断，需要人脑逐段把关；setup_agent 又是公开 GitHub 仓库，自动化容易把内部术语/账户号/API endpoint 等敏感物泄露到公网。先把流程跑顺 2-3 次，再判断要不要工具化。
+> **为什么不做成 skill / 自动化**：反哺的核心是"通用 vs 业务专属"判断，需要人脑逐段把关；bridgeforge 又是公开 GitHub 仓库，自动化容易把内部术语/账户号/API endpoint 等敏感物泄露到公网。先把流程跑顺 2-3 次，再判断要不要工具化。
 
 ---
 
@@ -16,7 +16,7 @@
 
 - **收件箱攒到 ≥ 3 行**（从"凭感觉≥3条"升级为"可数"——数 `.claude/harvest-inbox.md` 未处理行）
 - **一眼确定要立即反哺**：`/harvest <描述>` 走快车道，跳过收件箱（高信心也照样过 §3 脱敏）
-- **用户主动喊**（"反哺一下 setup_agent" / `/harvest`）
+- **用户主动喊**（"反哺一下 bridgeforge" / `/harvest`）
 - **季度/月度盘点**（清一次收件箱，避免积压太多差异）
 
 > **两个入口、一个仪式**：无论"收件箱批量"还是"立即单条"，都汇进下方 §2-§3 同一套判通用性 + 脱敏流程，不分叉。
@@ -33,8 +33,8 @@ ls D:/Quant/StratusAgent/.claude/rules/
 ls D:/Quant/causis_risk_suite/.claude/rules/
 ls D:/Quant/<其他>/.claude/rules/
 
-# 对比 setup_agent 现有 templates
-ls D:/Quant/setup_agent/templates/rules/
+# 对比 bridgeforge 现有 templates
+ls D:/Quant/BridgeForge/templates/rules/
 ```
 
 明确**这次反哺的范围**（哪几个源 → 哪几个目标文件）。范围不要贪大，一次 5-8 个文件对比为宜，超过就拆成几次。
@@ -43,7 +43,7 @@ ls D:/Quant/setup_agent/templates/rules/
 
 每个目标文件（如 `portability.md`），把所有源项目对应文件并排读，标出：
 
-- 🟢 **通用增量**（setup_agent 没有 + 真的跨项目通用）
+- 🟢 **通用增量**（bridgeforge 没有 + 真的跨项目通用）
 - 🟡 **可抽象**（偏某语言/某平台特有，但脱敏后仍有参考价值）
 - 🔴 **业务专属**（gateway / oms / 内部包名等，绝对不能反哺）
 
@@ -55,9 +55,9 @@ ls D:/Quant/setup_agent/templates/rules/
 
 ### Step 3：脱敏（最关键 — 见 §3 checklist）
 
-对每个 🟢 段落，按 **§3 脱敏 checklist** 逐项过。脱敏不彻底就不要进 setup_agent。
+对每个 🟢 段落，按 **§3 脱敏 checklist** 逐项过。脱敏不彻底就不要进 bridgeforge。
 
-### Step 4：写 setup_agent
+### Step 4：写 bridgeforge
 
 - 写入路径**允许**：
   - `templates/rules/` — rule 文件
@@ -66,11 +66,11 @@ ls D:/Quant/setup_agent/templates/rules/
   - `templates/doc/` — doc 分层模板
   - `templates/hooks/` — Python hook 脚本（2026-05-24 加入：sessoin_snapshot.py / memory_lint.py / rule_index_check.py / context_warning.py 等，agent 检测项目有 `.venv` 时复制）
   - `templates/scripts/` — Python 工具脚本（2026-05-24 加入：archive_scan.py 等给 skill 调用的脚本）
-  - `docs/` — playbook / rationale 等 setup_agent 自身文档
+  - `docs/` — playbook / rationale 等 bridgeforge 自身文档
 - **禁止**自动写：
   - `skills/<name>/SKILL.md` — 用户级 skill 描述，独立维护（**例外**：当下游已实测验证的 SKILL.md 改动需要回灌时，单条修改允许 — 不允许批量改写多个 SKILL.md）
-  - `scripts/` — setup_agent 自身工具（如 `setup-junction.ps1`），不是给下游模板的
-  - `SKILL.md` — setup_agent 自身 skill 描述
+  - `scripts/` — bridgeforge 自身工具（如 `setup-junction.ps1`），不是给下游模板的
+  - `SKILL.md` — bridgeforge 自身 skill 描述
   - `README.md` 核心段 — 用户对外文档，措辞要审；**例外**：加新独立 section（如 "Python 依赖"）允许，覆写已有段不允许
 - 写完用 `git diff --stat` 看改动规模，**逐文件 review**（不批量 confirm）
 - **hook / script 反哺额外要求**：每个 `.py` 文件按 §3 脱敏 checklist 逐项过；hook 文件名 / 主名需与 SKILL.md 引用一致（如 `session_snapshot.py` 给 `/snapshot` 用，不要随便改名）
@@ -78,7 +78,7 @@ ls D:/Quant/setup_agent/templates/rules/
 ### Step 5：review + 手动 push
 
 ```powershell
-cd D:/Quant/setup_agent
+cd D:/Quant/BridgeForge
 git diff                    # 全量看一遍
 git diff --check            # 检查空白/编码异常
 git status                  # 确认没意外文件
@@ -119,7 +119,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 ### 3.1 实战记录（2026-05-24 三次反哺批次）
 
-本会话 3 次反哺到 setup_agent（v0.6.0 / v0.7.0 / v0.8.0）实测脱敏的典型场景。新人做反哺时对照参考。
+本会话 3 次反哺到 bridgeforge（v0.6.0 / v0.7.0 / v0.8.0）实测脱敏的典型场景。新人做反哺时对照参考。
 
 #### 批次 1（v0.6.0 / commit `9cfa7ae`）— hooks/scripts 首次反哺
 
@@ -146,7 +146,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 #### 批次 3（v0.8.0 / commit `12c7c16`）— **非反哺批次**对照
 
-本批次**全是 setup_agent 自身改动**（VERSION / CHANGELOG.md / SKILL.md frontmatter / resume Step 5），**没有从上游脱敏反哺**。作为对照记录，说明：
+本批次**全是 bridgeforge 自身改动**（VERSION / CHANGELOG.md / SKILL.md frontmatter / resume Step 5），**没有从上游脱敏反哺**。作为对照记录，说明：
 
 - 不是每次 bump 版本号都涉及反哺 — 自身演进版本（如本批次）reverse-sync-playbook 不参与
 - 版本号语义直接引用 `templates/rules/workflow.md §9`，**不重复**定义规则
@@ -246,7 +246,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 ---
 
-## 7. 反哺的反方向：从 setup_agent 拉新东西回下游
+## 7. 反哺的反方向：从 bridgeforge 拉新东西回下游
 
 完整流程详见 **[sync-from-upstream-playbook.md](sync-from-upstream-playbook.md)**（2026-05-24 新建）。
 
@@ -264,5 +264,5 @@ reverse-sync 和 sync-from-upstream 互为镜像：通常**先 sync-from-upstrea
 
 ## 参考
 
-- [docs/design-rationale.md](design-rationale.md) — setup_agent 整体设计思路
+- [docs/design-rationale.md](design-rationale.md) — bridgeforge 整体设计思路
 - [templates/rules/meta_rule_design.md](../templates/rules/meta_rule_design.md) — 怎么写 rule 才不退化（反哺时判断"通用 vs 业务"的关键依据）

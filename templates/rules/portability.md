@@ -29,17 +29,17 @@ paths:
 |------|-----------|------|
 | Memory | `.claude/memory/` | Junction/symlink，CLAUDE.md §5 自动恢复 |
 | Rules | `.claude/rules/` | 直接 git 管理 |
-| 项目专属 Skill | `.claude/skills/` | 直接 git 管理。**仅项目独有、setup_agent 不出品的 skill**（如某项目的 restart-ui） |
-| 通用 skill 的项目数据 | `.claude/find-doc.map.md` / `.claude/sync-docs.map.md` 等 | 通用 skill 本体在 setup_agent，但其**项目专属映射表**留项目内，直接 git 管理 |
+| 项目专属 Skill | `.claude/skills/` | 直接 git 管理。**仅项目独有、bridgeforge 不出品的 skill**（如某项目的 restart-ui） |
+| 通用 skill 的项目数据 | `.claude/find-doc.map.md` / `.claude/sync-docs.map.md` 等 | 通用 skill 本体在 bridgeforge，但其**项目专属映射表**留项目内，直接 git 管理 |
 | 项目设置 | `.claude/settings.json` | hooks、defaultMode、项目级权限 |
 
-> **通用协作 skill 不进项目 git（单一源拆分）**：plan / escalate / snapshot / find-doc 本体等通用 skill 的**单一源是 setup_agent**，装到用户级 `~/.claude/skills/`，**不在项目 `.claude/skills/` 留副本**（留副本会 shadow 单一源、各项目漂移；`/setup_agent` Step 0.5 会清掉）。换机恢复靠在该机跑 `/setup_agent`（装用户级），不靠 `git clone`。这是 DRY 对 clone-完整性的**有意取舍**；项目专属**数据**（上表 `.map.md`）仍在项目 git，可移植性不受影响。
+> **通用协作 skill 不进项目 git（单一源拆分）**：plan / escalate / snapshot / find-doc 本体等通用 skill 的**单一源是 bridgeforge**，装到用户级 `~/.claude/skills/`，**不在项目 `.claude/skills/` 留副本**（留副本会 shadow 单一源、各项目漂移；`/bridgeforge` Step 0.5 会清掉）。换机恢复靠在该机跑 `/bridgeforge`（装用户级），不靠 `git clone`。这是 DRY 对 clone-完整性的**有意取舍**；项目专属**数据**（上表 `.map.md`）仍在项目 git，可移植性不受影响。
 
 ### 2.1 Memory junction 自愈（SessionStart hook，机制化）
 
 memory 纳入项目 git（`.claude/memory/`），但 Claude Code 读写走系统路径 `~/.claude/projects/<project-hash>/memory/`。**换机 clone 后系统路径不会自动指向项目内 memory** —— 这步恢复由 `SessionStart` hook `.claude/hooks/memory_junction_check.py` 自动兜底，无需人工：
 
-- **project-hash 推导**：从 repo root 绝对路径，**每个非字母数字字符替换为 `-`，大小写原样保留**（如 `d:\Quant\setup_agent` → `d--Quant-setup-agent`）。Windows 上 `Path.resolve()` 把盘符规范成大写，与 Claude Code 启动 cwd 的原始大小写可能不一致，但文件系统大小写不敏感，命中同一目录。
+- **project-hash 推导**：从 repo root 绝对路径，**每个非字母数字字符替换为 `-`，大小写原样保留**（如 `D:\Quant\BridgeForge` → `D--Quant-BridgeForge`）。Windows 上 `Path.resolve()` 把盘符规范成大写，与 Claude Code 启动 cwd 的原始大小写可能不一致，但文件系统大小写不敏感，命中同一目录。
 - **三情形**：已链接→noop / 系统路径缺失+项目内有→建 junction（新机 clone）/ 系统是实目录→复制进项目 + 原目录改名 `.premigrate.bak`（**绝不硬删**）+ 建 junction。系统与项目同时有内容→拒绝自动合并，提示人工。
 - **可移植**：hook 项目无关，靠自身路径推导，无硬编码。
 
@@ -62,7 +62,7 @@ memory 纳入项目 git（`.claude/memory/`），但 Claude Code 读写走系统
 
 | 进用户级 = 合法 | 进用户级 = 污染 |
 |---|---|
-| setup_agent 出品的通用 skill 本体（plan/escalate/snapshot…） | 项目绝对路径的 allow（`d:\\Quant\\<proj>\\…`） |
+| bridgeforge 出品的通用 skill 本体（plan/escalate/snapshot…） | 项目绝对路径的 allow（`d:\\Quant\\<proj>\\…`） |
 | 共性 deny 红线（`~/.ssh`/`.env`/`rm -rf`） | 本机 PID / IP 写死的 allow |
 | 沟通风格 / 防空转行为指令 | 一次性 clone / 编译命令的 allow |
 

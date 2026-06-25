@@ -2,76 +2,76 @@
 
 ## 安装到 Claude Code
 
-setup_agent 是一个 Claude Code **用户级 skill**，clone 到 `~/.claude/skills/setup_agent/` 即可被所有项目调用。
+bridgeforge 是一个 Claude Code **用户级 skill**，clone 到 `~/.claude/skills/bridgeforge/` 即可被所有项目调用。
 
 ### Windows
 
 ```powershell
 # PowerShell
-git clone https://github.com/<你的用户名>/setup_agent.git "$env:USERPROFILE\.claude\skills\setup_agent"
+git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
 ```
 
 或 Git Bash：
 ```bash
-git clone https://github.com/<你的用户名>/setup_agent.git ~/.claude/skills/setup_agent
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.claude/skills/bridgeforge
 ```
 
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/<你的用户名>/setup_agent.git ~/.claude/skills/setup_agent
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.claude/skills/bridgeforge
 ```
 
-### 开发者模式：junction 指向开发仓库（要改 setup_agent 本体时用这个）
+### 开发者模式：junction 指向开发仓库（要改 bridgeforge 本体时用这个）
 
 上面的直接 clone 适合**只用不改**的人——它在 `~/.claude/skills/` 下放一份真实副本。
 
-但如果你**既要用、又要维护 setup_agent 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），别用直接 clone，否则会出现"开发仓库一份 + skill 目录一份"两处副本、改了一边忘同步另一边。正确姿势是把开发仓库放在你自己的工作区，再让 skill 发现目录 **junction 指过去**，物理只留一份：
+但如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），别用直接 clone，否则会出现"开发仓库一份 + skill 目录一份"两处副本、改了一边忘同步另一边。正确姿势是把开发仓库放在你自己的工作区，再让 skill 发现目录 **junction 指过去**，物理只留一份：
 
 ```powershell
-# Windows：开发仓库放哪自己定，例 D:\Quant\setup_agent
-git clone https://github.com/<你的用户名>/setup_agent.git D:\Quant\setup_agent
+# Windows：开发仓库放哪自己定，例 D:\Quant\BridgeForge
+git clone https://github.com/<你的用户名>/BridgeForge.git D:\Quant\BridgeForge
 # skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\setup_agent" -Target "D:\Quant\setup_agent"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\bridgeforge" -Target "D:\Quant\BridgeForge"
 ```
 
 ```bash
 # macOS / Linux：用 symlink
-git clone https://github.com/<你的用户名>/setup_agent.git ~/dev/setup_agent
-ln -s ~/dev/setup_agent ~/.claude/skills/setup_agent
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/dev/BridgeForge
+ln -s ~/dev/BridgeForge ~/.claude/skills/bridgeforge
 ```
 
-**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.claude/skills/setup_agent` 只是 Claude Code 发现 skill 的透明入口，会实时看到改动，无需任何同步。以后所有操作（含 git）都在开发仓库里做，别去 `~/.claude/skills/` 那个路径操作。
+**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.claude/skills/bridgeforge` 只是 Claude Code 发现 skill 的透明入口，会实时看到改动，无需任何同步。以后所有操作（含 git）都在开发仓库里做，别去 `~/.claude/skills/` 那个路径操作。
 
-> **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.claude\skills\setup_agent" -Force` 看到 `LinkType: Junction`、`Target` 指向开发仓库，就是同一份。注意 **Glob / 文件列举会穿透 junction**，把两个路径列成一模一样的内容（连 `.git/objects` 哈希都对应）——那不是两份副本，是同一份。
+> **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.claude\skills\bridgeforge" -Force` 看到 `LinkType: Junction`、`Target` 指向开发仓库，就是同一份。注意 **Glob / 文件列举会穿透 junction**，把两个路径列成一模一样的内容（连 `.git/objects` 哈希都对应）——那不是两份副本，是同一份。
 
 ## 验证安装
 
 打开任意项目，启动 Claude Code，输入：
 
 ```
-/setup_agent
+/bridgeforge
 ```
 
-如果 skill 列表里能看到 `setup_agent`（描述是"在新项目里铺设标准化的..."），说明安装成功。
+如果 skill 列表里能看到 `bridgeforge`（描述是"在新项目里铺设标准化的..."），说明安装成功。
 
 ## 升级
 
 ```bash
-cd ~/.claude/skills/setup_agent
+cd ~/.claude/skills/bridgeforge
 git pull
 ```
 
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
-如果想把更新同步到已有项目，手动 diff `~/.claude/skills/setup_agent/templates/` 与 `<已有项目>/.claude/rules/` 对比。
+如果想把更新同步到已有项目，手动 diff `~/.claude/skills/bridgeforge/templates/` 与 `<已有项目>/.claude/rules/` 对比。
 
-> 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，`~/.claude/skills/setup_agent` 会实时反映。
+> 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，`~/.claude/skills/bridgeforge` 会实时反映。
 
 ## 卸载
 
 ```bash
-rm -rf ~/.claude/skills/setup_agent
+rm -rf ~/.claude/skills/bridgeforge
 ```
 
 **注意**：卸载 skill 不会影响已经用 skill 铺过骨架的项目——它们的 CLAUDE.md / rules / memory 都在项目自己的 git 里。
@@ -90,7 +90,7 @@ rm -rf ~/.claude/skills/setup_agent
 ### Q：skill 不出现在 Claude Code 列表里
 
 检查：
-1. 路径必须是 `~/.claude/skills/setup_agent/SKILL.md`（不是 `~/.claude/skills/setup_agent/setup_agent/SKILL.md`，clone 时不要嵌套）
+1. 路径必须是 `~/.claude/skills/bridgeforge/SKILL.md`（不是 `~/.claude/skills/bridgeforge/bridgeforge/SKILL.md`，clone 时不要嵌套）
 2. SKILL.md 第一行的 frontmatter `description:` 必须存在
 3. 重启 Claude Code 让它重新扫描 skill 目录
 
