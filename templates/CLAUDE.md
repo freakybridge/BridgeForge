@@ -117,6 +117,8 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 1. 依赖清单**禁止**绝对路径 URL（用相对路径或 `--find-links`）
 2. 配置文件注释**避免**非 ASCII（某些工具默认编码非 UTF-8 会爆）
 3. 关键 binary / DLL / 模型文件由项目自带，不依赖 pip 包提供
+4. （可选，中文 Windows）给本仓库 git 配 UTF-8，避免中文文件名/log 显示乱码：
+   `git config --local core.quotepath false && git config --local i18n.logOutputEncoding utf-8 && git config --local i18n.commitEncoding utf-8`（`.git/config` 不随 clone 走，换机需重跑）
 
 ---
 

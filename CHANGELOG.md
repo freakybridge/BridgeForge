@@ -17,6 +17,16 @@
 
 ---
 
+## [0.29.1] - 2026-06-25
+
+### Added
+- `[product]` **`memory_junction_check.py` 加 UTF-8 Mode 承重柱自检 `_utf8_mode_guard()`**（`templates/hooks/` + 自身 `.claude/hooks/` 双份 dogfood）— SessionStart 时查 `sys.flags.utf8_mode`（**事实**，不被文件顶部 `stdout.reconfigure` 掩盖），仅 OFF 时打**一行纯 ASCII** 告警提示补 `env.PYTHONUTF8=1`，稳态静默。守的是唯一承重柱（PYTHONUTF8 是否生效），**不**巡逻与之功能重叠的 per-hook `reconfigure`。背景：中文 hook 输出在 GBK Windows 上糊成 U+FFFD 注入 context、曾高频致 agent 跑偏（8.5 万字符 / 横跨所有下游；根因 + 调查 + 反过度加固决策见 memory `utf8-garble-rootcause` + `docs/debates_2026-06-25_encoding-fix-scope.md`）。
+
+### Changed
+- `[product]` **`templates/CLAUDE.md` §6 换机 checklist 加一行可选 git UTF-8 配置**（`core.quotepath=false` + `i18n.logOutputEncoding/commitEncoding=utf-8`）— 中文 Windows 下避免 git 中文文件名 / log 显示乱码；`.git/config` 不随 clone 走，换机需重跑。本仓库已 `--local` 应用。
+
+> **刻意未做（经两轮 debate 砍掉镀金项）**：未新增独立守卫 hook、未加 portability rule 红线。因 PYTHONUTF8（v0.28.1 已落）是 env 层**透明**兜底，新 hook 作者无需记忆任何编码约束 → rule 红线无可执行内容；为 0 复发问题动产品层会把安慰剂式加固复印进所有下游（幸存者偏差陷阱）。真病已治本，本版只补"承重柱自检 + 记账"。
+
 ## [0.29.0] - 2026-06-25
 
 ### Changed

@@ -34,6 +34,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PROJECT_MEMORY = REPO_ROOT / ".claude" / "memory"
 
 
+def _utf8_mode_guard() -> None:
+    """承重柱自检（独立于 junction 逻辑，顺带挂在本 SessionStart hook 里）。
+
+    中文 Windows 默认 GBK；若 UTF-8 Mode 未生效，hook 的中文输出 / open() 读文件
+    会糊成 U+FFFD 注入 context（曾高频致 agent 跑偏，见 memory utf8-garble-rootcause）。
+    查 `sys.flags.utf8_mode` = 事实（UTF-8 Mode 真开没开），而非 settings 文本声明；
+    且不被文件顶部那行 stdout.reconfigure 掩盖（那只改 stdout，不改 utf8_mode）。
+    告警纯 ASCII，以免护栏自己也乱码。仅在 OFF 时打一行，稳态静默。
+    """
+    if not sys.flags.utf8_mode:
+        print(
+            "[utf8-guard] WARNING: Python UTF-8 Mode is OFF (PYTHONUTF8 not active). "
+            "On GBK Windows this can corrupt Chinese hook output into the context. "
+            "Set env PYTHONUTF8=1 and PYTHONIOENCODING=utf-8 in ~/.claude/settings.json."
+        )
+
+
 def _is_link(p: Path) -> bool:
     """junction（Windows）或 symlink（Unix）都算已链接。"""
     if p.is_symlink():
@@ -94,6 +111,7 @@ def _make_junction(link: Path, target: Path) -> bool:
 
 
 def main() -> int:
+    _utf8_mode_guard()  # 编码护栏自检（与 junction 无关，仅借 SessionStart 时机跑一次）
     sys_mem = _system_memory_path()
     if sys_mem is None:
         # 项目目录在 ~/.claude/projects 下没有对应 hash → 该机尚未用 Claude Code 打开过本项目，跳过
