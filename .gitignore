@@ -21,9 +21,7 @@ __pycache__/
 # Claude Code 本地配置
 .claude/settings.local.json
 
-# Hook 运行时临时产物（session_snapshot 落盘的快照 + 各 hook 日志，临时不进 git；
-# 与 templates/rules/modules.md 的「.runtime/output gitignored」同理——.runtime 下
-# 持久资产可 track，但快照/日志属临时产物）
-.runtime/session_state/
-.runtime/focus/
-.runtime/*.log
+# Hook 运行时临时产物（session_snapshot 快照 / focus 锚 / 各 hook 日志 / spinoff 调查
+# 草稿）——全是本机临时产物，含个人绝对路径（C:\Users\bridg）与 transcript 文件名，
+# 绝不可进公开库。整目录忽略，避免 spinoff/ 等新子目录漏网误提交。
+.runtime/
