@@ -17,6 +17,28 @@
 
 ---
 
+## [0.30.0] - 2026-06-25
+
+### Changed
+- `[product]` **产品层第一类瘦身（无争议纯外置/压缩，护栏零丢失）**——目标：让下游每轮常驻 context 的文件变瘦。手法限定外置/去重/压缩三种，不动任何"必须/禁止"红线效力（已逐条 grep 当前内容验证保留）。
+  - **`templates/CLAUDE.md` 325 → 259**：§9.5/§9.6/§10 三个反漂移 hook 信号的「机制分工表/配置/调参/豁免论述」等低频细节外置到新 rule；§2.5 工具、§5 junction、§9 场景示例就地压缩。**可执行红线全部留在正文**（漂移分类表【前置/附加/无关/正当深入】、四级信号行为表 + CRITICAL 红线、"绝不硬删可能含数据的目录"等）。§8 鬼打墙、§11 文档分层**刻意未动**（留给第二类 debate：跨文件红线该收敛到常驻层还是触发层）。
+  - **新增 `templates/rules/anti_drift_hooks.md`（64 行）**：承接上述外置的 hook 机制/配置细节，`paths:` 触发 `.claude/hooks/**` + `.claude/settings.json`（编辑 hook/settings 时才加载）；CLAUDE.md §2 规则索引表已登记。
+  - **`skills/find-doc/SKILL.md` 170 → 97**（高频自动调用 skill，注入成本最高）：Step 3 输出模板 + Step 4 映射 SOP 外置到 `references/{output-format,map-reminder-sop}.md`（仿 summary/deep-steps 范本，命中时才 Read）；Step 4 三条禁止护栏随外置文件原样搬运并标注"不可丢"。repo 源与 `~/.claude/skills/find-doc/` 部署副本逐字一致（dogfood）。
+  - **`templates/rules/` 三件就地压缩**：`workflow.md` 243→213（§9 版本号 SemVer 通识教程 + commit 举例压缩，保留 bump 红线 + §9.7 禁止 + §9.8 hook 兜底）；`portability.md` 244→192（§4 三语言包安装"正确❌错误✅"对照大块压成各一行最小命令，红线全留）；`meta_rule_design.md` 227→206（§3 的 >20 行教学示例压成 ≤10 行骨架——消除"自打脸"：正撞它自己 §7「>20 行示例搬 doc」红线；§5 量化阈值等地基判据一字未动）。
+  - **背景**：本轮溯源发现"每次敲长 skill/常驻长文档把 context 顶过 auto-compact 阈值"是高频痛点的帮凶（见 `[0.29.2]` summary 瘦身）。第二类「跨文件红线去重」因涉及"红线放常驻层还是触发层"的护栏覆盖权衡，单独走 debate（见下条）。
+- `[product]` **第二类跨文件红线去重——doc 分层组落地（debate 驱动，鬼打墙组暂缓）**。两轮 debate（`docs/debates_2026-06-25_redline-placement.md`）的核心结论：三个诊断 agent 报的"红线重复"实为**骨架（粗粒度红线）+ 细节（场景操作）的分工**，meta_rule §4.3 禁的是「逐字复制正文→漂移」而非分工式共存。切分判据：**「这条约束在不触发该 rule 的轮次也可能被违反吗？是→红线骨架常驻 CLAUDE.md / 否→场景细节沉触发层」**，红线断言一律不降为纯 pointer。
+  - **doc 分层组**：`CLAUDE.md §11` 259→251——保留红线骨架（六层目录树 + 5 条禁止/强制 + 立场句），删「为什么是红线」3 段论述（Why 正文改向触发层）。`workflow.md §5.5` 213→210——删与 §11 逐字重叠的「强制项表」正文（消除双份漂移），改承接 Why 正文 + 操作细节，顶部加"红线条文见 §11"指针。常驻层留断言、触发层留 Why+操作，无逐字重叠。
+  - **鬼打墙组暂缓**：debate 暴露 `CLAUDE.md §8`(连续 3 次/第 4 次硬停) 与 `debugging.md §6 T1`(≥2 次升级) **阈值冲突**。统一阈值=改变 agent 行为，属行为变更，**不混进"只省体积不改效力"的瘦身**；用户选"不修改"。该组整组去重（删近义句+加 pointer）与阈值统一打包待单独决策，记入 memory `ghost-wall-threshold-conflict`。
+  - 注：CLAUDE.md 当前 251 行仍超 `meta_rule §5` 的 ≤200 软红线，但剩余超额主要在 §8 鬼打墙（暂缓组），且 debate 判定"宁可超 200 也不误伤红线骨架"——降回 200 待鬼打墙组决策时一并完成。
+
+## [0.29.2] - 2026-06-25
+
+### Changed
+- `[product]` **`/summary` skill 瘦身：主模板 135 → 55 行（注入 context 省 59%）**。把两块**低频条件触发**且最长的步骤——步骤 3b（rule 写入后 memory 对账）+ 步骤 5（TODO 清理完整流程）——外置到新文件 `skills/summary/references/deep-steps.md`，主模板各步只留**触发条件 + 一句话要点 + "命中时先 Read 附属节"**。高频步骤（2/6/7）完整保留主模板。背景：每次敲 `/summary` 都把整套七步长文本注入 context，是把占用顶过 auto-compact 阈值、导致"summary 真正执行前就被压缩、丢原始细节"的帮凶之一（溯源见本轮对话：最大膨胀 +31 行来自 v0.24.0 加的"防 memory 膨胀"对账流程——反膨胀规则自己成了膨胀源）。
+  - **安全 SOP 不丢**：主模板明确指示触发该步前先 Read 附属节，详细约束（"删 memory = 4 处同步"误删安全网等）原样保留在 `references/deep-steps.md`。
+  - **外置安全性已验证**：`skill_sync_check.py` 用 `os.walk` 递归整个 skill 目录做内容哈希（非只看 `SKILL.md`），故附属文件会被同步机制一并搬运/比对到下游与 `~/.claude/`。
+  - **dogfood**：repo 源 `skills/summary/` 与部署副本 `~/.claude/skills/summary/` 两份（SKILL.md + references/deep-steps.md）逐字一致，`diff` 已验证。
+
 ## [0.29.1] - 2026-06-25
 
 ### Added

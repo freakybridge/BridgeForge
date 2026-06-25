@@ -82,16 +82,13 @@ paths:
 
 ## 5.5 doc/ 是项目级强制（红线）
 
-**本项目必须用 `doc/` 分层管理所有文档**，不接受跳过 / 改名 / 合并 / 散落根目录。
+> **红线条文**（必须分层 / 禁止散落根目录 / 禁止跳层 / 禁止改名合并 / 禁止新增同级 / `doc/README.md` 唯一索引）见 `CLAUDE.md §11`（常驻，每轮在场）。本节是触发层增量：只给 **Why 正文 + 操作细节**，不重复条文（避免双份正文漂移，见 `meta_rule_design.md §4.3`）。
 
-| 强制项 | 内容 |
-|--------|------|
-| **必须存在** | 项目根目录下必须有 `doc/` 目录 + §6 列出的六个子目录（即使为空也要建，用 `.gitkeep` 占位）|
-| **必须按六层结构** | `0_architecture / 1_plan / 2_pending / 3_design / 4_archive / 9_reference`，序号 + 名称都不可改 |
-| **禁止散落根目录** | `README.md` / `CHANGELOG.md` / `LICENSE` 这种**根级元数据文件**可留根，**其余所有 .md 文档**必须挂 `doc/<层>/` |
-| **禁止新增同级目录** | 想加 `doc/notes/` / `doc/wip/` / `doc/legacy/` → 必须归到 §6 现有六层之一（活跃的归 1_plan，未决归 2_pending，归档归 4_archive）|
+**Why（为什么是红线）**：文档分层是 bridgeforge 的核心范式之一，与 rules / memory 深度耦合：
 
-**Why**：详见 `CLAUDE.md §11`。简短理由 — 文档分层是 bridgeforge 与 rules / memory / 4 个 doc-依赖 skill 深度耦合的核心范式；散落即失控。
+- 13 个协作 skill 中 4 个（`/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
+- `workflow.md §6-§7` + `meta_rule_design.md` 的"案例下沉"范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
+- 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
 
 **How to apply**：
 
@@ -146,81 +143,51 @@ paths:
 
 ## 9. 版本号管理（红线）
 
-> 本节适合**有 Milestone 节奏 + 长期演进**的项目。小项目（< 5 人、无明确 Milestone）可退化为简版：patch=bug 修复 / minor=新功能 / major=破坏性改动。退化时整节用 TODO 注释包住即可。
+> 适合**有 Milestone 节奏 + 长期演进**的项目。小项目（< 5 人、无 Milestone）可退化简版（patch=bug / minor=新功能 / major=破坏性），整节用 TODO 注释包住。
 
-**每次 commit 前必须提升一次版本号。**
+**红线：每次 commit 前必须提升一次版本号。**
 
-### 9.1 单一事实源 + 展示位置
+### 9.1 单一事实源
 
-- 版本号写在**唯一一处**主版本号文件（如 `package.json` / `Cargo.toml` / `pyproject.toml` / `VERSION`），所有 crate / 子包通过继承机制（如 Cargo workspace 的 `version.workspace = true`）共享
-- 编译期由构建工具嵌入（如 Rust 的 `env!("CARGO_PKG_VERSION")` / Node 的 `package.json` 引用），bump 后必须重新 build 才生效
-- **展示位置**（按本项目实际填）：
-  - <!-- TODO: 主窗口标题栏 / CLI `--version` / 关于对话框 等 -->
+版本号只写**唯一一处** SoT 文件（`package.json` / `Cargo.toml` / `pyproject.toml` / `VERSION`），子包靠继承机制（如 Cargo `version.workspace = true`）共享；构建期嵌入（`env!("CARGO_PKG_VERSION")` 等），bump 后须重新 build。展示位置按项目填 <!-- TODO: 标题栏 / CLI `--version` / 关于框 -->。
 
-### 9.2 三段语义（Milestone 绑定 SemVer）
+### 9.2 三段语义（SemVer，Milestone 绑定）
 
-| 段 | 含义 | 触发条件 |
-|---|------|---------|
-| **Major (X)** | **Milestone ship** | 当前 Milestone 整体验收通过 — M1 ship → 1.0.0 / M2 ship → 2.0.0 |
-| **Minor (Y)** | **用户多了一件能干的事** | 新模块 / 新面板 / 新接入 / 新可感知功能上线 |
-| **Patch (Z)** | **日常 commit** | bug 修复 / 小调整 / 文档 / refactor / Sprint 内常规推进 |
+| 段 | 触发 |
+|---|------|
+| **Major** | Milestone 整体验收通过（M1 ship → 1.0.0） |
+| **Minor** | 用户多了一件能干的事（新模块 / 面板 / 接入） |
+| **Patch** | 日常 commit（bug / 小调整 / 文档 / refactor） |
 
-**判断 minor vs patch 的核心问题**：这次 commit 后用户能不能多干一件之前不能干的事？能 → minor，否则 → patch。
+**核心判据**：commit 后用户能否多干一件之前不能干的事？能 → minor，否则 → patch。**重置**：major+1 → minor/patch 归 0；minor+1 → patch 归 0。
 
-**重置规则**：major+1 → minor 和 patch 归 0；minor+1 → patch 归 0。
+### 9.3 细颗粒度不进版本号
 
-### 9.3 Phase / Sprint / Task 不进版本号
+Phase / Sprint / Task 比 Milestone 细，不进版本号：Phase 用 git tag（`m<N>.<phase>-complete`，链接验收报告）、Sprint/Task 用 commit prefix（1 commit 1 task）。Milestone ship 打 `m<N>-shipped` 并 bump major。Phase 完成本身不强制 bump minor，只看是否引入用户可感知新功能。
 
-颗粒度细于 Milestone 的层级通过其他机制记录：
+### 9.4 Commit message 格式
 
-| 层 | 记录方式 |
-|---|---------|
-| **Milestone** | 版本号 Major（ship 时 +1） |
-| **Phase** | git tag |
-| **Sprint** | commit message prefix |
-| **Task** | commit message prefix + 1 commit 1 task |
+`<类型>(M<N>.<Phase>.S<Sprint>): <描述> (vX.Y.Z)` — 类型取 `feat`/`fix`/`refactor`/`perf`/`docs`/`chore`，无 phase 概念则省略括号前缀。**末尾必带 `(vX.Y.Z)`** 便于 `git log --oneline` 识别。
 
-**Phase 完成本身不强制 bump minor** — 只看该 Phase 是否引入用户可感知的新功能。
+> 范例：`feat(M1.D.S1): 接入新数据源 (v0.10.5)`
 
-### 9.4 Git tag 规范
+### 9.5 触发时机
 
-- **Phase 完成**：`m<N>.<phase>-complete`（如 `m1.a-complete` / `m1.d-complete`），tag message 链接到 Phase 验收报告
-- **Milestone ship**：`m<N>-shipped`（如 `m1-shipped`），同时 bump major
+`git commit` 前先编辑 SoT 文件提版本号，一并 `git add` 进本次 commit。
 
-### 9.5 Commit message 规范
-
-格式：`<类型>(M<N>.<Phase>.S<Sprint>): <描述> (vX.Y.Z)`
-
-- **类型**：`feat`/`fix`/`refactor`/`perf`/`docs`/`chore`
-- **括号内 phase/sprint 标识**：标明本 commit 属于哪个 Phase / Sprint
-  - 例：`feat(M1.D.S1): 接入新数据源 (v0.10.5)`
-  - 例：`fix(M1.A.S2): 平今 frozen 漏解冻 (v0.10.6)`
-  - 跨 Phase 或无 phase 概念的 commit 不带前缀：`<类型>: <描述> (vX.Y.Z)`
-- **末尾必带 `(vX.Y.Z)`** 便于 `git log --oneline` 一眼识别版本
-
-### 9.6 触发时机
-
-`git commit` 前先编辑主版本号文件提升版本号，一并 `git add` 进本次 commit。
-
-### 9.7 禁止
+### 9.7 禁止（红线）
 
 - ❌ 跳过 patch 直接跳 minor
-- ❌ 一次 commit 跳多级（如 0.9.102 → 1.1.0 一步）
-- ❌ 忘记编辑版本号就 commit（如果忘了，后续 commit 补一次并在 message 里注明"版本补齐"）
-- ❌ 在 Milestone 整体验收通过前自己 bump major（v1.0.0 必须等 M1 ship）
+- ❌ 一次 commit 跳多级（如 0.9.102 → 1.1.0）
+- ❌ 忘编辑版本号就 commit（忘了则后续 commit 补一次并注明"版本补齐"）
+- ❌ Milestone 验收通过前自行 bump major（v1.0.0 必须等 M1 ship）
 - ❌ 用 4 段版本号（不兼容 SemVer / Cargo / npm）
 
 ### 9.8 自动强制（hook 兜底，非自觉）
 
-本节红线**不依赖 agent 自觉** —— Python 项目装有 `.claude/hooks/version_check.py`（PreToolUse / Bash），
-`git commit` 前自动检查 staged 改动是否含版本号文件，没 bump 直接 `exit 2` 阻断并提示。
+Python 项目装有 `.claude/hooks/version_check.py`（PreToolUse / Bash）：`git commit` 前查 staged 是否含版本号 SoT 文件（`VERSION` / `package.json` / `Cargo.toml` / `pyproject.toml`），没 bump 直接 `exit 2` 阻断。豁免：message 加 `[skip-version]` / `--amend` / 正在 merge。非 Python 项目无此 hook，退化为仅靠 §9 软规则（自觉 + 收尾自查 §4）。
 
-- **触发**：任何 `git commit`（非 commit 命令立即放行）
-- **放行条件**：staged 含版本号 SoT 文件（`VERSION` / `package.json` / `Cargo.toml` / `pyproject.toml`）
-- **豁免**：commit message 加 `[skip-version]`（纯 merge / 紧急 hotfix）/ `--amend` / 正在 merge
-- **非 Python 项目**：无此 hook，退化为只靠本节 §9 软规则（agent 自觉 + 收尾自查 §4）
-
-> 历史教训：本机制存在前，§9 仅作软规则被反复忘记（多次「忘 bump / 漏打 tag」自打脸）。hook 是把红线从「自觉」升级为「机制强制」。
+> **Why**：hook 存在前 §9 作软规则被反复忘记（多次忘 bump / 漏 tag），故把红线从「自觉」升级为「机制强制」。
 
 ---
 

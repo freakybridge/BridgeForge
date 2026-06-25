@@ -24,8 +24,6 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 
 # 文档综合检索 skill
 
----
-
 ## 执行流程
 
 ### Step 0：意图分类 + 关键词分词
@@ -34,11 +32,11 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 
 | 意图 | 触发词 | 走的 Path |
 |------|--------|----------|
-| **找东西**（默认）| "找/在哪/涉及/查/搜/设计/计划" | A + B + D + E（含交集，全集） |
-| **看 TODO**（聚焦未决） | "还有什么没解决/没修/todo/bug/进展/现状" | C only（TODO + 远期 backlog + pending） + D（memory）|
-| **看远期功能**（聚焦未排期）| "X 远期/以后做/backlog/未来计划" | C 仅 TODO-INDEX §远期 Backlog 索引 + Path A（`1_plan/<模块>/` 不带日期文件）|
+| **找东西**（默认）| "找/在哪/涉及/查/搜/设计/计划" | A + B + D + E（全集） |
+| **看 TODO** | "还有什么没解决/没修/todo/bug/进展/现状" | C + D |
+| **看远期功能** | "X 远期/以后做/backlog/未来计划" | C 仅 TODO-INDEX §远期 Backlog 索引 + Path A（`1_plan/<模块>/` 不带日期文件）|
 
-> 边界模糊时（如"X 进展" 含混 ）→ 默认走"找东西"全集（容错）
+> 边界模糊（如"X 进展"含混）→ 默认走"找东西"全集（容错）
 
 **关键词分词**：
 - 中文按 `/`、空格分词
@@ -47,123 +45,52 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 
 ### Step 1：并行 Grep（**同一 message 内多 tool call**）
 
-**Path A — 文件名匹配**：Glob `pattern: "doc/**/*<token>*.md"`（每个 token 一次）
-- 输出：精准文件名命中
-- 信号：高（直接命中主题）
+**Path A — 文件名匹配**：Glob `pattern: "doc/**/*<token>*.md"`（每个 token 一次）。信号高（直接命中主题）。
 
-**Path B — README 入口**：Grep `pattern: <topic-regex>` `glob: "doc/**/README.md"` `output_mode: content` `head_limit: 30` `-i: true`
-- 输出：README 索引段提到的位置
-- 信号：高（README 是入口，命中 README 再读目标文件）
+**Path B — README 入口**：Grep `pattern: <topic-regex>` `glob: "doc/**/README.md"` `output_mode: content` `head_limit: 30` `-i: true`。命中 README 再读目标文件。
 
 **Path C — TODO + Pending（"看 TODO"或"看远期功能"意图）**：
 - Grep `pattern: <topic-regex>` `path: doc/0_architecture/TODO-INDEX.md` `output_mode: content` `-i: true`（**含主表 + §远期 Backlog 索引段**，单次 grep 扫全文）
 - Grep `pattern: <topic-regex>` `glob: "doc/2_pending/*.md"` `output_mode: files_with_matches` `head_limit: 20` `-i: true`
 - "看远期功能"时额外：Glob `pattern: "doc/1_plan/**/<topic>*.md"` 找不带日期前缀的 backlog 文件
-- 输出：短期 TODO + 远期 backlog 入口 + 未决 debates
-- 信号：极高（直接答 "X 还有什么没解决" / "X 远期计划是什么"）
+- 信号极高（直接答 "X 还有什么没解决" / "X 远期计划"）
 
-**Path D — Memory 索引**：Grep `pattern: <topic-regex>` `path: .claude/memory/MEMORY.md` `output_mode: content` `head_limit: 25` `-i: true`
-- 输出：memory 索引中的相关条目（仅扫 MEMORY.md，不扫具体 memory 文件，省 token）
-- 信号：高（踩坑经验 + 项目状态）
+**Path D — Memory 索引**：Grep `pattern: <topic-regex>` `path: .claude/memory/MEMORY.md` `output_mode: content` `head_limit: 25` `-i: true`。仅扫 MEMORY.md 不扫具体 memory 文件（省 token）。
 
-**Path E — 共现交集（仅多 token 时）**：Grep `pattern: <token1>.*<token2>|<token2>.*<token1>` `path: doc/` `glob: "*.md"` `output_mode: files_with_matches` `multiline: true` `head_limit: 15`
-- 输出：同时含两关键词的文件
-- 信号：极高（10× 降噪，相比 Path A 单关键词扩散）
+**Path E — 共现交集（仅多 token 时）**：Grep `pattern: <token1>.*<token2>|<token2>.*<token1>` `path: doc/` `glob: "*.md"` `output_mode: files_with_matches` `multiline: true` `head_limit: 15`。信号极高（10× 降噪）。
 
 ### Step 2：Rules 字典查表（不 grep，读项目本地映射文件）
 
 读项目本地映射文件 `.claude/find-doc.map.md`（topic → 关联 rule 的静态字典），把命中的 topic 映射到 rule 文件，避免全量 grep rules 的 60% 噪音。
 
-- **文件存在** → 按其中 `topic_to_rules` 字典查表：命中 topic 取对应 rule 列表；无 topic 命中取 `default`。
+- **文件存在** → 按 `topic_to_rules` 字典查表：命中 topic 取对应 rule 列表；无 topic 命中取 `default`。
 - **文件不存在**（新项目还没建）→ 跳过本步（不 grep rules），并在 Step 4 提醒用户创建。
 
-> **为什么外置**：字典内容是**项目专属**的（引用本项目实际 rule 文件名，每个项目 rule 树不同），不能进 bridgeforge 通用源。**单一源拆分**：skill 本体「怎么查」归 bridgeforge 单一源（本文件）；字典「查什么」归项目 `.claude/find-doc.map.md`。模板格式见 Step 4。
+> **为什么外置**：字典内容是**项目专属**的（引用本项目实际 rule 文件名）。**单一源拆分**：skill 本体「怎么查」归 bridgeforge 单一源（本文件）；字典「查什么」归项目 `.claude/find-doc.map.md`。
 
 ### Step 3：聚合输出（结构化 markdown）
 
-```markdown
-# 关于 "<topic>" 的检索结果
-
-## 📍 直达位置（文件名 + 共现交集）
-- `<paths from Path A + E, 去重后>`
-
-## 📚 README 入口（agent 推荐先读）
-- `<paths from Path B>`
-
-## 🟢 活跃 / 进行中（如 "找东西" 意图）
-- 从 Path A 命中里挑 `1_plan/<topic>/` 下的活跃文件
-
-## 🔴 待解决问题（仅 "看 TODO" 意图，或主动列出）
-- TODO #N（P0/P1/P2）— <description>（来自 Path C）
-- 未决 debates: <files from Path C>
-
-## ⚠️ 关联 rules（字典查表，无 grep）
-- `<rules from Step 2 字典>`
-
-## 🧠 相关 memory
-- `<entries from Path D>`
-
-## 🗂 已归档（仅作历史参考）
-- 从 Path A 命中里挑 `4_archive/` 下的文件
-
----
-
-**建议下一步**：
-- 改代码 → 先读 [README + 关联 rules]
-- 看进展 → 读 [活跃] 段
-- 修问题 → 读 [待解决问题] 段
-```
-
----
+把各 Path 命中聚合成结构化 md（格式见 `references/output-format.md`，命中时先 Read）。空段不显示。
 
 ## 重要规则
 
-1. **不读完整文件**：只 Grep 出匹配行，避免 Read 完整文件
+1. **不读完整文件**：只 Grep 出匹配行
 2. **优先 README**：命中 README 后再决定是否读目标文件
-3. **限定范围**：只搜 `doc/` + `.claude/{rules,memory}/`，**不扫源代码**（源代码用 Grep 单独查）
+3. **限定范围**：只搜 `doc/` + `.claude/{rules,memory}/`，**不扫源代码**
 4. **意图分流**：默认"找东西"，看 TODO 意图时仅跑 Path C+D（省 token）
-5. **去重逻辑**（聚合时）：Path A 文件名命中作为 baseline，Path E 内容交集作为优先列表，Path B/D 是次序信号
-6. **空段不显示**：避免输出冗余空段
-
----
+5. **去重逻辑**（聚合时）：Path A 文件名命中作 baseline，Path E 内容交集作优先列表，Path B/D 是次序信号
+6. **空段不显示**
 
 ## 不适用场景
 
 - **代码搜索**：源代码 → Grep `path: <source-dir>/`
-- **新建文档**：用 `/todo` 或 `/collab` skill
-- **跨会话状态**：用 `/resume` 读 snapshot
+- **新建文档**：用 `/todo` 或 `/collab`
+- **跨会话状态**：用 `/resume`
 - **总结当前对话**：用 `/summary`
 
----
+### Step 4：映射文件检测与提醒（任务收尾，低频）
 
-## Step 4：映射文件检测与提醒（任务收尾）
-
-聚合输出已呈现给用户后，**额外**做一件事：
-
-1. 检查项目根是否存在 `.claude/find-doc.map.md`
-2. **不存在 且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 rule 文件** → 在回复末尾追加提醒，附带可直接落盘的模板：
-
-   ```
-   💡 映射提醒：本项目还没有 .claude/find-doc.map.md，find-doc 只能走 grep fallback。
-   本次涉及 <topic_a> / <topic_b>，要不要我建这个文件？初始内容候选：
-
-   # find-doc 项目映射表（topic → 关联 rules）
-   topic_to_rules:
-     <topic_a>:
-       - .claude/rules/<guessed_rule_a>.md
-     <topic_b>:
-       - .claude/rules/<guessed_rule_b>.md
-     default (无 topic 命中):
-       - .claude/rules/architecture.md
-   ```
-
-3. **已存在但本次 topic 不在表里** → 提醒"要不要顺手给 `.claude/find-doc.map.md` 加 `<topic>` 这几行"。
-4. **禁止**：
-   - 凭空提醒（本次没接触到具体 topic 时不提醒，符合"宁缺毋滥"）
-   - 强制要求用户填（用户说"不用"就立刻闭嘴）
-   - 同一会话内对同一 topic 重复提醒
-
-**Why this exists**：字典是项目演进中自然沉淀的（StratusAgent 演了很久才填出 14+ topic）。外置成 `.claude/find-doc.map.md` 后，skill 本体保持通用单一源，项目只维护这一个数据文件。早期项目没有该文件 agent 走 grep fallback 也能跑，本段保证用户在 doc/ 结构稳定后顺手建表。
+收尾若无 `.claude/find-doc.map.md` 且本次有明确 topic → 按 `references/map-reminder-sop.md` 提醒（含凭空提醒 / 强制填 / 重复提醒三条禁止项）。否则跳过。
 
 ---
 

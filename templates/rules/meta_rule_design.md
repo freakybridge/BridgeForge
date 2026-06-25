@@ -73,31 +73,19 @@ Hooks (代码驱动，必定执行)  >  Rules (建议，Claude 概率遵守)  > 
 详见 [memory/feedback_xxx.md](...) / [doc/3_design/yyy.md](...)
 ```
 
-**例子**（对比版）：
-
-❌ **退化版**（rule 里塞案例）：
-
-```
-## 改 Module X 的 process_data
-
-Module X 不应该自己重算 balance，因为 YYYY-MM-DD vX.Y.Z 那次出问题了。
-当时 process_data 在 tick-driven 路径里又算了一次，导致和下游模块重复计算，
-UI 显示跳动。具体表现是 ... （后面 30 行历史复盘）
-```
-
-✅ **normative 版**：
+**最小骨架范例**（normative，≤10 行）：
 
 ```
 ## Module X 数据重算红线
 
-**禁止** Module X 做 tick-driven 数据重算，只 emit 原始字段。实时刷新归
-下游 aggregator 统一接管。
+**禁止** Module X 做 tick-driven 数据重算，只 emit 原始字段；实时刷新归下游 aggregator。
 
-**Why**: 双重计算导致 UI 跳动（memory `feedback_module_x_recompute_belongs_to_downstream`）。
+**Why**: 双重计算致 UI 跳动（memory `feedback_module_x_recompute`）。
 
-**How to apply**: 写 `process_*` / `on_tick` 等接收推送的处理时，**不要**调
-`recompute_*()` 类方法，只更新 raw 字段后 emit。
+**How to apply**: 写 `process_*` / `on_tick` 时不调 `recompute_*()`，只更 raw 字段后 emit。
 ```
+
+> 完整正反例（退化版 30 行历史复盘 vs normative 版）略 — 按本节判据自写：凡看到"某年某月那次踩了 X + 长复盘"就是退化版，搬 memory 留一行 Why。
 
 ---
 
@@ -215,13 +203,4 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 ## 10. 反模式案例库（本项目实测）
 
-<!-- TODO: 当本项目发现 rule 退化样本时登记进来，作为反例教材
-示例（请按本项目实际情况填）：
-
-| 文件 | 当前状态 | 问题 | 处理 |
-|------|---------|------|------|
-| `<rule>.md` | 48 KB / 829 行 | 塞了 N+ 个完整事故案例和 code 示例，远超 50KB / 500 行红线 | 阶段 X 拆分 + 案例下沉 |
-| `<rule>.md` | 触发器 `**/* tests/**` 等同始终加载 | 阶段 Y 收紧 |
-
-**本表实时更新**：每次发现新的退化样本登记进来。
--->
+实测发现的 rule 退化样本登记于此（文件 / 状态 / 问题 / 处理），作为反例教材，发现一例补一行。

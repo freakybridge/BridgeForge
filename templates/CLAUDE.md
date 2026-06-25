@@ -21,6 +21,7 @@
 | `rules/workflow.md` | 范式同步文档 + 文档索引同步 + 经验总结 | 编辑 `doc/**`、`.claude/rules/**` |
 | `rules/portability.md` | 换机可移植性 + 包安装陷阱 + hooks 路径约束 | 编辑 `.claude/**`、配置文件、依赖清单 |
 | `rules/meta_rule_design.md` | 元规则：怎么写 rule（强制力梯度 + 加载策略 + 反模式速查） | 编辑 `.claude/rules/**` 或 `CLAUDE.md` |
+| `rules/anti_drift_hooks.md` | 反漂移 hook（clarify / focus / ctx-budget）的分工论述 + 路径 / 调参 / 豁免 | 编辑 `.claude/hooks/**`、`.claude/settings.json` |
 
 <!-- TODO: 按需追加项目特定 path-rule，例如：
 | `rules/api.md` | API 设计约束 | 编辑 `src/api/**` |
@@ -31,11 +32,10 @@
 
 ## 2.5 工具选择：检索用 Glob/Grep，执行才用 shell
 
-**找文件 / 查内容 → 优先 `Glob`（找文件）/ `Grep`（搜内容）/ `Read`，不要反射性用 shell 的 `find` / `Get-ChildItem` / `Select-String`。**
+**红线**：找文件 / 查内容 → 用 `Glob`（找文件）/ `Grep`（搜内容）/ `Read`，**禁止**反射性用 shell 的 `find` / `Get-ChildItem` / `Select-String`（受控只读工具零弹窗 + 跨平台 + 不夹带删改）。
 
-- **为什么**：检索类是受控只读工具，**零权限弹窗 + 跨平台 + 不可夹带删改** —— 同时满足"能用 / 清净 / 底线安全"。把只读检索从 shell 挪走，shell 就只剩"真要执行"的命令，该弹的权限弹窗才弹得有意义。
-- **shell（PowerShell / bash）不是被淘汰，是各司其职**：构建、跑测试、git、进程管理、系统配置、算体积这些 Glob/Grep 干不了，shell 仍是主力。一句话边界 —— **找东西 / 看内容用检索工具，干事情用 shell**。
-- **Glob 三诀**（否则常空手而归）：① `path` 给具体，别全盘递归扫（会超时）；② 它匹配文件不匹配目录，找文件夹 `foo` 要写 `**/foo/**`；③ 默认跳过 `.` 开头隐藏目录（如 `.claude`），目标在里面时把 `path` 直接扎进去。
+- **边界**：找东西 / 看内容用检索工具，干事情（构建 / 测试 / git / 进程 / 系统配置）用 shell —— 各司其职，非淘汰。
+- **Glob 三诀**：① `path` 给具体别全盘扫（会超时）；② 匹配文件不匹配目录，找文件夹 `foo` 写 `**/foo/**`；③ 默认跳过 `.` 开头隐藏目录，目标在里面就把 `path` 扎进去。
 
 ---
 
@@ -64,36 +64,15 @@
 
 ## 5. Memory 项目内托管（自动）
 
-**目的**：memory 纳入项目 git，不散落用户目录。
+**目的**：memory 纳入项目 git（`.claude/memory/`），不散落用户目录；系统路径 `~/.claude/projects/<project-hash>/memory/` 用 junction 透明转发。
 
-**每次对话开始静默检查**：`~/.claude/projects/<project-hash>/memory/` 是否为 junction → 不是则恢复链接指向项目内 `.claude/memory/`。
+由 `SessionStart` hook `.claude/hooks/memory_junction_check.py` 每次对话开始自动维护（迁移 / 新机建链 / 冲突提示），无需手动。
 
-由 `SessionStart` hook `.claude/hooks/memory_junction_check.py` 自动执行（无需手动），三情形：
+> 红线：**绝不硬删可能含数据的目录**。任何一步失败即中止并提示人工（迁移时原目录改名 `.bak` 而非删除）。
 
-- **稳态**（系统路径已是 junction/symlink）→ noop（99% 的 session）
-- **场景 A 首次迁移**（系统路径是普通实目录）：复制内容进 `.claude/memory/` → 系统目录**改名 `memory.premigrate.bak`（绝不硬删）** → 建 junction。事后人工确认无误再删 `.bak`
-- **场景 B 新机 clone**（系统路径不存在 + 项目内已有 `.claude/memory/`）→ 直接建 junction
-- **冲突**（系统与项目内同时有内容）→ 不敢自动合并，打印提示请人工处理
+**Memory 检索原则（热区优先）**：需要召回某类知识时按序：① 先查热区（MEMORY.md 自动加载，直接看有无相关条目）；② 热区无匹配 → `/find-memory <关键词>` 搜冷区全量文件；③ **禁止**跳过热区直接 grep 遍历 memory/ 目录（token 消耗远高于 `/find-memory`）。
 
-> 红线：**绝不硬删可能含数据的目录**。任何一步失败即中止并提示人工。
-
-**手动建 junction 命令**（hook 失效时兜底）：
-```powershell
-# Windows
-New-Item -ItemType Junction -Path '<系统memory路径>' -Target '<项目内.claude/memory绝对路径>'
-```
-```bash
-# macOS/Linux
-ln -s '<项目内绝对路径>' '<系统路径>'
-```
-
-后续 memory 读写用系统路径（junction 透明转发）。路径约束详见 `rules/portability.md` §2。
-
-**Memory 检索原则（热区优先）**：需要召回某类知识时，按顺序：
-
-1. **先查热区**：MEMORY.md 自动加载，直接检查是否有相关条目
-2. **热区无匹配 → 搜冷区**：调用 `/find-memory <关键词>` 搜索 `.claude/memory/` 全量文件
-3. **禁止**跳过热区直接遍历 memory/ 目录——热区覆盖则冷区搜索是浪费；直接 grep 目录则 token 消耗远高于 `/find-memory`
+> 换机 / 手动重建 junction 的双平台命令与三情形 SOP → `rules/portability.md` §2。
 
 ---
 
@@ -162,15 +141,7 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ## 9. 主观体验报告主动问范式（红线）
 
-**触发**：用户报"从外部观察到的怪现象"或主观体验问题。常见场景：
-
-- **UI / 桌面应用**："有点黏" / "偶尔不响应" / "位置不对" / "感觉慢"
-- **CLI / 脚本**："有时候没输出" / "跑到一半卡住" / "时快时慢"
-- **API / library**："偶尔返回空" / "QPS 上去就超时" / "某些参数下行为怪"
-- **后端服务**："半夜偶尔重启" / "某接口偶发 500" / "内存慢慢涨"
-- **数据 pipeline**："这一批结果跟上一批不一样" / "某天突然没数据"
-
-核心特征：用户基于**外部观察**报告，缺乏数据 / 缺乏稳定复现路径。
+**触发**：用户基于**外部观察**报主观体验 / 怪现象，缺数据缺稳定复现（UI "有点黏" / CLI "有时没输出" / API "偶尔返回空" / 后端 "偶发 500" / pipeline "某天没数据"）。
 
 ### 我必须主动问全这 4 件事（一次性问完，不要挤牙膏）
 
@@ -195,45 +166,20 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ## 9.5 较大需求主动澄清 — `[clarify]` 信号响应
 
-**触发**：`UserPromptSubmit` hook（`.claude/hooks/clarify_reminder.py`）在每次用户提交 prompt 时做「便宜负向 gate」，候选轮（非 slash 命令 / 非纯续接词 / 非极短输入）输出 `[clarify]` system reminder。
+**触发**：`UserPromptSubmit` hook（`clarify_reminder.py`）在候选轮（非 slash / 非续接词 / 非极短）输出 `[clarify]` system reminder。读到后**语义精判**这轮够不够大，再决定问不问。
 
-**混合判定分工**（hook 粗筛 + 模型精判）：
+### 红线（读到 `[clarify]` 后必须，二分支）
 
-| 谁 | 干什么 | 为什么归它 |
-|----|--------|-----------|
-| **hook** | 每轮粗筛掉 slash / `next`·`继续` 等续接词 / 极短输入，其余贴 `[clarify]` 便利贴 | 可靠、不随长会话衰减；但它没 LLM，判断不了"大不大"也不会提问 |
-| **我（模型）** | 读到 `[clarify]` 后**语义精判**这轮够不够大，再决定问不问、问什么 | 只有 LLM 干得了 |
+- **较大需求 / 设计问题 / 模糊目标**（信息不全、范围未定）→ **先用 `AskUserQuestion` 出 2-4 个结构化选择题**（每个给候选项 + 推荐项）对齐范围，**再动手**。**禁止**对大需求零思考直接实现。
+- **琐碎改动 / 续接确认 / 已说全细节** → 忽略提示直接执行。**禁止**对琐碎 / 续接轮强行问背景（过度提问 = 噪声 → 机制自废）。`[clarify]` 是提醒不是命令。
 
-**我读到 `[clarify]` 后必须**：
-
-- **是较大需求 / 设计问题 / 模糊目标**（信息不全、范围未定）→ **先用 `AskUserQuestion` 问 2-4 个背景问题**帮用户理清思路、对齐范围，**再动手**。禁止不做思考直接开干。
-- **是琐碎改动 / 续接确认 / 用户已说全细节** → 忽略本提示，直接执行。
-
-### 红线
-
-- **禁止**对大需求"零思考直接实现"——这正是本 hook 要纠正的行为（用户配置它就是因为每次都得手动提醒"还有什么要问我的"）
-- **禁止**对琐碎任务 / 续接轮强行问背景（过度提问 = 噪声，会让用户开始无视提示 → 机制自废）。`[clarify]` 是**提醒不是命令**，最终问不问由你语义判断
-- 背景问题用 `AskUserQuestion` 出**结构化选择题**（2-4 个、每个给候选项 + 推荐项），不要一长串散问
-
-### 配置
-
-- Hook 入口：`.claude/hooks/clarify_reminder.py`（项目内）
-- 注册位置：`.claude/settings.json` → `hooks.UserPromptSubmit`
-- 调参：hook 文件开头改 `MIN_CHARS`（极短阈值）和 `CONTINUATION_TOKENS`（续接/确认词集合，按团队语言习惯增删）
+> 混合判定分工 / hook 路径 / 注册 / 调参 → `rules/anti_drift_hooks.md` §1。
 
 ---
 
 ## 9.6 任务防漂移 — `[focus]` 信号 + 漂移分类响应
 
-**触发**：`UserPromptSubmit` hook（`.claude/hooks/focus_reminder.py`）自动把本会话第一条实质 prompt 记为「任务锚 anchor」，攒够几轮后**周期性**注入 `[focus]` system reminder，把原始任务重新贴到我眼前。锚存 `.runtime/focus/anchor.json`，可用 `/focus` 查看 / 改 / 清。
-
-### 主动 + 被动两条入口
-
-| 入口 | 谁发起 | 机制 |
-|------|--------|------|
-| **主动** | hook 自动 | 周期贴 `[focus]`，我读到后自检是否跑偏 |
-| **被动** | 用户 `/focus` | 当场让我对照锚核一次；`/focus <文本>` 纠正锚 |
-| **被动** | 用户 `/spinoff` | 确认是前置阻塞后，一键交接派生到新对话 |
+**触发**：`UserPromptSubmit` hook（`focus_reminder.py`）把本会话首条实质 prompt 记为「任务锚」，周期性注入 `[focus]` system reminder。可用 `/focus` 查看 / 改 / 清。
 
 ### 我读到 `[focus]`（或 `/focus`）后必须：判断这轮还属不属于原任务，**若偏离，按类型分发，禁止闷头做**
 
@@ -251,18 +197,13 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 - **禁止**反漂移机制自己变成漂移源——`[focus]` 是周期提醒不是每轮命令，命中"正当深入"就忽略，别打断合法的深度推进
 - `[focus]` 是**提醒不是强制**：真漂没漂、哪类、怎么办，最终由我语义判断
 
-### 配置
-
-- Hook 入口：`.claude/hooks/focus_reminder.py`（项目内）
-- 锚文件：`.runtime/focus/anchor.json`（per-session，换 session 自动重置；并发多 session 会 last-write-wins 互相覆盖锚 — 用 `/focus <本会话任务>` 手动重设回来）
-- 调参：hook 开头改 `FOCUS_MIN_TURN`（攒几轮才开始提醒）/ `FOCUS_EVERY`（每几轮提醒一次）
-- 配套 skill：`/spinoff`（前置派生交接）、`/focus`（锚控制 + 手动自检）
+> 主动+被动入口表 / 锚文件 / hook 路径 / 调参 / 配套 skill → `rules/anti_drift_hooks.md` §2。
 
 ---
 
 ## 10. 上下文预算红线 — `[ctx-budget]` 信号响应
 
-**触发**：`UserPromptSubmit` hook（`.claude/hooks/context_warning.py`）在每次用户提交 prompt 时估算上下文用量，超阈值时输出 `[ctx-budget]` system reminder。我**必须**按下表响应：
+**触发**：`UserPromptSubmit` hook（`context_warning.py`）每轮估算上下文用量，超阈值输出 `[ctx-budget]` system reminder（char/4 启发式，精度 ±10%）。我**必须**按下表响应：
 
 | 信号级别 | 用量 | 我的行为 |
 |---------|-----|---------|
@@ -275,18 +216,11 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 - **CRITICAL 信号下禁止开始任何新任务** — 即使用户说"快做"，也要拒绝。允许的只有 `/snapshot` 这种保命操作（slash command 已被 hook 自动豁免）
 - **HIGH 信号下禁止启动复杂多文件改动** — 即使可能勉强做完，后续 compact 会丢上下文，不值得
-- 信号判定基于 char/4 启发式，精度 ±10%。CRITICAL/HIGH 边界附近以信号为准，不要二次判断"我感觉还行"
+- CRITICAL/HIGH 边界附近以信号为准，不要二次判断"我感觉还行"
 - **不要悄悄忽略信号继续做事** — 用户配置这个 hook 就是因为容易忘，我必须主动响应
+- `/snapshot` / `/resume` / `/git-sync` 等 slash 已被 hook 自动豁免（否则保命操作被拦会死锁），所以 CRITICAL 时建议 `/snapshot` 不自相矛盾
 
-### slash command 豁免
-
-`/snapshot` / `/resume` / `/git-sync` 等以 `/` 开头的 prompt 不触发预警 — 否则用户连保命操作都被拦，死锁。所以**响应 CRITICAL 时建议用户做的就是 `/snapshot`**，不会自相矛盾。
-
-### 配置
-
-- Hook 入口：`.claude/hooks/context_warning.py`（项目内）
-- 注册位置：`.claude/settings.json` → `hooks.UserPromptSubmit`
-- 调参：在 hook 文件开头改 `WINDOW`（窗口大小，按模型选 1M / 200k）和 `THR_MEDIUM/HIGH/CRITICAL`（三个阶梯阈值，默认 75/85/95）
+> hook 路径 / 注册 / 调参（`WINDOW` / `THR_*`）/ 豁免机制论述 → `rules/anti_drift_hooks.md` §3。
 
 ---
 
@@ -310,16 +244,8 @@ doc/
 - **禁止** 跳过六层中的任何一层（即使当前为空，目录也必须存在 — 占位 `.gitkeep` 即可）
 - **禁止** 给六层改名 / 合并（`doc/design/` ≠ `doc/3_design/`，序号前缀是排序约定）
 - **禁止** 新增同级目录（如 `doc/notes/` `doc/wip/`）— 新增需求按 §6 边界归到现有六层之一
-- **强制** `doc/README.md` 作为唯一索引，任何 `doc/*.md` 文件的新增 / 删除 / 重命名都要同步本文件（详见 `rules/workflow.md` §5）
+- **强制** `doc/README.md` 作为唯一索引，任何 `doc/*.md` 文件的新增 / 删除 / 重命名都要同步本文件
 
-### 为什么是红线
+**不接受 doc/ 强制 → 不应使用 bridgeforge**（改用更宽松的脚手架）。
 
-文档分层是 bridgeforge 的**核心范式**之一，与 rules / memory 等机制深度耦合：
-
-- 13 个协作 skill 中 4 个（`/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
-- `rules/workflow.md` §6-§7 + `rules/meta_rule_design.md` 的"案例下沉" 范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
-- 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
-
-**如果不接受 doc/ 强制 → 不应该使用 bridgeforge** — 改用其他更宽松的脚手架。
-
-详细规则见 `rules/workflow.md` §5-§7。
+> **Why（为什么是红线）+ 每层职责边界 + README 同步细则** → `rules/workflow.md §5.5-§8`（编辑 `doc/**`、`.claude/rules/**` 时自动加载）。

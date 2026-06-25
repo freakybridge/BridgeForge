@@ -1,16 +1,18 @@
 # Memory Index — setup_agent
 
-> Active: 6 | Cold: 0
+> Active: 8 | Cold: 0
 
 ## Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起 setup_agent 更名 bridgeforge；活文档=bridgeforge，历史流水账故意保留旧名（双名共存非 bug）
 
 ## Active
+- [project-v030-state](project-v030-state.md) — v0.29.2 summary trim + v0.30.0 产品层全面瘦身；建立 redline-placement 原则 + external-references 模式；鬼打墙阈值冲突遗留
 - [project-v026-state](project-v026-state.md) — v0.26.x：rule hook 化 + skill model 轻量化（git-sync/summary → sonnet），官方 model 字段语义
 - [project-v025-state](project-v025-state.md) — v0.25.0 支柱 B：开机自检 + 退役检测，退役三步 SOP，诚实边界
 - [project-v024-state](project-v024-state.md) — v0.24.0 主要变更摘要（context_warning 升级/map 外置/memory 治理废弃）
 - [feedback-review-technique](feedback-review-technique.md) — review 红线：收尾前重拉 status + 删 hook 后 grep 当前内容（非 diff）
 - [utf8-garble-rootcause](utf8-garble-rootcause.md) — 中文 hook 在 GBK Windows 糊成 � 注入 context 曾高频致漂；治本=PYTHONUTF8（已修），剩余=模型流式抽风（不可防）；护栏=utf8_mode 自检，反过度加固
+- [ghost-wall-threshold-conflict](ghost-wall-threshold-conflict.md) — 鬼打墙阈值 CLAUDE.md §8(3) ↔ debugging §6 T1(2) 冲突待统一；属行为变更不混进瘦身，与 §6 去重打包待单独决策
 
 <!-- AUTO-HOT-START -->
 
