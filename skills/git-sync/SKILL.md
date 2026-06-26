@@ -16,14 +16,17 @@ model: sonnet
    - **仅 behind（0/N）** → 若工作区干净，自动 `git pull --ff-only` 拉取最新进度；若有未提交变更，先 `git stash push -u`，pull 后 `git stash pop`。
    - **仅 ahead（M/0）或本地有未提交变更** → 走原有提交流程（第 3~5 步）。
    - **diverged（M/N，双向都有提交）** → **停下来报告本地/远端提交摘要，询问用户选择 rebase / merge / 放弃**，不要自动决定。
-3. **暂存变更**：若有本地改动，`git add .` 暂存所有更改。
-4. **智能消息生成**：
+3. **先重建 memory 索引（暂存之前，根治"sync 完又脏"）**：若本项目存在 `.claude/scripts/memory_rebuild_index.py`，在 `git add` **之前**先 `python .claude/scripts/memory_rebuild_index.py` 重抄 MEMORY.md 热区 / MEMORY_COLD.md，让衍生产物在提交前就是最新态。
+   - **Why**：这两个文件由 Stop hook 在每轮**回答结束后**自动重建；若提交的是旧产物，提交后 Stop hook 重建会再次弄脏工作区 → 被迫再 sync 一次。提前重建 → 提交进去即最新 → 提交后 hook 重建产出字节一致 → 工作区干净。
+   - 脚本不存在则**静默跳过**（非 bridgeforge 系下游项目无此机制，不报错）。
+4. **暂存变更**：若有本地改动，`git add .` 暂存所有更改（含上一步重建后的 memory 索引）。
+5. **智能消息生成**：
    - 使用 `git diff --cached` 分析代码变更。
    - 生成一段简洁的**简体中文**消息。
    - 格式：`<类型>: <描述>`
    - 类型包括：`feat`（新功能）、`fix`（缺陷）、`refactor`（重构）、`perf`（性能）、`docs`（文档）、`chore`（杂务）。
-5. **提交并推送**：`git commit` → `git push`。
-6. **静默操作**：在配合 `/git-sync` 工作流使用时，直接执行相关命令，不主动请求用户单步确认（除非发生严重错误如冲突或 diverged）。
+6. **提交并推送**：`git commit` → `git push`。
+7. **静默操作**：在配合 `/git-sync` 工作流使用时，直接执行相关命令，不主动请求用户单步确认（除非发生严重错误如冲突或 diverged）。
 
 ## 异常处理
 

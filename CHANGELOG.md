@@ -17,6 +17,13 @@
 
 ---
 
+## [0.32.1] - 2026-06-26
+
+### Fixed
+- `[product]` **git-sync 根治"sync 完 memory 又被改脏、被迫再 sync 一次"**。根因：`MEMORY.md` 热区 / `MEMORY_COLD.md` 是由 Stop hook 在**每轮回答结束后**自动重建的衍生产物（数据源 `_stats.json` 在会话中持续累积访问日期，但重建有 5min 节流）；git-sync 提交的往往是"上一次重建的旧产物"，提交**之后** Stop hook 再重建一次 → 工作区被新产物顶脏 → 用户只能再 sync 一次（机器人永远等你转身走才动手，成果永远赶不上那张照片）。
+  - 修法（"先重抄、再拍照"）：`skills/git-sync/SKILL.md` 在 `git add` **之前**新增一步——若存在 `.claude/scripts/memory_rebuild_index.py` 则先跑它重建索引，使提交进去的就是最新态；提交后 Stop hook 同日、同 `_stats.json` 再重建产出字节一致 → 工作区干净。脚本不存在则静默跳过（非 bridgeforge 系下游无此机制，不报错）。
+  - 已镜像进用户级副本 `~/.claude/skills/git-sync/SKILL.md`（实体副本非 junction，`/git-sync` 实际跑它，故当场同步使修复立即生效）。
+
 ## [0.32.0] - 2026-06-26
 
 ### Added
