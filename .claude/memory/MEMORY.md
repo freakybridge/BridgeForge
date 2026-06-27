@@ -1,6 +1,6 @@
 # Memory Index — bridgeforge
 
-> Active: 16 | Cold: 0
+> Active: 17 | Cold: 0
 
 ## Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起 setup_agent 更名 bridgeforge；活文档=bridgeforge，历史流水账故意保留旧名（双名共存非 bug）
@@ -15,8 +15,9 @@
 - [project-v025-state](project-v025-state.md) — v0.25.0 支柱 B：开机自检 + 退役检测，退役三步 SOP，诚实边界
 - [project-v024-state](project-v024-state.md) — v0.24.0 主要变更摘要（context_warning 升级/map 外置/memory 治理废弃）
 - [feedback-review-technique](feedback-review-technique.md) — review 红线：收尾前重拉 status + 删 hook 后 grep 当前内容（非 diff）
-- [utf8-garble-rootcause](utf8-garble-rootcause.md) — 中文 hook 在 GBK Windows 糊成 � 注入 context 曾高频致漂；治本=PYTHONUTF8（已修），剩余=模型流式抽风（不可防）；护栏=utf8_mode 自检，反过度加固
+- [utf8-garble-rootcause](utf8-garble-rootcause.md) — 中文 hook 在 GBK Windows 糊成 漏 注入 context 曾高频致漂；治本=PYTHONUTF8（已修），剩余=模型流式抽风（不可防）；护栏=utf8_mode 自检，反过度加固
 - [ghost-wall-threshold-conflict](ghost-wall-threshold-conflict.md) — 鬼打墙阈值 CLAUDE.md §8(3) ↔ debugging §6 T1(2) 冲突待统一；属行为变更不混进瘦身，与 §6 去重打包待单独决策
+- [feedback-bash-cwd-persistence](feedback-bash-cwd-persistence.md) — Bash cwd 在 session 内持久：cd 进子目录后 hook 相对路径全炸，用 PowerShell Set-Location 归位
 - [feedback-dogfood-hook-gap](feedback-dogfood-hook-gap.md) — 改 templates/hooks 漏同步 .claude/hooks 的 v0.19.0 事故 → 传播三问升级为四问（CLAUDE.md §1 第4问卡 dogfood 镜像）
 - [feedback-glob-search-gotchas](feedback-glob-search-gotchas.md) — 查文件优先 Glob/Grep（零权限弹窗）+ 三个坑：范围别贪大、匹配文件非目录、默认跳过点目录
 - [project-skill-junction-single-source](project-skill-junction-single-source.md) — C盘 skills/bridgeforge 是指向 D:\Quant\BridgeForge 的 junction，单一源在 D 盘；Glob 穿透会骗成"两份"
@@ -26,8 +27,13 @@
 
 ## 🔥 Hot（Top-40，按访问时效自动维护）
 - [effort-config-layering.md](effort-config-layering.md) — Claude Code effortLevel 多层覆盖关系 + bridgeforge v0.31.0「项目层禁写 effortLevel、全局统一管 + SessionEnd 自动还原 medium」反转决策
+- [feedback-bash-cwd-persistence.md](feedback-bash-cwd-persistence.md) — Bash 工具 cwd 持久化：cd 进子目录导致 hook 相对路径全部解析失败，PowerShell Set-Location 归位
+- [feedback-dogfood-hook-gap.md](feedback-dogfood-hook-gap.md) — 改 templates/hooks 时漏了同步 .claude/hooks 的事故模式及已有修复
+- [feedback-glob-search-gotchas.md](feedback-glob-search-gotchas.md) — 用户机器上用 Glob/Grep 查文件的首选方式与三个坑（范围、文件非目录、跳过点目录）
 - [feedback-review-technique.md](feedback-review-technique.md) — setup_agent review 时的两条操作红线（并行编辑 + hook 删除安全检查）
 - [ghost-wall-threshold-conflict.md](ghost-wall-threshold-conflict.md) — 鬼打墙计数阈值在 CLAUDE.md §8(3) 与 debugging §6 T1(2) 不一致，待统一；属行为变更不混进瘦身，用户暂选不改
+- [project-skill-junction-single-source.md](project-skill-junction-single-source.md) — "C盘 ~/.claude/skills/bridgeforge 是指向 D:\\Quant\\BridgeForge 的 junction，单一真相源在 D 盘，别被 Glob 穿透骗成\"两份\""
+- [project-target-cleanup-design.md](project-target-cleanup-design.md) — target_cleanup.py 的核心设计决策（体积而非 atime、自门控、全深度扫描）
 - [project-v024-state.md](project-v024-state.md) — setup_agent v0.24.0 主要变更摘要（2026-06-09）
 - [project-v025-state.md](project-v025-state.md) — setup_agent v0.25.0 支柱 B 实现摘要（开机自检 + 退役检测，2026-06-09）
 - [project-v026-state.md](project-v026-state.md) — setup_agent v0.26.x 系列摘要（rule 约束 hook 化 + skill model 轻量化，2026-06-10）

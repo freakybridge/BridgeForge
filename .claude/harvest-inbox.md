@@ -1,4 +1,4 @@
-# Harvest 收件箱
+﻿# Harvest 收件箱
 
 > 格式：`- [ ] <学到啥> | 来源 <file:line 或 本轮对话> | 通用性 <为啥跨项目成立> | <日期>`
 
@@ -12,3 +12,4 @@
 - [ ] external-references 模式：SKILL.md 低频/大段步骤外置到 references/ 子目录，主文件只留「命中时先 Read references/xxx」指针，缩减每次 /skill 注入 context 的字节，降 compact 风险（skill_sync_check 用 os.walk 递归哈希，子目录安全纳入同步） | 来源 skills/summary + skills/find-doc | 通用性 任何有长 skill 且遇 ctx 顶爆的项目都适用 | 2026-06-25
 - [ ] effortLevel 多层优先级陷阱 + SessionEnd 自动还原模式：Claude Code 设置优先级 Project > User，项目级 effortLevel 会覆盖全局，导致 slider/`/effort` 调了不生效；治法=项目层不写 effortLevel（由 SessionStart hook 机检剔除）+ SessionEnd hook 还原 medium baseline。SessionEnd hook 写 ~/.claude/settings.json 必须用原子写（temp+os.replace）且 **不进产品层**（多项目抢写同一全局文件会打架）。| 来源 本轮对话 + templates/hooks/enforce_no_effortlevel.py | 通用性 任何用 Claude Code + 关心 effort 控制的项目都有此坑；hook 模式普适 | 2026-06-26
 - [ ] "能机检的红线一律 hook 化"原则的实操形态：散文 rule 讲「不得 X」→ 用户/AI 忘了就犯；hook 是机器在每次 SessionStart 自动纠正 X，不依赖记忆。判据：若一个约束可以写 Python 在 0/1 结果上判断，就不该是 rule，该是 hook。rule 只留人脑才能判断的（架构意图/权衡/场景判断），机检的归 hook。| 来源 本轮用户语录 + enforce_no_effortlevel 实现 | 通用性 任何用 Claude Code hooks 机制的框架都成立 | 2026-06-26
+- [ ] Bash 工具 cwd 持久化陷阱：cd 进子目录后该 session 内所有后续 Bash 调用都从那里执行，hook 用相对路径 .claude/hooks/xxx.py 全部解析失败；操作子目录一律用绝对路径，必须 cd 时立即 cd 归位；发现 hook 全炸时用 PowerShell Set-Location 归位（Bash/PowerShell 共享 cwd） | 来源 本轮对话 + .claude/memory/feedback-bash-cwd-persistence.md | 通用性 任何用 Claude Code + PreToolUse hook 的项目都会踩，与业务无关 | 2026-06-27
