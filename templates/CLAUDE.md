@@ -83,7 +83,9 @@
 
 > 红线：**绝不硬删可能含数据的目录**。任何一步失败即中止并提示人工（迁移时原目录改名 `.bak` 而非删除）。
 
-**Memory 检索原则（热区优先）**：需要召回某类知识时按序：① 先查热区（MEMORY.md 自动加载，直接看有无相关条目）；② 热区无匹配 → `/find-memory <关键词>` 搜冷区全量文件；③ **禁止**跳过热区直接 grep 遍历 memory/ 目录（token 消耗远高于 `/find-memory`）。
+**Memory 检索原则（主索引优先）**：需要召回某类知识时按序：① 先查主索引（MEMORY.md 自动加载，列最近新增的 ≤40 条，直接看有无相关条目）；② 主索引无匹配 → `/find-memory <关键词>` 搜冷区全量文件；③ **禁止**跳过主索引直接 grep 遍历 memory/ 目录（token 消耗远高于 `/find-memory`）。
+
+> MEMORY.md / MEMORY_COLD.md 是 `memory_rebuild_index.py` 按「memory 文件集 + created_at + pinned」**确定性生成**的派生索引（无访问热度、无日期戳）：增删 memory 时由 PostToolUse 事件驱动重建、SessionStart 兜底；不碰 memory 时逐字不变 → 工作区不自发变脏，多机各自重建结果一致。**勿手改 MEMORY.md**（会被重建覆盖）；要置顶某条改 `_stats.json` 的 `config.pinned`。
 
 > 换机 / 手动重建 junction 的双平台命令与三情形 SOP → `rules/portability.md` §2。
 

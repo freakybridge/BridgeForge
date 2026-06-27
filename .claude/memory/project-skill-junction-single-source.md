@@ -1,6 +1,6 @@
 ---
 name: project-skill-junction-single-source
-description: "C盘 ~/.claude/skills/bridgeforge 是指向 D:\\Quant\\BridgeForge 的 junction，单一真相源在 D 盘，别被 Glob 穿透骗成\"两份\""
+description: C盘 skills/bridgeforge 是指向 D:\Quant\BridgeForge 的 junction，单一源在 D 盘，别被 Glob 穿透骗成「两份」
 metadata:
   node_type: memory
   type: project

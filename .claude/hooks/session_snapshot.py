@@ -105,17 +105,6 @@ def _trim_old() -> int:
     return len(to_delete)
 
 
-def _rebuild_memory_index() -> None:
-    """Stop 后重建 MEMORY.md 热区 / MEMORY_COLD.md 冷区。"""
-    script = REPO_ROOT / ".claude" / "scripts" / "memory_rebuild_index.py"
-    if not script.exists():
-        return
-    try:
-        subprocess.run([sys.executable, str(script)], cwd=str(REPO_ROOT), timeout=30)
-    except Exception:
-        pass
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("event", nargs="?", default="manual",
@@ -167,8 +156,9 @@ def main() -> int:
 
     out.write_text(content, encoding="utf-8")
 
-    if args.event == "stop":
-        _rebuild_memory_index()
+    # 注：MEMORY.md/MEMORY_COLD.md 的重建已移出 Stop 链路，改由 PostToolUse(Write/Edit memory
+    # 文件) 事件驱动 + SessionStart 兜底（见 settings.json / memory_rebuild_index.py）。
+    # Stop 不再碰 memory 索引 → sync 后对话结束不会再把索引弄脏。
 
     trimmed = _trim_old()
     suffix = f" (trimmed {trimmed} old)" if trimmed else ""

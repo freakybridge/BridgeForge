@@ -5,8 +5,8 @@
 用法：python .claude/scripts/memory_search.py <关键词>
 输出：按匹配频率排名的前10个文件（含 description 和摘录）
 
-由 /find-memory skill 调用；Claude 读取命中文件后
-memory_access_tracker.py 自动更新 _stats.json（访问升热）。
+由 /find-memory skill 调用，用于召回 MEMORY.md 主索引之外
+（已自动滚入冷区 MEMORY_COLD.md）的 memory。纯关键词频率搜索，不依赖热度。
 """
 import re
 import sys
@@ -14,9 +14,6 @@ from pathlib import Path
 
 
 def main() -> None:
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
     if len(sys.argv) < 2:
         print("用法: memory_search.py <关键词>")
         sys.exit(1)

@@ -1,37 +1,54 @@
 #!/usr/bin/env python3
 """
-根据 _stats.json 重建 MEMORY.md（热区）和 MEMORY_COLD.md（冷区）。
+确定性重建 MEMORY.md（主索引）+ MEMORY_COLD.md（冷区索引）。
 
-由 session_snapshot.py Stop hook 末尾调用，每轮对话结束后自动跑。
+设计（2026-06-27 改版，见 docs/memory-scoring-design.md）：
+  - 纯确定性：索引内容 = f(memory 文件集, created_at, pinned)，**不含当天日期 / 访问热度**。
+    → 不碰 memory 时，重建产出逐字不变；git 只比对内容，故工作区永不"自发变脏"。
+  - 事件驱动：由 PostToolUse(Write/Edit memory 文件) 触发（--from-hook），不再每轮 Stop 跑。
+  - 排序：pinned 置顶 + 其余按 created_at 倒序（新增的在前），并列按文件名升序。
+  - 容量滚动：主索引保留 ACTIVE_N 条，超出的自动滚入冷区（MEMORY_COLD.md）。
+    → "冷热维护"全自动、不需人工决定；只在真增删 memory 时才变（那本就该提交）。
+  - 无日期戳、无艾宾浩斯衰减。
 
-算法（艾宾浩斯衰减）：
-  S     = min(7 + session_count * 10, 90)   # 稳定性，天
-  score = exp(-days_since_last / S)          # 保留率 [0, 1]
-  热区  = pinned(≤5) + top-40 by score
-
-设计详见 docs/memory-scoring-design.md
+调用方式：
+  python memory_rebuild_index.py              # 无条件重建（SessionStart 兜底 / 手动）
+  python memory_rebuild_index.py --from-hook  # 读 stdin，仅当写入的是 memory 文件时才重建
 """
 import json
-import math
 import re
 import sys
 from datetime import date
 from pathlib import Path
 
-HOT_N = 40
+ACTIVE_N = 40
 MAX_PINNED = 5
-HEADER_MARKER_START = "<!-- AUTO-HOT-START -->"
-HEADER_MARKER_END = "<!-- AUTO-HOT-END -->"
+SKIP_NAMES = {"MEMORY.md", "MEMORY_COLD.md"}
+DEFAULT_TITLE = "Memory Index"
 
 
-def compute_score(session_dates: list[str], today: date) -> float:
-    if not session_dates:
-        return 0.0
-    session_count = len(session_dates)
-    last = date.fromisoformat(max(session_dates))
-    days = (today - last).days
-    S = min(7 + session_count * 10, 90)
-    return math.exp(-days / S)
+def is_memory_file(name: str) -> bool:
+    return name.endswith(".md") and name not in SKIP_NAMES and not name.startswith("_")
+
+
+def hook_should_run() -> bool:
+    """--from-hook 模式：读 stdin 的 PostToolUse 负载，仅当写入对象是 memory 文件时返回 True。
+
+    非 --from-hook 模式不调用本函数（无条件重建，避免在无 stdin 时阻塞）。
+    """
+    try:
+        raw = sys.stdin.read()
+    except Exception:
+        return False
+    if not raw.strip() or ".claude/memory/" not in raw.replace("\\", "/"):
+        return False
+    try:
+        hi = json.loads(raw)
+    except Exception:
+        return False
+    fp = hi.get("tool_input", {}).get("file_path", "") or ""
+    norm = fp.replace("\\", "/")
+    return ".claude/memory/" in norm and is_memory_file(Path(fp).name)
 
 
 def get_description(memory_dir: Path, filename: str) -> str:
@@ -39,117 +56,110 @@ def get_description(memory_dir: Path, filename: str) -> str:
     if not f.exists():
         return ""
     try:
-        m = re.search(r"^description:\s*(.+)", f.read_text(encoding="utf-8", errors="ignore"), re.MULTILINE)
-        return m.group(1).strip() if m else ""
+        m = re.search(
+            r"^description:\s*(.+)",
+            f.read_text(encoding="utf-8", errors="ignore"),
+            re.MULTILINE,
+        )
+        return m.group(1).strip().strip('"').strip("'") if m else ""
     except Exception:
         return ""
 
 
 def main() -> None:
-    # 推导项目根：.claude/scripts/ -> .claude/ -> project/
-    script_dir = Path(__file__).resolve().parent
-    claude_dir = script_dir.parent
-    memory_dir = claude_dir / "memory"
+    if "--from-hook" in sys.argv and not hook_should_run():
+        sys.exit(0)
+
+    # 推导路径：.claude/scripts/ -> .claude/ -> memory/
+    memory_dir = Path(__file__).resolve().parent.parent / "memory"
     stats_file = memory_dir / "_stats.json"
-
-    if not stats_file.exists():
+    if not memory_dir.exists():
         sys.exit(0)
 
-    try:
-        stats = json.loads(stats_file.read_text(encoding="utf-8"))
-    except Exception:
-        sys.exit(0)
+    today = date.today().isoformat()
 
-    files_stats: dict = stats.get("files", {})
+    # 加载 stats（仅 created_at + config，无访问热度）
+    stats: dict = {}
+    if stats_file.exists():
+        try:
+            stats = json.loads(stats_file.read_text(encoding="utf-8"))
+        except Exception:
+            stats = {}
+    files_stats: dict = stats.setdefault("files", {})
     config: dict = stats.get("config", {})
-    pinned: list[str] = config.get("pinned", [])[:MAX_PINNED]
-    hot_n: int = config.get("hot_n", HOT_N)
-    today = date.today()
+    title: str = config.get("title", DEFAULT_TITLE)
+    pinned: list = [p for p in config.get("pinned", [])[:MAX_PINNED]]
 
-    # 扫描 memory/ 中所有未追踪的 .md 文件（新写入的）
-    skip_names = {"MEMORY.md", "MEMORY_COLD.md"}
-    for f in memory_dir.glob("*.md"):
-        if f.name.startswith("_") or f.name in skip_names:
+    # 扫描所有 memory 文件，新文件登记 created_at（一次性，固定不变）
+    stats_dirty = False
+    present = []
+    for f in sorted(memory_dir.glob("*.md")):
+        if not is_memory_file(f.name):
             continue
+        present.append(f.name)
         if f.name not in files_stats:
-            files_stats[f.name] = {
-                "session_dates": [],
-                "created_at": today.isoformat(),
-            }
+            files_stats[f.name] = {"created_at": today}
+            stats_dirty = True
 
-    # 计算得分
-    scored: list[tuple[float, str, str]] = []
-    for filename, fstats in files_stats.items():
-        if not (memory_dir / filename).exists():
-            continue
-        if filename in pinned:
-            continue
-        session_dates = fstats.get("session_dates", [])
-        if not session_dates:
-            # 新文件：按创建日期算，当天创建得 score=1，之后自然衰减
-            created_at = fstats.get("created_at", today.isoformat())
-            days_old = (today - date.fromisoformat(created_at)).days
-            score = math.exp(-days_old / 7)   # 初始 S=7 天
-        else:
-            score = compute_score(session_dates, today)
-        desc = get_description(memory_dir, filename)
-        scored.append((score, filename, desc))
+    # 清理 stats 里已不存在的文件记录（保持单一事实源）
+    for gone in [n for n in files_stats if n not in present]:
+        del files_stats[gone]
+        stats_dirty = True
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    warm = scored[:hot_n]
-    cold = scored[hot_n:]
+    if stats_dirty:
+        stats_file.write_text(
+            json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
-    today_str = today.isoformat()
+    # 排序：非 pinned 按 created_at 降序（新增的在前），并列按文件名升序。
+    # 利用 Python 稳定排序：先排次级键（文件名升序），再排主键（created_at 降序）。
+    non_pinned = [n for n in present if n not in pinned]
+    non_pinned.sort()  # 次级：文件名升序
+    non_pinned.sort(
+        key=lambda n: files_stats.get(n, {}).get("created_at", today), reverse=True
+    )  # 主：created_at 降序
 
-    # ── 生成热区内容块 ────────────────────────────────────────
-    hot_lines: list[str] = [HEADER_MARKER_START, ""]
+    active = non_pinned[:ACTIVE_N]
+    cold = non_pinned[ACTIVE_N:]
 
-    if pinned:
-        hot_lines.append("## 📌 Pinned")
-        for p in pinned:
-            desc = get_description(memory_dir, p)
-            suffix = f" — {desc}" if desc else ""
-            hot_lines.append(f"- [{p}]({p}){suffix}")
-        hot_lines.append("")
+    pinned_present = [p for p in pinned if p in present]
 
-    hot_lines.append(f"## 🔥 Hot（Top-{hot_n}，按访问时效自动维护）")
-    for _score, filename, desc in warm:
-        suffix = f" — {desc}" if desc else ""
-        hot_lines.append(f"- [{filename}]({filename}){suffix}")
-
-    if cold:
-        hot_lines.append("")
-        hot_lines.append(f"## 🔍 Cold（{len(cold)} 条，用 /find-memory 搜索）")
-        hot_lines.append("详见 MEMORY_COLD.md")
-
-    hot_lines += ["", HEADER_MARKER_END]
-
-    # ── 写入 MEMORY.md ────────────────────────────────────────
-    memory_md = memory_dir / "MEMORY.md"
-    if memory_md.exists():
-        original = memory_md.read_text(encoding="utf-8")
-        if HEADER_MARKER_START in original and HEADER_MARKER_END in original:
-            before = original[: original.index(HEADER_MARKER_START)]
-            after = original[original.index(HEADER_MARKER_END) + len(HEADER_MARKER_END):]
-            new_content = before + "\n".join(hot_lines) + after
-        else:
-            # 首次运行：在文件末尾追加热区块
-            new_content = original.rstrip("\n") + "\n\n" + "\n".join(hot_lines) + "\n"
-    else:
-        new_content = f"# 开发备忘\n\n<!-- auto-managed | {today_str} -->\n\n" + "\n".join(hot_lines) + "\n"
-
-    memory_md.write_text(new_content, encoding="utf-8")
-
-    # ── 写入 MEMORY_COLD.md ───────────────────────────────────
-    cold_md = memory_dir / "MEMORY_COLD.md"
-    cold_lines = [
-        f"<!-- MEMORY_COLD.md — 冷区索引 | rebuilt {today_str} | 用 /find-memory <关键词> 搜索 -->",
+    # ── 生成 MEMORY.md（整文件，确定性）──────────────────────
+    lines = [
+        f"# {title}",
+        "",
+        "<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .claude/memory/ 下新建 .md 文件，"
+        "本索引会自动收录；写法见 ~/.claude/CLAUDE.md「auto memory」段。满 40 条自动滚入冷区，用 /find-memory 搜。 -->",
+        "",
+        f"> Active: {len(pinned_present) + len(active)} | Cold: {len(cold)}",
         "",
     ]
-    for _score, filename, desc in cold:
-        suffix = f" — {desc}" if desc else ""
-        cold_lines.append(f"- [{filename}]({filename}){suffix}")
-    cold_md.write_text("\n".join(cold_lines) + "\n", encoding="utf-8")
+
+    if pinned_present:
+        lines.append("## 📌 Pinned")
+        for p in pinned_present:
+            d = get_description(memory_dir, p)
+            lines.append(f"- [{p[:-3]}]({p}){f' — {d}' if d else ''}")
+        lines.append("")
+
+    lines.append(f"## Active（按新增时间，新在前；满 {ACTIVE_N} 自动滚入 Cold）")
+    for n in active:
+        d = get_description(memory_dir, n)
+        lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")
+
+    if cold:
+        lines.append("")
+        lines.append(f"## 🔍 Cold（{len(cold)} 条，用 /find-memory 搜索）")
+        lines.append("详见 MEMORY_COLD.md")
+
+    (memory_dir / "MEMORY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # ── 生成 MEMORY_COLD.md（无日期戳，确定性）────────────────
+    cold_lines = ["<!-- MEMORY_COLD.md — 冷区索引 | 用 /find-memory <关键词> 搜索 -->", ""]
+    for n in cold:
+        d = get_description(memory_dir, n)
+        cold_lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")
+    (memory_dir / "MEMORY_COLD.md").write_text("\n".join(cold_lines) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

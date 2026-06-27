@@ -188,18 +188,13 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Read",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/memory_access_tracker.py",
-            "comment": "memory 访问追踪：Claude 读 .claude/memory/*.md 时，把今天日期写入 _stats.json（唯一日期去重）。Stop hook 重建 MEMORY.md 热区时用此数据计算艾宾浩斯衰减分。dev 仓库无 .venv，用系统 python。"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
+            "command": "python .claude/scripts/memory_rebuild_index.py --from-hook",
+            "comment": "memory 增删时确定性重建 MEMORY.md/MEMORY_COLD.md（--from-hook 读 stdin，仅写入 .claude/memory/*.md 时才执行）。索引是 memory 文件集的确定性函数（无日期/无热度），不碰 memory 时逐字不变→git 永不自发变脏。dev 仓库无 .venv，用系统 python。"
+          },
           {
             "type": "command",
             "command": "python .claude/hooks/rule_size_check.py",
@@ -257,6 +252,11 @@
             "type": "command",
             "command": "python .claude/hooks/enforce_no_effortlevel.py",
             "comment": "强制剔除项目级 effortLevel（hook 化机检，详见 memory effort-config-layering）。dev 仓库无 .venv，用系统 python。dogfood：本仓库 settings.json 已无 effortLevel，此处常驻 no-op，正好验证「自门控静默跳过」产品承诺。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/scripts/memory_rebuild_index.py",
+            "comment": "开机兜底重建本地 MEMORY.md/MEMORY_COLD.md（无 --from-hook=无条件）。确定性生成，clone 新机或 pull 后首个 session 即对齐索引；不碰 memory 时逐字不变→不产生 diff。dev 仓库无 .venv，用系统 python。"
           }
         ]
       }

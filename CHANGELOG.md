@@ -17,6 +17,17 @@
 
 ---
 
+## [0.34.0] - 2026-06-27
+
+### Changed
+- `[product]` **Memory 索引系统：废弃艾宾浩斯热度评分，改为确定性事件驱动**（templates/VERSION 0.5.0→0.6.0）。根因：热度分 `exp(-days/S)` 含 `today` 变量 → MEMORY.md 是时间的函数 → 没人改 memory 也每天自发变脏，与用户硬需求「git-sync 后工作区干净、多机不莫名冲突」**数学上不兼容**；辅以实测 `_stats.json` 长期仅 1 条记录、17 条全进 Top-40 = 伪热度、属过早优化。双 agent 两轮辩论定案，见 [docs/debates_2026-06-27_memory-untrack.md](docs/debates_2026-06-27_memory-untrack.md)。决定性技术事实：git 只比对内容、不看 mtime，故脏的唯一来源是「内容自发变化」。
+  - `[product]` MEMORY.md / MEMORY_COLD.md 改由 `memory_rebuild_index.py` 按「memory 文件集 + created_at + pinned」**确定性生成**（无访问热度、无日期戳）→ 不碰 memory 时逐字不变、工作区不自发变脏；多机同规则同输入算出一致结果、不冲突。
+  - `[product]` 排序：pinned 置顶 + created_at 倒序（新增在前），主索引满 `ACTIVE_N=40` **自动滚入冷区** —— 冷热维护全自动、不需人工决定，只在真增删 memory 时变（本就该提交）。
+  - `[product]` 触发时机从 Stop 链路移到 **PostToolUse(Write/Edit memory，`--from-hook` 过滤防自触发) + SessionStart 兜底**；memory 写入当下即同步索引 → sync 后对话结束不再弄脏。
+  - `[product]` **删除**：`memory_access_tracker.py`（访问追踪 hook）、`memory_bootstrap_cold.py`（衰减冷启动工具）、`_stats.json` 的 `session_dates`、MEMORY_COLD.md 日期戳。
+  - `[repo]` dogfood 镜像同步进自身 `.claude/`（脚本逐字一致，hook 命令用系统 `python`）；删自身 `memory_access_tracker.py` + 简化 `_stats.json`；junction 那条 memory 的 description 去 YAML 引号转义（修提取半截）。
+  - `[meta]` 重写 [docs/memory-scoring-design.md](docs/memory-scoring-design.md) 为新确定性设计；`templates/CLAUDE.md` §5「热区」措辞改「主索引」+ 补确定性说明。
+
 ## [0.33.0] - 2026-06-26
 
 ### Changed

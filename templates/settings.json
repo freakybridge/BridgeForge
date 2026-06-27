@@ -177,18 +177,13 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Read",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": ".venv/Scripts/python.exe .claude/hooks/memory_access_tracker.py",
-            "comment": "memory 访问追踪：Claude 读 .claude/memory/*.md 时，把今天日期写入 _stats.json（唯一日期去重）。Stop hook 重建 MEMORY.md 热区时用此数据计算艾宾浩斯衰减分。"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
+            "command": ".venv/Scripts/python.exe .claude/scripts/memory_rebuild_index.py --from-hook",
+            "comment": "memory 增删时确定性重建 MEMORY.md/MEMORY_COLD.md（--from-hook 读 stdin，仅写入 .claude/memory/*.md 时才执行）。索引是 memory 文件集的确定性函数（无日期/无热度），不碰 memory 时逐字不变→git 永不自发变脏。"
+          },
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/memory_lint.py",
@@ -287,6 +282,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/enforce_no_effortlevel.py",
             "comment": "强制剔除项目级 effortLevel：项目级合并优先级高于全局（Project > User），一旦流入就架空「全局统一管 effort + SessionEnd 自动还原」机制，散文 rule 拦不住 sync/clone/手加，故 hook 化机检（自愈式，仿 memory_junction_check）。原子删除 + .bak，无则静默 no-op。详见 memory effort-config-layering。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/scripts/memory_rebuild_index.py",
+            "comment": "开机兜底重建本地 MEMORY.md/MEMORY_COLD.md（无 --from-hook=无条件）。确定性生成，clone 新机或 pull 后首个 session 即对齐索引；不碰 memory 时逐字不变→不产生 diff。"
           }
         ]
       }

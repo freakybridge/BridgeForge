@@ -1,130 +1,75 @@
-# Memory 热度评分系统设计
+# Memory 索引设计（确定性事件驱动）
 
-> 来源：2026-06-03 debate（两轮双Agent辩论），详见下游项目 `doc/2_pending/debates_2026-06-03_*.md`
-> 状态：设计已定稿，待实现
-
----
-
-## 问题背景
-
-`.claude/memory/` 随项目推进不断积累文件（数十到数百个）。但 Claude Code 只自动加载 `MEMORY.md` 前 200 行（约 40-50 条）。随时间推移索引必然溢出，导致重要知识被截断。
-
-**根本解法**：把 MEMORY.md 从"全量摘要"变成"热点索引"，超出的靠按需搜索召回。
+> 状态：现行设计（2026-06-27 改版落地）
+> 前身：艾宾浩斯热度评分系统（2026-06-03 设计、已实现），**本次废弃**，原因见下。
+> 改版辩论：[debates_2026-06-27_memory-untrack.md](debates_2026-06-27_memory-untrack.md)
 
 ---
 
-## 架构
+## 为什么废弃热度评分（核心）
+
+旧系统按「最近访问热度 + 艾宾浩斯时间衰减」自动重排 MEMORY.md 的 Top-40 热区。致命缺陷：
+
+**热度分 = `exp(-days_since_last / S)` 含 `today` 变量 → 索引是时间的函数 → 每天自发变化。**
+这与用户硬需求「`/git-sync` 后工作区必须干净、不自发变脏、多机不莫名冲突」**在数学上不兼容**：只要分数随日期漂，被 git 跟踪的 MEMORY.md/MEMORY_COLD.md 就会在没人改 memory 的情况下天天 dirty（外加 COLD 顶部 `rebuilt {date}` 日期戳跨天必变）。
+
+辅证：实测 `_stats.json` 长期仅 1 条访问记录、17 个 memory 全进 Top-40 → 热度是「伪热度」，截断毫无作用，属当前规模（数十条）下的过早优化。
+
+> 决定性技术事实：git 只比对**内容**、不看 mtime。所以脏的唯一来源是「内容自发变化」，而非「hook 每轮重写」。消除自发变化即根治。
+
+---
+
+## 新设计：确定性 + 事件驱动
+
+**索引 = f(memory 文件集, created_at, pinned)，不含 `today`、不含访问热度。**
+→ 不碰 memory 时，重建产出逐字不变 → 工作区永不自发变脏；多机用同规则同输入算出一致结果 → 不冲突。
 
 ```
 .claude/memory/
-├── MEMORY.md          # 热区索引（≤200行，Claude Code 自动加载）
-├── MEMORY_COLD.md     # 冷区索引（不自动加载，/find-memory 的目录）
-├── _stats.json        # 访问记录 + Pinned 配置（纳入 git）
-├── archive/           # 归档（prune 后移入）
-└── *.md               # 具体 memory 文件
+├── MEMORY.md          # 主索引（派生，自动加载前 200 行）—— 勿手改
+├── MEMORY_COLD.md     # 冷区索引（派生，不自动加载，/find-memory 的目录）
+├── _stats.json        # 事实源：config(title/pinned) + 各文件 created_at（登记一次，固定）
+└── *.md               # 各条 memory（事实源）
 ```
+
+### 排序与容量
+- **Pinned**（≤5，`config.pinned` 声明）置顶，永不滚出。
+- 其余按 **created_at 倒序**（新增的在前），并列按文件名升序。
+- 主索引（Active）保留 **ACTIVE_N=40** 条；超出的**自动滚入冷区**（MEMORY_COLD.md）。
+- → 冷热维护全自动、不需人工决定；只在真增删 memory 时变（那本就该提交）。
+
+### created_at
+- 文件首次被 rebuild 看到时登记 `today`，此后**固定不变**（确定性的锚）。
+- rebuild 同时清理 `_stats.json` 里已不存在的文件记录（单一事实源）。
+- `_stats.json` 仅在「真增删 memory」时被追加/删除 → 与 MEMORY.md 同步变，不自发脏。
+
+### 触发时机
+- **PostToolUse(Write|Edit)** 调 `memory_rebuild_index.py --from-hook`：读 stdin，**仅当写入对象是 `.claude/memory/*.md`（非 MEMORY*.md、非 `_*`）时才重建**（防自触发循环 + 避免无谓执行）。
+  → memory 写入的当下即同步索引；sync 时已最新；Stop 不再碰索引 → 不会「sync 后又被弄脏」。
+- **SessionStart** 调 `memory_rebuild_index.py`（无参，无条件）：clone 新机 / pull 后首个 session 兜底对齐。
 
 ---
 
-## 评分公式（艾宾浩斯衰减）
+## 组件清单（现行）
 
-```python
-import math
-
-def memory_score(session_count: int, days_since_last_session: int) -> float:
-    """
-    score ∈ [0, 1]，越高越热。
-    
-    S = 稳定性（天）：session 越多，衰减越慢
-    score = e^(-t/S)：标准艾宾浩斯保留率
-    """
-    S = min(7 + session_count * 10, 90)   # 线性增长，上限90天（3个月）
-    return math.exp(-days_since_last_session / S)
-```
-
-**参数解读**：
-
-| session_count | 稳定性 S | 最后访问后多久 score < 0.1 |
-|---|---|---|
-| 1次 | 17天 | ~39天 |
-| 3次 | 37天 | ~85天 |
-| 5次 | 57天 | ~131天 |
-| 9次（上限）| 90天 | ~207天 |
-
-> **为什么不用访问次数（count）做乘数**：高历史次数会托底老文件的绝对分数，让已完结项目的 memory 永久占位。S 只做衰减参数（不做分数乘数），返回纯保留率 [0,1]，避免此问题。
-
----
-
-## MEMORY.md 热区选取规则
-
-```
-Pinned（≤5条）：_stats.json config.pinned 声明，永不参与排名，置顶
-Top-40：按 score 降序取前40，超出的进 MEMORY_COLD.md
-```
-
-**热区满时**：纯排名竞争，得分低的自动挤出（挤出 ≠ Cold，只是本轮未入选，下次被访问后重回竞争）。
-
----
-
-## session_count 计数规则
-
-- **粒度**：唯一访问日期（而非读取次数）
-- **写入时机**：Stop hook（每轮 Claude 回复结束时）
-- **同日去重**：同一天无论读多少次，只计 1 个 session
-- **保留窗口**：最近 30 个日期（覆盖约 3 个月）
-
-**防突发污染**：某天扫遍所有文件，每个文件只 +1 session，不会因为一次批量访问炸高所有文件热度。
-
----
-
-## 五个组件
-
-| 组件 | 位置 | 触发时机 | 职责 |
+| 组件 | 位置 | 触发 | 职责 |
 |---|---|---|---|
-| `memory_access_tracker.py` | `templates/hooks/` | PostToolUse / Read | 检测读取的是否为 memory 文件，更新 `_stats.json` session_dates |
-| `memory_rebuild_index.py` | `templates/scripts/` | Stop hook（由 session_snapshot.py 调用）| 计算所有文件 score，重写 MEMORY.md + MEMORY_COLD.md |
-| `memory_search.py` | `templates/scripts/` | 按需（/find-memory skill 调用）| 关键词 grep 搜索所有 memory 文件，返回排名列表 |
-| `find-memory` skill | `skills/find-memory/` | Claude 主动调用 | 包装 memory_search.py，Claude 读具体文件后自动升热度 |
-| `_stats.json` | `templates/memory/` | — | 持久化访问记录 + pinned 配置，纳入 git |
+| `memory_rebuild_index.py` | `scripts/` | PostToolUse(--from-hook) + SessionStart | 确定性生成 MEMORY.md + MEMORY_COLD.md |
+| `memory_search.py` | `scripts/` | `/find-memory` 调用 | 关键词频率搜索全量 memory（召回冷区） |
+| `find-memory` skill | `skills/find-memory/` | Claude 主动调用 | 包装 memory_search.py |
+| `_stats.json` | `memory/` | rebuild 维护 | created_at + pinned/title（事实源，纳入 git） |
+
+**已删除**（随热度系统废弃）：`memory_access_tracker.py`（PostToolUse/Read 访问追踪）、`memory_bootstrap_cold.py`（衰减冷启动工具）、`_stats.json` 的 `session_dates`、MEMORY_COLD.md 日期戳、艾宾浩斯评分。
 
 ---
 
-## 设计决策记录
-
-**为什么 score 不含 S 乘数**：debate Round 2 发现，`S × e^(-t/S)` 中 S 作为乘数会让高历史访问的文件得分虚高（60天前查过8次的文件得分远超最近查过的文件），违反艾宾浩斯"遗忘只跟时间有关"的核心前提。
-
-**为什么上限 90 天而非 180 天**：高频开发项目（推进快、内容更新频繁），memory 应该更快老化。90天（3个月）是平衡"不过快清掉有用知识"和"不让完结项目内容永久占位"的合理上限。慢节奏项目可调整 `_stats.json` 中的上限参数。
-
-**为什么 top-K 而非绝对阈值**：绝对阈值（如 score > 0.1）在活跃期可能产生 80+ 条 Warm 文件（MEMORY.md 溢出），在冷静期可能只有 5 条。top-40 硬截断保证 MEMORY.md 始终在容量限制内。
-
-**为什么永久约束不放 memory**：架构红线、发单链路等永久约束放在 `.claude/rules/`（path-trigger 加载），与 memory 系统完全独立，不参与热度竞争。memory 只存时效性知识（feedback/project/reference）。
+## 关键不变量
+- **确定性**：相同（memory 文件集 + created_at + pinned）→ 逐字相同的 MEMORY.md/COLD。可连跑 N 次验证 diff 为空。
+- **git 边界**：MEMORY.md/COLD 留在 git（确定性 → 多机一致、可 diff 兜底），但内容只在真增删 memory 时变。
+- **可删除性**：`rm MEMORY.md` 无后果，下个 PostToolUse/SessionStart 自动重生。
+- **description 依赖**：索引每条描述取自该 memory 的 `description:` 字段；写 memory 时该字段必须是**纯文本**（勿用 YAML 引号/转义，否则提取出半截）。
 
 ---
 
-## 冷启动 / 首次激活（重要）
-
-首次启用本系统、或手动重置过 `_stats.json` 时有两个坑：
-
-**1. 首次重建会覆盖手工 MEMORY.md。** rebuild 用 `<!-- AUTO-HOT-START/END -->` 标记区接管 Hot 区；若之前手工整理过 MEMORY.md，**首次激活前先备份**，激活后把仍想保留的条目改成 `pinned`（`_stats.json` 的 `config.pinned`）而非手改索引（手改会被下次 rebuild 覆盖）。
-
-**2. Hot 区头 1-2 周近乎随机。** `_stats.json` 的 `created_at` 是"追踪系统首次登记该文件的日期"，非真实创建日。铺设/重置后所有既有 memory 的 `created_at` 约等于同一天 → never-recalled 文件初始 score 全部 = 1.0，与刚 recall 的并列 → top-N 选取靠排序巧合。
-
-> 本设计 Cold 区 = 排名溢出（top-N 之外），数量始终诚实（总数 − pinned − N），无"静默截断不计数"问题。冷启动只影响 **Hot 区选取质量**，不影响 Cold 计数正确性。
-
-`created_at` 走 S=7 快衰减，约 1-2 周后 never-recalled 自然沉到 recalled 之下，自愈。想**立即**收敛，跑一次 `scripts/memory_bootstrap_cold.py`：把所有 `session_dates` 为空的文件 `created_at` 拨到数周前 → 下次重建积压立即入 Cold；recall 命中后自动升 Hot；新写 memory 默认仍进 Hot。
-
-**安全不变量**：`created_at` 只在 `session_dates` 为空时被评分用到（见 `memory_rebuild_index.py` 的 never-recalled 分支），对有 recall 记录的文件是死字段 → 只动空 `session_dates` 的文件绝不扰动已成型的 Hot 区。日常无需运行，仅铺设/重置后想跳过自愈期时用。
-
----
-
-## 实现 Checklist（给 bridgeforge session）
-
-- [ ] `templates/hooks/memory_access_tracker.py` — PostToolUse/Read hook
-- [ ] `templates/scripts/memory_rebuild_index.py` — Stop 时重建 MEMORY.md
-- [ ] `templates/scripts/memory_search.py` — 关键词搜索
-- [ ] `templates/memory/_stats.json` — 初始模板
-- [ ] `skills/find-memory/SKILL.md` — /find-memory skill
-- [ ] `templates/settings.json` — 注册 memory_access_tracker PostToolUse hook
-- [ ] `templates/hooks/session_snapshot.py` — Stop 时追加调用 memory_rebuild_index.py
-- [x] ~~`skills/prune-memory/SKILL.md` — 更新：集成 _stats.json 冷却判断~~ → **方案变更（2026-06-09）**：prune-memory + memory_guard 整套手动治理废弃，全交自动评分（`memory_rebuild` 封顶活跃 40 条 + >45 天冷区化），不再需要手动 prune skill
-- [ ] 测试：验证 score 公式在各场景下的行为
+## 多机协作走查
+A 新增 memory `foo.md`（带 description）+ 可选置顶（`config.pinned` 加 `foo.md`）→ A 本地 PostToolUse 重建 MEMORY.md → `git-sync` 提交 `foo.md` + `_stats.json` + MEMORY.md/COLD（全部内容确定）→ B `pull` 拿到事实源 → B 的 SessionStart 重建，因规则与输入一致 → 算出与 A **逐字相同**的索引，不冲突。
