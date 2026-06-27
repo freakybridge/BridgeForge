@@ -1,6 +1,6 @@
-# Memory Index — setup_agent
+# Memory Index — bridgeforge
 
-> Active: 12 | Cold: 0
+> Active: 16 | Cold: 0
 
 ## Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起 setup_agent 更名 bridgeforge；活文档=bridgeforge，历史流水账故意保留旧名（双名共存非 bug）
@@ -17,6 +17,10 @@
 - [feedback-review-technique](feedback-review-technique.md) — review 红线：收尾前重拉 status + 删 hook 后 grep 当前内容（非 diff）
 - [utf8-garble-rootcause](utf8-garble-rootcause.md) — 中文 hook 在 GBK Windows 糊成 � 注入 context 曾高频致漂；治本=PYTHONUTF8（已修），剩余=模型流式抽风（不可防）；护栏=utf8_mode 自检，反过度加固
 - [ghost-wall-threshold-conflict](ghost-wall-threshold-conflict.md) — 鬼打墙阈值 CLAUDE.md §8(3) ↔ debugging §6 T1(2) 冲突待统一；属行为变更不混进瘦身，与 §6 去重打包待单独决策
+- [feedback-dogfood-hook-gap](feedback-dogfood-hook-gap.md) — 改 templates/hooks 漏同步 .claude/hooks 的 v0.19.0 事故 → 传播三问升级为四问（CLAUDE.md §1 第4问卡 dogfood 镜像）
+- [feedback-glob-search-gotchas](feedback-glob-search-gotchas.md) — 查文件优先 Glob/Grep（零权限弹窗）+ 三个坑：范围别贪大、匹配文件非目录、默认跳过点目录
+- [project-skill-junction-single-source](project-skill-junction-single-source.md) — C盘 skills/bridgeforge 是指向 D:\Quant\BridgeForge 的 junction，单一源在 D 盘；Glob 穿透会骗成"两份"
+- [project-target-cleanup-design](project-target-cleanup-design.md) — target_cleanup.py 三设计：按体积非 atime、非 Rust 自门控 no-op、`**/incremental` 全深度扫描
 
 <!-- AUTO-HOT-START -->
 
