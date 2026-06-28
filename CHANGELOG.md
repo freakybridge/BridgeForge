@@ -17,6 +17,15 @@
 
 ---
 
+## [0.36.0] - 2026-06-28
+
+### Added
+- `[product]` **新增 SessionStart 开机配置体检 hook `config_health_check.py`**（只读、纯 ASCII、全绿静默）。背景：harness「两大 bug 复发」调查（中文乱码 / 工具回传抽风致跑偏）发现 v0.28.1 的 PYTHONUTF8 env 修复从用户 `~/.claude/settings.json` 悄悄丢失，而 warn-only 的 utf8-guard 喊了却没人接 → 需要一个把骨架必要配置「每次开机照单体检」的统一入口。
+  - `[product]` **定位「体检仪」：只报告、不自动修**——照清单核对，不达标只打一行纯 ASCII 报告 + 修复提示，修不修由用户决定。理由：本 hook 复印进所有下游、每机每次开机跑，一个会自动改配置的 hook = 在别人机器上自作主张埋雷（沿用 2026-06-25 encoding-fix-scope debate 决策）。输出纯 ASCII 是硬约束：万一缺的恰是 PYTHONUTF8，用中文报警自己会糊成乱码（正是它要查的病）。
+  - `[product]` **utf8 承重柱检查归位**：原 `_utf8_mode_guard()`（查 `sys.flags.utf8_mode` 事实值）从 `memory_junction_check.py` 的「顺带搭车」中抽出、移入本 hook，消除职责混挂；告警前缀 `[utf8-guard]` → `[health-check]`。
+  - `[product]` 初版 ACTIVE_CHECKS 两项：① **PYTHONUTF8**（UTF-8 Mode 真生效没，GBK Windows 乱码承重柱）；② **user/project settings.json 是否合法 JSON**（坏掉会静默架空 hooks/permissions）。其余必要配置（memory junction 自愈 / 项目级 effortLevel 剔除 / 用户级 skill 同步）已有专职 hook 兜，登记进文件内 `DELEGATED` 备查、**不重复测**（避免双重刷屏 / 时序竞争）。`ACTIVE_CHECKS + DELEGATED` 即「骨架要求哪些配置 + 谁来保证」的**单一事实源**，新增必要配置只改这一处。
+  - `[repo]` dogfood 镜像同步进自身 `.claude/`（脚本逐字一致，hook 命令用系统 `python`）；自身 `memory_junction_check.py` 同步移除 utf8 guard。注册为两边 settings.json 的 SessionStart **首个** hook。`templates/VERSION` 0.6.0→0.7.0。
+
 ## [0.35.0] - 2026-06-27
 
 ### Changed

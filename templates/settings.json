@@ -260,6 +260,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/config_health_check.py",
+            "comment": "骨架必要配置开机体检（只读，不自动修）：照 ACTIVE_CHECKS 清单核对 PYTHONUTF8（UTF-8 Mode 真生效没，GBK Windows 乱码承重柱，原 utf8-guard 已归位到这）+ user/project settings.json 是否合法 JSON，不达标只打纯 ASCII 报告 + 修复提示，全绿静默。修不修由用户决定（为什么不自动修：复印进所有下游、每机每次开机跑，自动改配置=替别人埋雷）。其余必要配置由专职 hook 兜（DELEGATED 登记备查）。文件内 ACTIVE_CHECKS+DELEGATED 即单一事实源。"
+          },
+          {
+            "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/memory_junction_check.py",
             "comment": "memory junction 自愈：把 memory 纳入项目 git（.claude/memory/），系统路径 ~/.claude/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。"
           },

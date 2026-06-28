@@ -26,10 +26,10 @@ metadata:
 
 ## 落地的护栏（右尺寸，反过度加固）
 经两轮 debate（docs/debates_2026-06-25_encoding-fix-scope.md）砍掉镀金项：**不**新增守卫 hook、**不**加 portability rule 红线（env 透明兜底 → 新 hook 作者无需记任何事 → 红线无可执行内容）。最终只做：
-- `memory_junction_check.py`（SessionStart，templates+.claude 双份）加 `_utf8_mode_guard()`：查 `sys.flags.utf8_mode`（**事实**，不被 reconfigure 掩盖），OFF 才打**纯 ASCII** 告警。守的是唯一承重柱（PYTHONUTF8 是否生效），不巡逻冗余的 per-hook reconfigure。
+- `config_health_check.py`（SessionStart 开机配置体检 hook，templates+.claude 双份，**v0.36.0 起**）的 `_check_pythonutf8()`：查 `sys.flags.utf8_mode`（**事实**，不被 reconfigure 掩盖），OFF 才打**纯 ASCII** 告警 `[health-check] ... PYTHONUTF8: OFF`。守的是唯一承重柱（PYTHONUTF8 是否生效），不巡逻冗余的 per-hook reconfigure。（v0.36.0 前此检查名 `_utf8_mode_guard()`、搭车在 `memory_junction_check.py` 里、前缀 `[utf8-guard]`，已抽出归位到专职体检 hook。）
 - git UTF-8 三件套（本仓库 --local + 写进 templates/CLAUDE.md §6 可选 checklist）。
 - 本条 memory。
 
 **Why**：n=1 偶发 / 0 复发问题动产品层会把"安慰剂式加固/坏惯例"复印进所有下游（幸存者偏差陷阱）。真病 env 层已治本，剩下只值得"记账 + 在承重柱贴勿拆标签"。
 
-**How to apply**：① 写任何会输出文本的 hook/脚本——靠 PYTHONUTF8 全局兜底即可，中文可放心用，别为它单独加 ASCII-only 约束（区别于 [[此处可链 portability §4.4.1]] 双击入口脚本那种无兜底场景）。② 见到 `[utf8-guard] WARNING` = 某机 PYTHONUTF8 没生效，去补 `~/.claude/settings.json` 的 env 块。③ 别再提议"hook 改英文"——那是冗余避害且只覆盖 hook 一处，PYTHONUTF8 更全。
+**How to apply**：① 写任何会输出文本的 hook/脚本——靠 PYTHONUTF8 全局兜底即可，中文可放心用，别为它单独加 ASCII-only 约束（区别于 [[此处可链 portability §4.4.1]] 双击入口脚本那种无兜底场景）。② 见到 `[health-check] ... PYTHONUTF8: OFF`（v0.36.0 前为 `[utf8-guard] WARNING`）= 某机 PYTHONUTF8 没生效，去补 `~/.claude/settings.json` 的 env 块。③ 别再提议"hook 改英文"——那是冗余避害且只覆盖 hook 一处，PYTHONUTF8 更全。

@@ -235,6 +235,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python .claude/hooks/config_health_check.py",
+            "comment": "骨架必要配置开机体检（只读，不自动修）：核对 PYTHONUTF8（UTF-8 Mode，原 utf8-guard 已从 memory_junction_check 归位到这）+ settings.json 合法性，不达标只打纯 ASCII 报告 + 修复提示，全绿静默。dev 仓库无 .venv，用系统 python。dogfood：脚本与 templates 逐字一致。"
+          },
+          {
+            "type": "command",
             "command": "python .claude/hooks/memory_junction_check.py",
             "comment": "memory junction 自愈：把 memory 纳入项目 git（.claude/memory/），系统路径 ~/.claude/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。dev 仓库无 .venv，用系统 python。"
           },
