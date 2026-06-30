@@ -17,6 +17,24 @@
 
 ---
 
+## [0.37.0] - 2026-06-30
+
+### Added
+- `[product]` **新增常驻红线 `templates/rules/anti_fabrication.md`（防 AI 幻觉资源 R1–R5）**：源自 CausisRiskSuite 一次「幻觉文件名 → 工具空转 → 纯文字嫁祸」真实事故，经两轮跨项目对抗式 debate 反哺。R1 用前必验存在 / R2 验不到如实说缺啥并停下 / R3 禁编造资源来源 / R4 禁把失败甩锅给用户·工具·编辑器没做过的事 / R5 先认再改。**始终加载**（幻觉不挑 path → 无 frontmatter 触发器、常驻；口诀写在 rule 开头每轮在场）。新增「始终加载」rule 已对齐 meta_rule §4.1。
+  - `[product]` CLAUDE.md §2 规则索引登记一行（`rule_index_check` 要求）。**未在 CLAUDE.md 正文新增小节**——该文件已 274 行、超 meta_rule ≤200 红线，改由「始终加载 rule」承载常驻，不加剧超标（CLAUDE.md 瘦身是既有债，另案处理）。
+- `[meta]` **新增 `docs/antifabrication-framework.md`**：四层纵深框架（L1 诱因 / L2 认知 / L3 行为 / L4 IO）+ 通用壳 vs 项目填充切分判据 + C1 deny / C2 超时哨兵 / Stop 甩锅自检三个 hook 的完整设计与「为什么都不进产品层」决策留痕。
+- `[meta]` 新增 `docs/examples/antifab-deny-hook.py`：C1 四-gate deny 参考脚本（宿主无关纯函数 + 3 个项目配置占位 + 空配置降级），**非出厂 hook、不注册、不自动运行**，下游撞痛点自取。
+
+### 决策（两轮 debate 定案，详见 `docs/handoff_2026-06-30_antifabrication-playbook*.md`）
+- **三个 hook（C1/C2/Stop）一律不进 `templates/hooks/`**：C1 误伤是硬停 + 价值零件 `REAL_SOURCE_HINT` 在 templates 恒空 + dogfood 先伤自己；C2 对真·硬卡死失明（PostToolUse 不触发）+ 软超时与 C3 重叠 + 阈值误刷噪声；Stop 需每回合 LLM judge 太贵。→ 产品强制层只进零误伤的 C3 红线，hook 设计降级 docs。
+- **据此本次不新增任何 hook、不动 `settings.json`、不触发 dogfood 镜像**（CLAUDE.md §1 第 4 问不触发）。
+- 残余风险诚实标注：纯文字嫁祸（L3）是 0 工具调用，任何 hook 都看不见，全靠 C3 常驻 + R5 反激励压低概率，无事后补救。
+
+### Changed
+- `[product]` **templates/CLAUDE.md 瘦身 275 → 193 行**，回到 meta_rule §5 的 ≤200 行红线内。**坚守 redline-placement**：所有 always-on 行为红线（§2.5 工具选择 / §8 鬼打墙 / §9 主观体验问 / §9.5 clarify / §9.6 focus / §10 ctx-budget / §11 文档管理）的「禁止 / 必须」条款逐条保留、语义不动（含 §8 鬼打墙阈值不碰），只压缩解释性长句；砍的是占位注释、§6 与 `portability.md` 重复的可移植性陷阱详情、§5 派生索引实现细节（均非红线）。顺带修掉 §2 注释里 `rules/api.md` 示例触发 `rule_index_check` 假死链接的老毛病（改 `rules/<topic>.md`）。
+
+`templates/VERSION` 0.7.0→0.8.0（本次瘦身并入同版，未再 bump）。
+
 ## [0.36.0] - 2026-06-28
 
 ### Added

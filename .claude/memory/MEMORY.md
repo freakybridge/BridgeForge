@@ -2,12 +2,14 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .claude/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.claude/CLAUDE.md「auto memory」段。满 40 条自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 19 | Cold: 0
+> Active: 21 | Cold: 0
 
 ## 📌 Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起项目/skill 由 setup_agent 更名为 bridgeforge；历史流水账故意保留旧名
 
 ## Active（按新增时间，新在前；满 40 自动滚入 Cold）
+- [feedback-llm-suspended-during-tool-exec](feedback-llm-suspended-during-tool-exec.md) — LLM 在 Claude Code 工具执行期间被 SUSPENDED——PostToolUse 才是最早干预窗口，而非「边等边想」
+- [project-v037-state](project-v037-state.md) — v0.37.0（templates v0.8.0）防 AI 幻觉资源四层框架落地 + CLAUDE.md 瘦身 275→193 行（2026-06-30）
 - [effort-config-layering](effort-config-layering.md) — Claude Code effortLevel 多层覆盖关系 + bridgeforge v0.31.0「项目层禁写 effortLevel、全局统一管 + SessionEnd 自动还原 medium」反转决策
 - [feedback-bash-cwd-persistence](feedback-bash-cwd-persistence.md) — Bash 工具的 cwd 在会话内持久——cd 进子目录后所有后续调用都从那里执行，导致相对路径 hook 全部失效
 - [feedback-dogfood-hook-gap](feedback-dogfood-hook-gap.md) — 改 templates/hooks 时漏了同步 .claude/hooks 的事故模式及已有修复
