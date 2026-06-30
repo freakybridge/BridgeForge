@@ -260,6 +260,11 @@
           },
           {
             "type": "command",
+            "command": "python .claude/hooks/githooks_path_check.py",
+            "comment": "git core.hooksPath 自愈：让 .githooks/pre-commit 提交闸（提交前重建 memory 索引、杜绝『sync 完又脏』欠账溜过任意提交路径）clone 即生效。core.hooksPath 是 local config、clone 不带，故每机自愈设置。dev 仓库无 .venv，用系统 python。自门控：无 .githooks/pre-commit 或已设好则静默 no-op。"
+          },
+          {
+            "type": "command",
             "command": "python .claude/scripts/memory_rebuild_index.py",
             "comment": "开机兜底重建本地 MEMORY.md/MEMORY_COLD.md（无 --from-hook=无条件）。确定性生成，clone 新机或 pull 后首个 session 即对齐索引；不碰 memory 时逐字不变→不产生 diff。dev 仓库无 .venv，用系统 python。"
           }

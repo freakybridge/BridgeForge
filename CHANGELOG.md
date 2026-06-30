@@ -17,6 +17,21 @@
 
 ---
 
+## [0.38.0] - 2026-06-30
+
+### Added
+- `[product]` **新增 git 原生提交闸 `.githooks/pre-commit`（根治"sync 完 `_stats.json` 又脏"）**：提交前确定性重建 memory 衍生索引（`_stats.json` / `MEMORY.md` / `MEMORY_COLD.md`）并 `git add` 纳入本次提交，**杜绝"花名册欠账"溜过任意提交路径**（git-sync / 手动 `git commit` / IDE 提交全拦得住）。脚本 `#!/bin/sh` + python 自动探测（下游优先 `.venv`、自身回退系统 python）→ **两层逐字一致**，比 `.venv`-vs-系统硬编码更干净地满足 dogfood。卫生闸非质量闸：任何异常 `exit 0` 不阻断提交。
+  - `[product]` **新增 SessionStart 自愈 hook `templates/hooks/githooks_path_check.py`**：`core.hooksPath` 是 local config、clone 不带、每机要单独设，散文 README 拦不住"忘了设"。本 hook 每次开机检查——有 `.githooks/pre-commit` 而 `core.hooksPath` 未指向它就自动 `git config --local core.hooksPath .githooks`，让"clone 即生效"。仿 `memory_junction_check` / `enforce_no_effortlevel` 自愈模式；自门控：无闸文件 / 已设好 → 静默 no-op。已注册进 `templates/settings.json` SessionStart。
+  - `[product]` **新增 `.gitattributes`**：强制 `.githooks/**` 以 LF 存储+checkout。**Why**：git 原生 hook 由 sh 执行，CRLF 会让 shebang 变 `/bin/sh\r` 直接报错失效（Windows autocrlf 高发坑）。
+
+### 根因 / 决策
+- **病灶**：v0.37.0 那次提交漏带 `_stats.json` 的两条 `created_at` 登记（花名册欠账）→ 该次 commit 一切看似干净，但下次开机 `memory_rebuild_index.py`（SessionStart 兜底）点名时补登欠账 → 工作区凭空变脏。**根因不是 git-sync，是"提交前重建"只挂在 git-sync skill 第3步这道软步骤上，手动/IDE 提交能绕过。**
+- **力度选硬闸门**（用户拍板）：把"提交前重建"从 skill 软步骤升级为 git 原生 pre-commit，对**所有**提交路径生效，不依赖记得用 /git-sync。git-sync skill 第3步**保留**（事实上的双管齐下、过渡期兜底，无害）。
+- `[repo]` 已即时对本 dev 仓库执行 `git config --local core.hooksPath .githooks`，闸已生效；端到端 dogfood 验证：`sh .githooks/pre-commit` 自动重建并 stage 了 v0.37 遗留的 `_stats.json` 欠账。
+- **dogfood 镜像（CLAUDE.md §1 第4问）已吃**：`.githooks/pre-commit` 与 `.claude/hooks/githooks_path_check.py` 同步装进自身 `.claude/`，自身 SessionStart 已注册（用系统 python）。
+
+`templates/VERSION` 0.8.0→0.9.0。
+
 ## [0.37.0] - 2026-06-30
 
 ### Added

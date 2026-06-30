@@ -1,0 +1,4 @@
+# git 原生 hook 由 sh 执行，CRLF 会让 shebang 变 `/bin/sh\r` 直接报错失效。
+# 强制 .githooks/ 下所有脚本以 LF 存储 + checkout，跨 Windows/Unix 一致可执行。
+.githooks/** text eol=lf
+templates/.githooks/** text eol=lf

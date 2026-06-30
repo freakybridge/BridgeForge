@@ -1,0 +1,17 @@
+#!/bin/sh
+# bridgeforge pre-commit 闸：提交前重建 memory 衍生索引（_stats.json / MEMORY.md /
+# MEMORY_COLD.md）并纳入本次提交，杜绝"花名册欠账"溜过任意提交路径——git-sync、手动
+# git commit、IDE 提交都拦得住（git-sync skill 第3步只在走 /git-sync 时生效，这道闸补全其余路径）。
+#
+# 脚本确定性：不碰 memory 时产物逐字不变 → git add 为 no-op，零副作用。
+# python 自动探测：下游优先 .venv，bridgeforge 自身回退系统 python → 两层脚本逐字一致。
+# 这是卫生闸不是质量闸：任何异常都不阻断提交（exit 0 兜底）。
+SCRIPT=".claude/scripts/memory_rebuild_index.py"
+[ -f "$SCRIPT" ] || exit 0
+for PY in .venv/Scripts/python.exe .venv/bin/python python3 python; do
+  if [ -x "$PY" ] || command -v "$PY" >/dev/null 2>&1; then
+    "$PY" "$SCRIPT" && break
+  fi
+done
+git add .claude/memory/_stats.json .claude/memory/MEMORY.md .claude/memory/MEMORY_COLD.md 2>/dev/null || true
+exit 0
