@@ -103,11 +103,15 @@ def check_rule(content: str, name: str) -> list[str]:
     if line_count > MAX_LINES:
         violations.append(f"行数 {line_count} > {MAX_LINES} 红线 — 案例下沉 memory 或拆分")
 
-    ver_count = len(re.findall(r"v\d+\.\d+\.\d+", text))
+    # 版本号/日期计数前先剔除 HTML 注释块, 避免注释里的教学占位示例(如举例写了几个
+    # v1.0.0/日期)被误计入"案例越界"信号, 与 rule_index_check.py 同一类误判(同一天实测坐实)。
+    text_sans_comments = re.sub(r"<!--(?:(?!<!--|-->).)*-->", "", text, flags=re.DOTALL)
+
+    ver_count = len(re.findall(r"v\d+\.\d+\.\d+", text_sans_comments))
     if ver_count > MAX_VERSIONS:
         violations.append(f"版本号引用 {ver_count} 处 > {MAX_VERSIONS} — 案例越界信号, 移 memory")
 
-    date_count = len(re.findall(r"20\d{2}-\d{2}-\d{2}", text))
+    date_count = len(re.findall(r"20\d{2}-\d{2}-\d{2}", text_sans_comments))
     if date_count > MAX_DATES:
         violations.append(f"日期引用 {date_count} 处 > {MAX_DATES} — 案例越界信号, 移 memory")
 

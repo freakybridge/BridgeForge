@@ -40,6 +40,10 @@ def _detect() -> tuple[list[str], list[str]] | None:
         return None
 
     text = claude_md.read_text(encoding="utf-8")
+    # 先剔除 HTML 注释块, 避免占位示例(如 `<!-- rules/foo.md -->`)被误判为真实索引条目。
+    # 注意: 用"内容不含 <!--/-->"约束匹配跨度(而非简单非贪婪 .*?), 防止未闭合的
+    # `<!--` 跨越吞掉中间真实索引行、级联误判成 unlisted(对抗测试实测坐实的边界漏洞)。
+    text = re.sub(r"<!--(?:(?!<!--|-->).)*-->", "", text, flags=re.DOTALL)
     # 捕获 `rules/xxx.md` 形式的路径引用。F4: `[a-z_]`→`[\w-]` 放宽,
     # 否则 `gateway-v2.md`(含 `-`/数字)恒判 unlisted 误伤。
     listed = set(re.findall(r"rules/([\w-]+\.md)", text))

@@ -24,10 +24,22 @@ metadata:
 - 收尾终验：三道 pre-commit 闸本机 dry-run 全 exit0；`templates/hooks/*.py` 与 `.claude/hooks/*.py` 逐字节比对**零缺失零差异**；两侧 settings.json JSON 合法性通过；全部 hook `py_compile` 通过。
 
 ## 仍未闭环的（不是漏项，是性质不同的后续）
-- **D6/D8 硬闸真实下游实测**：本机模拟 dry-run 过了，但没在真实下游 clone 项目里跑一遍——bridgeforge 自身无 `.claude/rules/`、恒 no-op，真实拦截逻辑的最终验证只能靠下游。
+- **D6/D8 硬闸真实下游实测**：本机模拟 dry-run 过了，但没在真实下游 clone 项目里跑一遍——bridgeforge 自身无 `.claude/rules/`、恒 no-op，真实拦截逻辑的最终验证只能靠下游。**已印证**：下游 ClaudeBridgeAssist 第一次真跑就踩了 D6 的假阳性 bug，详见下方新section，已出 v0.39.1 补丁。
 - **test_receipt 失败场景 payload 样本**：目前只坐实了成功场景形状，失败场景（真实 pytest/cargo 跑挂）的样本还没攒到，攒够后可把"尽量版"精修为"精确版"。
 - **[[harness-trim-2026-07-01-deferred]] 里 E-1/E-4(部分)/E-5 + 2 条搁置行为变更**（debugging §11 根因预测收紧 / B-6 dogfood 政策 `也要挂上→适用才镜像`）：本轮九维实施**未触碰**，仍原样搁置待用户表态。**E-3/E-6 已在本轮解决**（E-3=[[ghost-wall-threshold-conflict]] 收口；E-6=P0-1 补镜像+P1-7 mirror_drift_check 硬闸）。
 - `skills/git-sync/SKILL.md` L20 过时 Why（"Stop hook 每轮重建"实际早移到 PostToolUse）——早前发现、本轮未顺手修，仍开着。
+
+## v0.39.1 补丁：D6 真实下游命中，印证上面"仍未闭环"的预判
+
+2026-07-02 同日，下游 ClaudeBridgeAssist 项目升级到 v0.39.0 后 `rule_index_check.py --pre-commit` 真被硬拦：CLAUDE.md §2 末尾"具体文件名占位示例"风格的 HTML 注释块（如 `<!-- ... rules/api.md ... -->`）被 `_detect()` 的 `re.findall(r"rules/([\w-]+\.md)", text)` 直接命中当成真实索引条目、判成死链 exit 2，且不会自愈（下游 agent 写了调查报告 `docs/调查报告_rule-index-check-HTML注释误判_2026-07-02.md`，核实过结论准确）。这正是上面"仍未闭环"那条——真实拦截逻辑第一次真跑就踩了雷。
+
+**修复**（v0.39.1，templates v0.10.1）：`_detect()` 里 `read_text()` 后先 `re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)` 剔除 HTML 注释块再做索引正则匹配；`templates/hooks/rule_index_check.py` 与 `.claude/hooks/rule_index_check.py` 逐字镜像同步。
+
+**通用教训（下次写同类 hook 要记住）**：任何对 CLAUDE.md / rule.md 做**全文本正则扫描**来下红线判断的 hook，必须先剥离 HTML 注释块，否则文档里"教学性占位示例"会被当成真实正文误判——停留在 PostToolUse 软提醒阶段时无害，一旦升级成 pre-commit 硬拦（exit 2）就变成阻断性 bug。
+
+**独立 workflow 对抗测试又挖出补丁自身的二次漏洞**：初版补丁用非贪婪 `re.sub(r"<!--.*?-->", ...)` 剔除注释，若 CLAUDE.md 里有**未闭合**的 `<!--`（人手误漏写 `-->`），非贪婪匹配会跨越到后面一段不相关注释的收尾 `-->`，把中间的真实索引行一并当注释删掉，级联出全新方向的误报（unlisted）且根因隐蔽难查——**这是补丁本身引入的新副作用，不是原 bug**。改用不跨越注释边界的模式 `<!--(?:(?!<!--|-->).)*-->`（含义：匹配内容中不能再出现 `<!--` 或 `-->`，遇到未正确闭合就整体放弃匹配，退化为"该注释不生效"而不是级联吞噬）修复。**教训**：写"剔除注释再扫描"这类正则时，光测"格式良好的输入"不够，必须补一个"注释未闭合 + 后面恰好还有另一段别的注释"的对抗用例，否则非贪婪匹配的跨界行为是隐藏坑。
+
+**次级风险已证实并修复**：`rule_size_check.py` 的版本号/日期计数正则与 `rule_index_check.py` 是同一类 bug（同样未剔除 HTML 注释），且原调查报告 §3 判断"不涉及 hard-block"是**错的**——`pre_commit()` 同样直接 `exit 2`。已用同一套注释剔除逻辑（仅用于版本号/日期计数）修复，同步镜像。三处修复（v0.39.1）都已用真实脚本执行验证，非静态推理。
 
 ## 残余风险（设计上承认防不住，非本轮漏做）
 详见 `docs/harness-engineering-design.md` §5：纯文字 A 类幻觉防不住（无工具边界）、假验证 exit0 盖章防不住内容错、谎称已改文件在不 commit 会话里无铁证、stall 对合法长思考轮无区分力、D6/D8 硬闸自身 no-op 真实性只能人眼+下游验、D8 正文差异降软后的漏防。
