@@ -53,6 +53,8 @@ BROAD_PATH_RE = re.compile(r"^(?:\*\*?|[^/]+/\*\*?|\*\*/\*)$")
 # 否则 hook 对它们永久误报 → 训练人忽略 [rule-size] 信号（狼来了）。
 # 显式列名（meta_rule §4.2），**禁用通配**——否则退化成「关掉这条 lint」。下游可按需增删。
 # 注意：仅豁免触发器宽度，**不**豁免体积/行数/戳数检查（宽 ≠ 可以无限胖）。
+# ⚠️ v0.39.0 起本检查是 pre-commit 硬闸（exit 2 拦提交）——此白名单门控的是硬拦而非软提醒，
+# 增删条目前掂量误拦/漏拦后果（欠账 E-5 复议结论：KEEP，按硬闸白名单标准维护）。
 CROSS_CUTTING_RULES = {
     "architecture.md", "modules.md", "debugging.md", "workflow.md", "portability.md",
 }
@@ -220,10 +222,24 @@ def main() -> int:
         return pre_commit()
 
     # ── PostToolUse 软提醒(exit 0) ──
-    tool_input_raw = os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+    # 输入双兜底（与 requirements_check.py 一致）：官方 PostToolUse 走 stdin JSON，
+    # file_path 嵌在 `tool_input` 下；老 hook 走环境变量 CLAUDE_TOOL_INPUT。
+    # 只读 env-var 会在「CC 仅走 stdin、不设该 env」时永不触发，故两路都试。
+    data: dict = {}
     try:
-        data = json.loads(tool_input_raw)
+        raw = sys.stdin.read()
+        if raw.strip():
+            ti = json.loads(raw).get("tool_input")
+            if isinstance(ti, dict):
+                data = ti
     except Exception:
+        data = {}
+    if not data:
+        try:
+            data = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+        except Exception:
+            return 0
+    if not isinstance(data, dict):
         return 0
 
     file_path = data.get("file_path", "")

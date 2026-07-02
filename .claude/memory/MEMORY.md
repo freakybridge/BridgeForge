@@ -2,15 +2,17 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .claude/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.claude/CLAUDE.md「auto memory」段。满 40 条自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 24 | Cold: 0
+> Active: 26 | Cold: 0
 
 ## 📌 Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起项目/skill 由 setup_agent 更名为 bridgeforge；历史流水账故意保留旧名
 
 ## Active（按新增时间，新在前；满 40 自动滚入 Cold）
+- [feedback-hook-input-channel-bugclass](feedback-hook-input-channel-bugclass.md) — 修一个 hook 的 stdin/env-var 输入通道 bug 后要主动排查所有结构同胞，不能只信任单点 CHANGELOG 记录已解决
 - [harness-preferences](harness-preferences.md) — 用户对 bridgeforge 自身 harness 工程的偏好访谈记录（19 问完整版）+ 设计/施工序产出脉络；实施已于 v0.39.0 完成，见 [[project-v039-state]]
-- [harness-trim-2026-07-01-deferred](harness-trim-2026-07-01-deferred.md) — 2026-07-01 全 harness 精简会：28 叙述瘦身+2 整删已落地；6 争议点中 E-3/E-6 已随 v0.39.0 九维方案解决，E-1/E-2/E-4/E-5+2 行为变更+git-sync 过时 Why 仍搁置待议
+- [harness-trim-2026-07-01-deferred](harness-trim-2026-07-01-deferred.md) — 2026-07-01 全 harness 精简会搁置账：已于 v0.40.0（2026-07-02 全仓库体检）全部收口清零——E-1/E-2 KEEP、E-3/E-6 随 v0.39.0 解决、E-4/E-5/git-sync Why 已修、行为变更1 被 §3 吸收、B-6 不采纳
 - [project-v039-state](project-v039-state.md) — v0.39.0（templates v0.10.0）harness 九维方案 12 工单全部落地——蓝图/施工序/收尾记账/终验四件套
+- [project-v040-state](project-v040-state.md) — v0.40.0（templates v0.11.0）全仓库 harness 体检 + P0 整批修复 + 07-01 欠账全部收口（2026-07-02）
 - [feedback-llm-suspended-during-tool-exec](feedback-llm-suspended-during-tool-exec.md) — LLM 在 Claude Code 工具执行期间被 SUSPENDED——PostToolUse 才是最早干预窗口，而非「边等边想」
 - [project-v037-state](project-v037-state.md) — v0.37.0（templates v0.8.0）防 AI 幻觉资源四层框架落地 + CLAUDE.md 瘦身 275→193 行（2026-06-30）
 - [effort-config-layering](effort-config-layering.md) — Claude Code effortLevel 多层覆盖关系 + bridgeforge v0.31.0「项目层禁写 effortLevel、全局统一管 + SessionEnd 自动还原 medium」反转决策

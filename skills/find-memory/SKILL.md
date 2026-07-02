@@ -29,8 +29,7 @@ python .claude/scripts/memory_search.py <关键词>
 ### Step 4：按需读取
 用 Read 工具读最相关的 1-2 个文件。
 
-> 读取后 `memory_access_tracker.py`（PostToolUse hook）自动记录本次访问。
-> 下次 Stop 时 `memory_rebuild_index.py` 重建 MEMORY.md，该文件可能升回热区。
+> 注：MEMORY.md 索引由 `memory_rebuild_index.py` 确定性重建（编辑 memory 文件时经 PostToolUse 触发 + SessionStart 兜底），**无访问热度机制**——读冷区文件不会让它"升回热区"；需要常驻热区就在 frontmatter 标 pinned。
 
 ## 注意
 

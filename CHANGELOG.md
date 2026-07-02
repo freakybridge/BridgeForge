@@ -17,6 +17,30 @@
 
 ---
 
+## [0.40.0] - 2026-07-02
+
+> **全仓库 harness 体检后的 P0 整批修复 + 2026-07-01 搁置欠账全部收口**。4 维并行审计（hook 可靠性 / token 重量 / agent 行为质量 / v0.39 落地+欠账核查），高影响 finding 逐条人工核验后动手。审计结论：v0.39.0 十二工单交付合格；本批集中修「静默失效」「每轮重复注入」「软闸」三类结构性问题。
+
+### Fixed
+- `[product]` **4 个 hook 输入通道静默失效（P0）**：`find_doc_reminder.py`/`memory_lint.py` 只读 legacy 环境变量 `CLAUDE_TOOL_NAME/_INPUT`、`rule_index_check.py`/`rule_size_check.py` 的 PostToolUse 软提醒路径同病——当前 Claude Code 仅走 stdin 时**挂着但永不触发**（此前该根因只修了 `requirements_check.py`，4 个结构同胞漏网；rule 两闸有 pre-commit 兜底、另两个 100% 死）。统一补 stdin-first + env fallback 双通道（与 requirements_check 同范式）。镜像已同步、哈希逐一验证一致。
+- `[product]` **templates/settings.json PostToolUse matcher 漏 `MultiEdit`**：`Edit|Write` → `Edit|Write|MultiEdit`，与 `.claude/` 侧对齐——此前下游经 MultiEdit 改代码/memory/rule 时 memory_rebuild/memory_lint/rule 两闸/fallback_smell/requirements_check 全不触发，且 `mirror_drift_check` 只比对 `*.py` 不查 settings.json，无闸可拦此漂移。
+- `[product]` **find-memory SKILL 幻影引用（P0 死链+幻觉源）**：引用 v0.36.0 已删除的 `memory_access_tracker.py` 与已废弃的「读取→升回热区」机制（索引实为无热度确定性函数，重建也早从 Stop 移至 PostToolUse+SessionStart）——三重过时一并改写为现行机制描述，防下游 agent 建立错误世界模型。
+- `[product]` **collab SKILL 阈值错误引用**：「全局『同一 bug 2 次失败必停』红线」不存在——全局是 CLAUDE §8「前 3 次失败、第 4 次禁动手」（v0.39.0 已统一），改为正确引用，防下游把鬼打墙阈值误记成 2。
+- `[product]` **git-sync SKILL 过时 Why（欠账清偿）**：「这俩文件由 Stop hook 每轮重建」双重过时（重建早移 PostToolUse+SessionStart；v0.38.0 起 pre-commit 亦重建并 `git add`）——改写为现行机制，动作本身不变。
+
+### Changed
+- `[product]` **6 个 skill 软闸→硬闸（闸硬度红线铺全）**：escalate Step4（等拍板）/ archive-scan Step2（批准归档）/ git-sync（diverged 分支决策）/ plan（确认后实施）/ spinoff Step1（确认派生）/ summary 3b·5（删除候选）全部升级为「⛔ 硬契约：AskUserQuestion 结束当前回合，用户未答前禁动」——此前该范式只落在 debate/collab 两个 skill，其余需拍板处全是描述性软措辞（memory `feedback-skill-gate-hardness` 实证拦不住 agent）。
+- `[product]` **3 个信号 hook 输出裸化（每轮重复注入止血）**：clarify_reminder / focus_reminder / find_doc_reminder 此前每轮（find_doc 一轮可 ×N 次）把完整行为指令重发，与常驻层（templates/CLAUDE.md §9.5/§9.6、find-doc skill description）双付甚至三付——改为裸信号 + 动态字段 + 指针，完整契约靠常驻层查。典型 session 省千级 tokens。
+- `[product]` **context_warning.py `WINDOW` 注释升级为显式陷阱警告**：默认保持 1_000_000（用户拍板），注明 200k 模型不下调则三级预警**永不触发且无任何报错**——装模板后第一个必核对的旋钮。
+- `[product]` **modules.md 占位示例去双语言（解欠账 E-4）**：Step1 的 Python/Rust 并列示例合并为语言无关结构草图、Step2 同步泛化——省常驻行数，不再隐含「只支持两种语言」。
+- `[product]` **rule_size_check.py 白名单注释补硬闸警示（解欠账 E-5）**：标注 v0.39.0 起该检查是 pre-commit 硬闸（exit 2），`CROSS_CUTTING_RULES` 白名单按「硬闸白名单」标准维护、增删前掂量误拦/漏拦后果。
+- `[repo]` **CLAUDE.md 新增 §5「hook 信号速查」表**：镜像 hook 裸化后，自身仓库的信号响应契约落位（此前 [clarify]/[focus] 等契约只存在于 templates/CLAUDE.md，bridgeforge 自身无常驻契约——dogfood 配套补齐）。
+- `[repo]` 7 个改动 hook（4 输入通道 + 2 裸化 + context_warning + rule_size 二改）全部同步镜像 `.claude/hooks/`，`Get-FileHash` 逐一验证两侧一致。
+
+### 欠账收口（2026-07-01 精简会搁置项，全部清账）
+- `[meta]` **E-1**（四问豁免机械改动）→ KEEP 收口：不豁免——任务深浅与改动分层正交，且 Q4 已有 mirror_drift 机检，开豁免口子会在漏镜像事故上开洞。**E-2**（workflow §4 收尾自查）→ KEEP 收口，语境无变化。**E-4 / E-5** → 已修（见上）。**行为变更1**（debugging §11 根因预测收紧）→ 判定已被 v0.39.0 debugging §3 verbalized-uncertainty 红线吸收（低置信假说禁包装成结论下手），不再单独改。**B-6**（「适用才镜像」替代提案）→ 不采纳收口：现行「也要挂上 + `[dogfood-exempt]` 豁免语法」已是机检硬机制，07-01 的纯自觉搁置语境不复存在。**git-sync 过时 Why** → 已修（见上）。
+- `[meta]` **补记 v0.39.0 漏账**：f6788d3 实际还夹带 8 个 skill（git-sync/collab/summary/sync-docs/archive-scan/debate/escalate/resume）+ 2 个 rule（modules/anti_fabrication）的文本瘦身——均为 `[product]` 层 cosmetic 改动，当时 CHANGELOG 未记，本条补记，下游 sync 时一并覆盖。
+
 ## [0.39.1] - 2026-07-02
 
 > 修复下游项目（ClaudeBridgeAssist）实测报告的 P0 假阳性，调查报告见 `docs/调查报告_rule-index-check-HTML注释误判_2026-07-02.md`。

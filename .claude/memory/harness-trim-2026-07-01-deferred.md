@@ -1,6 +1,6 @@
 ---
 name: harness-trim-2026-07-01-deferred
-description: 2026-07-01 全 harness 精简会：28 叙述瘦身+2 整删已落地；6 争议点中 E-3/E-6 已随 v0.39.0 九维方案解决，E-1/E-2/E-4/E-5+2 行为变更+git-sync 过时 Why 仍搁置待议
+description: 2026-07-01 全 harness 精简会搁置账：已于 v0.40.0（2026-07-02 全仓库体检）全部收口清零——E-1/E-2 KEEP、E-3/E-6 随 v0.39.0 解决、E-4/E-5/git-sync Why 已修、行为变更1 被 §3 吸收、B-6 不采纳
 metadata: 
   node_type: memory
   type: project
@@ -9,7 +9,9 @@ metadata:
 
 2026-07-01 一次「全 harness 精简」会（宁缺毋滥、中间档尺子）。已落地：**28 条叙述瘦身**（meta_rule/anti_fab/modules/portability/templates·CLAUDE §9/4 个 hook docstring/7 个 skill）+ **2 条整删**（escalate `/coordinator`→`/collab`；meta_rule_design §10 空案例库）+ **1 处修错**（`.claude/settings.json` Stop 注释误写"重建 MEMORY.md"，代码实锤重建早移出 Stop 链路→改由 PostToolUse+SessionStart，已修）。
 
-**以下全部按用户指示「跳过、待议」，不是否决**：
+> ✅ **2026-07-02 全部收口（v0.40.0，全仓库 harness 体检批）**：E-1 KEEP（四问不豁免，Q4 已机检）；E-2 KEEP；E-4 已修（双语言示例合并为语言无关草图）；E-5 KEEP+注释补硬闸警示；行为变更1 判定被 v0.39.0 debugging §3 verbalized-uncertainty 吸收，不单独改；B-6 不采纳（现行「也要挂上+[dogfood-exempt]」已是硬机制）；git-sync 过时 Why 已改写。本 memory 转历史档案，无待议项。详见 [[project-v040-state]]。
+
+**以下是当时按用户指示「跳过、待议」的原始记录（已全部收口，仅存档）**：
 
 6 争议点：
 - **E-1** 机械改动是否免走项目 CLAUDE §1「传播四问」（防空转诉求）——复核否决豁免（任务深浅 vs 改动分层正交，绕四问会在漏镜像事故上开口），仅修了"三句话→四问"笔误。**仍搁置**，是否仍探索豁免待议。

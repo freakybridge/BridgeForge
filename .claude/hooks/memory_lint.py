@@ -20,12 +20,26 @@ MEMORY_MAX_LINES = 200
 
 
 def main() -> int:
-    raw = os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+    # 输入双兜底（与 requirements_check.py 一致）：官方 PostToolUse 走 stdin JSON，
+    # file_path 嵌在 `tool_input` 下；老 hook 走环境变量 CLAUDE_TOOL_INPUT。
+    # 只读 env-var 会在「CC 仅走 stdin、不设该 env」时永不触发，故两路都试。
+    tool_input: dict = {}
     try:
-        d = json.loads(raw)
-    except json.JSONDecodeError:
+        raw = sys.stdin.read()
+        if raw.strip():
+            ti = json.loads(raw).get("tool_input")
+            if isinstance(ti, dict):
+                tool_input = ti
+    except Exception:
+        tool_input = {}
+    if not tool_input:
+        try:
+            tool_input = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+        except Exception:
+            return 0
+    if not isinstance(tool_input, dict):
         return 0
-    f = d.get("file_path", "").replace("\\", "/")
+    f = tool_input.get("file_path", "").replace("\\", "/")
     if ".claude/memory" not in f:
         return 0
 

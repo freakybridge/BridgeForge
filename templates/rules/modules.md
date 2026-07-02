@@ -30,29 +30,20 @@
 ### Step 1：创建目录骨架
 
 <!-- TODO: 按本项目的 feature 目录范式填写
-示例（Python）：
+示例（语言无关结构草图，填充时换成本项目语言的真实文件名）：
 ```
-src/<feature>/
-  __init__.py
-  service.py          # 主逻辑
-  models.py           # 数据模型（如需要）
-  tests/              # 模块自包含测试
-```
-
-示例（Rust workspace）：
-```
-crates/<feature>/
-  Cargo.toml
-  src/lib.rs
+<模块根目录>/<feature>/
+  <入口/清单文件>      # 包声明或导出入口
+  <主逻辑文件>         # 核心实现
+  <数据模型文件>       # 如需要
+  tests/               # 模块自包含测试
 ```
 -->
 
 ### Step 2：注册到中枢
 
 <!-- TODO: 描述新模块如何接入协调中枢
-示例：
-- 在 `src/core/registry.py` 添加注册项
-- 在 workspace 的 Cargo.toml `members` 列表追加
+示例：在中枢注册表（registry / workspace 成员清单 / 路由表）追加一条注册项
 -->
 
 ### Step 3：验证

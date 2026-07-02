@@ -29,14 +29,14 @@ model: sonnet
 
 ### 3b.（仅当步骤 3 改了 rule）连带 memory 对账
 rule 与 memory **互补不替代**，"内容上升成 rule"≠"删对应 memory"，不可机械删。
-**先 Read `references/deep-steps.md` §对账**，按其三类判定 + "删 memory = 4 处同步"清单执行（禁止自动删，列候选待用户确认）。
+**先 Read `references/deep-steps.md` §对账**，按其三类判定 + "删 memory = 4 处同步"清单执行。> ⛔ **硬契约**：删除候选必须用 **AskUserQuestion**（multiSelect 列候选）**结束当前回合**；用户未勾选前**禁止**删任何 memory。
 
 ### 4. 检查相关文档是否需要同步
 对照 `rules/workflow.md` §1 文档同步表；涉及架构红线 / 接口契约 / 新增数据对象 → 执行 `/sync-docs` 或直接更新对应文档。
 
 ### 5.（条件触发）清理已解决的 TODO / 归档 current 文档
 仅当某条目**同时**满足：① 代码本次对话已合并 ② 用户**显式确认**解决（实操验证 / 看过 diff / 说"OK"）。
-命中 → **先 Read `references/deep-steps.md` §清理**，按其流程列候选待确认（禁止自动批量删；归档用 `git mv` 不 `rm`）。无满足项（常见）→ 跳过并说明，不凑数。
+命中 → **先 Read `references/deep-steps.md` §清理**，按其流程列候选。> ⛔ **硬契约**：候选必须用 **AskUserQuestion** 确认并**结束当前回合**，未确认前**禁止**删条目 / `git mv`（归档只用 `git mv` 不 `rm`）。无满足项（常见）→ 跳过并说明，不凑数。
 
 ### 6.（命中才做）反哺候选捕捉
 本次 memory/rules 里有没有**换个项目也成立**的通用经验（协作流 / 调试法 / 可移植性坑 / agent 行为约定，非业务专属）？

@@ -73,13 +73,27 @@ def _log_call(tool_name: str, paths_desc: str) -> None:
 
 
 def main() -> int:
-    tool_name = os.environ.get("CLAUDE_TOOL_NAME", "")
-    tool_input_raw = os.environ.get("CLAUDE_TOOL_INPUT", "{}")
-
+    # 输入双兜底（与 requirements_check.py 一致）：官方 PreToolUse 走 stdin JSON
+    # （tool_name / tool_input 为顶层字段）；老 hook 走环境变量 CLAUDE_TOOL_NAME/_INPUT。
+    # 只读 env-var 会在「CC 仅走 stdin、不设该 env」时永不触发，故两路都试。
+    tool_name = ""
+    data: dict = {}
     try:
-        data = json.loads(tool_input_raw)
+        raw = sys.stdin.read()
+        if raw.strip():
+            payload = json.loads(raw)
+            tool_name = payload.get("tool_name", "") or ""
+            ti = payload.get("tool_input")
+            if isinstance(ti, dict):
+                data = ti
     except Exception:
-        return 0
+        pass
+    if not tool_name:
+        tool_name = os.environ.get("CLAUDE_TOOL_NAME", "")
+        try:
+            data = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+        except Exception:
+            return 0
 
     is_doc, paths_desc = _is_doc_search(tool_name, data)
     if not is_doc:
@@ -88,12 +102,11 @@ def main() -> int:
     # 记录统计
     _log_call(tool_name, paths_desc)
 
-    # 输出提醒到 stdout（Claude Code PreToolUse hook stdout 注入到 agent 上下文）
+    # 输出裸信号到 stdout（跳过场景 / 触发词速查已载于 find-doc skill description，
+    # 常驻 system prompt，此处不重复注入——一轮可多次触发，重复即多倍烧 token）
     print(
-        f"[find-doc reminder] 检测到 {tool_name} 直接搜 doc/（{paths_desc}）。"
-        f"如果是定位文档请优先调用 `/find-doc <topic>` skill：单次聚合 + 省 50-70% token。"
-        f" **跳过场景**：已知精确路径 / 同 session 已查过 / 代码搜索（用 Grep path: <source-dir>/）。"
-        f" 触发词速查：'帮我找 X' / 'X 还有什么没解决' / 'X 进展如何' / 'X 的设计在哪' 等。"
+        f"[find-doc] 检测到 {tool_name} 直接搜 doc/（{paths_desc}）—— "
+        f"定位文档优先 `/find-doc <topic>`（省 token）；已知精确路径 / 代码搜索则忽略。"
     )
     return 0
 
