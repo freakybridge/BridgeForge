@@ -55,6 +55,6 @@ model: sonnet
    - 强制要求用户填
    - 同一会话内对同一路径重复提醒
 
-**Why this exists**：映射表是项目目录结构稳定后才填得准的（细粒度如 `src/<feature>/<file> → doc/3_design/<feature>/设计.md`）。外置成 `.claude/sync-docs.map.md` 后 skill 本体保持通用单一源，项目只维护这一个数据文件。早期项目没有该文件 sync-docs 走 catchall 也能跑，本段保证用户在目录稳定后顺手补表。
+**Why this exists**：映射表要等项目目录结构稳定后才填得准；早期没有它 sync-docs 走 catchall 也能跑，本段保证目录稳定后顺手补表（外置=单一源理由见 Step 2）。
 
 $ARGUMENTS

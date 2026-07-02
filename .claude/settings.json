@@ -145,6 +145,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Grep|Glob|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/find_doc_reminder.py",
+            "comment": "搜 doc/ 时提醒优先用 /find-doc skill（省 50-70% token）+ 记录调用统计到 .runtime/find-doc-stats.log。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身搜 doc/ 也享同款提醒（dogfood）。"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -170,6 +180,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python .claude/hooks/show_state.py prompt-state",
+            "comment": "每次 prompt 前注入仓库状态（branch / dirty / ahead-behind / version）到 Claude 上下文。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身开发也实时感知仓库 dirty / 远端漂移（dogfood）。"
+          },
+          {
+            "type": "command",
             "command": "python .claude/hooks/context_warning.py",
             "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值输出 [ctx-budget] 信号（CLAUDE.md §10）。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自己也享同款预警。"
           },
@@ -182,6 +197,11 @@
             "type": "command",
             "command": "python .claude/hooks/focus_reminder.py",
             "comment": "任务防漂移 focus 锚：记第一条实质 prompt 为任务锚，之后每 FOCUS_EVERY 轮注入 [focus] 提醒拉回主线。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身开发也享同款防漂移（dogfood）。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/stall_warning.py",
+            "comment": "空转弱事后提醒（D4-M4）：多特征合取（最近>=2轮高 output 且零 tool_use + 续接式 nudge 驱动 + thinking 占比高代理）才注入 [stall]，exit 0 非阻塞。弱事后代理提醒非实时刹车，对合法长思考轮无区分力、宁漏不烦。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身开发也受同款空转软提醒（dogfood）。详见 CLAUDE.md §10。"
           }
         ]
       }
@@ -197,6 +217,16 @@
           },
           {
             "type": "command",
+            "command": "python .claude/hooks/memory_lint.py",
+            "comment": "memory 文件改动后校验 MEMORY.md 行数（≤200）+ 孤儿/死链接。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身 memory 也受同款体检（dogfood）。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/rule_index_check.py",
+            "comment": "rule 文件改动后校验 CLAUDE.md §2 索引 ↔ rules/*.md 一致性。dev 仓库无 .venv，用系统 python。自门控：bridgeforge 自身无 .claude/rules/，此处恒 no-op，挂着正是验证「无 rules 目录静默跳过」产品承诺。"
+          },
+          {
+            "type": "command",
             "command": "python .claude/hooks/rule_size_check.py",
             "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）。dev 仓库无 .venv，用系统 python。自产自用：本仓库编辑 .claude/rules 时受同款量化红线约束。"
           },
@@ -204,6 +234,21 @@
             "type": "command",
             "command": "python .claude/hooks/requirements_check.py",
             "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。dev 仓库无 .venv，用系统 python。自门控：非 requirements*.txt 静默 no-op —— bridgeforge 无 requirements.txt，挂着正是验证「自门控 no-op」产品承诺。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/fallback_smell_check.py",
+            "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身写代码也受同款坏味道软提醒（dogfood）。详见 rules/debugging.md §3。"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/test_receipt.py",
+            "comment": "测试类命令收据（D1-M2 尽量版）：命令匹配 pytest/cargo test/npm test/go test/tsc/make 时抓退出状态写 .runtime/test_receipts/receipts.jsonl 一行收据 + 存原始 payload 样本（保 5 份，供校准提取逻辑）。声称「测试通过」须指到命令签名匹配 + 本轮时间窗内 + exit==0 的收据（CLAUDE.md §2.5）。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身跑测试也落收据（dogfood）。"
           }
         ]
       }
@@ -225,7 +270,7 @@
           {
             "type": "command",
             "command": "python .claude/hooks/session_snapshot.py stop",
-            "comment": "每轮停止时自动存档 + 重建 MEMORY.md 热区/冷区（5min 节流）。dev 仓库无 .venv，用系统 python。"
+            "comment": "每轮停止时自动存档（5min 节流，类似 Word 自动保存）。重建 MEMORY.md 已移出 Stop 链路（改由 PostToolUse + SessionStart）。dev 仓库无 .venv，用系统 python。"
           }
         ]
       }
@@ -242,6 +287,11 @@
             "type": "command",
             "command": "python .claude/hooks/memory_junction_check.py",
             "comment": "memory junction 自愈：把 memory 纳入项目 git（.claude/memory/），系统路径 ~/.claude/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。dev 仓库无 .venv，用系统 python。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/show_state.py session-start",
+            "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身开机也见 snapshot 接续提示（dogfood，兑现 resume/SKILL.md 承诺）。"
           },
           {
             "type": "command",

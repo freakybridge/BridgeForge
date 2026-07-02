@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """PostToolUse hook: requirements.txt 可移植性 + 编码红线检查。
 
-仅对编辑 `requirements*.txt` 的 Edit/Write 触发，检查两条 portability 红线：
-1. 禁绝对路径 URL：`pkg @ file:///C:/...` 这类硬编码本机路径，换机/换盘符即 fail
-   → 正确做法：wheel 放 libs/ + 顶部 `--find-links libs/` + 普通 `name==version`
-2. 注释/内容必须 ASCII：Windows pip 默认 GBK 解码，非 ASCII 字符会让 install 直接报
-   UnicodeDecodeError → 中文注释挪到 README
-
-非阻塞（exit 0），跨阈值打印 [requirements-check] 警告到 stdout。
-可移植：项目无关，纯文本规则。详见 rules/portability.md §4.1/§4.2。
+仅对 `requirements*.txt` 的 Edit/Write 触发，查两条 portability 红线：
+① 禁绝对路径 URL(`pkg @ file:///...`，换机即 fail)；② 内容/注释必须 ASCII(Windows pip GBK 解码)。
+非阻塞（exit 0），命中打印 [requirements-check] 警告。详见 rules/portability.md §4.1/§4.2。
 """
 from __future__ import annotations
 

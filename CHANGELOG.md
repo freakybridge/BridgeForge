@@ -17,6 +17,39 @@
 
 ---
 
+## [0.39.0] - 2026-07-02
+
+> **Harness 九维方案整批落地**（12 工单 P0-1~P2-11，蓝图 `docs/harness-engineering-design.md`，施工序 `docs/harness-impl-plan.md`）。宪法原则：硬闸只给「机器一眼判死的事实」（近零误伤），软的留给用户判断。
+> **dogfood 声明（§1 第 4 问）**：D6 规则闸在 bridgeforge 自身**恒 no-op**（无 `.claude/rules/` 目录）、D8 镜像闸的真实拦截也只发生在下游——两闸仍全量挂上自身 pre-commit，自门控 no-op 正是持续验证产品承诺。
+
+### Added
+- `[product]` **新增 pre-commit 镜像闸 `mirror_drift_check.py`（D8，解 E-6）**：dogfood 镜像漂移机检——`templates/hooks/*.py` 有而 `.claude/hooks/` 缺 → **exit 2 硬拦**（二值确定近零误伤）；正文差异（归一化 python 前缀后）→ **仅 stderr 软提示不拦**（合法差异不止前缀，逐字硬闸会误伤）。豁免走 CHANGELOG 顶部 `[dogfood-exempt: <hook> <因>]`（pre-commit 阶段 commit message 尚未生成，只能走 staged CHANGELOG）。下游无 `templates/hooks/` 自门控 no-op。
+- `[product]` **新增测试收据 hook `test_receipt.py`（D1-M2，尽量版）**：PostToolUse(Bash) 匹配 pytest/cargo test/npm test/go test/tsc/make 时写一行收据（时间戳+命令指纹+退出状态）落 `.runtime/test_receipts/receipts.jsonl`，声称「测试通过」须指到命令签名匹配+本轮时间窗+exit==0 的收据（CLAUDE §2.5）。**尽量版说明**：实测 Claude Code 成功场景 tool_response 无退出码字段（成功=无声），故分级提取（显式字段→文本 "Exit code N"→无错误标记推断 0→unknown），收据带 `source` 字段自知硬度；同时每次存原始 payload 样本（保 5 份）供后续把提取逻辑改准。**边界诚实**：收据只证「跑过+退出状态」不证断言有效；命令硬卡死则 PostToolUse 不触发无收据（继承 C2 失明，已记账）。
+- `[product]` **新增兜底坏味道 hook `fallback_smell_check.py`（D3-M1）**：PostToolUse(Edit|Write) 只抓**裸/宽异常吞掉**一类（裸 `except:`/`except Exception:` 后仅 pass、空 `catch{}`）——近零合法用途的高置信坏味道；合法默认值（`.get(k,d)`/`or []`/`unwrap_or`）、具体异常、诚实 `#兜底` 注释**均不命中**（防误伤/防罚诚实）。`[fallback-smell]` 软提醒 exit 0 非阻塞。
+- `[product]` **新增空转弱提醒 hook `stall_warning.py`（D4-M4）**：UserPromptSubmit 多特征**合取**（≥2 轮高 output 零 tool_use + 续接式 nudge 驱动 + thinking 占比代理）才注入 `[stall]`，宁漏不烦。配 CLAUDE.md **§10.5 新节**写明定位：**弱事后代理提醒非实时刹车**（空转发生在上一 assistant 轮内，hook 只能下一轮触发）、对合法长思考轮无区分力、Opus 4.8 无硬开关不保证根治。兑现 antifabrication-framework §7 残余风险 2 的节流信号预留。
+
+### Changed
+- `[product]` **D6 规则闸升 pre-commit 硬拦（rule_size / rule_index，读法分治）**：`rule_size_check.py` 加 `--pre-commit` 分支**读 staged blob**（`git show :path`，单文件自洽、把"工作树脏改没 stage"误伤降到零）；`rule_index_check.py` 加 `--pre-commit` 分支**读工作树**（跨文件集合比对，纯 staged 反漏部分暂存死链，注释声明局限）。确定违规 → stderr 可执行修复信息 + exit 2；脚本自身异常一律 exit 0 放行（宁漏不误伤）；豁免走 CHANGELOG 顶部 `[skip-rule-size]`。F4：索引正则 `[a-z_]`→`[\w-]`（`gateway-v2.md` 不再恒判 unlisted）；F2：无 `.claude/rules/` 自门控干净 no-op。PostToolUse 软提醒版保留（同一检测函数双层复用）。
+- `[product]` **`.githooks/pre-commit` 升三段闸**（两处逐字镜像）：① mirror 段**置最前**（缺文件 exit 2 先于任何 exit 0，防被末行吞）→ ② rule 闸段（size+index，exit 2 / try 兜底）→ ③ 既有 memory 索引段（永 exit 0 卫生闸）。
+- `[product]` **templates/CLAUDE.md 文本红线批**：§9.5 加保守权重（真·新的/大而模糊 → 默认先问，与评估类收口分行不冲淡）；§9.6 增第五类「**方案替换**」+ **N7 大偏离必先说**红线（换方案/扩缩范围先一句话告知）+ **顺手改必告知**红线（非点名改动必主动声明，绝不静默夹带）；§10 软化（CRITICAL「立即拒绝」→「强烈建议 /snapshot、决定权交用户」，HIGH 同口径；软化的是拒不拒活，不是报不报用量）；§2.5 收据口诀升**明文红线**（交付/危险处结论必贴工具返回原文；**假验证澄清**：exit 0 ≠ 验证有效，须说清断言与路径）+ test_receipt 对账指针；§8 lvl1 加「rules-based 验证 > LLM-judge（只补充不裁决）」。
+- `[product]` **`context_warning.py` instruction 软化（P0-3b）**：注入文案与 §10 同口径（CRITICAL/HIGH 改"建议+交用户"），判定逻辑与阈值一字未动——消除"文档说建议、hook 喊拒绝"的自相矛盾。
+- `[product]` **`debugging.md`**：§6 T1 鬼打墙阈值 ≥2→**≥3**（**解 E-3**，计数唯一权威=CLAUDE §8；**T2 用户回报轴是独立信号，刻意不抬**）、T6 同步指回 §8；§3 补 verbalized-uncertainty（根因未确认须标假说置信度%，<50% 直说不确定）；§5 加量化自证闸（>N 文件/>M 行贴 `git diff --stat` 逐文件说明）+ 顺手改告知红线。
+- `[product]` **`memory_rebuild_index.py --from-hook` 追加 `[memory-write]` 纯 ASCII 行（D5-M3）**：memory 写入当轮即可见（PostToolUse 注回 context），兑现「主动写+当场报」透明承诺。刻意不接 `allow_memory_write.py`（PreToolUse 只吐 permissionDecision 注不回）也不接 pre-commit 版（当轮已结束看不到）。
+- `[product]` **`meta_rule_design.md` §5/§6.4/§8**：硬度描述同步（「只提醒不阻塞」→「PostToolUse 软提醒 + pre-commit 硬拦，`[skip-rule-size]` 可豁免」）。
+- `[product]` **`portability.md` §5** 加镜像红线：templates/hooks ↔ .claude/hooks 必须**文件齐全**（正文差异仅软提示），缺失由 mirror_drift_check 硬拦，豁免须 `[dogfood-exempt]` + Why 指针。
+- `[product]` **`config_health_check.py`** DELEGATED 表登记 `hooks-mirror-intact → mirror_drift_check.py (pre-commit)`（开机知晓不亲测，防双重刷屏）；**`githooks_path_check.py`** 提示文案泛化为「提交前闸（含 memory 索引 + dogfood 镜像）」。
+- `[product]` **settings.json**（两侧）：注册 `fallback_smell_check`/`test_receipt`（PostToolUse）+ `stall_warning`（UserPromptSubmit）。**deny/ask 危险动作清单经 P0-5 查漏确认无缺项、零新增**——在此明示：该清单（`rm -rf`、`git reset --hard/clean`、`push --force/--delete`、`npm/cargo publish`、`twine upload`、`gh release create`、`docker push`、`Remove-Item` 等 deny + push/rebase/reset/checkout/merge 等 ask）是**产品层承诺**，下游继承的危险动作 PreToolUse 硬闸。
+- `[repo]` **P0-1 dogfood 欠账清偿**：`.claude/hooks/` 补齐 4 个缺失镜像（`show_state.py`/`rule_index_check.py`/`memory_lint.py`/`find_doc_reminder.py`）+ 对齐 `clarify_reminder`/`context_warning`/`requirements_check` 正文漂移 + `.claude/settings.json` 补注册（系统 python 前缀）。自此 snapshot 开场提示（`[snapshot]`）在自身也生效。
+- `[repo]` memory `ghost-wall-threshold-conflict` 标已收口（P0-4 解 E-3）。
+- `[meta]` 新增 `docs/harness-engineering-design.md`（九维设计 v1，含对抗批评 11 项+verify 修正融入）+ `docs/harness-impl-plan.md`（12 工单施工序）+ `docs/调查报告_AB对话_空转与幻觉_2026-07-01.md`（外援调查核实与纠偏记录）。
+- `[meta]` D9（人机沟通）确认零产品改动：三条沟通偏好归用户级全局 CLAUDE.md（skill/advisory + user-global），不进 templates。
+
+### 验证
+- `[repo]` P1-6 下游模拟 dry-run：临时造 `.claude/rules/` + 超标 rule + 索引，实测 exit 2 真拦、`[skip-rule-size]` 真放行、脚本异常 exit 0（验后清理）。P1-7 启闸前现场重验零缺文件漂移（批评⑪紧前置守卫）。
+- `[repo]` P2-11 自验：模拟成功 payload → `exit=0 source=inferred`；失败文本 → `exit=101 source=text`；非测试命令/词边界 near-miss → 静默 no-op；本会话热加载后真实 Bash 调用已落收据，真实 payload 样本确认 `tool_response={stdout,stderr,interrupted,isImage,noOutputExpected}` **无退出码字段**（尽量版分级提取的前提被实测坐实）。
+
+`templates/VERSION` 0.9.0→0.10.0。
+
 ## [0.38.0] - 2026-06-30
 
 ### Added

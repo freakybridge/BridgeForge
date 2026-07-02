@@ -5,22 +5,16 @@
 2. 真实 context 占用 = input_tokens + cache_creation + cache_read + output_tokens
    (与 Claude Code /context 一致, 精确到个位 token)
 3. 跨阈值时输出 [ctx-budget] 信号到 stdout, Claude Code 包装成 system-reminder
-4. Claude 读到信号后按 instruction 决定行为:
-   - CRITICAL (>= 95%): 立即拒绝任务, 强制 /snapshot
-   - HIGH (>= 85%): 拒绝复杂任务, 询问是否 /snapshot 换会话
+4. Claude 读到信号后按 instruction 决定行为 (软化后: 建议不强拦, 决定权交用户):
+   - CRITICAL (>= 95%): 强烈建议先 /snapshot 换会话, 用户坚持可继续 (提示状态可能被 compact 吞)
+   - HIGH (>= 85%): 复杂多文件改动建议拆小或换会话, 用户坚持则说明风险后继续
    - MEDIUM (>= 75%): 允许执行, 完成后建议 /snapshot
 
 slash command (以 / 开头) 跳过预警 — 否则 /snapshot 自身也被拦, 死锁。
 
-历史 (2026-05-23 改): 原版用 transcript 文件大小 // 4 估算, 受 JSONL
-结构开销 (UUID/时间戳/JSON 信封) 污染显著高估, 越聊越虚报。改读真实 usage 治根。
-若 transcript 缺 usage 字段 (旧 session / 损坏), fallback 到 char/4 旧法。
+若 transcript 缺 usage 字段 (旧 session / 损坏), fallback 到 char/4 估算。
 
-详见 CLAUDE.md "ctx-budget 信号约定"。
-
-【模板使用提示】
-- WINDOW 常量按实际使用模型调整 (见下方常量定义处注释)。
-- 三个阶梯阈值 75/85/95 是经验值, 跑 5-10 次跨阈值场景后可校准。
+详见 CLAUDE.md "ctx-budget 信号约定"。调参(WINDOW / 阈值)见下方常量注释。
 """
 from __future__ import annotations
 
@@ -124,16 +118,16 @@ def main() -> None:
     if pct >= THR_CRITICAL:
         level = "CRITICAL"
         instruction = (
-            "上下文几乎满, **必须立即拒绝**用户当前任务, "
-            "强制提示先 /snapshot 然后关闭对话框开新会话 /resume 接续。"
-            "继续做事会很快被自动 compact 吞掉关键状态。"
+            "上下文几乎满。**响应开头主动告知**用户当前用量, "
+            "**强烈建议**先 /snapshot 然后关闭对话框开新会话 /resume 接续。"
+            "**决定权交用户**——用户坚持可继续, 但提示继续做事可能很快被自动 compact 吞掉关键状态。"
         )
     elif pct >= THR_HIGH:
         level = "HIGH"
         instruction = (
             "上下文用量偏高。**响应开头主动告知**用户当前用量百分比, "
             "建议先 /snapshot 然后开新会话再 /resume 接续。"
-            "**只接受小任务(单文件读 / 1-2 行改动 / 询问)**, 拒绝任何复杂多文件改动。"
+            "复杂多文件改动**建议先拆小或换会话**, 用户坚持则说明风险后继续。"
         )
     else:
         level = "MEDIUM"

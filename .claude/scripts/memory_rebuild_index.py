@@ -31,24 +31,27 @@ def is_memory_file(name: str) -> bool:
     return name.endswith(".md") and name not in SKIP_NAMES and not name.startswith("_")
 
 
-def hook_should_run() -> bool:
-    """--from-hook 模式：读 stdin 的 PostToolUse 负载，仅当写入对象是 memory 文件时返回 True。
+def hook_should_run() -> str:
+    """--from-hook 模式：读 stdin 的 PostToolUse 负载，返回被写入的 memory 文件名（触发重建）；
+    非 memory 写入返回 ""（falsy）。返回文件名供 D5-M3「memory 当场报」提醒引用。
 
     非 --from-hook 模式不调用本函数（无条件重建，避免在无 stdin 时阻塞）。
     """
     try:
         raw = sys.stdin.read()
     except Exception:
-        return False
+        return ""
     if not raw.strip() or ".claude/memory/" not in raw.replace("\\", "/"):
-        return False
+        return ""
     try:
         hi = json.loads(raw)
     except Exception:
-        return False
+        return ""
     fp = hi.get("tool_input", {}).get("file_path", "") or ""
     norm = fp.replace("\\", "/")
-    return ".claude/memory/" in norm and is_memory_file(Path(fp).name)
+    if ".claude/memory/" in norm and is_memory_file(Path(fp).name):
+        return Path(fp).name
+    return ""
 
 
 def get_description(memory_dir: Path, filename: str) -> str:
@@ -67,8 +70,11 @@ def get_description(memory_dir: Path, filename: str) -> str:
 
 
 def main() -> None:
-    if "--from-hook" in sys.argv and not hook_should_run():
-        sys.exit(0)
+    written = ""
+    if "--from-hook" in sys.argv:
+        written = hook_should_run()
+        if not written:
+            sys.exit(0)
 
     # 推导路径：.claude/scripts/ -> .claude/ -> memory/
     memory_dir = Path(__file__).resolve().parent.parent / "memory"
@@ -160,6 +166,14 @@ def main() -> None:
         d = get_description(memory_dir, n)
         cold_lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")
     (memory_dir / "MEMORY_COLD.md").write_text("\n".join(cold_lines) + "\n", encoding="utf-8")
+
+    # D5-M3「memory 当场报」：--from-hook 写入 memory 后，当轮可见地报一行提醒。
+    # 只挂 PostToolUse --from-hook（写入后触发、LLM 恢复时注回本轮 context）——绝不接
+    # allow_memory_write.py（PreToolUse 放行闸，只吐 permissionDecision，回注不进 context）。
+    # 纯 ASCII（文件名一并 ASCII 化）防 GBK Windows 上 utf8-garble 糊成 U+FFFD。
+    if written:
+        safe = written.encode("ascii", "replace").decode("ascii")
+        sys.stdout.write(f"[memory-write] wrote {safe}; revert via git\n")
 
 
 if __name__ == "__main__":

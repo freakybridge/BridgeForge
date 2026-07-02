@@ -203,6 +203,21 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/requirements_check.py",
             "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。自门控：非 requirements*.txt 静默 no-op。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/fallback_smell_check.py",
+            "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。详见 rules/debugging.md §3。"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/test_receipt.py",
+            "comment": "测试类命令收据（D1-M2 尽量版）：命令匹配 pytest/cargo test/npm test/go test/tsc/make 时抓退出状态写 .runtime/test_receipts/receipts.jsonl 一行收据 + 存原始 payload 样本（保 5 份，供校准提取逻辑）。声称「测试通过」须指到命令签名匹配 + 本轮时间窗内 + exit==0 的收据（CLAUDE.md §2.5）。收据只证跑过，不证断言有效；命令卡死不返回则无收据（继承 C2 失明，已记账）。自门控：非测试命令静默 no-op。"
           }
         ]
       }
@@ -251,6 +266,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/focus_reminder.py",
             "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 CLAUDE.md §9.6)。配套 /spinoff(派生交接) + /focus(锚控制) skill。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/stall_warning.py",
+            "comment": "空转弱事后提醒（D4-M4）：多特征合取（最近>=2轮高 output 且零 tool_use + 续接式 nudge 驱动 + thinking 占比高代理）才注入 [stall]，exit 0 非阻塞。弱事后代理提醒非实时刹车，对合法长思考轮无区分力、宁漏不烦。详见 CLAUDE.md §10。"
           }
         ]
       }

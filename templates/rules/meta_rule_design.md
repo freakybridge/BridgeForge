@@ -124,6 +124,8 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 | MEMORY.md 索引 | 25 KB | 200 行 | 详细信息搬子文件，索引只一行 |
 | 单条 memory 索引行 | — | 150 字符 | 压缩描述 |
 
+> 单 rule 的体积 / 行数 / 戳数 / 长 code 块红线由 `rule_size_check.py` **双层护栏**执行：PostToolUse 编辑时软提醒 + **pre-commit 硬拦**（对 staged `.claude/rules/*.md` 读 staged blob，超标 exit 2；CHANGELOG.md 顶部当条加 `[skip-rule-size]` 可豁免本次）。
+
 ---
 
 ## 6. 维护节奏（增量演化）
@@ -138,20 +140,14 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 ### 6.3 rule 越来越胖 → 案例下沉
 
-发现某个 rule 行数 > 500 时，先 audit 内容：
-
-1. 哪些段是 normative？ → 留
-2. 哪些段是案例 / 历史？ → 搬 memory
-3. 哪些段是示例 / 教程？ → 搬 doc
-
-**禁止**等到一个 rule 超过 1000 行还不拆。
+某 rule > 500 行先 audit：① normative → 留；② 案例 / 历史 → 搬 memory；③ 示例 / 教程 → 搬 doc。**禁止**超 1000 行还不拆。
 
 ### 6.4 自动护栏
 
-机械可判定的退化用 hook 自动查（只提醒不阻塞，见到信号后按 §5/§6 处置）；**normative 比例**（案例 vs 红线）需语义判断，hook 做不了 → 留人工 self-check（§8 前两项）。本骨架附带两道护栏（项目有 `.venv` 时由 bridgeforge 复制 + settings.json 注册）：
+机械可判定的退化用 hook 自动查（**PostToolUse 软提醒 + pre-commit 硬拦**，`[skip-rule-size]` 可豁免；见到信号后按 §5/§6 处置）；**normative 比例**（案例 vs 红线）需语义判断，hook 做不了 → 留人工 self-check（§8 前两项）。本骨架附带两道护栏（项目有 `.venv` 时由 bridgeforge 复制 + settings.json 注册），二者均双层挂载（PostToolUse 编辑瞬间软提醒 + `.githooks/pre-commit` 提交期硬拦 exit 2）：
 
-- `.claude/hooks/rule_index_check.py`（PostToolUse）— CLAUDE.md 规则索引 ↔ `rules/*.md` 一致性（死链接 / 未索引）
-- `.claude/hooks/rule_size_check.py`（PostToolUse）— 量化红线：大小 / 行数 / 版本戳 / 日期戳 / 长 code 块 / **触发器宽度**（单段目录通配 `a/**` 或裸 `**` = 伪常驻）
+- `.claude/hooks/rule_index_check.py` — CLAUDE.md 规则索引 ↔ `rules/*.md` 一致性（死链接 / 未索引）。pre-commit 读**工作树**判定（跨目录集合一致性比对；局限：部分暂存可能误报，`[skip-rule-size]` 兜底）。
+- `.claude/hooks/rule_size_check.py` — 量化红线：大小 / 行数 / 版本戳 / 日期戳 / 长 code 块 / **触发器宽度**（单段目录通配 `a/**` 或裸 `**` = 伪常驻）。pre-commit 读 **staged blob**（`git show :path`，单文件自洽、近零误伤）。
 
 ---
 
@@ -159,16 +155,11 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 | 反模式 | 后果 | 修正 |
 |--------|------|------|
-| rule 里塞完整事故案例 | rule 爆胖，真红线被淹 | 案例搬 memory，rule 只 1 行 Why + 链接 |
-| rule 里塞 code 示例（> 20 行） | 同上 | 示例搬 `doc/3_design/`，rule 留 1-2 行片段 + 链接 |
-| 触发器写得太宽（`src/**` 等） | 等同始终加载，context 浪费 | path 收紧到具体子目录 |
-| 用 rule 当强制（"必须每次跑 X"） | 长会话失效 | 改用 hook |
-| 把 rule 当百科全书一上来写满 | 维护负担，大多数永远用不到 | 从空开始增量加 |
-| 同一约束多处重复正文 | 改一处忘另一处，信息漂移 | 单一事实源 + 其他位置 pointer |
-| CLAUDE.md 既当索引又当正文 | 两者都失效 | CLAUDE.md ≤ 200 行，只索引 |
 | 用 `@` 引用整目录 / 大文件 | context 爆炸 | 精确到文件 + 章节锚点 |
 | rule 标题写得长 / 不可索引 | 引用时拗口 | 标题 ≤ 20 字，可作 anchor |
 | 在 rule 末尾写"详见 X / Y / Z"长清单 | 维护成本高，经常过时 | 只链 1-2 个权威来源 |
+
+> 另 7 类（塞完整案例 / 塞 >20 行 code / 触发器过宽 / rule 当强制 / 一上来写满 / 多处重复正文 / 入口既索引又正文）已在 §1/§2/§4/§6 各处成条，此处不重列。
 
 ---
 
@@ -178,9 +169,9 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 - [ ] 这条约束真的需要 rule 吗？（不是 prompt 一次性？不是 hook 能强制？）
 - [ ] 内容里有没有完整事故案例？（有 → 抽 memory）
-- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/3_design）【hook 已自动查】
-- [ ] 内容里有没有版本号 > 5 处 / 日期 > 8 处？（有 → 信号：案例越界；阈值以 `rule_size_check.py` 为准）【hook 已自动查】
-- [ ] 触发器 path 是否单段目录通配（`a/**`）或裸 `**`？（是 → 伪常驻，收紧到 ≥2 段前缀）【hook 已自动查；横切框架规则在 `rule_size_check.py` 白名单豁免】
+- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/3_design）【pre-commit 硬拦】
+- [ ] 内容里有没有版本号 > 5 处 / 日期 > 8 处？（有 → 信号：案例越界；阈值以 `rule_size_check.py` 为准）【pre-commit 硬拦】
+- [ ] 触发器 path 是否单段目录通配（`a/**`）或裸 `**`？（是 → 伪常驻，收紧到 ≥2 段前缀）【pre-commit 硬拦；横切框架规则在 `rule_size_check.py` 白名单豁免】
 - [ ] 跟现有哪条 rule 有重叠？（有 → 合并 / pointer）
 - [ ] 单 rule 改完后总大小 / 行数？（超 50KB / 500 行 → 拆）
 - [ ] 标题能不能 ≤ 20 字 + 作 anchor？
@@ -191,16 +182,4 @@ CLAUDE.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 ## 9. 与其他 rule 的关系
 
-| Rule | 关系 |
-|------|------|
-| `workflow.md` | 工作流（怎么开发），meta_rule（怎么写规则）— 互补不重叠 |
-| `portability.md` | 跨机器可移植性，meta_rule 不管这层 |
-| `architecture.md` | 架构红线本身，meta_rule 管的是"红线该长什么样" |
-
 **冲突优先级**：具体 rule > meta_rule > CLAUDE.md（meta_rule 是元规则，不覆盖具体业务红线）。
-
----
-
-## 10. 反模式案例库（本项目实测）
-
-实测发现的 rule 退化样本登记于此（文件 / 状态 / 问题 / 处理），作为反例教材，发现一例补一行。

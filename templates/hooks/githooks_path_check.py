@@ -49,7 +49,7 @@ def main() -> int:
     try:
         r = _git(["config", "--local", "core.hooksPath", EXPECTED])
         if r.returncode == 0:
-            print(f"[githooks] 已设 core.hooksPath={EXPECTED}（提交前自动重建 memory 索引的闸已生效）")
+            print(f"[githooks] 已设 core.hooksPath={EXPECTED}（提交前闸已生效：dogfood 镜像 + 规则闸 + memory 索引重建）")
         else:
             print(f"[githooks] 设置 core.hooksPath 失败: {r.stderr.strip()}")
     except Exception as e:

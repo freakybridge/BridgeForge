@@ -7,7 +7,7 @@
 
 ## §1 工厂红线：每个改动落地前，过一遍「传播四问」（always-on）
 
-任何修改 / 新功能落地**之前**，必须显式回答这三句话（写不出答案就别动手）：
+任何修改 / 新功能落地**之前**，必须显式回答这四问（写不出答案就别动手）：
 
 1. **这属于哪一层？**
    - **产品层** `templates/` `skills/` → 会被复印给所有下游项目
@@ -21,11 +21,12 @@
    - 记 CHANGELOG 时**按 §3 打层标签**。
 4. **改的是 `templates/hooks/` 或 `templates/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
    - **凡确认要进产品层的 hook / settings 改动，必须当场镜像进自身 `.claude/`** —— 不能只发给下游、自己不装（§2 dogfood 约定的强制版）。
-   - 镜像时按 dev 仓库约定改 hook 命令：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。
+   - **现已机检硬拦**：`mirror_drift_check.py` 在 `.githooks/pre-commit` 对「缺文件」exit 2、正文差异（归一化 python 前缀后）软提示；漏镜像的 hook 提交时会被拦（细则 → `templates/rules/portability.md §5.1`）。
+   - 镜像时按 dev 仓库约定改 hook 命令：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。注意 hook `.py` 正文两侧应逐字一致——前缀差异只在 `settings.json` / `pre-commit` 的命令行，不在 `.py` 里。
    - 对 bridgeforge 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
-   - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 注明「不 dogfood + 原因」。
+   - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 顶部当条加 `[dogfood-exempt: <hook> <因>]` 注明「不 dogfood + 原因」（这也是 `mirror_drift_check.py` 硬拦的豁免开关）。
 
-> 这条之所以写在 CLAUDE.md 而不是 rules/：它在**任何任务里**都要遵守，不能等"编辑某个文件时"才加载（理由同 design-rationale §5）。
+> 写在 CLAUDE.md 而非 rules/：任何任务常驻、不按 path 触发（理由 → design-rationale §5）。
 
 ---
 
@@ -39,7 +40,7 @@
 | `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/VERSION` |
 
-**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边。这条已被提升为 §1 第 4 问的红线（未来由「③ 镜像漂移检查 hook」机制兜底，现阶段靠 §1 第 4 问 + 本条自觉）。
+**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边（已提升为 §1 第 4 问红线）。
 
 ---
 
@@ -63,4 +64,4 @@
 - **下游 → 上游**（把老房子攒的通用经验脱敏反哺回手册）：[docs/reverse-sync-playbook.md](docs/reverse-sync-playbook.md)
 - **整体设计 / 双重身份论述**：[docs/design-rationale.md](docs/design-rationale.md) §9
 
-两条 playbook 都**靠人脑判断、手动触发**——本文件 §1 的四问是它们的"前门闸"：保证每个改动进门时就被分层（且产品层 hook 当场吃狗粮），而不是等季度盘点才补救。
+两条 playbook 都**靠人脑判断、手动触发**——§1 四问是它们的"前门闸"（改动进门即分层 + 产品层 hook 当场 dogfood）。

@@ -1,28 +1,10 @@
 """较大需求澄清提醒 — UserPromptSubmit hook
 
-机制:
-1. 读 stdin JSON 的 prompt 字段。
-2. 「便宜负向 gate」(纯字符串判断, hook 不判断需求大小):
-   - slash 命令 (/ 开头)         → 跳过 (不干扰 /resume /snapshot 等)
-   - 极短输入 (< MIN_CHARS)       → 跳过 (嗯 / 哦 / ? 之类噪声)
-   - 纯续接/确认词 (next/继续...) → 跳过 (避免在续接轮反问背景)
-3. 其余「候选」轮: print [clarify] 中性提醒到 stdout,
-   Claude Code 包成 system-reminder 注入本轮上下文。
-4. 这轮到底大不大、该问什么, 由模型(读到提醒后)语义判断 — hook 不替模型决定。
+便宜负向 gate(纯字符串, hook 不判需求大小): slash 命令 / 极短输入(<MIN_CHARS) /
+纯续接确认词(next/继续) → 跳过; 其余「候选」轮 print [clarify] 中性提醒到 stdout,
+由模型读到后语义精判这轮大不大、该问什么(hook 只贴便利贴, 不替模型决定)。
 
-为什么 hook 只「提醒」不「强制」: hook 是 shell 脚本, 没有 LLM, 既判断不了
-"这轮够不够大", 也生成不了那几个背景问题。它的全部价值 = 每轮把"较大需求先
-问背景"这条规矩重新贴到模型眼前, 对抗长会话里 CLAUDE.md 规矩的注意力衰减
-(meta_rule §1: CLAUDE.md 越长越被忽略)。真正的判断与提问留给模型(混合判定:
-hook 粗筛 + 贴便利贴, 模型精判 + 真提问)。
-
-详见 CLAUDE.md "clarify 信号约定"。
-
-【模板使用提示】
-- MIN_CHARS / CONTINUATION_TOKENS 按团队语言习惯增删。
-- 想更激进(每轮都提醒)→ 清空 CONTINUATION_TOKENS 并把 MIN_CHARS 设 0。
-- 想更保守(只在明确需求词时提醒)→ 反过来加一个关键词白名单 gate(不推荐:
-  口语化大需求"加个 / 搞个 X"没硬关键词, 易漏)。
+分工论述 / 调参(MIN_CHARS / CONTINUATION_TOKENS)/ 豁免 → rules/anti_drift_hooks.md §1。
 """
 from __future__ import annotations
 

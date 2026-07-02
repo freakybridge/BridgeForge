@@ -111,13 +111,12 @@ crates/<feature>/
 | `.runtime/output/` | 程序写出的报告 / 截图 / 中间产物 | ❌ gitignored |
 | `.runtime/logs/` | 启动脚本 / 应用运行日志 | ❌ gitignored |
 
-**Why**：避免根目录里塞一堆 `output/` `logs/` `cache/` 视觉噪声；统一 `.runtime/` 让"哪些是代码、哪些是运行时副产物"一眼分清。`.` 前缀 dot-dir 进一步压低视觉权重（跟 `.venv` `.claude` 一致）。
+**Why**：避免根目录塞一堆 `output/` `logs/` `cache/` 视觉噪声，统一 `.runtime/` 让"代码 vs 运行时副产物"一眼分清。
 
 **How to apply**：
 
 - 新增"输出目录"类常量时（如 `OUTPUT_DIR` `CACHE_DIR`），必须挂 `.runtime/` 下，禁止直接挂项目根
-- `.gitignore` 用 `.runtime/<subdir>/` 精确忽略子目录，**不要**整个 `.runtime/` 一刀切（会误伤需 track 的嵌入式工具 / 预下载缓存）
-- 入口脚本（start.bat / start.sh / start.vbs）写日志也必须走 `.runtime/logs/`
+- `.gitignore` 用 `.runtime/<subdir>/` 精确忽略子目录，**不要**整个 `.runtime/` 一刀切（会误伤需 track 的嵌入式工具 / 预下载缓存）；入口脚本日志也走 `.runtime/logs/`
 
 ---
 
@@ -153,7 +152,7 @@ crates/<feature>/
 <!-- TODO: 描述模块间如何通信（事件总线 / 接口契约 / DI）
 示例：
 
-- 模块间**只通过事件总线 / 接口契约**通信，不直接 import 对方内部
+- 模块间**只通过事件总线 / 接口契约**通信
 - 共享类型放 `src/types/`，所有模块从这里 import
 - 跨模块依赖通过依赖注入而非全局单例
 
