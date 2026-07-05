@@ -17,6 +17,11 @@
 
 ---
 
+## [0.40.1] - 2026-07-06
+
+### Fixed
+- `[product]` **`show_state.py` 支持 `VERSION` 兜底版本源**：无 `pyproject.toml` / `setup.py` / `package.json` / `Cargo.toml` 的下游项目，现在会直接读取根目录 `VERSION` 文件显示版本号；已同步 dogfood 镜像 `.claude/hooks/show_state.py`。
+
 ## [0.40.0] - 2026-07-02
 
 > **全仓库 harness 体检后的 P0 整批修复 + 2026-07-01 搁置欠账全部收口**。4 维并行审计（hook 可靠性 / token 重量 / agent 行为质量 / v0.39 落地+欠账核查），高影响 finding 逐条人工核验后动手。审计结论：v0.39.0 十二工单交付合格；本批集中修「静默失效」「每轮重复注入」「软闸」三类结构性问题。

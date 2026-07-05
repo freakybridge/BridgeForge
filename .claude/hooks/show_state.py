@@ -37,12 +37,17 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """探测项目版本号。按优先级：pyproject.toml / setup.py / package.json / Cargo.toml。"""
+    """探测项目版本号。按优先级：pyproject.toml / setup.py / package.json / Cargo.toml / VERSION。
+
+    VERSION 是无原生版本源项目的单一事实源（纯文本，整文件内容即版本号，无 key=value
+    包裹），故用 None pattern 特判：不走正则，直接取 strip 后的文件内容。
+    """
     candidates = [
         ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
         ("setup.py", r'version\s*=\s*[\'"]([^\'"]+)[\'"]'),
         ("package.json", r'"version"\s*:\s*"([^"]+)"'),
         ("Cargo.toml", r'^version\s*=\s*"([^"]+)"'),
+        ("VERSION", None),
     ]
     for fname, pattern in candidates:
         p = REPO_ROOT / fname
@@ -50,6 +55,11 @@ def _version() -> str:
             continue
         try:
             text = p.read_text(encoding="utf-8")
+            if pattern is None:
+                stripped = text.strip()
+                if stripped:
+                    return stripped
+                continue
             m = re.search(pattern, text, re.MULTILINE)
             if m:
                 return m.group(1)
