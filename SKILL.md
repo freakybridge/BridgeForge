@@ -1,6 +1,6 @@
----
+﻿---
 description: 在新项目里铺设标准化的 CLAUDE.md / rules / memory junction / doc 分层骨架。复制深度模板（含鬼打墙红线、UI 主动问范式、可移植性约束、文档管理规则）后让用户填项目特定占位。同时自检并补齐用户级通用 skill（plan / escalate / snapshot / summary 等）。
-version: 0.20.0
+version: 0.41.0
 model: sonnet
 ---
 
@@ -13,6 +13,32 @@ model: sonnet
 ---
 
 ## 执行流程
+
+### Step -1：switch 子命令优先分流
+
+如果用户调用的是：
+
+```bash
+/bridgeforge switch claude
+/bridgeforge switch codex
+/bridgeforge switch codex --dry-run
+```
+
+不要进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
+
+```bash
+python scripts/bridgeforge_switch.py <claude|codex> [--dry-run]
+```
+
+执行契约：
+- 只支持 `claude` / `codex`，不接受 `gpt` / `openai` / `claude-code` 等别名。
+- `--dry-run` 只报告计划和 Git 强保护结果，不改文件。
+- 真实切换只改工作区文件，不 `git add` / `git commit` / `git push`。
+- 强保护只检查将被删除或覆盖的 agent 骨架文件；无关业务代码改动不阻塞。
+- 若项目内没有 `scripts/bridgeforge_switch.py`，用本 skill clone 里的 `templates/claude/scripts/bridgeforge_switch.py` 兜底执行，并显式传 `--template-root "$HOME/.claude/skills/bridgeforge"`。
+- 若 cwd 是 bridgeforge 源头仓库自己，切换脚本会拒绝执行；源头改框架应直接编辑 `templates/`。
+
+> 白话：`/bridgeforge switch ...` 是换 agent 骨架，不是重新初始化项目。它只搬 agent 工具箱，不替你提交，也不重置项目业务文档。
 
 ### 前置：拉上游最新 + 认场子（工厂自检 / 更新 / 收编 / init 四分类）
 
@@ -29,7 +55,7 @@ git -C "$HOME/.claude/skills/bridgeforge" pull --ff-only
 
 ```bash
 # 同时满足才算源头：有产品层 templates/ + 根 SKILL.md 是 bridgeforge 自己
-test -f templates/CLAUDE.md && grep -q "项目协作骨架初始化" SKILL.md && echo FACTORY_SELF
+test -f templates/claude/CLAUDE.md && grep -q "项目协作骨架初始化" SKILL.md && echo FACTORY_SELF
 ```
 
 - 命中 `FACTORY_SELF` → **立即硬拒并退出**，告诉用户："这是 bridgeforge 源头仓库（模板工厂），不能在它自己身上 bootstrap / 更新——要改框架请直接编辑 `templates/` / `SKILL.md`，不要跑 `/bridgeforge`。"
@@ -143,7 +169,7 @@ fi
 **用户级 allow 审计（C3，换机/初次必做）**：扫 `~/.claude/settings.json` 的 `permissions.allow`，揪出疑似项目专属/一次性条目（绝对路径/PID/IP/一次性编译命令），**只报不删**，列给用户拍板后手动下沉到项目 `settings.local.json`：
 
 ```bash
-python "$HOME/.claude/skills/bridgeforge/templates/scripts/audit_user_allow.py"
+python "$HOME/.claude/skills/bridgeforge/templates/claude/scripts/audit_user_allow.py"
 ```
 
 - **无命中** → 继续；**有命中** → 列给用户看，建议下沉到对应项目的 `settings.local.json`（详见 `rules/portability.md §3.1`）。
@@ -238,7 +264,7 @@ done
 
 **判定"含项目专属数据"**：副本里出现项目实际路径 / rule 文件名 / 内联填充的非-placeholder 字典。拿不准 → 当"定制"处理问用户，**宁可多问不可误删**。
 
-> **可移植性**：通用 skill 移出项目 git 后，`git clone` 单独不再恢复它们 → 靠在该机跑 `/bridgeforge`（Step 0 装用户级）恢复。这是 DRY（N 项目不各存一份）对 clone-完整性的**有意取舍**；`templates/rules/portability.md §2` 已记录该拆分。项目专属**数据**（`.claude/find-doc.map.md` 等）仍在项目 git，可移植性不受影响。
+> **可移植性**：通用 skill 移出项目 git 后，`git clone` 单独不再恢复它们 → 靠在该机跑 `/bridgeforge`（Step 0 装用户级）恢复。这是 DRY（N 项目不各存一份）对 clone-完整性的**有意取舍**；`templates/claude/rules/portability.md §2` 已记录该拆分。项目专属**数据**（`.claude/find-doc.map.md` 等）仍在项目 git，可移植性不受影响。
 
 **用户级扁平残留清理（C6 — 补充）**：用户级 `~/.claude/skills/` 可能遗留历史**扁平文件**（如 `collab.md` / `debate.md`）与目录式（`collab/SKILL.md`）**同名 shadow**——Claude Code 只扫 `<name>/SKILL.md`，扁平文件不被识别，反而遮蔽目录式 skill（路径解析可能优先命中扁平文件名）。本步同时清这类扁平残留：
 
@@ -283,7 +309,7 @@ merge 完后给用户 review 一次再保存。
 
 ### Step 2：收集项目元信息
 
-> **红线**：本 skill **强制铺设 doc/ 六层结构**，不接受跳过。doc/ 是项目级红线（见 `templates/CLAUDE.md` §11 + `rules/workflow.md` §5.5）。如果用户明确不需要文档分层 → **建议改用其他脚手架**，不要用 bridgeforge。
+> **红线**：本 skill **强制铺设 doc/ 六层结构**，不接受跳过。doc/ 是项目级红线（见 `templates/claude/CLAUDE.md` §11 + `rules/workflow.md` §5.5）。如果用户明确不需要文档分层 → **建议改用其他脚手架**，不要用 bridgeforge。
 
 一次性问全 4 个问题（不挤牙膏）：
 
@@ -303,7 +329,8 @@ merge 完后给用户 review 一次再保存。
 **Windows**：
 ```bash
 SKILL_DIR="$HOME/.claude/skills/bridgeforge"
-cp -r "$SKILL_DIR/templates/." .
+# 不要整包复制 templates/，它现在同时包含 claude/codex 两套骨架。
+# 按下方"实际复制清单"把 templates/claude/ 映射到项目根与 .claude/。
 ```
 
 **macOS/Linux** 同上。
@@ -329,15 +356,15 @@ cp -r "$SKILL_DIR/templates/." .
 
 | 模板 | 目标 | 条件 |
 |------|------|------|
-| `templates/CLAUDE.md` | `<project>/CLAUDE.md` | 总是 |
-| `templates/rules/*.md` | `<project>/.claude/rules/` | 总是 |
-| `templates/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` | 总是 |
-| `templates/hooks/*.py` | `<project>/.claude/hooks/` | **总是**（Python 是硬依赖，见下方"Python hook 体系") |
-| `templates/scripts/*.py` | `<project>/.claude/scripts/` | **总是** |
-| `templates/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是（含 `permissions` + 整个 `hooks` 块） |
-| `templates/doc/README.md` | `<project>/doc/README.md` | 总是 |
-| `templates/VERSION` | `<project>/VERSION` | **条件复制**（见下方"版本号 SoT 条件复制"） |
-| `templates/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
+| `templates/claude/CLAUDE.md` | `<project>/CLAUDE.md` | 总是 |
+| `templates/claude/rules/*.md` | `<project>/.claude/rules/` | 总是 |
+| `templates/claude/memory/MEMORY.md` | `<project>/.claude/memory/MEMORY.md` | 总是 |
+| `templates/claude/hooks/*.py` | `<project>/.claude/hooks/` | **总是**（Python 是硬依赖，见下方"Python hook 体系") |
+| `templates/claude/scripts/*.py` | `<project>/.claude/scripts/` | **总是** |
+| `templates/claude/settings.json` | `<project>/.claude/settings.json`（**已存在则 merge 不覆盖**，详见 Step 1）| 总是（含 `permissions` + 整个 `hooks` 块） |
+| `templates/claude/doc/README.md` | `<project>/doc/README.md` | 总是 |
+| `templates/claude/VERSION` | `<project>/VERSION` | **条件复制**（见下方"版本号 SoT 条件复制"） |
+| `templates/claude/CHANGELOG.md` | `<project>/CHANGELOG.md` | 总是（即使有原生版本源，CHANGELOG 仍统一在此） |
 | 写版本戳 | `<project>/.claude/.bridgeforge_version`（内容 = 本 skill clone 的 `VERSION`，如 `0.14.0`）| 总是（init 末尾写。既是"上次同步到哪版"记录，又是前置步骤判定 init/更新的信号） |
 | 创建空目录 | `<project>/doc/{0_architecture,1_plan,1_plan/sprints,2_pending,3_design,4_archive,9_reference}/` | 总是 |
 | `.gitignore` bridgeforge 机制块 | `<project>/.gitignore`（**已存在则 merge-append 不覆盖**，详见下方）| 总是 |
@@ -360,7 +387,7 @@ __pycache__/
 
 ```
 所有项目（不分主语言，含 rust / node / go）：
-  ✓ 复制 templates/hooks/ + templates/scripts/ 全部
+  ✓ 复制 templates/claude/hooks/ + templates/claude/scripts/ 全部
   ✓ 保留 settings.json 整个 hooks 块（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit）
   → 进入下方 "Python 解释器路径适配" 段
 
@@ -385,12 +412,12 @@ __pycache__/
   - pyproject.toml / setup.py （Python，且文件里有 version 字段）
 
 if 任一原生版本源存在:
-  ✗ 跳过 templates/VERSION 复制（避免双 SoT 冲突，详见 templates/rules/workflow.md §9.1）
-  ✓ 仍复制 templates/CHANGELOG.md（不冲突，所有项目都需要）
+  ✗ 跳过 templates/claude/VERSION 复制（避免双 SoT 冲突，详见 templates/claude/rules/workflow.md §9.1）
+  ✓ 仍复制 templates/claude/CHANGELOG.md（不冲突，所有项目都需要）
   → 向用户说明："检测到 <package.json/Cargo.toml/...>，已跳过 VERSION 文件复制。后续 bump 版本号请改原生源；CHANGELOG.md 仍统一在根目录维护。"
 else (无原生版本源):
-  ✓ 复制 templates/VERSION（初始内容 `0.1.0`）
-  ✓ 复制 templates/CHANGELOG.md
+  ✓ 复制 templates/claude/VERSION（初始内容 `0.1.0`）
+  ✓ 复制 templates/claude/CHANGELOG.md
   → 提示用户：CHANGELOG.md 的 `## [0.1.0] - {{TODAY}}` section 已带初始 entry，后续 bump 时按 workflow.md §9 规则追加新 section
 ```
 

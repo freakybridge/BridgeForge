@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""pre-commit hook: dogfood 镜像漂移比对 templates/hooks/*.py ↔ .claude/hooks/*.py。
+"""pre-commit hook: dogfood 镜像漂移比对 templates/claude/hooks/*.py ↔ .claude/hooks/*.py。
 
 判据分级(CLAUDE.md §1 第4问 dogfood 红线 + 设计 D8-M1):
-  · 无 templates/hooks/ 目录(下游 clone 项目) → 自门控 no-op exit 0。
-  · **缺文件**(templates/hooks/ 有某 .py 但 .claude/hooks/ 无对应) → **exit 2 硬拦**
+  · 无 templates/claude/hooks/ 目录(下游 clone 项目) → 自门控 no-op exit 0。
+  · **缺文件**(templates/claude/hooks/ 有某 .py 但 .claude/hooks/ 无对应) → **exit 2 硬拦**
     (二值确定、近零误伤; dogfood 核心承诺 = 发给下游的 hook 自己也必须装)。
   · **正文差异**(归一化 .venv↔系统 python 前缀后逐字不一致) → 只 stderr 软提示、**放行 exit 0**
     (dogfood 合法差异不止 python 前缀[路径分隔/dev 注释措辞等], 逐字一致当硬闸只要一处
@@ -29,7 +29,7 @@ except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-TEMPLATES_HOOKS = REPO_ROOT / "templates" / "hooks"
+TEMPLATES_HOOKS = REPO_ROOT / "templates" / "claude" / "hooks"
 SELF_HOOKS = REPO_ROOT / ".claude" / "hooks"
 
 # 归一化: 抹平 dev(.venv) 与下游(系统 python) 的解释器路径差异, 只留正文比对。
@@ -66,7 +66,7 @@ def _exempt_hooks() -> set[str]:
 
 def main() -> int:
     try:
-        # 自门控: 无 templates/hooks/(下游项目) → no-op
+        # 自门控: 无 templates/claude/hooks/(下游项目) → no-op
         if not TEMPLATES_HOOKS.is_dir():
             return 0
 
@@ -100,7 +100,7 @@ def main() -> int:
         if missing:
             print("[mirror-drift] pre-commit 硬拦: 产品层 hook 缺自身镜像(dogfood 欠账), 提交被阻断:", file=sys.stderr)
             for n in missing:
-                print(f"[mirror-drift]   templates/hooks/{n} 缺对应 .claude/hooks/{n}", file=sys.stderr)
+                print(f"[mirror-drift]   templates/claude/hooks/{n} 缺对应 .claude/hooks/{n}", file=sys.stderr)
             print("[mirror-drift] 修法: 把缺的 hook 镜像进 .claude/hooks/(自身用系统 python 前缀),", file=sys.stderr)
             print("[mirror-drift]   或 CHANGELOG.md 顶部当条加 [dogfood-exempt: <hook> <因>] 豁免(仅纯下游场景 hook).", file=sys.stderr)
             return 2

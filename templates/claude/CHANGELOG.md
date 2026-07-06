@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.12.0] - 2026-07-06
+
+### Changed
+- BridgeForge 上游模板迁入 `templates/claude/`，为后续 Claude/Codex 双骨架切换做目录分离。
+- 新增 `scripts/bridgeforge_switch.py`，作为 `/bridgeforge switch <agent>` 的核心执行脚本；支持 dry-run、Git 强保护和切换后验证。
+
 ## [0.1.0] - {{TODAY}}
 
 ### Added

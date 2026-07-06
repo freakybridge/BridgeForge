@@ -1,0 +1,325 @@
+﻿{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git tag:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git remote:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git blame:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git describe:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git shortlog:*)",
+      "Bash(git reflog:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(which:*)",
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(stat:*)",
+      "Bash(file:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(diff:*)",
+      "Bash(env)",
+      "Bash(date)",
+      "Bash(whoami)",
+      "Bash(basename:*)",
+      "Bash(dirname:*)",
+      "Bash(realpath:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(cargo:*)",
+      "Bash(rustc:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(go:*)",
+      "Bash(make:*)",
+      "Bash(maturin:*)",
+      "Bash(tsc:*)",
+      "Bash(dotnet:*)",
+      "PowerShell(Get-ChildItem:*)",
+      "PowerShell(Get-Content:*)",
+      "PowerShell(Get-Location)",
+      "PowerShell(Select-String:*)",
+      "PowerShell(Test-Path:*)",
+      "PowerShell(Get-Item:*)",
+      "PowerShell(Get-Command:*)",
+      "PowerShell(Measure-Object:*)",
+      "PowerShell(Resolve-Path:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Bash(git merge:*)",
+      "Bash(git cherry-pick:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.key)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.p12)",
+      "Read(./**/id_rsa*)",
+      "Read(./**/id_ed25519*)",
+      "Read(./.npmrc)",
+      "Read(./.pypirc)",
+      "Read(./.git-credentials)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./secrets/**)",
+      "Bash(cat .env*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --delete:*)",
+      "Bash(git push -d:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git tag -d:*)",
+      "Bash(git tag --delete:*)",
+      "Bash(git reflog expire:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git filter-repo:*)",
+      "Bash(git stash clear:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git update-ref -d:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -r:*)",
+      "Bash(rm -R:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Bash(shred:*)",
+      "Bash(chmod -R:*)",
+      "Bash(chown -R:*)",
+      "PowerShell(Remove-Item:*)",
+      "PowerShell(Clear-Content:*)",
+      "PowerShell(Clear-Disk:*)",
+      "PowerShell(Format-Volume:*)",
+      "PowerShell(git push --force:*)",
+      "PowerShell(git reset --hard:*)",
+      "PowerShell(git clean:*)",
+      "Bash(npm publish:*)",
+      "Bash(cargo publish:*)",
+      "Bash(twine upload:*)",
+      "Bash(gh release create:*)",
+      "Bash(docker push:*)",
+      "Bash(sudo:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)",
+      "PowerShell(Stop-Computer:*)",
+      "PowerShell(Restart-Computer:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Grep|Glob|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/find_doc_reminder.py",
+            "comment": "搜 doc/ 时提醒优先用 /find-doc skill（省 50-70% token）+ 记录调用统计到 .runtime/find-doc-stats.log"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/version_check.py",
+            "comment": "git commit 前强制版本号 bump 检查（workflow.md §9 红线）：staged 未含版本号文件则 exit 2 阻断。非 commit 命令立即放行。"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/allow_memory_write.py",
+            "comment": "放行 memory .md 写入免弹窗：.codex/ 是受保护目录，写入无视 acceptEdits/allow 规则强制弹窗，memory 在其下被连带保护。本 hook 弹窗前返回 permissionDecision:allow，只放行 memory 的 .md，settings/hooks 本体不碰。改完须开新会话生效。"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/scripts/memory_rebuild_index.py --from-hook",
+            "comment": "memory 增删时确定性重建 MEMORY.md/MEMORY_COLD.md（--from-hook 读 stdin，仅写入 .codex/memory/*.md 时才执行）。索引是 memory 文件集的确定性函数（无日期/无热度），不碰 memory 时逐字不变→git 永不自发变脏。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/memory_lint.py",
+            "comment": "memory 文件改动后校验 MEMORY.md 行数（≤200）+ 孤儿/死链接"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/rule_index_check.py",
+            "comment": "rule 文件改动后校验 AGENTS.md §2 索引 ↔ rules/*.md 一致性"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/rule_size_check.py",
+            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/requirements_check.py",
+            "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。自门控：非 requirements*.txt 静默 no-op。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/fallback_smell_check.py",
+            "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。详见 rules/debugging.md §3。"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/test_receipt.py",
+            "comment": "测试类命令收据（D1-M2 尽量版）：命令匹配 pytest/cargo test/npm test/go test/tsc/make 时抓退出状态写 .runtime/test_receipts/receipts.jsonl 一行收据 + 存原始 payload 样本（保 5 份，供校准提取逻辑）。声称「测试通过」须指到命令签名匹配 + 本轮时间窗内 + exit==0 的收据（AGENTS.md §2.5）。收据只证跑过，不证断言有效；命令卡死不返回则无收据（继承 C2 失明，已记账）。自门控：非测试命令静默 no-op。"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/session_snapshot.py post-compact",
+            "comment": "compact 自动存档 — 防止压缩后细节丢失。详见 /snapshot skill 描述。"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/session_snapshot.py stop",
+            "comment": "每轮停止时自动存档（5min 节流，类似 Word 自动保存）。详见 /snapshot skill 描述。"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/show_state.py prompt-state",
+            "comment": "每次 prompt 前注入仓库状态（branch / dirty / ahead-behind / version）到 Codex 上下文"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/context_warning.py",
+            "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值时输出 [ctx-budget] 信号给 Codex (详见 AGENTS.md §10)。slash command 自动豁免不死锁。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/clarify_reminder.py",
+            "comment": "较大需求澄清提醒 — 候选轮(非 slash / 非续接词 / 非极短)注入 [clarify] 信号, 提示模型对大需求先向用户结构化确认 2-4 个背景问题再动手 (详见 AGENTS.md §9.5)。混合判定: hook 粗筛 + 贴便利贴, 模型精判大小 + 真提问。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/focus_reminder.py",
+            "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 AGENTS.md §9.6)。配套 /spinoff(派生交接) + /focus(锚控制) skill。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/stall_warning.py",
+            "comment": "空转弱事后提醒（D4-M4）：多特征合取（最近>=2轮高 output 且零 tool_use + 续接式 nudge 驱动 + thinking 占比高代理）才注入 [stall]，exit 0 非阻塞。弱事后代理提醒非实时刹车，对合法长思考轮无区分力、宁漏不烦。详见 AGENTS.md §10。"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/config_health_check.py",
+            "comment": "骨架必要配置开机体检（只读，不自动修）：照 ACTIVE_CHECKS 清单核对 PYTHONUTF8（UTF-8 Mode 真生效没，GBK Windows 乱码承重柱，原 utf8-guard 已归位到这）+ user/project settings.json 是否合法 JSON，不达标只打纯 ASCII 报告 + 修复提示，全绿静默。修不修由用户决定（为什么不自动修：复印进所有下游、每机每次开机跑，自动改配置=替别人埋雷）。其余必要配置由专职 hook 兜（DELEGATED 登记备查）。文件内 ACTIVE_CHECKS+DELEGATED 即单一事实源。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/memory_junction_check.py",
+            "comment": "memory junction 自愈：把 memory 纳入项目 git（.codex/memory/），系统路径 ~/.codex/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/show_state.py session-start",
+            "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/target_cleanup.py",
+            "comment": "仅 Rust 项目生效：incremental/ 缓存超 30GB 时后台清理（atime 在 Windows 上不可靠，cargo-sweep 清不动热缓存）。自门控：无 Cargo.toml 静默 no-op，故对非 Rust 项目零影响，可无条件保留。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/skill_sync_check.py",
+            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.codex/skills/ 副本与上游源，缺失/不一致则提示跑 /bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/enforce_no_effortlevel.py",
+            "comment": "强制剔除项目级 effortLevel：项目级合并优先级高于全局（Project > User），一旦流入就架空「全局统一管 effort + SessionEnd 自动还原」机制，散文 rule 拦不住 sync/clone/手加，故 hook 化机检（自愈式，仿 memory_junction_check）。原子删除 + .bak，无则静默 no-op。详见 memory effort-config-layering。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/githooks_path_check.py",
+            "comment": "git core.hooksPath 自愈：让 .githooks/pre-commit 提交闸（提交前重建 memory 索引、杜绝『sync 完又脏』欠账溜过任意提交路径）clone 即生效。core.hooksPath 是 local config、clone 不带，故每机自愈设置（自门控：无 .githooks/pre-commit 或已设好则静默 no-op）。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/scripts/memory_rebuild_index.py",
+            "comment": "开机兜底重建本地 MEMORY.md/MEMORY_COLD.md（无 --from-hook=无条件）。确定性生成，clone 新机或 pull 后首个 session 即对齐索引；不碰 memory 时逐字不变→不产生 diff。"
+          }
+        ]
+      }
+    ]
+  }
+}

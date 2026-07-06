@@ -1,6 +1,6 @@
-# bridgeforge
+﻿# bridgeforge
 
-> Claude Code 项目协作骨架初始化器。一行 skill 命令铺好 CLAUDE.md / rules / memory junction / doc 分层归档。
+> AI 项目协作骨架初始化器。支持 Claude / Codex 双骨架，一行 skill 命令铺好入口说明、rules、memory、hooks 与 doc 分层归档。
 
 ## 适合 / 不适合什么项目
 
@@ -17,7 +17,7 @@
 
 **不太适合的项目也能用** — 跑 `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
-> ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/CLAUDE.md §11` + `templates/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
+> ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/claude/CLAUDE.md §11` + `templates/claude/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
 ---
 
@@ -28,17 +28,17 @@
 bridgeforge 分两类内容：
 
 **核心模板（无 Python 依赖，所有项目无条件复制）**：
-- `templates/rules/` — rule 文件（按文件路径触发加载）
-- `templates/CLAUDE.md` — 项目级 CLAUDE.md
-- `templates/doc/` — `doc/` 六层骨架（红线，强制）
+- `templates/claude/rules/` — rule 文件（按文件路径触发加载）
+- `templates/claude/CLAUDE.md` — 项目级 CLAUDE.md
+- `templates/claude/doc/` — `doc/` 六层骨架（红线，强制）
 - `skills/<name>/SKILL.md` — skill 描述（agent 加载的指令）
-- `templates/memory/` — memory junction 框架
-- `templates/settings.json` 的 `permissions` 块 — 少弹框配置（allowlist + acceptEdits + deny，与语言无关）
+- `templates/claude/memory/` / `templates/codex/memory/` — memory 框架
+- `templates/claude/settings.json` 的 `permissions` 块 — 少弹框配置（allowlist + acceptEdits + deny，与语言无关）
 
 **hook 自动化（用 Python 实现，所有项目安装）**：
-- `templates/hooks/*.py` — hook 自动化：**version_check（git commit 强制 bump 版本号）**、PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式校验、rules 索引同步检查、ctx 预警、find-doc 提醒
-- `templates/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` skill 用）
-- `templates/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
+- `templates/claude/hooks/*.py` — hook 自动化：**version_check（git commit 强制 bump 版本号）**、PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式校验、rules 索引同步检查、ctx 预警、find-doc 提醒
+- `templates/claude/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` skill 用）
+- `templates/claude/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
 
 **Python 解释器选择**（agent 跑 `/bridgeforge` 时按优先级确定）：
 1. 项目根有 `.venv/Scripts/python.exe`（Windows）/ `.venv/bin/python`（Unix）→ 用它（首选，最可移植）
@@ -77,11 +77,11 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 
 ## 这是什么
 
-把一个长期沉淀过的"Claude Code 协作管理体系"打包成可复用 skill，进新项目跑一次 `/bridgeforge` 就能拿到：
+把一个长期沉淀过的 AI 协作管理体系打包成可复用 skill，进新项目跑一次 `/bridgeforge` 就能拿到：
 
-- **双层 CLAUDE.md**：全局 `~/.claude/CLAUDE.md` 管沟通/安全/执行协议；项目 `<repo>/CLAUDE.md` 管架构红线 + rules 索引 + skills 表
-- **rules 分层加载**：`.claude/rules/<topic>.md` 按文件路径触发，CLAUDE.md 维护索引表
-- **Memory junction**：系统 memory 路径链回 `.claude/memory/`，纳入项目 git
+- **项目入口说明**：Claude 骨架用 `CLAUDE.md` + `.claude/`，Codex 骨架用 `AGENTS.md` + `.codex/`
+- **rules 分层加载**：agent 配置目录下的 `rules/<topic>.md` 按文件路径触发，入口说明文件维护索引表
+- **Memory 框架**：memory 索引与脚本随骨架下发，纳入项目 git
 - **doc/ 分层归档**：`0_architecture（含 acceptance + TODO-INDEX）/ 1_plan（含 sprints）/ 2_pending / 3_design / 4_archive / 9_reference` — 二分语义"正在做（acceptance + sprints）vs 暂时没空（TODO-INDEX 主表）vs 远期 backlog（TODO-INDEX §远期索引）"
 - **工作流红线**：鬼打墙觉察 + 渐进升级（lvl 0→3）、修 bug 前确认根因、UI 偶现 bug 主动问 4 件事
 - **可移植性约束**：pip 陷阱、hooks 路径、换机 checklist
@@ -128,6 +128,18 @@ git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE
 
 判断半场（rules/CLAUDE.md 吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
 
+### 切换目标 agent
+
+BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。第一版切换入口固定为：
+
+```bash
+/bridgeforge switch claude
+/bridgeforge switch codex
+/bridgeforge switch codex --dry-run
+```
+
+核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，按 Git 工作区状态保护将被删除或覆盖的 agent 骨架文件，dry-run 会报告新增/覆盖/删除/阻塞项，真实切换只改工作区文件，不自动提交。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
+
 ## 目录结构
 
 ```
@@ -136,17 +148,22 @@ bridgeforge/
 ├── README.md                   ← 本文件
 ├── INSTALL.md                  ← 安装与卸载指引
 ├── templates/
-│   ├── CLAUDE.md               ← 项目级 CLAUDE.md 深度模板
-│   ├── rules/
-│   │   ├── architecture.md     ← 骨架（职责边界占位）
-│   │   ├── modules.md          ← 骨架（模块组织 + .runtime/ + 根目录极简）
-│   │   ├── debugging.md        ← 通用（鬼打墙红线 / 修 bug 前确认根因）
-│   │   ├── workflow.md         ← 通用（同步文档 / 主动写规则 / Milestone-bound SemVer）
-│   │   ├── portability.md      ← 通用（换机可移植性 / venv 重建 / CRLF / 入口脚本 ASCII）
-│   │   └── meta_rule_design.md ← 元规则（强制力梯度 / 加载策略 / 反模式速查）
-│   ├── memory/MEMORY.md        ← 空索引模板
-│   └── doc/README.md           ← 文档分层索引模板
+│   ├── claude/                 ← Claude 骨架（CLAUDE.md + .claude 目标形态）
+│   │   ├── CLAUDE.md
+│   │   ├── rules/
+│   │   ├── hooks/
+│   │   ├── scripts/
+│   │   ├── memory/
+│   │   └── settings.json
+│   └── codex/                  ← Codex 骨架（AGENTS.md + .codex 目标形态）
+│       ├── AGENTS.md
+│       ├── rules/
+│       ├── hooks/
+│       ├── scripts/
+│       ├── memory/
+│       └── settings.json
 ├── scripts/
+│   ├── bridgeforge_switch.py   ← `/bridgeforge switch <agent>` 核心切换逻辑
 │   ├── setup-junction.ps1      ← Windows: New-Item -ItemType Junction
 │   └── setup-junction.sh       ← macOS/Linux: ln -s
 └── docs/

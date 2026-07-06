@@ -17,6 +17,15 @@
 
 ---
 
+## [0.41.0] - 2026-07-06
+
+### Added
+- `[product]` **引入 agent 分支模板目录**：现有 Claude 骨架整体迁入 `templates/claude/`，并复制出 `templates/codex/` 作为 Codex 骨架起点；Codex 入口文件改名为 `AGENTS.md`，后续按 `/bridgeforge switch <agent>` 方案继续清理 Claude 专属假设。
+- `[product]` **新增骨架切换脚本**：`scripts/bridgeforge_switch.py` 随两套模板下发，支持 `claude` / `codex`、`--dry-run`、Git 工作区强保护、切换后验证；脚本只改工作区文件，不自动 stage/commit/push，并拒绝在 BridgeForge 源头仓库自己身上执行。
+
+### Changed
+- `[meta]` `SKILL.md` / `README.md` / `INSTALL.md` 的当前模板路径改指向 `templates/claude/`，避免拆目录后现有 Claude 初始化说明引用失效。
+
 ## [0.40.1] - 2026-07-06
 
 ### Fixed

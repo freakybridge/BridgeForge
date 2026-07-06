@@ -1,4 +1,4 @@
-# 安装与卸载
+﻿# 安装与卸载
 
 ## 安装到 Claude Code
 
@@ -64,7 +64,7 @@ git pull
 
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
-如果想把更新同步到已有项目，手动 diff `~/.claude/skills/bridgeforge/templates/` 与 `<已有项目>/.claude/rules/` 对比。
+如果想把更新同步到已有 Claude 项目，手动 diff `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/` 对比；Codex 项目则对比 `templates/codex/` 与 `<已有项目>/.codex/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览。
 
 > 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，`~/.claude/skills/bridgeforge` 会实时反映。
 
@@ -108,4 +108,8 @@ Windows 创建 junction 通常**不需要**管理员权限（这是 junction 与
 
 ### Q：可以只用模板不用 skill 吗
 
-可以。模板是普通 markdown 文件，直接 clone 仓库后手动复制 `templates/` 内容到目标项目即可，自己手动替换占位符 + 跑 junction 脚本。
+可以。模板是普通文件，直接 clone 仓库后按目标 agent 手动复制：
+- Claude：以 `templates/claude/` 为源，生成 `CLAUDE.md` + `.claude/`
+- Codex：以 `templates/codex/` 为源，生成 `AGENTS.md` + `.codex/`
+
+不要整包复制 `templates/`，它现在只是两套 agent 骨架的容器目录。手动模式下仍需自己替换占位符 + 跑 junction 脚本。

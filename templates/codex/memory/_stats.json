@@ -1,0 +1,8 @@
+﻿{
+  "config": {
+    "title": "{{PROJECT_NAME}} 开发备忘",
+    "pinned": [],
+    "_note": "title=索引标题；pinned=置顶文件名（最多5条，用完整文件名如 user-overview.md）。本文件 + 各 memory .md 是事实源；MEMORY.md/MEMORY_COLD.md 由 memory_rebuild_index.py 确定性生成（无访问热度）。"
+  },
+  "files": {}
+}
