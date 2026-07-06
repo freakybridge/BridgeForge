@@ -17,6 +17,11 @@
 
 ---
 
+## [0.45.1] - 2026-07-06
+
+### Fixed
+- `[product][repo]` **Codex 空 `.agents/` 编辑后清理补洞**：确认 `.agents/` 的复发源是 Codex 文件编辑工具链（`apply_patch` 等）而非普通 shell / 外援 agent 启动；`templates/codex/settings.json` 与 dogfood `.codex/settings.json` 新增文件编辑后的 `PostToolUse` cleanup，复用 `legacy_agents_cleanup.py` 删除项目根普通空 `.agents/`。`templates/codex/VERSION` 同步升至 `0.16.1`。
+
 ## [0.45.0] - 2026-07-06
 
 ### Added

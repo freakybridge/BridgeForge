@@ -177,6 +177,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Edit|Write|MultiEdit|apply_patch|functions\\.apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/legacy_agents_cleanup.py",
+            "comment": "文件编辑工具链可能在编辑完成后留下项目根空 .agents/；每次编辑后复用安全 cleanup，只删除普通空目录，非空、symlink、junction 或异常均 no-op。"
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {

@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.16.1] - 2026-07-06
+
+### Fixed
+- `legacy_agents_cleanup.py` 追加到文件编辑后的 `PostToolUse`：覆盖 `Edit` / `Write` / `MultiEdit` / Codex `apply_patch`，修复编辑工具链在运行期重新留下项目根空 `.agents/` 时，单靠 `SessionStart` 清理覆盖不到的问题。
+
 ## [0.16.0] - 2026-07-06
 
 ### Added
