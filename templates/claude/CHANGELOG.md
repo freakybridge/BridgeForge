@@ -21,6 +21,15 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.14.0] - 2026-07-06
+
+### Added
+- `CLAUDE.md` 新增"验证通过三件套"红线：凡交付中写「验证通过 / 测试通过 / 已验证」，必须同时列出实际命令或 test receipt 指纹、具体验证断言、覆盖路径 / 场景；缺任一项只能标「已运行但验证有效性未确认」或「未验证」。
+
+### Fixed
+- `rules/portability.md` dogfood 镜像路径改为 `templates/claude/hooks ↔ .claude/hooks`；`settings.json` 中 rule size 注释改指 `templates/claude/rules/meta_rule_design.md`，避免拆目录后继续引用旧 `templates/hooks` / `templates/rules` 路径。
+- `scripts/archive_scan.py` 补 `from __future__ import annotations`，避免默认 Python 低于 3.10 时因 `int | None` 类型注解运行时求值直接崩溃。
+
 ## [0.13.0] - 2026-07-06
 
 ### Added

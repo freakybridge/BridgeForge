@@ -17,10 +17,24 @@
 
 ---
 
+## [0.44.0] - 2026-07-06
+
+### Added
+- `[repo]` **最小 harness 回归试验田**：新增 `tests/harness/run_downstream_fixture.py`，每次在 `.runtime/harness/downstream-codex/` 生成一次性 Codex fixture，覆盖 D6 规则闸（rule index / rule size exit 2）、D8 dogfood 镜像闸（缺文件 exit 2 + 纯下游 no-op）、关键 PostToolUse matcher 必含 `Edit|Write|MultiEdit`、根 `.githooks/pre-commit` 必须同时覆盖 Claude/Codex 两侧提交闸，并扫描 `skills/**/SKILL.md` 高置信本地引用死链；新增 `tests/harness/README.md` 说明运行方式。
+- `[product]` **验证通过三件套**：`templates/claude/CLAUDE.md` / `templates/codex/AGENTS.md` 增加红线，凡交付中写「验证通过 / 测试通过 / 已验证」，必须同时列出实际命令或 test receipt 指纹、具体验证断言、覆盖路径 / 场景；缺任一项只能标「已运行但验证有效性未确认」或「未验证」。BridgeForge 自身根 `AGENTS.md` 同步补同款约束。
+
+### Fixed
+- `[repo]` **根 pre-commit Codex 侧裸奔**：`.githooks/pre-commit` 原只调用 `.claude/hooks/*` dogfood / rule 闸和 `.claude/scripts/memory_rebuild_index.py`，现改为 Claude + Codex 双侧执行；缺文件类 exit 2 继续硬拦，memory 索引重建循环覆盖 `.claude` / `.codex`。
+- `[repo]` **Claude dogfood scripts 缺口**：补齐 `.claude/scripts/archive_scan.py` 与 `.claude/scripts/bridgeforge_switch.py`，避免本仓 Claude 侧 `/archive-scan` 或状态展示调用到模板承诺但自身未安装的脚本。
+- `[product]` **harvest skill 旧模板路径死链**：`skills/harvest/SKILL.md` 仍引用拆分前的 `templates/CLAUDE.md` / `templates/rules/`，现改为 `templates/claude/CLAUDE.md`、`templates/codex/AGENTS.md`、`templates/<agent>/rules/`，避免反哺时把 agent 引到不存在的路径。
+- `[product][meta]` **拆目录后的旧路径死链**：修正 `templates/claude/rules/portability.md` 的 dogfood 镜像路径为 `templates/claude/hooks ↔ .claude/hooks`，并把 Claude/Codex settings 注释里的 `templates/rules/meta_rule_design.md` 改为各自 agent 分支路径。
+- `[product][repo]` **archive_scan 旧 Python 兼容**：`templates/<agent>/scripts/archive_scan.py` 与自身 `.claude/.codex` 副本补 `from __future__ import annotations`，避免默认 `python` 低于 3.10 时因 `int | None` 类型注解运行时求值直接崩溃。
+- `[meta]` **同步 / 反哺 playbook 路径分支化**：`docs/sync-from-upstream-playbook.md` 与 `docs/reverse-sync-playbook.md` 的当前流程改为先选 `agent`，再读写 `templates/<agent>/hooks`、`templates/<agent>/scripts`、`templates/<agent>/settings.json`、`templates/<agent>/rules`，避免按拆分前路径操作失败。
+
 ## [0.43.0] - 2026-07-06
 
 ### Added
-- `[product][repo]` **Codex 专业表达风格**：`templates/codex/AGENTS.md` 新增常驻段，要求 Codex 默认先给结论再给依据，减少空泛安抚和弱判断，在代码审查 / 方案判断 / 排障时优先给风险、根因、验证方式和文件证据；BridgeForge 自身根 `AGENTS.md` 同步写入同款规则；`templates/codex/VERSION` 同步升至 `0.14.0`。
+- `[product][repo]` **Codex 专业表达风格**：`templates/codex/AGENTS.md` 新增常驻段，要求 Codex 默认先给结论再给依据，减少空泛安抚和弱判断；新增"默认工作姿态"，明确执行目标时默认读上下文、判断风险、动手、验证并交付；新增"高价值场景输出结构"，要求代码审查先问题、排障先根因、架构判断先推荐结论。BridgeForge 自身根 `AGENTS.md` 同步写入同款规则；`templates/codex/VERSION` 同步升至 `0.14.0`。
 
 ## [0.42.0] - 2026-07-06
 

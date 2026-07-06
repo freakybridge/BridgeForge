@@ -197,7 +197,7 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/rule_size_check.py",
-            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）"
+            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/codex/rules/meta_rule_design.md §5）"
           },
           {
             "type": "command",

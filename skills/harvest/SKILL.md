@@ -33,7 +33,7 @@ bridgeforge 上游仓库通常在 `~/.claude/skills/bridgeforge/`（clone 或 sy
 1. **取候选**：无参 → 读收件箱全部未处理行；带参 → 就这一条。
 2. **逐条判通用性**（playbook §2）：🟢 通用增量(反哺) / 🟡 可抽象(脱敏后反哺) / 🔴 业务专属(**不**反哺)。
 3. **脱敏**（playbook §3 七项 checklist，红线）：项目名 / 内部包名 / 凭证 / 内部 URL / commit hash / 绝对路径 / 业务术语，逐项过。**漏一项就不安全。** 拿不准的当场问用户。
-4. **写上游**：按 design-rationale §6「模板 vs 占位」决定落点（`templates/rules/` / `templates/CLAUDE.md` / `skills/` 等）；判据 = 不依赖业务领域才进产品层。
+4. **写上游**：按 design-rationale §6「模板 vs 占位」决定落点（`templates/<agent>/rules/` / `templates/claude/CLAUDE.md` / `templates/codex/AGENTS.md` / `skills/` 等）；判据 = 不依赖业务领域才进产品层。
 5. **bump 版本 + CHANGELOG**：上游 `VERSION` bump，CHANGELOG 打 `[product]` 标签（改了 templates/skills → 下游应当 sync）。
 6. **记反哺日志**：在 playbook §5 表追加一行（日期 / 源项目 / 目标文件 / 一句话 / 操作人）。
 7. **回收收件箱**：已成功反哺的条目，从下游 `.claude/harvest-inbox.md` 勾掉或删行。

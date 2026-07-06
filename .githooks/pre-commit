@@ -1,6 +1,6 @@
 #!/bin/sh
 # bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
-#   [D8] dogfood 镜像闸: templates/claude/hooks/*.py 缺 .claude/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
+#   [D8] dogfood 镜像闸: templates/<agent>/hooks/*.py 缺 .<agent>/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
 #   [D6] 规则闸: rule_size 读 staged blob + rule_index 读工作树 → 违规 exit 2
 #   [既有] memory 索引重建: 提交前重建衍生索引(_stats.json/MEMORY.md/MEMORY_COLD.md)并纳入本次提交
 #          —— 卫生段，永 exit 0 兜底。杜绝"花名册欠账"溜过任意提交路径(git-sync/手动/IDE 都拦得住)。
@@ -20,31 +20,32 @@ find_py() {
 }
 PY="$(find_py)"
 
+run_exit2_hook() {
+  SCRIPT="$1"
+  shift
+  if [ -n "$PY" ] && [ -f "$SCRIPT" ]; then
+    "$PY" "$SCRIPT" "$@"
+    rc=$?
+    [ "$rc" = 2 ] && exit 2
+  fi
+}
+
 # ── [D8] dogfood 镜像闸(缺文件硬拦 exit 2; 正文差异只 stderr 软提示不阻断) ──
-if [ -n "$PY" ] && [ -f ".claude/hooks/mirror_drift_check.py" ]; then
-  "$PY" .claude/hooks/mirror_drift_check.py
-  rc=$?
-  [ "$rc" = 2 ] && exit 2
-fi
+run_exit2_hook ".claude/hooks/mirror_drift_check.py"
+run_exit2_hook ".codex/hooks/mirror_drift_check.py"
 
 # ── [D6] 规则闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
-if [ -n "$PY" ]; then
-  if [ -f ".claude/hooks/rule_size_check.py" ]; then
-    "$PY" .claude/hooks/rule_size_check.py --pre-commit
-    rc=$?
-    [ "$rc" = 2 ] && exit 2
-  fi
-  if [ -f ".claude/hooks/rule_index_check.py" ]; then
-    "$PY" .claude/hooks/rule_index_check.py --pre-commit
-    rc=$?
-    [ "$rc" = 2 ] && exit 2
-  fi
-fi
+run_exit2_hook ".claude/hooks/rule_size_check.py" --pre-commit
+run_exit2_hook ".claude/hooks/rule_index_check.py" --pre-commit
+run_exit2_hook ".codex/hooks/rule_size_check.py" --pre-commit
+run_exit2_hook ".codex/hooks/rule_index_check.py" --pre-commit
 
 # ── [既有] memory 索引重建(卫生段, 永 exit 0 兜底) ──
-SCRIPT=".claude/scripts/memory_rebuild_index.py"
-if [ -n "$PY" ] && [ -f "$SCRIPT" ]; then
-  "$PY" "$SCRIPT" || true
-  git add .claude/memory/_stats.json .claude/memory/MEMORY.md .claude/memory/MEMORY_COLD.md 2>/dev/null || true
-fi
+for CONFIG_DIR in .claude .codex; do
+  SCRIPT="$CONFIG_DIR/scripts/memory_rebuild_index.py"
+  if [ -n "$PY" ] && [ -f "$SCRIPT" ]; then
+    "$PY" "$SCRIPT" || true
+    git add "$CONFIG_DIR/memory/_stats.json" "$CONFIG_DIR/memory/MEMORY.md" "$CONFIG_DIR/memory/MEMORY_COLD.md" 2>/dev/null || true
+  fi
+done
 exit 0

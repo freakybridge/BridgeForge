@@ -15,6 +15,8 @@
   python archive_scan.py --count   # 只打印数量（给 SessionStart hook 用）
   python archive_scan.py --json    # JSON 输出（给 skill 用）
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

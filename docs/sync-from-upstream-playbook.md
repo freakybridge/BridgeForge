@@ -63,11 +63,15 @@ ls C:/Users/<user>/.claude/skills/
 **类 A 简单覆盖**（hooks / scripts / 用户级 skill）：
 
 ```powershell
+# 先选 agent：Claude 用 claude/.claude；Codex 用 codex/.codex
+$agent = "claude"
+$targetDir = ".claude"
+
 # 下游 hooks/
-cp -r D:/Quant/BridgeForge/templates/hooks/. D:/Quant/<下游>/.claude/hooks/
+cp -r D:/Quant/BridgeForge/templates/$agent/hooks/. D:/Quant/<下游>/$targetDir/hooks/
 
 # 下游 scripts/
-cp -r D:/Quant/BridgeForge/templates/scripts/. D:/Quant/<下游>/.claude/scripts/
+cp -r D:/Quant/BridgeForge/templates/$agent/scripts/. D:/Quant/<下游>/$targetDir/scripts/
 
 # 用户级 skill
 cp -r D:/Quant/BridgeForge/skills/<name>/. C:/Users/<user>/.claude/skills/<name>/
@@ -75,14 +79,14 @@ cp -r D:/Quant/BridgeForge/skills/<name>/. C:/Users/<user>/.claude/skills/<name>
 
 **类 B settings.json merge**（**不要直接覆盖**）：
 
-读下游 `.claude/settings.json` + 上游 `templates/settings.json` → 手动 merge：
+读下游 `$targetDir/settings.json` + 上游 `templates/$agent/settings.json` → 手动 merge：
 - **保留下游**：`permissions.allow`、`permissions.additionalDirectories`、`permissions.defaultMode`、下游自定义的 hook 注册段
 - **更新 / 加入上游通用**：`hooks.PostCompact`、`hooks.Stop`、`hooks.PreToolUse`、`hooks.PostToolUse`、`hooks.UserPromptSubmit`、`hooks.SessionStart` 等
 - **路径适配**：下游若无 `.venv` → 把命令里的 `.venv/Scripts/python.exe` 改成裸 `python`，每条 hook 的 `comment` 字段尾加"建好 .venv 后改回 .venv/Scripts/python.exe"
 
 **类 C rules / CLAUDE.md 选择性吸收**：
 
-对每对文件做 diff（`diff <下游>/CLAUDE.md <上游 templates>/CLAUDE.md` 或对应 rule 文件）。看每个差异段：
+对每对文件做 diff（Claude：`diff <下游>/CLAUDE.md <上游 templates/claude>/CLAUDE.md`；Codex：`diff <下游>/AGENTS.md <上游 templates/codex>/AGENTS.md`；rule 文件同理）。看每个差异段：
 
 - 🟢 **上游新增的通用增量** → 吸收到下游（如本会话反哺的 `modules.md §3.1 §3.2` 就是这种）
 - 🟡 **下游业务专属补充** → 保留不动（上游脱敏版没业务细节是设计意图，不要被覆盖）
@@ -189,4 +193,4 @@ git push                              # 用户手动
 
 - [reverse-sync-playbook.md](reverse-sync-playbook.md) — 反方向流程（下游通用增量回灌上游）
 - [design-rationale.md](design-rationale.md) — bridgeforge 整体设计思路
-- [templates/rules/meta_rule_design.md](../templates/rules/meta_rule_design.md) — 判断"通用 vs 业务"的关键依据
+- [templates/claude/rules/meta_rule_design.md](../templates/claude/rules/meta_rule_design.md) / [templates/codex/rules/meta_rule_design.md](../templates/codex/rules/meta_rule_design.md) — 判断"通用 vs 业务"的关键依据

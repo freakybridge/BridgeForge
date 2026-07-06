@@ -228,7 +228,7 @@
           {
             "type": "command",
             "command": "python .claude/hooks/rule_size_check.py",
-            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 templates/rules/meta_rule_design.md §5）。dev 仓库无 .venv，用系统 python。自产自用：本仓库编辑 .claude/rules 时受同款量化红线约束。"
+            "comment": "rule 文件改动后检查大小红线 + 触发器宽度（详见 .claude/rules/meta_rule_design.md §5）。dev 仓库无 .venv，用系统 python。自产自用：本仓库编辑 .claude/rules 时受同款量化红线约束。"
           },
           {
             "type": "command",

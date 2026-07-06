@@ -33,8 +33,9 @@ ls D:/Quant/StratusAgent/.claude/rules/
 ls D:/Quant/causis_risk_suite/.claude/rules/
 ls D:/Quant/<其他>/.claude/rules/
 
-# 对比 bridgeforge 现有 templates
-ls D:/Quant/BridgeForge/templates/rules/
+# 对比 bridgeforge 现有 templates：Claude 用 templates/claude，Codex 用 templates/codex
+ls D:/Quant/BridgeForge/templates/claude/rules/
+ls D:/Quant/BridgeForge/templates/codex/rules/
 ```
 
 明确**这次反哺的范围**（哪几个源 → 哪几个目标文件）。范围不要贪大，一次 5-8 个文件对比为宜，超过就拆成几次。
@@ -60,12 +61,12 @@ ls D:/Quant/BridgeForge/templates/rules/
 ### Step 4：写 bridgeforge
 
 - 写入路径**允许**：
-  - `templates/rules/` — rule 文件
-  - `templates/CLAUDE.md` — 项目级 CLAUDE.md 模板
+  - `templates/<agent>/rules/` — rule 文件
+  - `templates/claude/CLAUDE.md` / `templates/codex/AGENTS.md` — 项目级常驻指令模板
   - `templates/memory/` — memory 模板
   - `templates/doc/` — doc 分层模板
-  - `templates/hooks/` — Python hook 脚本（2026-05-24 加入：sessoin_snapshot.py / memory_lint.py / rule_index_check.py / context_warning.py 等，agent 检测项目有 `.venv` 时复制）
-  - `templates/scripts/` — Python 工具脚本（2026-05-24 加入：archive_scan.py 等给 skill 调用的脚本）
+  - `templates/<agent>/hooks/` — Python hook 脚本（2026-05-24 加入：session_snapshot.py / memory_lint.py / rule_index_check.py / context_warning.py 等，agent 检测项目有 `.venv` 时复制）
+  - `templates/<agent>/scripts/` — Python 工具脚本（2026-05-24 加入：archive_scan.py 等给 skill 调用的脚本）
   - `docs/` — playbook / rationale 等 bridgeforge 自身文档
 - **禁止**自动写：
   - `skills/<name>/SKILL.md` — 用户级 skill 描述，独立维护（**例外**：当下游已实测验证的 SKILL.md 改动需要回灌时，单条修改允许 — 不允许批量改写多个 SKILL.md）
@@ -265,4 +266,4 @@ reverse-sync 和 sync-from-upstream 互为镜像：通常**先 sync-from-upstrea
 ## 参考
 
 - [docs/design-rationale.md](design-rationale.md) — bridgeforge 整体设计思路
-- [templates/rules/meta_rule_design.md](../templates/rules/meta_rule_design.md) — 怎么写 rule 才不退化（反哺时判断"通用 vs 业务"的关键依据）
+- [templates/claude/rules/meta_rule_design.md](../templates/claude/rules/meta_rule_design.md) / [templates/codex/rules/meta_rule_design.md](../templates/codex/rules/meta_rule_design.md) — 怎么写 rule 才不退化（反哺时判断"通用 vs 业务"的关键依据）
