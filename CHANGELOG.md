@@ -1,6 +1,6 @@
 # Changelog
 
-格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本按 `templates/rules/workflow.md §9` **简版**（小项目退化版）：
+格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本按 `templates/<agent>/rules/workflow.md §9` **简版**（小项目退化版）：
 
 - **major (X)** — 破坏性变更 / 范式重写
 - **minor (Y)** — 新功能（新 hook / 新 skill / 新 rule / 新模板）
@@ -16,6 +16,14 @@
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
 ---
+
+## [0.42.0] - 2026-07-06
+
+### Added
+- `[product][repo]` **自改审计必须独立**：当审计对象包含本轮 agent 自己刚做的改动，且用户要求"审计 / 复核是否达成需求 / 找遗漏"时，必须启动独立 agent 做二次审计；普通解释、轻量自查、用户未要求审计时不强制。下游常驻规则写入 `templates/claude/CLAUDE.md` / `templates/codex/AGENTS.md`，BridgeForge 自身约束写入根 `CLAUDE.md` / `AGENTS.md`。
+
+### Changed
+- `[repo]` **补齐 Codex dogfood 配置层**：新增源头仓库自身 `.codex/`（hooks / scripts / memory / settings），settings hook 命令按 dev 仓库约定使用系统 `python`；根 `AGENTS.md` 中旧大小写写法统一为 `.codex`；移除项目根下无职责的空 `.agents/`。
 
 ## [0.41.0] - 2026-07-06
 

@@ -19,14 +19,22 @@
 3. **传播出去要不要 bump 版本 + 记 CHANGELOG？**
    - 改动产品层 → 几乎一定要 bump（下游靠版本号判断该不该 sync）。
    - 记 CHANGELOG 时**按 §3 打层标签**。
-4. **改的是 `templates/hooks/` 或 `templates/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
+4. **改的是 `templates/claude/hooks/` 或 `templates/claude/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
    - **凡确认要进产品层的 hook / settings 改动，必须当场镜像进自身 `.claude/`** —— 不能只发给下游、自己不装（§2 dogfood 约定的强制版）。
-   - **现已机检硬拦**：`mirror_drift_check.py` 在 `.githooks/pre-commit` 对「缺文件」exit 2、正文差异（归一化 python 前缀后）软提示；漏镜像的 hook 提交时会被拦（细则 → `templates/rules/portability.md §5.1`）。
-   - 镜像时按 dev 仓库约定改 hook 命令：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。注意 hook `.py` 正文两侧应逐字一致——前缀差异只在 `settings.json` / `pre-commit` 的命令行，不在 `.py` 里。
+   - **现已机检硬拦**：`mirror_drift_check.py` 在 `.githooks/pre-commit` 对「缺文件」exit 2、正文差异（归一化 python 前缀后）软提示；漏镜像的 hook 提交时会被拦（细则 → `templates/claude/rules/portability.md §5.1`）。
+   - 镜像时按 dev 仓库约定改 hook 命令：`templates/claude/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。注意 hook `.py` 正文两侧应逐字一致——前缀差异只在 `settings.json` / `pre-commit` 的命令行，不在 `.py` 里。
    - 对 bridgeforge 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
    - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 顶部当条加 `[dogfood-exempt: <hook> <因>]` 注明「不 dogfood + 原因」（这也是 `mirror_drift_check.py` 硬拦的豁免开关）。
 
 > 写在 CLAUDE.md 而非 rules/：任何任务常驻、不按 path 触发（理由 → design-rationale §5）。
+
+---
+
+## §1.5 自改审计独立性（always-on）
+
+当审计对象包含本轮 agent 自己刚做的改动，且用户要求"审计 / 复核是否达成需求 / 找遗漏"时，必须启动独立 agent 做二次审计。
+
+普通解释、轻量自查、用户未要求审计时不强制启动独立 agent。
 
 ---
 
@@ -38,9 +46,9 @@
 | `skills/**` | 产品层 | ✅ 下游 `/bridgeforge` Step 0 自检补齐到 `~/.claude/skills/` |
 | `.claude/**` `CLAUDE.md` | 自身配置层 | ❌ 只管 bridgeforge 自己（自产自用：理论上应与 `templates/` 同款，见下） |
 | `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
-| `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/VERSION` |
+| `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/<agent>/VERSION` |
 
-**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边（已提升为 §1 第 4 问红线）。
+**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.claude/hooks/*.py` 理论上应与 `templates/claude/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边（已提升为 §1 第 4 问红线）。
 
 ---
 
@@ -78,4 +86,4 @@
 | `[stall]` | 本轮尽快收口——给结论或落一个具体动作，别继续纯 thinking 空耗 |
 | `[find-doc]` | 定位文档优先 `/find-doc <topic>`；已知精确路径 / 代码搜索 → 忽略 |
 
-> 完整契约（下游版全文）→ `templates/CLAUDE.md` §9.5-§10.5。
+> 完整契约（下游版全文）→ `templates/claude/CLAUDE.md` §9.5-§10.5。
