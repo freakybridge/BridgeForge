@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.16.0] - 2026-07-06
+
+### Added
+- `legacy_agents_cleanup.py` SessionStart hook：清理运行时兼容探测留下的项目根空 `.agents/`，仅删除普通空目录；非空、symlink、junction 或异常均静默 no-op。
+
 ## [0.15.0] - 2026-07-06
 
 ### Added

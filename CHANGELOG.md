@@ -17,6 +17,11 @@
 
 ---
 
+## [0.45.0] - 2026-07-06
+
+### Added
+- `[product][repo]` **Codex 空 `.agents/` 工作区清洁 hook**：新增 `templates/codex/hooks/legacy_agents_cleanup.py` 并同步 dogfood 到 `.codex/hooks/`，SessionStart 时只删除项目根普通空 `.agents/`；非空、symlink、junction 或异常均静默 no-op。`templates/codex/VERSION` 同步升至 `0.16.0`。
+
 ## [0.44.0] - 2026-07-06
 
 ### Added

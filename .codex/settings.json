@@ -290,6 +290,11 @@
           },
           {
             "type": "command",
+            "command": "python .codex/hooks/legacy_agents_cleanup.py",
+            "comment": "清理运行时兼容探测留下的项目根空 .agents/：仅删除普通空目录；非空、symlink、junction 或异常均静默 no-op。"
+          },
+          {
+            "type": "command",
             "command": "python .codex/hooks/show_state.py session-start",
             "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
           },
