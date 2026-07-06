@@ -17,6 +17,11 @@
 
 ---
 
+## [0.43.0] - 2026-07-06
+
+### Added
+- `[product][repo]` **Codex 专业表达风格**：`templates/codex/AGENTS.md` 新增常驻段，要求 Codex 默认先给结论再给依据，减少空泛安抚和弱判断，在代码审查 / 方案判断 / 排障时优先给风险、根因、验证方式和文件证据；BridgeForge 自身根 `AGENTS.md` 同步写入同款规则；`templates/codex/VERSION` 同步升至 `0.14.0`。
+
 ## [0.42.0] - 2026-07-06
 
 ### Added
