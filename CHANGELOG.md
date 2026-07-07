@@ -17,6 +17,11 @@
 
 ---
 
+## [0.47.0] - 2026-07-07
+
+### Fixed
+- `[product][meta]` **Codex `/bridgeforge` slash 入口统一**：Codex 与 Claude Code 的 bridgeforge 日常入口统一为 `/bridgeforge`；`README.md` / `INSTALL.md` / `SKILL.md` 不再要求用户在 Codex 里记 `$bridgeforge`。Codex 侧改为叶子入口结构：完整 BridgeForge 仓库放在 `~/.agents/bridgeforge-home`，`~/.agents/skills/bridgeforge/SKILL.md` 只放极小 wrapper（源文件 `scripts/codex_bridgeforge_entry.SKILL.md`），再由 wrapper 读取完整根 `SKILL.md`。完整仓库不能直接放在 `~/.agents/skills/bridgeforge`，因为 Codex 会加载完整仓库里的子 skill，但不会把多 skill 仓库根显示成 `/bridgeforge` 命令。旧安装残留 `~/.codex/skills/bridgeforge` 也必须迁出技能扫描目录；否则会复现“Plan/Todo 等子 skill 可见、根 `/bridgeforge` 不可见”。根 `SKILL.md` 与实际入口 wrapper 均改成 UTF-8 无 BOM，避免 frontmatter loader 跳过。`templates/codex/skill_sync_check.py` 与 dogfood `.codex/` 提示语同步改为 `/bridgeforge`，`templates/codex/VERSION` 升至 `0.18.0`。
+
 ## [0.46.0] - 2026-07-07
 
 ### Added

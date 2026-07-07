@@ -1,7 +1,10 @@
-﻿---
+---
 name: bridgeforge
-description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex 入口 $bridgeforge、或旧入口 /bridgeforge 时使用。
-version: 0.46.0
+description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
+version: 0.47.0
+user_invocable: true
+user-invocable: true
+argument: 可选——switch claude|codex [--dry-run]，不带参数则初始化或更新当前项目骨架
 model: sonnet
 ---
 
@@ -15,12 +18,12 @@ model: sonnet
 
 ## 入口与路径（先判 agent）
 
-| Agent | 显式调用 | 上游 skill 安装目录 | 项目骨架目录 |
+| Agent | 显式调用 | 上游仓库 / 入口安装目录 | 项目骨架目录 |
 |------|----------|-------------------|--------------|
 | Claude Code | `/bridgeforge` | `~/.claude/skills/bridgeforge` | `.claude/` + `CLAUDE.md` |
-| Codex | `$bridgeforge` | `~/.agents/skills/bridgeforge` | `.codex/` + `AGENTS.md`；项目专属 skill 放 `.agents/skills/` |
+| Codex | `/bridgeforge`（从 slash 命令清单选中） | 完整仓库：`~/.agents/bridgeforge-home`；薄入口 wrapper：`~/.agents/skills/bridgeforge/SKILL.md` | `.codex/` + `AGENTS.md`；项目专属 skill 放 `.agents/skills/` |
 
-执行前先确定当前 agent：在 Codex 中运行时，下面所有历史示例里的 `/bridgeforge` 读作 `$bridgeforge`，`$HOME/.claude/skills` 读作 `$HOME/.agents/skills`，项目内 `.claude/` 主配置目录读作 `.codex/`，但项目专属 skill 目录读作 `.agents/skills/`，`CLAUDE.md` 读作 `AGENTS.md`。`~/.codex/` 只用于 Codex 自身配置和 memory 系统路径，不作为用户级 skill 安装目录。
+执行前先确定当前 agent：在 Codex 中运行时，`$HOME/.claude/skills` 读作 `$HOME/.agents/skills`，项目内 `.claude/` 主配置目录读作 `.codex/`，但项目专属 skill 目录读作 `.agents/skills/`，`CLAUDE.md` 读作 `AGENTS.md`。`~/.codex/` 只用于 Codex 自身配置和 memory 系统路径，不作为用户级 skill 安装目录。
 
 ```bash
 # Claude Code
@@ -33,9 +36,10 @@ PROJECT_SKILLS_DIR=".claude/skills"
 TEMPLATE_AGENT="claude"
 
 # Codex
-ENTRY_COMMAND='$bridgeforge'
+ENTRY_COMMAND="/bridgeforge"
 USER_SKILLS_DIR="$HOME/.agents/skills"
-BRIDGEFORGE_HOME="$USER_SKILLS_DIR/bridgeforge"
+BRIDGEFORGE_HOME="$HOME/.agents/bridgeforge-home"
+BRIDGEFORGE_COMMAND_DIR="$USER_SKILLS_DIR/bridgeforge"
 PROJECT_AGENT_DIR=".codex"
 PROJECT_ENTRY_FILE="AGENTS.md"
 PROJECT_SKILLS_DIR=".agents/skills"
@@ -52,9 +56,6 @@ TEMPLATE_AGENT="codex"
 /bridgeforge switch claude
 /bridgeforge switch codex
 /bridgeforge switch codex --dry-run
-$bridgeforge switch claude
-$bridgeforge switch codex
-$bridgeforge switch codex --dry-run
 ```
 
 不要进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
@@ -71,7 +72,7 @@ python scripts/bridgeforge_switch.py <claude|codex> [--dry-run]
 - 若项目内没有 `scripts/bridgeforge_switch.py`，用本 skill clone 里的 `templates/$TEMPLATE_AGENT/scripts/bridgeforge_switch.py` 兜底执行，并显式传 `--template-root "$BRIDGEFORGE_HOME"`。
 - 若 cwd 是 bridgeforge 源头仓库自己，切换脚本会拒绝执行；源头改框架应直接编辑 `templates/`。
 
-> 白话：`/bridgeforge switch ...` / `$bridgeforge switch ...` 是换 agent 骨架，不是重新初始化项目。它只搬 agent 工具箱，不替你提交，也不重置项目业务文档。
+> 白话：`/bridgeforge switch ...` 是换 agent 骨架，不是重新初始化项目。它只搬 agent 工具箱，不替你提交，也不重置项目业务文档。
 
 ### 前置：拉上游最新 + 认场子（工厂自检 / 更新 / 收编 / init 四分类）
 
@@ -130,12 +131,26 @@ test -f "$PROJECT_AGENT_DIR/rules/workflow.md"                             # 工
 
 本 skill 仓库内的 `skills/` 子目录包含全部通用协作 skill（脱敏自 StratusAgent 长期沉淀；清单以目录实际内容为准，**不再硬编码个数**）。Claude Code / Codex 都只扫描用户级 skill 目录下的 `<name>/SKILL.md` 顶层，**不递归**——所以 `$BRIDGEFORGE_HOME/skills/<name>/SKILL.md` 这样嵌套的 skill 扫不到，必须复制到 `$USER_SKILLS_DIR/<name>/` 平级。
 
+**Codex 入口注册红线**：`$USER_SKILLS_DIR/bridgeforge` 必须是**只含 `SKILL.md` 的叶子 skill**，且这个 `SKILL.md` 是极小 wrapper（源文件：`$BRIDGEFORGE_HOME/scripts/codex_bridgeforge_entry.SKILL.md`）。完整 BridgeForge 仓库放在 `$BRIDGEFORGE_HOME`。不要把整份 BridgeForge 仓库 clone / junction / symlink 到 `$USER_SKILLS_DIR/bridgeforge`；Codex 会加载仓库里的子 skill，但不会把仓库根 `SKILL.md` 显示成 `/bridgeforge` 命令。安装 / 升级时把 wrapper 复制到 `$USER_SKILLS_DIR/bridgeforge/SKILL.md`。历史残留的 `~/.codex/skills/bridgeforge` 也必须移出技能扫描目录；它不是 Codex 用户级 skill 货架，会造成“子 skill 可见、根 `/bridgeforge` 不可见”的假象。
+
 **自检逻辑（幂等：缺失→装 / 旧版→提议更新 / 定制→问，绝不静默覆盖）**：
 
 ```bash
 SKILL_DIR="$BRIDGEFORGE_HOME"                  # 本 skill 的仓库 clone 位置
 SKILLS_SRC="$SKILL_DIR/skills"
 SKILLS_DST="$USER_SKILLS_DIR"
+
+# Codex only: 修复旧安装残留。旧版曾把完整仓库 junction/clone 到 ~/.codex/skills/bridgeforge，
+# 这会让 Codex 扫到 BridgeForge 子 skill，却不显示根 /bridgeforge。
+if [ "$TEMPLATE_AGENT" = "codex" ]; then
+  LEGACY_CODEX_SKILL="${CODEX_HOME:-$HOME/.codex}/skills/bridgeforge"
+  if [ -e "$LEGACY_CODEX_SKILL" ]; then
+    echo "⚠ 旧 Codex bridgeforge 入口残留: $LEGACY_CODEX_SKILL"
+    echo "  建议先移到 ${CODEX_HOME:-$HOME/.codex}/backups/，确认后再继续；不要直接删除真实仓库。"
+  fi
+  mkdir -p "$BRIDGEFORGE_COMMAND_DIR"
+  cp "$BRIDGEFORGE_HOME/scripts/codex_bridgeforge_entry.SKILL.md" "$BRIDGEFORGE_COMMAND_DIR/SKILL.md"
+fi
 
 # 通用 skill 清单 = skills/ 目录下全部子目录（单一源：增删 skill 只动目录，不改这段；
 # 历史上手维护清单漏掉过 find-memory，ls-派生杜绝此类漂移）
@@ -176,7 +191,7 @@ fi
 - **绝不静默删**（同 Step 0.5 范式）：把 `RETIRED.md` 里该行的"原因"念给用户，问"删（回收下架 skill）/ 留"。用户改过它当定制 → 尊重保留。
 - 退役的 **hook**（项目级，如 `memory_guard.py` 活在 `<project>/.claude/hooks/` + 项目 settings 注册里）**不在本步范围**——本步只清用户级 skill。退役 hook 仍按 CHANGELOG 提示手动删（见 `docs/skill-distribution-gaps.md` 支柱 B 待办）。
 
-> **（可选）GitHub 新鲜度**：以上比对的是**本机上游 clone 的工作区**。要对 GitHub 最新版，先 `git -C "$SKILL_DIR" pull` 再跑本步——但若 `$SKILL_DIR` 是**开发机 junction**（指向你的开发仓库），`pull` 会动到未提交工作区，**此时跳过 pull**。
+> **（可选）GitHub 新鲜度**：以上比对的是**本机上游 clone 的工作区**。要对 GitHub 最新版，先 `git -C "$SKILL_DIR" pull` 再跑本步。Codex 的 slash wrapper 不存模板；模板与通用 skills 只从 `$BRIDGEFORGE_HOME` 读取。
 
 **通用 skill 速查（清单以 `skills/` 目录为准）**：
 

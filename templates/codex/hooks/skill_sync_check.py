@@ -10,9 +10,9 @@
    只遍历上游出品的 skill, 故架子上的项目专属 skill (如 causis-api) 自然不被波及。
 3. 读 repo 根 RETIRED.md 墓碑名单: 已下架却仍赖在架子上的 → 已退役 (retired)。
 4. 有任何一类时打印一行 [skill-sync] 到 stdout (SessionStart 注入上下文),
-   建议跑 $bridgeforge 同步。
+   建议跑 /bridgeforge 同步。
 
-本 hook 只"检测 + 通知", 绝不改任何文件 —— 真正的补/更/删由 $bridgeforge
+本 hook 只"检测 + 通知", 绝不改任何文件 —— 真正的补/更/删由 /bridgeforge
 Step 0 在用户确认下执行 (绝不静默覆盖定制 / 静默删退役)。设计见
 docs/skill-distribution-gaps.md「支柱 B」。
 
@@ -22,8 +22,8 @@ docs/skill-distribution-gaps.md「支柱 B」。
 - "已退役"靠 repo 根 RETIRED.md 墓碑名单 (支柱 B 第二块: 退役检测)。退役的 hook
   (项目级, 如 memory_guard) 不在此列, 仍靠手动删。
 
-自产自用: bridgeforge 自身 .codex/ 也挂此 hook。本机上游是 junction→开发仓库,
-故它正好检测"改了 skills/ 源但还没把用户级副本同步过来"的开发期漂移。
+自产自用: bridgeforge 自身 .codex/ 也挂此 hook。Codex 用户级 bridgeforge
+入口应是真实 clone, 因此它检测的是"用户级 clone 与通用 skill 货架"之间的漂移。
 """
 from __future__ import annotations
 
@@ -126,7 +126,7 @@ def main() -> None:
     print(
         "[skill-sync] 用户级通用 skill 与上游骨架不一致："
         + "；".join(parts)
-        + "。跑 $bridgeforge 同步（Step 0 逐个给 diff/问删，你的定制不会被静默覆盖或删除）。"
+        + "。跑 /bridgeforge 同步（Step 0 逐个给 diff/问删，你的定制不会被静默覆盖或删除）。"
     )
 
 

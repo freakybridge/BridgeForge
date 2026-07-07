@@ -15,7 +15,7 @@
 | 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
 | 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
 
-**不太适合的项目也能用** — 跑 Claude Code `/bridgeforge` 或 Codex `$bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+**不太适合的项目也能用** — 跑 Claude Code `/bridgeforge` 或 Codex `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
 > ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/claude/CLAUDE.md §11` / `templates/codex/AGENTS.md §11` + 对应 `rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
@@ -77,7 +77,7 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 
 ## 这是什么
 
-把一个长期沉淀过的 AI 协作管理体系打包成可复用 skill，进新项目跑一次 Claude Code `/bridgeforge` 或 Codex `$bridgeforge` 就能拿到：
+把一个长期沉淀过的 AI 协作管理体系打包成可复用 skill，进新项目跑一次 Claude Code `/bridgeforge` 或 Codex `/bridgeforge` 就能拿到：
 
 - **项目入口说明**：Claude 骨架用 `CLAUDE.md` + `.claude/`，Codex 骨架用 `AGENTS.md` + `.codex/`
 - **rules 分层加载**：agent 配置目录下的 `rules/<topic>.md` 按文件路径触发，入口说明文件维护索引表
@@ -91,14 +91,18 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 ## 安装
 
 ```bash
-# Codex：clone 到 Codex 用户级 skill 目录
-git clone https://github.com/<你的用户名>/bridgeforge.git ~/.agents/skills/bridgeforge
+# Codex：完整仓库放到 bridgeforge-home，slash 命令目录只放薄入口 wrapper
+git clone https://github.com/<你的用户名>/bridgeforge.git ~/.agents/bridgeforge-home
+mkdir -p ~/.agents/skills/bridgeforge
+cp ~/.agents/bridgeforge-home/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
 
 # Claude Code：clone 到 Claude Code 用户级 skill 目录
 git clone https://github.com/<你的用户名>/bridgeforge.git ~/.claude/skills/bridgeforge
 
 # Windows（PowerShell）
-git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.agents\skills\bridgeforge"
+git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.agents\bridgeforge-home"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills\bridgeforge" | Out-Null
+Copy-Item "$env:USERPROFILE\.agents\bridgeforge-home\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
 git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
 ```
 
@@ -110,17 +114,17 @@ git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE
 
 在新项目根目录开 Codex 或 Claude Code，把下面这句话发给 agent：
 
-> 如果这台机器还没装 bridgeforge，就从 https://github.com/freakybridge/BridgeForge.git clone 到本项目的上级目录；Codex 在 `~/.agents/skills/bridgeforge` 建 junction 指向它，Claude Code 在 `~/.claude/skills/bridgeforge` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
+> 如果这台机器还没装 bridgeforge：Codex 把完整仓库 clone 到 `~/.agents/bridgeforge-home`，再把 `scripts/codex_bridgeforge_entry.SKILL.md` 复制到 `~/.agents/skills/bridgeforge/SKILL.md`；若存在旧的 `~/.codex/skills/bridgeforge`，先移到 `~/.codex/backups/`；Claude Code 直接 clone 到 `~/.claude/skills/bridgeforge`；然后照它的 SKILL.md 给当前项目铺设骨架。
 
-这一句**自带兜底**：装过的机器直接铺，没装过的先自举（clone 到项目平级 + 建 junction）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
+这一句**自带兜底**：装过的机器直接铺，没装过的先自举（Codex 建 `bridgeforge-home` + slash 叶子入口；Claude Code clone 到用户级 skill 目录）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
 
-> ⚠️ 自举安装那次跑完需**重启当前 agent**。Codex 用 `$bridgeforge`，Claude Code 用 `/bridgeforge`。
+> ⚠️ 自举安装那次跑完需**重启当前 agent**。Codex 和 Claude Code 都用 `/bridgeforge`。
 
 **已装过的机器**可用更短写法，直接调用：
 
 ```
 # Codex
-$bridgeforge
+/bridgeforge
 
 # Claude Code
 /bridgeforge
@@ -141,10 +145,6 @@ $bridgeforge
 BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。第一版切换入口固定为：
 
 ```bash
-$bridgeforge switch claude
-$bridgeforge switch codex
-$bridgeforge switch codex --dry-run
-
 /bridgeforge switch claude
 /bridgeforge switch codex
 /bridgeforge switch codex --dry-run

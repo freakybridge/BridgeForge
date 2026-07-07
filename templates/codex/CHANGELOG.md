@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.18.0] - 2026-07-07
+
+### Fixed
+- Codex 侧 bridgeforge 日常入口改回 `/bridgeforge`：slash 命令清单应显示 `bridgeforge`，`skill_sync_check.py` 的提示语同步改为 `/bridgeforge`。
+- Codex 安装改为叶子入口结构：完整 BridgeForge 仓库放在 `~/.agents/bridgeforge-home`，`~/.agents/skills/bridgeforge/SKILL.md` 只放极小 wrapper（源文件 `scripts/codex_bridgeforge_entry.SKILL.md`）。完整仓库不能直接放在 `~/.agents/skills/bridgeforge`，否则 Codex 会加载子 skill，但不显示仓库根 `/bridgeforge`。旧安装残留 `~/.codex/skills/bridgeforge` 也必须迁出技能扫描目录，否则会继续污染 slash 列表。
+
 ## [0.17.0] - 2026-07-07
 
 ### Fixed
