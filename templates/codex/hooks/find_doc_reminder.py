@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env python3
-"""PreToolUse Hook: 提醒 agent 搜 doc/ 时优先用 /find-doc skill。
+"""PreToolUse Hook: 提醒 agent 搜 doc/ 时优先用 $find-doc skill。
 
 来源：2026-04-29 debate（doc 索引体系审视）—— D1+D4 决议：
 - 用 hook 而非 rule 强制 agent 调用 find-doc（rule 是文字 cargo cult）
@@ -106,7 +106,7 @@ def main() -> int:
     # 常驻 system prompt，此处不重复注入——一轮可多次触发，重复即多倍烧 token）
     print(
         f"[find-doc] 检测到 {tool_name} 直接搜 doc/（{paths_desc}）—— "
-        f"定位文档优先 `/find-doc <topic>`（省 token）；已知精确路径 / 代码搜索则忽略。"
+        f"定位文档优先 `$find-doc <topic>`（省 token）；已知精确路径 / 代码搜索则忽略。"
     )
     return 0
 

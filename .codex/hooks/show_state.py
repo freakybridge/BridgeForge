@@ -77,7 +77,7 @@ def _latest_snapshot() -> str:
     if not snaps:
         return ""
     latest = snaps[0]
-    return f"[snapshot] 最新存档: {latest.name} — 输入 /resume 可接续上下文"
+    return f"[snapshot] 最新存档: {latest.name} — 输入 $resume 可接续上下文"
 
 
 def _archive_hint() -> str:
@@ -99,7 +99,7 @@ def _archive_hint() -> str:
             return ""
         n = int(r.stdout.strip() or "0")
         if n > 0:
-            return f"[archive] doc/2_pending/ 有 {n} 个候选可归档 — 输入 /archive-scan 查看"
+            return f"[archive] doc/2_pending/ 有 {n} 个候选可归档 — 输入 $archive-scan 查看"
     except Exception:
         pass
     return ""

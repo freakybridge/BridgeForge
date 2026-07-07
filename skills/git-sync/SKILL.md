@@ -1,6 +1,6 @@
 ---
 name: git-sync
-description: 全自动 Git 提交并推送到 GitHub。分析变更、生成中文消息并执行同步。与 /git-sync 斜杠命令配合使用时，所有命令行操作默认允许自动运行。
+description: 全自动 Git 提交并推送到 GitHub。分析变更、生成中文消息并执行同步。与 /git-sync（Claude）或 $git-sync（Codex）配合使用时，所有命令行操作默认允许自动运行。
 model: sonnet
 ---
 
@@ -16,7 +16,7 @@ model: sonnet
    - **仅 behind（0/N）** → 若工作区干净，自动 `git pull --ff-only` 拉取最新进度；若有未提交变更，先 `git stash push -u`，pull 后 `git stash pop`。
    - **仅 ahead（M/0）或本地有未提交变更** → 走原有提交流程（第 3~5 步）。
    - **diverged（M/N，双向都有提交）** → 停下来报告本地/远端提交摘要。> ⛔ **硬契约**：必须用 **AskUserQuestion**（选项：rebase / merge / 放弃）**结束当前回合**；用户未选前**禁止**执行任何 rebase / merge——"静默执行"基调到此失效，此处无豁免。
-3. **先重建 memory 索引（暂存之前，根治"sync 完又脏"）**：若本项目存在 `.claude/scripts/memory_rebuild_index.py`，在 `git add` **之前**先 `python .claude/scripts/memory_rebuild_index.py` 重抄 MEMORY.md 热区 / MEMORY_COLD.md，让衍生产物在提交前就是最新态。
+3. **先重建 memory 索引（暂存之前，根治"sync 完又脏"）**：若本项目存在 `.claude/scripts/memory_rebuild_index.py` 或 `.codex/scripts/memory_rebuild_index.py`，在 `git add` **之前**先运行对应脚本重抄 MEMORY.md 热区 / MEMORY_COLD.md，让衍生产物在提交前就是最新态。Claude 项目用 `.claude/scripts/...`，Codex 项目用 `.codex/scripts/...`。
    - **Why**：MEMORY.md 由 PostToolUse hook 在 **memory 文件被编辑时**自动重建（SessionStart 兜底，索引是文件集的确定性函数）；若提交的是旧产物，之后一旦触发重建就会再次弄脏工作区 → 被迫再 sync 一次。提前重建 → 提交进去即最新 → 后续重建产出字节一致 → 工作区干净。bridgeforge 系项目 pre-commit 亦会重建并 `git add`（v0.38.0 起），此步是给没有该闸门的仓库兜底。
    - 脚本不存在则**静默跳过**（非 bridgeforge 系下游项目无此机制，不报错）。
 4. **暂存变更**：若有本地改动，`git add .` 暂存所有更改（含上一步重建后的 memory 索引）。
@@ -26,7 +26,7 @@ model: sonnet
    - 格式：`<类型>: <描述>`
    - 类型包括：`feat`（新功能）、`fix`（缺陷）、`refactor`（重构）、`perf`（性能）、`docs`（文档）、`chore`（杂务）。
 6. **提交并推送**：`git commit` → `git push`。
-7. **静默操作**：在配合 `/git-sync` 工作流使用时，直接执行相关命令，不主动请求用户单步确认（除非发生严重错误如冲突或 diverged）。
+7. **静默操作**：在配合 `/git-sync`（Claude）或 `$git-sync`（Codex）工作流使用时，直接执行相关命令，不主动请求用户单步确认（除非发生严重错误如冲突或 diverged）。
 
 ## 异常处理
 

@@ -17,9 +17,9 @@ gate 掉的轮不计数、不提醒。
 为什么周期(非每轮)提醒: 漂移是慢发展状态, 周期脉冲足够; 每轮贴会和 clarify
 叠成噪声。FOCUS_MIN_TURN 之后每 FOCUS_EVERY 轮一次, 命中注意力衰减区。
 
-为什么单文件 last-write-wins(非 per-session 文件): 让 hook 和 /focus·/spinoff
+为什么单文件 last-write-wins(非 per-session 文件): 让 hook 和 $focus / $spinoff
 skill 都能用同一固定路径读写。代价: 真·并发多 session 会互相覆盖锚 —
-并发场景用 /focus <本会话任务> 手动把锚重设回来。
+并发场景用 $focus <本会话任务> 手动把锚重设回来。
 
 详见 AGENTS.md "focus 信号约定"(§9.6)。
 

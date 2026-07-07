@@ -151,7 +151,7 @@ def main() -> int:
 ---
 
 由 `{args.event}` hook 自动生成。
-下次 session 接续可用 `/resume` 读最新一份。
+下次 session 接续可用 `$resume` 读最新一份。
 """
 
     out.write_text(content, encoding="utf-8")

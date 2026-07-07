@@ -15,9 +15,9 @@
 | 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
 | 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
 
-**不太适合的项目也能用** — 跑 `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+**不太适合的项目也能用** — 跑 Claude Code `/bridgeforge` 或 Codex `$bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
-> ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/claude/CLAUDE.md §11` + `templates/claude/rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
+> ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/claude/CLAUDE.md §11` / `templates/codex/AGENTS.md §11` + 对应 `rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
 ---
 
@@ -28,19 +28,19 @@
 bridgeforge 分两类内容：
 
 **核心模板（无 Python 依赖，所有项目无条件复制）**：
-- `templates/claude/rules/` — rule 文件（按文件路径触发加载）
-- `templates/claude/CLAUDE.md` — 项目级 CLAUDE.md
-- `templates/claude/doc/` — `doc/` 六层骨架（红线，强制）
+- `templates/claude/rules/` / `templates/codex/rules/` — rule 文件（按文件路径触发加载）
+- `templates/claude/CLAUDE.md` / `templates/codex/AGENTS.md` — 项目级入口说明
+- `templates/claude/doc/` / `templates/codex/doc/` — `doc/` 六层骨架（红线，强制）
 - `skills/<name>/SKILL.md` — skill 描述（agent 加载的指令）
 - `templates/claude/memory/` / `templates/codex/memory/` — memory 框架
-- `templates/claude/settings.json` 的 `permissions` 块 — 少弹框配置（allowlist + acceptEdits + deny，与语言无关）
+- `templates/claude/settings.json` / `templates/codex/settings.json` 的权限块 — 少弹框配置（allowlist / deny 等，与语言无关）
 
 **hook 自动化（用 Python 实现，所有项目安装）**：
-- `templates/claude/hooks/*.py` — hook 自动化：**version_check（git commit 强制 bump 版本号）**、PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式校验、rules 索引同步检查、ctx 预警、find-doc 提醒
-- `templates/claude/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` skill 用）
-- `templates/claude/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
+- `templates/claude/hooks/*.py` / `templates/codex/hooks/*.py` — hook 自动化：**version_check（git commit 强制 bump 版本号）**、PostCompact 自动 snapshot、Stop 5min 节流自动保存、memory 格式校验、rules 索引同步检查、ctx 预警、find-doc 提醒
+- `templates/claude/scripts/*.py` / `templates/codex/scripts/*.py` — 工具脚本（如 `archive_scan.py` 给 `/archive-scan` / `$archive-scan` skill 用）
+- `templates/claude/settings.json` / `templates/codex/settings.json` 里的 `hooks` 段（注册上面 hook 到 PreToolUse / PostToolUse / PostCompact / Stop / SessionStart 等时机）
 
-**Python 解释器选择**（agent 跑 `/bridgeforge` 时按优先级确定）：
+**Python 解释器选择**（agent 跑 bridgeforge skill 时按优先级确定）：
 1. 项目根有 `.venv/Scripts/python.exe`（Windows）/ `.venv/bin/python`（Unix）→ 用它（首选，最可移植）
 2. 否则系统 `python` 在 PATH 上 → 用系统 python（纯 Rust/Node 项目走这条）
 3. 两者都没有 → **停下，要求用户先装 Python（≥ 3.8）再继续**
@@ -77,7 +77,7 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 
 ## 这是什么
 
-把一个长期沉淀过的 AI 协作管理体系打包成可复用 skill，进新项目跑一次 `/bridgeforge` 就能拿到：
+把一个长期沉淀过的 AI 协作管理体系打包成可复用 skill，进新项目跑一次 Claude Code `/bridgeforge` 或 Codex `$bridgeforge` 就能拿到：
 
 - **项目入口说明**：Claude 骨架用 `CLAUDE.md` + `.claude/`，Codex 骨架用 `AGENTS.md` + `.codex/`
 - **rules 分层加载**：agent 配置目录下的 `rules/<topic>.md` 按文件路径触发，入口说明文件维护索引表
@@ -91,10 +91,14 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 ## 安装
 
 ```bash
-# 1. clone 到 Claude Code 用户级 skill 目录
+# Codex：clone 到 Codex 用户级 skill 目录
+git clone https://github.com/<你的用户名>/bridgeforge.git ~/.agents/skills/bridgeforge
+
+# Claude Code：clone 到 Claude Code 用户级 skill 目录
 git clone https://github.com/<你的用户名>/bridgeforge.git ~/.claude/skills/bridgeforge
 
 # Windows（PowerShell）
+git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.agents\skills\bridgeforge"
 git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
 ```
 
@@ -104,35 +108,43 @@ git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE
 
 ### 新项目初始化 —— 对 agent 说这一句（任何机器都成立）
 
-在新项目根目录开 Claude Code，把下面这句话发给 agent：
+在新项目根目录开 Codex 或 Claude Code，把下面这句话发给 agent：
 
-> 如果这台机器还没装 bridgeforge，就从 https://github.com/freakybridge/BridgeForge.git clone 到本项目的上级目录并在 `~/.claude/skills/bridgeforge` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
+> 如果这台机器还没装 bridgeforge，就从 https://github.com/freakybridge/BridgeForge.git clone 到本项目的上级目录；Codex 在 `~/.agents/skills/bridgeforge` 建 junction 指向它，Claude Code 在 `~/.claude/skills/bridgeforge` 建 junction 指向它；然后照它的 SKILL.md 给当前项目铺设骨架。
 
 这一句**自带兜底**：装过的机器直接铺，没装过的先自举（clone 到项目平级 + 建 junction）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
 
-> ⚠️ 自举安装那次跑完需**重启 Claude Code**，`/bridgeforge` 和 13 个通用 skill 才会进 `/` 菜单。
+> ⚠️ 自举安装那次跑完需**重启当前 agent**。Codex 用 `$bridgeforge`，Claude Code 用 `/bridgeforge`。
 
 **已装过的机器**可用更短写法，直接调用：
 
 ```
+# Codex
+$bridgeforge
+
+# Claude Code
 /bridgeforge
 ```
 
 ### 更新已有项目（重跑即更新）
 
-不需要单独的同步命令——**在已铺过的项目里再跑一次 `/bridgeforge` 即进入"更新模式"**：
+不需要单独的同步命令——**在已铺过的项目里再跑一次 bridgeforge skill 即进入"更新模式"**：
 
 1. 先 `git pull` 上游 clone 拿最新模板；
-2. 读项目里的 `.claude/.bridgeforge_version`（上次安装/同步的版本），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
-3. 按业务专属程度分类处理：hooks/scripts 一致就覆盖、settings.json merge、**rules/CLAUDE.md 只 diff 让你逐段定**、memory/doc 碰都不碰。
+2. 读项目里的 agent 版本戳（Claude `.claude/.bridgeforge_version`；Codex `.codex/.bridgeforge_version`），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
+3. 按业务专属程度分类处理：hooks/scripts 一致就覆盖、settings.json merge、**rules/入口文件（CLAUDE.md 或 AGENTS.md）只 diff 让你逐段定**、memory/doc 碰都不碰。
 
-判断半场（rules/CLAUDE.md 吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
+判断半场（rules/入口文件吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
 
 ### 切换目标 agent
 
 BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。第一版切换入口固定为：
 
 ```bash
+$bridgeforge switch claude
+$bridgeforge switch codex
+$bridgeforge switch codex --dry-run
+
 /bridgeforge switch claude
 /bridgeforge switch codex
 /bridgeforge switch codex --dry-run
@@ -163,7 +175,7 @@ bridgeforge/
 │       ├── memory/
 │       └── settings.json
 ├── scripts/
-│   ├── bridgeforge_switch.py   ← `/bridgeforge switch <agent>` 核心切换逻辑
+│   ├── bridgeforge_switch.py   ← bridgeforge switch <agent> 核心切换逻辑
 │   ├── setup-junction.ps1      ← Windows: New-Item -ItemType Junction
 │   └── setup-junction.sh       ← macOS/Linux: ln -s
 └── docs/
@@ -180,12 +192,12 @@ bridgeforge/
    - feedback memory 沉淀够多 → 升级为 path-rule
 
 2. **rules 按需加载**
-   - CLAUDE.md 索引表的"加载条件"列控制：始终加载 / 路径触发
+   - Claude `CLAUDE.md` / Codex `AGENTS.md` 索引表的"加载条件"列控制：始终加载 / 路径触发
    - 路径触发用 frontmatter `paths:` 列表，编辑对应文件时自动加载
 
 3. **Memory junction 跨机复现**
-   - 系统路径（`~/.claude/projects/<hash>/memory/`）只是 junction 入口
-   - 真实存储在项目内 `.claude/memory/`，纳入 git
+   - Claude 系统路径（`~/.claude/projects/<hash>/memory/`）只是 junction 入口；Codex 由项目 hook 自愈
+   - 真实存储在项目内 `.claude/memory/` 或 `.codex/memory/`，纳入 git
    - clone 即恢复，不依赖用户目录状态
 
 ## License

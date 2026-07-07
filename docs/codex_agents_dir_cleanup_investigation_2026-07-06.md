@@ -1,5 +1,7 @@
 # Codex 空 `.agents/` 未自动清理调查报告（2026-07-06）
 
+> **2026-07-07 状态更新**：本报告记录的是旧的“空 `.agents/` 清理”事故复盘，不再代表当前 BridgeForge 红线。Codex 官方 repo 级 skill 路径是 `.agents/skills/`，因此 `.agents/` 本身不能视为非法目录；BridgeForge 已退役自动删除普通空 `.agents/` 的 `legacy_agents_cleanup.py` 机制。
+
 ## 结论
 
 `.agents/` 没有被删除，不是因为 CausisRiskSuite 漏装了上游清理脚本，也不是因为目录不满足清理条件。

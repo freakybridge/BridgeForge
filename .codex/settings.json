@@ -150,7 +150,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/find_doc_reminder.py",
-            "comment": "搜 doc/ 时提醒优先用 /find-doc skill（省 50-70% token）+ 记录调用统计到 .runtime/find-doc-stats.log"
+            "comment": "搜 doc/ 时提醒优先用 $find-doc skill（省 50-70% token）+ 记录调用统计到 .runtime/find-doc-stats.log"
           }
         ]
       },
@@ -176,16 +176,6 @@
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit|apply_patch|functions\\.apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python .codex/hooks/legacy_agents_cleanup.py",
-            "comment": "文件编辑工具链可能在编辑完成后留下项目根空 .agents/；每次编辑后复用安全 cleanup，只删除普通空目录，非空、symlink、junction 或异常均 no-op。"
-          }
-        ]
-      },
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
@@ -238,7 +228,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/session_snapshot.py post-compact",
-            "comment": "compact 自动存档 — 防止压缩后细节丢失。详见 /snapshot skill 描述。"
+            "comment": "compact 自动存档 — 防止压缩后细节丢失。详见 $snapshot skill 描述。"
           }
         ]
       }
@@ -249,7 +239,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/session_snapshot.py stop",
-            "comment": "每轮停止时自动存档（5min 节流，类似 Word 自动保存）。详见 /snapshot skill 描述。"
+            "comment": "每轮停止时自动存档（5min 节流，类似 Word 自动保存）。详见 $snapshot skill 描述。"
           }
         ]
       }
@@ -275,7 +265,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/focus_reminder.py",
-            "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 AGENTS.md §9.6)。配套 /spinoff(派生交接) + /focus(锚控制) skill。"
+            "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 AGENTS.md §9.6)。配套 $spinoff(派生交接) + $focus(锚控制) skill。"
           },
           {
             "type": "command",
@@ -300,11 +290,6 @@
           },
           {
             "type": "command",
-            "command": "python .codex/hooks/legacy_agents_cleanup.py",
-            "comment": "清理运行时兼容探测留下的项目根空 .agents/：仅删除普通空目录；非空、symlink、junction 或异常均静默 no-op。"
-          },
-          {
-            "type": "command",
             "command": "python .codex/hooks/show_state.py session-start",
             "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
           },
@@ -316,7 +301,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/skill_sync_check.py",
-            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.codex/skills/ 副本与上游源，缺失/不一致则提示跑 /bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
+            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.agents/skills/ 副本与上游源，缺失/不一致则提示跑 $bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
           },
           {
             "type": "command",

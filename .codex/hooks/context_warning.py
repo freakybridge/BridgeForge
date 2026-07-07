@@ -6,11 +6,11 @@
    (与 Codex /context 一致, 精确到个位 token)
 3. 跨阈值时输出 [ctx-budget] 信号到 stdout, Codex 包装成 system-reminder
 4. Codex 读到信号后按 instruction 决定行为 (软化后: 建议不强拦, 决定权交用户):
-   - CRITICAL (>= 95%): 强烈建议先 /snapshot 换会话, 用户坚持可继续 (提示状态可能被 compact 吞)
+   - CRITICAL (>= 95%): 强烈建议先 $snapshot 换会话, 用户坚持可继续 (提示状态可能被 compact 吞)
    - HIGH (>= 85%): 复杂多文件改动建议拆小或换会话, 用户坚持则说明风险后继续
-   - MEDIUM (>= 75%): 允许执行, 完成后建议 /snapshot
+   - MEDIUM (>= 75%): 允许执行, 完成后建议 $snapshot
 
-slash command (以 / 开头) 跳过预警 — 否则 /snapshot 自身也被拦, 死锁。
+command / skill 调用（以 / 或 $ 开头）跳过预警 — 否则 $snapshot 自身也被拦, 死锁。
 
 若 transcript 缺 usage 字段 (旧 session / 损坏), fallback 到 char/4 估算。
 
@@ -91,9 +91,9 @@ def main() -> None:
     except Exception:
         return
 
-    # slash command 跳过 (放行 /snapshot, /resume 等关键操作)
+    # command / skill 调用跳过 (放行 $snapshot, $resume 等关键操作)
     prompt = data.get("prompt", "") or ""
-    if prompt.lstrip().startswith("/"):
+    if prompt.lstrip().startswith(("/", "$")):
         return
 
     transcript_path = data.get("transcript_path", "")
@@ -121,21 +121,21 @@ def main() -> None:
         level = "CRITICAL"
         instruction = (
             "上下文几乎满。**响应开头主动告知**用户当前用量, "
-            "**强烈建议**先 /snapshot 然后关闭对话框开新会话 /resume 接续。"
+            "**强烈建议**先 $snapshot 然后关闭对话框开新会话 $resume 接续。"
             "**决定权交用户**——用户坚持可继续, 但提示继续做事可能很快被自动 compact 吞掉关键状态。"
         )
     elif pct >= THR_HIGH:
         level = "HIGH"
         instruction = (
             "上下文用量偏高。**响应开头主动告知**用户当前用量百分比, "
-            "建议先 /snapshot 然后开新会话再 /resume 接续。"
+            "建议先 $snapshot 然后开新会话再 $resume 接续。"
             "复杂多文件改动**建议先拆小或换会话**, 用户坚持则说明风险后继续。"
         )
     else:
         level = "MEDIUM"
         instruction = (
             "上下文用量已过 75%。可以继续执行当前任务, "
-            "但完成后主动建议用户考虑 /snapshot 锁定状态, 为后续做准备。"
+            "但完成后主动建议用户考虑 $snapshot 锁定状态, 为后续做准备。"
         )
 
     msg = (

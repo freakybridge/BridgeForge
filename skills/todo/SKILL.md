@@ -1,21 +1,24 @@
 ---
 name: todo
 description: 对话中冒出的新问题或情报，不打断主线前提下归档到正确位置（默认落 doc/0_architecture/TODO-INDEX.md）。todo 是新问题的开始，summary 是老问题的结束。
-user-invocable: true
+user_invocable: true
 argument: 问题描述（可带提示词："新问题" / "之前遇过" / "查下 memory" 等）
 model: haiku
 ---
 
-# /todo — 新问题的开始
+# /todo / $todo — 新问题的开始
 
-把对话中冒出的问题/情报归档到正确位置（默认主表 `doc/0_architecture/TODO-INDEX.md`）。和 `/summary`（对话收尾批量总结）互补：/todo 做**零散单条的沉淀**。
+把对话中冒出的问题/情报归档到正确位置（默认主表 `doc/0_architecture/TODO-INDEX.md`）。和 `/summary`（Claude）/ `$summary`（Codex，对话收尾批量总结）互补：todo 做**零散单条的沉淀**。
 
 ## 调用
 
 ```
-/todo <问题描述>                      # 默认陌生路径
-/todo <描述> — 这是新问题             # 强制陌生
-/todo <描述> — 之前遇过 / 查下 memory # 触发熟路径
+Claude: /todo <问题描述>
+Codex:  $todo <问题描述>
+
+/todo 或 $todo <问题描述>                      # 默认陌生路径
+/todo 或 $todo <描述> — 这是新问题             # 强制陌生
+/todo 或 $todo <描述> — 之前遇过 / 查下 memory # 触发熟路径
 ```
 
 **关键词信号**：
@@ -62,7 +65,7 @@ model: haiku
 **默认轻扫**（3-4 个工具调用内）：
 - 读 `MEMORY.md` 索引
 - grep `doc/2_pending/` 关键词
-- 必要时 grep `.claude/rules/`
+- 必要时 grep 当前 agent rules 目录（Claude `.claude/rules/`，Codex `.codex/rules/`）
 
 **深查**（用户明说"熟"或给出明确线索时）：
 - 以上 + read 命中的 memory 全文
@@ -74,9 +77,9 @@ model: haiku
 完工输出**分行清单**，每行 = 一个文件改动，用 markdown 链接便于点击：
 
 ```
-✓ [memory/feedback_xxx.md](.claude/memory/feedback_xxx.md) 追加段落（相关线索）
+✓ [memory/feedback_xxx.md](<agent-dir>/memory/feedback_xxx.md) 追加段落（相关线索）
 ✓ [TODO-INDEX #42](doc/0_architecture/TODO-INDEX.md) 新增（交叉引用上条）
-✓ [MEMORY.md](.claude/memory/MEMORY.md) 索引同步
+✓ [MEMORY.md](<agent-dir>/memory/MEMORY.md) 索引同步
 ```
 
 一行不超过 80 字符。
@@ -85,13 +88,13 @@ model: haiku
 
 - 展开讨论：完工即止，不追加"要不要再做 X"
 - 修改代码：只动文档、memory、TODO；代码问题只**记录**不**修**
-- 嗅觉触发：用户的"btw"/"顺便"**不**触发 /todo（避免和日常语气冲突）
+- 嗅觉触发：用户的"btw"/"顺便"**不**触发 `/todo` / `$todo`（避免和日常语气冲突）
 - 静默删除：已有 TODO / memory 条目**不得**删除或覆盖，只能追加或新增
 - 跳过索引同步：参考 `rules/workflow.md` §5
 
 ## 使用约束
 
-- skill 完工后**不会自动回到主任务**。若 /todo 前有进行中的主任务，用户需明说"继续 X"才恢复。
-- 想"真不打断"的场景建议**另开对话框**调用 /todo，主对话框保持原任务 context。
+- skill 完工后**不会自动回到主任务**。若 `/todo` / `$todo` 前有进行中的主任务，用户需明说"继续 X"才恢复。
+- 想"真不打断"的场景建议**另开对话框**调用 `/todo` / `$todo`，主对话框保持原任务 context。
 
 $ARGUMENTS

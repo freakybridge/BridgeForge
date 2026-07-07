@@ -1,22 +1,26 @@
 ---
-description: 读取 .runtime/session_state/ 下的 snapshot 文件，把工作状态带入当前 session。不带参数时让 Claude 列出候选让用户选，或带 `latest` 直接读最新一份。
+name: resume
+description: 读取 .runtime/session_state/ 下的 snapshot 文件，把工作状态带入当前 session。不带参数时让当前 agent 列出候选让用户选，或带 `latest` 直接读最新一份。
 model: sonnet
 ---
 
-# /resume — 从 snapshot 接续上下文
+# /resume / $resume — 从 snapshot 接续上下文
 
-**定位**：配合 `/snapshot`（手动）和 Hook D（自动）生成的 session state 档案使用。打开新 CC session 时想"接着之前的活"就 call。
+**定位**：配合 `/snapshot`（Claude）/ `$snapshot`（Codex）和 Hook D（自动）生成的 session state 档案使用。打开新 agent session 时想"接着之前的活"就 call。
 
 ## 用法
 
 ```
-/resume                # 列出所有候选让用户选
-/resume latest         # 直接读最新一份（跳过列表）
+Claude: /resume
+Codex:  $resume
+
+/resume 或 $resume                # 列出所有候选让用户选
+/resume latest 或 $resume latest  # 直接读最新一份（跳过列表）
 ```
 
 ## 执行步骤
 
-### 模式 A：`/resume latest` 直接读最新
+### 模式 A：`/resume latest` / `$resume latest` 直接读最新
 
 读 `.runtime/session_state/*.md` 最新一份，跳到 Step 3。
 
@@ -24,7 +28,7 @@ model: sonnet
 ls -1t .runtime/session_state/*.md | head -1
 ```
 
-### 模式 B：`/resume` 无参数
+### 模式 B：`/resume` / `$resume` 无参数
 
 1. **列出最近候选**：
 
@@ -84,7 +88,7 @@ ls -1t .runtime/session_state/*.md | head -1
 **先查热区**：扫 MEMORY.md，判断热区是否已有与当前任务相关的条目。
 
 - **有匹配** → 无需额外操作，热区已覆盖，继续 Step 6。
-- **无匹配** → 调用 `/find-memory <关键词>`，读取命中的最相关 1-2 个文件。
+- **无匹配** → 调用 `/find-memory <关键词>`（Claude）/ `$find-memory <关键词>`（Codex），读取命中的最相关 1-2 个文件。
 
 > 这一步的目的是确保接续任务前，相关 memory 已被召回，不会因冷却而遗漏历史决策。
 

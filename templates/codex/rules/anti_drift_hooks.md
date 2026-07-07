@@ -32,22 +32,22 @@ paths:
 
 ## 2. `[focus]` 信号 — 任务防漂移（AGENTS.md §9.6）
 
-**机制**：`UserPromptSubmit` hook（`.codex/hooks/focus_reminder.py`）自动把本会话第一条实质 prompt 记为「任务锚 anchor」，攒够几轮后**周期性**注入 `[focus]` system reminder，把原始任务重新贴到眼前。锚存 `.runtime/focus/anchor.json`，可用 `/focus` 查看 / 改 / 清。
+**机制**：`UserPromptSubmit` hook（`.codex/hooks/focus_reminder.py`）自动把本会话第一条实质 prompt 记为「任务锚 anchor」，攒够几轮后**周期性**注入 `[focus]` system reminder，把原始任务重新贴到眼前。锚存 `.runtime/focus/anchor.json`，可用 `$focus` 查看 / 改 / 清。
 
 **主动 + 被动两条入口**：
 
 | 入口 | 谁发起 | 机制 |
 |------|--------|------|
 | **主动** | hook 自动 | 周期贴 `[focus]`，读到后自检是否跑偏 |
-| **被动** | 用户 `/focus` | 当场对照锚核一次；`/focus <文本>` 纠正锚 |
-| **被动** | 用户 `/spinoff` | 确认是前置阻塞后，一键交接派生到新对话 |
+| **被动** | 用户 `$focus` | 当场对照锚核一次；`$focus <文本>` 纠正锚 |
+| **被动** | 用户 `$spinoff` | 确认是前置阻塞后，一键交接派生到新对话 |
 
 **配置**：
 
 - Hook 入口：`.codex/hooks/focus_reminder.py`（项目内）
-- 锚文件：`.runtime/focus/anchor.json`（per-session，换 session 自动重置；并发多 session 会 last-write-wins 互相覆盖锚 — 用 `/focus <本会话任务>` 手动重设回来）
+- 锚文件：`.runtime/focus/anchor.json`（per-session，换 session 自动重置；并发多 session 会 last-write-wins 互相覆盖锚 — 用 `$focus <本会话任务>` 手动重设回来）
 - 调参：hook 开头改 `FOCUS_MIN_TURN`（攒几轮才开始提醒）/ `FOCUS_EVERY`（每几轮提醒一次）
-- 配套 skill：`/spinoff`（前置派生交接）、`/focus`（锚控制 + 手动自检）
+- 配套 skill：`$spinoff`（前置派生交接）、`$focus`（锚控制 + 手动自检）
 
 ---
 
@@ -55,7 +55,7 @@ paths:
 
 **机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）在每次用户提交 prompt 时估算上下文用量，超阈值时输出 `[ctx-budget]` system reminder（MEDIUM / HIGH / CRITICAL 三级）。判定基于 char/4 启发式，精度 ±10%；边界附近以信号为准。
 
-**slash command 豁免**：`/snapshot` / `/resume` / `/git-sync` 等以 `/` 开头的 prompt 不触发预警 — 否则用户连保命操作都被拦，死锁。所以响应 CRITICAL 时建议用户做的 `/snapshot` 不会自相矛盾。
+**command / skill 豁免**：`$snapshot` / `$resume` / `$git-sync` 等以 `$` 开头的 skill 调用不触发预警（`/` 开头的 Codex 内置命令也放行）— 否则用户连保命操作都被拦，死锁。所以响应 CRITICAL 时建议用户做的 `$snapshot` 不会自相矛盾。
 
 **配置**：
 

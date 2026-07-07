@@ -17,6 +17,19 @@
 
 ---
 
+## [0.46.0] - 2026-07-07
+
+### Added
+- `[product][meta]` **Codex bridgeforge skill 入口修复**：根 `SKILL.md` 补 `name: bridgeforge` 并明确 Codex 调用为 `$bridgeforge`；Codex 用户级安装路径改为 `~/.agents/skills/bridgeforge`，避免继续按 Claude Code 的 `~/.claude/skills/bridgeforge` 或旧 `~/.codex/skills` 路径安装导致 Codex 看不到入口。同步更新 README / INSTALL。
+
+### Fixed
+- `[product][repo]` **Codex 通用 skill 规范补齐**：补齐 `archive-scan` / `escalate` / `focus` / `resume` / `snapshot` / `spinoff` 的 frontmatter `name:`，满足 Codex skill 至少包含 `name` + `description` 的识别要求。
+- `[product]` **通用 skill 正文路径 Codex 化**：`git-sync` / `archive-scan` / `find-memory` / `find-doc` / `sync-docs` / `summary` / `harvest` / `todo` / `snapshot` / `spinoff` 等不再把脚本、memory、映射表、harvest inbox 写死到 `.claude/...`；Codex 项目改走 `.codex/...`，项目级 skill 改走 `.agents/skills/...`。
+- `[product][repo]` **Codex skill 路径修正**：`templates/codex/AGENTS.md`、`rules/portability.md`、`skill_sync_check.py` 与 dogfood `.codex/` 副本统一使用 `~/.agents/skills/` 作为用户级 skill 货架，并把项目专属 skill 路径从 `.codex/skills/` 改为 `.agents/skills/`。`templates/codex/VERSION` 同步升至 `0.17.0`。
+- `[product][repo]` **Codex `$skill` 入口补齐**：`templates/codex/AGENTS.md`、Codex hooks/settings/rules、memory 生成脚本与共享 `skills/**` 文档统一把 Codex 调用写成 `$skill`，共享 skill 保留 Claude `/skill` / Codex `$skill` 双入口；`clarify_reminder.py` 与 `context_warning.py` 同时豁免 `/` 和 `$` 开头的命令，避免 `$snapshot` / `$resume` 被保命 hook 自己拦住。
+- `[product]` **skill frontmatter 规范化**：通用 skill 的历史 `user-invocable` 元数据统一改为 Codex/Claude 目录式 skill 约定的 `user_invocable`。
+- `[product][repo]` **退役空 `.agents/` 清理 hook**：确认 `.agents/skills/` 是 Codex 官方 repo skill 路径，撤销“`.agents/` 应及时清除”的红线；删除 `legacy_agents_cleanup.py` 及其 `PostToolUse` / `SessionStart` 注册。当前项目根空 `.agents/` 不再由 BridgeForge 自动删除。
+
 ## [0.45.1] - 2026-07-06
 
 ### Fixed

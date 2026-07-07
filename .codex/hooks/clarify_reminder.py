@@ -1,6 +1,6 @@
 ﻿"""较大需求澄清提醒 — UserPromptSubmit hook
 
-便宜负向 gate(纯字符串, hook 不判需求大小): slash 命令 / 极短输入(<MIN_CHARS) /
+便宜负向 gate(纯字符串, hook 不判需求大小): command / skill 调用 / 极短输入(<MIN_CHARS) /
 纯续接确认词(next/继续) → 跳过; 其余「候选」轮 print [clarify] 中性提醒到 stdout,
 由模型读到后语义精判这轮大不大、该问什么(hook 只贴便利贴, 不替模型决定)。
 
@@ -47,8 +47,8 @@ def main() -> None:
 
     prompt = (data.get("prompt", "") or "").strip()
 
-    # gate 1: slash 命令跳过 (放行 /resume /snapshot 等关键操作)
-    if prompt.startswith("/"):
+    # gate 1: command / skill 调用跳过 (放行 $resume / $snapshot 等关键操作)
+    if prompt.startswith(("/", "$")):
         return
 
     # gate 2: 极短输入跳过

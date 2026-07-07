@@ -1,9 +1,10 @@
 ---
+name: archive-scan
 description: 扫描 doc/2_pending/ 下可归档的完成文档，列出候选让用户 review，确认后批量 git mv 到 doc/4_archive/ 并同步 doc/README.md 索引。
 model: haiku
 ---
 
-# /archive-scan — 扫描 doc/2_pending/ 可归档候选
+# /archive-scan / $archive-scan — 扫描 doc/2_pending/ 可归档候选
 
 **定位**：半自动归档。脚本只负责打分找候选，**移动与否由用户拍板**——防止误归档活跃文档。
 
@@ -14,7 +15,10 @@ model: haiku
 ### Step 1：跑扫描脚本
 
 ```bash
+# Claude
 .venv/Scripts/python.exe .claude/scripts/archive_scan.py --json
+# Codex
+.venv/Scripts/python.exe .codex/scripts/archive_scan.py --json
 ```
 
 脚本输出 JSON 数组，每个候选带：`file` / `score` / `reasons` / `refs_in_todo` / `last_modified_days`。
@@ -72,10 +76,10 @@ git mv doc/2_pending/<file> doc/4_archive/<file>
 - ❌ 移动后不更新 `doc/README.md`
 - ❌ 批量改动前不先 `git status` 确认干净（防止混入别的 uncommitted 改动）
 
-## 与 `/todo` / `/summary` 的区别
+## 与 `/todo` / `$todo`、`/summary` / `$summary` 的区别
 
 | skill | 动作 |
 |-------|------|
-| `/todo` | 往 `doc/0_architecture/TODO-INDEX.md` 加新条目或关联现有 memory |
-| `/summary` | 从对话抽决策写入 `memory/` |
-| **`/archive-scan`** | **扫 `doc/2_pending/` 找已完成文档，移到 `archive/`** |
+| `/todo` / `$todo` | 往 `doc/0_architecture/TODO-INDEX.md` 加新条目或关联现有 memory |
+| `/summary` / `$summary` | 从对话抽决策写入 `memory/` |
+| **`/archive-scan` / `$archive-scan`** | **扫 `doc/2_pending/` 找已完成文档，移到 `archive/`** |

@@ -1,5 +1,21 @@
 ﻿# 安装与卸载
 
+## 安装到 Codex
+
+bridgeforge 是一个 Codex **用户级 skill**，clone 到 `~/.agents/skills/bridgeforge/` 即可被 Codex 调用。`~/.codex/` 是 Codex 配置和 memory 系统路径，不是用户级 skill 安装目录。
+
+### Windows
+
+```powershell
+git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.agents\skills\bridgeforge"
+```
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.agents/skills/bridgeforge
+```
+
 ## 安装到 Claude Code
 
 bridgeforge 是一个 Claude Code **用户级 skill**，clone 到 `~/.claude/skills/bridgeforge/` 即可被所有项目调用。
@@ -24,53 +40,71 @@ git clone https://github.com/<你的用户名>/BridgeForge.git ~/.claude/skills/
 
 ### 开发者模式：junction 指向开发仓库（要改 bridgeforge 本体时用这个）
 
-上面的直接 clone 适合**只用不改**的人——它在 `~/.claude/skills/` 下放一份真实副本。
+上面的直接 clone 适合**只用不改**的人——它在用户级 skill 目录下放一份真实副本。
 
 但如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），别用直接 clone，否则会出现"开发仓库一份 + skill 目录一份"两处副本、改了一边忘同步另一边。正确姿势是把开发仓库放在你自己的工作区，再让 skill 发现目录 **junction 指过去**，物理只留一份：
 
 ```powershell
 # Windows：开发仓库放哪自己定，例 D:\Quant\BridgeForge
 git clone https://github.com/<你的用户名>/BridgeForge.git D:\Quant\BridgeForge
-# skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
+# Codex skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\bridgeforge" -Target "D:\Quant\BridgeForge"
+# Claude Code skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\bridgeforge" -Target "D:\Quant\BridgeForge"
 ```
 
 ```bash
 # macOS / Linux：用 symlink
 git clone https://github.com/<你的用户名>/BridgeForge.git ~/dev/BridgeForge
+# Codex
+ln -s ~/dev/BridgeForge ~/.agents/skills/bridgeforge
+# Claude Code
 ln -s ~/dev/BridgeForge ~/.claude/skills/bridgeforge
 ```
 
-**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.claude/skills/bridgeforge` 只是 Claude Code 发现 skill 的透明入口，会实时看到改动，无需任何同步。以后所有操作（含 git）都在开发仓库里做，别去 `~/.claude/skills/` 那个路径操作。
+**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.agents/skills/bridgeforge` / `~/.claude/skills/bridgeforge` 只是 agent 发现 skill 的透明入口，会实时看到改动，无需任何同步。以后所有操作（含 git）都在开发仓库里做，别去用户级 skill 目录操作。
 
 > **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.claude\skills\bridgeforge" -Force` 看到 `LinkType: Junction`、`Target` 指向开发仓库，就是同一份。注意 **Glob / 文件列举会穿透 junction**，把两个路径列成一模一样的内容（连 `.git/objects` 哈希都对应）——那不是两份副本，是同一份。
 
 ## 验证安装
 
-打开任意项目，启动 Claude Code，输入：
+打开任意项目，启动 Codex 或 Claude Code，输入：
 
 ```
+# Codex
+$bridgeforge
+
+# Claude Code
 /bridgeforge
 ```
 
-如果 skill 列表里能看到 `bridgeforge`（描述是"在新项目里铺设标准化的..."），说明安装成功。
+如果 skill 列表里能看到 `bridgeforge`（描述是"在新项目里铺设或更新标准化的..."），说明安装成功。
 
 ## 升级
 
 ```bash
+# Codex
+cd ~/.agents/skills/bridgeforge
+git pull
+
+# Claude Code
 cd ~/.claude/skills/bridgeforge
 git pull
 ```
 
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
-如果想把更新同步到已有 Claude 项目，手动 diff `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/` 对比；Codex 项目则对比 `templates/codex/` 与 `<已有项目>/.codex/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览。
+如果想把更新同步到已有项目，Codex 项目对比 `~/.agents/skills/bridgeforge/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `$bridgeforge switch <claude|codex> --dry-run` 或 `/bridgeforge switch <claude|codex> --dry-run` 预览。
 
-> 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，`~/.claude/skills/bridgeforge` 会实时反映。
+> 开发者模式（junction，见上）下你自己就是上游，不需要 `git pull`——直接在开发仓库改并提交即可，用户级 skill junction 会实时反映。
 
 ## 卸载
 
 ```bash
+# Codex
+rm -rf ~/.agents/skills/bridgeforge
+
+# Claude Code
 rm -rf ~/.claude/skills/bridgeforge
 ```
 
@@ -80,19 +114,19 @@ rm -rf ~/.claude/skills/bridgeforge
 
 - **Git**：clone 用
 - **Bash 或 PowerShell**：跑 junction 脚本用
-- **Claude Code CLI**：[安装文档](https://docs.claude.com/claude-code)
+- **Codex 或 Claude Code CLI**
 
 可选：
 - 项目主语言对应的工具链（不影响 skill 本身，只影响后续填快速命令时的命令是否能跑通）
 
 ## 常见问题
 
-### Q：skill 不出现在 Claude Code 列表里
+### Q：skill 不出现在列表里
 
 检查：
-1. 路径必须是 `~/.claude/skills/bridgeforge/SKILL.md`（不是 `~/.claude/skills/bridgeforge/bridgeforge/SKILL.md`，clone 时不要嵌套）
-2. SKILL.md 第一行的 frontmatter `description:` 必须存在
-3. 重启 Claude Code 让它重新扫描 skill 目录
+1. Codex 路径必须是 `~/.agents/skills/bridgeforge/SKILL.md`；Claude Code 路径必须是 `~/.claude/skills/bridgeforge/SKILL.md`（clone 时不要嵌套成 `bridgeforge/bridgeforge/SKILL.md`）
+2. `SKILL.md` frontmatter 必须有 `name: bridgeforge` 和 `description:`
+3. 重启当前 agent 让它重新扫描 skill 目录
 
 ### Q：Windows 下 junction 脚本说"权限不足"
 

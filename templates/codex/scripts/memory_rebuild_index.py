@@ -135,7 +135,7 @@ def main() -> None:
         f"# {title}",
         "",
         "<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，"
-        "本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。满 40 条自动滚入冷区，用 /find-memory 搜。 -->",
+        "本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。满 40 条自动滚入冷区，用 $find-memory 搜。 -->",
         "",
         f"> Active: {len(pinned_present) + len(active)} | Cold: {len(cold)}",
         "",
@@ -155,13 +155,13 @@ def main() -> None:
 
     if cold:
         lines.append("")
-        lines.append(f"## 🔍 Cold（{len(cold)} 条，用 /find-memory 搜索）")
+        lines.append(f"## 🔍 Cold（{len(cold)} 条，用 $find-memory 搜索）")
         lines.append("详见 MEMORY_COLD.md")
 
     (memory_dir / "MEMORY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # ── 生成 MEMORY_COLD.md（无日期戳，确定性）────────────────
-    cold_lines = ["<!-- MEMORY_COLD.md — 冷区索引 | 用 /find-memory <关键词> 搜索 -->", ""]
+    cold_lines = ["<!-- MEMORY_COLD.md — 冷区索引 | 用 $find-memory <关键词> 搜索 -->", ""]
     for n in cold:
         d = get_description(memory_dir, n)
         cold_lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")

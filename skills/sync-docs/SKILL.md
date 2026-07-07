@@ -1,7 +1,7 @@
 ---
 name: sync-docs
 description: 根据本次代码变更，同步更新对应的设计文档。
-user-invocable: true
+user_invocable: true
 argument: 可选的额外上下文提示（如本次改动的重点）
 model: sonnet
 ---
@@ -13,11 +13,11 @@ model: sonnet
 ## 步骤
 
 1. 运行 `git diff --stat HEAD` 和 `git status`，找出本次修改的文件
-2. 按映射规则找到对应设计文档（**映射表外置在项目，skill 本体通用**）：读项目本地映射文件 `.claude/sync-docs.map.md`（源码路径 → 设计文档 的静态映射表）。
+2. 按映射规则找到对应设计文档（**映射表外置在项目，skill 本体通用**）：读项目本地映射文件（Claude `.claude/sync-docs.map.md`，Codex `.codex/sync-docs.map.md`；源码路径 → 设计文档 的静态映射表）。
    - **文件存在** → 按表把本次改动的源码路径映射到对应文档。
    - **文件不存在 / 表里无匹配路径** → 走 catchall：根据路径和内容判断最相关的文档（找不到则列出告诉用户，不自己新建）。
 
-   > **为什么外置**：映射表内容是**项目专属**的（引用本项目实际目录结构，每个项目不同），不能进 bridgeforge 通用源。**单一源拆分**同 find-doc：skill 本体「怎么同步」归 bridgeforge 单一源（本文件）；映射表「改哪个文档」归项目 `.claude/sync-docs.map.md`。模板格式见 Step 7。
+   > **为什么外置**：映射表内容是**项目专属**的（引用本项目实际目录结构，每个项目不同），不能进 bridgeforge 通用源。**单一源拆分**同 find-doc：skill 本体「怎么同步」归 bridgeforge 单一源（本文件）；映射表「改哪个文档」归当前 agent 的 `sync-docs.map.md`。模板格式见 Step 7。
 
 3. 读取对应设计文档的现有内容
 4. 根据实际代码变更，在文档中更新或补充：
@@ -38,11 +38,11 @@ model: sonnet
 
 同步摘要已呈现后，**额外**做一件事：
 
-1. 检查项目根是否存在 `.claude/sync-docs.map.md`
+1. 检查项目根是否存在当前 agent 的 `sync-docs.map.md`
 2. **不存在 / 本次路径不在表里 且** 本次 git diff 涉及到了**有规律的源码路径**（同一目录 / 同一模块多文件改动，能看出 pattern） → 在回复末尾追加：
 
    ```
-   💡 映射提醒：本项目还没有 .claude/sync-docs.map.md（或本次路径不在表里），sync-docs 走的是 catchall。
+   💡 映射提醒：本项目还没有当前 agent 的 sync-docs.map.md（或本次路径不在表里），sync-docs 走的是 catchall。
    本次改了 <path_pattern>，要不要我建/补这个文件？候选：
 
    # sync-docs 项目映射表（源码 → 设计文档）

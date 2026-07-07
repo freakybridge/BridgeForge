@@ -1,7 +1,7 @@
 ---
 name: plan
 description: 你现在进入规划模式。只读分析代码，列出任务/风险/文件，禁止写代码，等用户确认后再实施。
-user-invocable: true
+user_invocable: true
 argument: 需要规划的任务描述
 ---
 

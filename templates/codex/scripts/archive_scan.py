@@ -163,7 +163,7 @@ def main() -> int:
             print(f"      - {r}")
         print()
 
-    print("建议操作（/archive-scan skill 会代跑）：")
+    print("建议操作（$archive-scan skill 会代跑）：")
     print("  1. 人工 review 每个候选")
     print("  2. 确认后 git mv doc/2_pending/<file> doc/4_archive/")
     print("  3. 更新 doc/README.md 的 current/ 和 archive/ 表格")

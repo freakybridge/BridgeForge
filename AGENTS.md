@@ -69,7 +69,7 @@
 | 目录 / 文件 | 层 | 改动会不会传到下游 |
 |------------|----|------------------|
 | `templates/**` | 产品层 | ✅ 下游复印时全量继承 |
-| `skills/**` | 产品层 | ✅ 下游 `/bridgeforge` Step 0 自检补齐到 `~/.codex/skills/` |
+| `skills/**` | 产品层 | ✅ 下游 `$bridgeforge` Step 0 自检补齐到 `~/.agents/skills/` |
 | `.codex/**` `AGENTS.md` | 自身配置层 | ❌ 只管 bridgeforge 自己（自产自用：理论上应与 `templates/` 同款，见下） |
 | `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/<agent>/VERSION` |

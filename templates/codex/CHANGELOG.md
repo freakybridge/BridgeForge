@@ -21,6 +21,15 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.17.0] - 2026-07-07
+
+### Fixed
+- 用户级通用 skill 路径从旧 `~/.codex/skills/` 修正为 Codex 规范路径 `~/.agents/skills/`，项目专属 skill 路径从 `.codex/skills/` 修正为 `.agents/skills/`：覆盖 `AGENTS.md` 技能目录说明、`rules/portability.md` 单一源约定、`skill_sync_check.py` 漂移检测路径和 settings 注释。
+- `skill_sync_check.py` 提示语改为 `$bridgeforge`，避免 Codex 用户继续按 Claude Code slash command 入口操作。
+- Codex 模板内的用户可见 skill 调用统一改为 `$skill`，并让 `clarify_reminder.py` / `context_warning.py` 同时豁免 `/` 与 `$` 开头的命令，避免 `$snapshot` / `$resume` 被上下文或澄清 hook 干扰。
+- 通用 skill 的历史 `user-invocable` 元数据统一改为 `user_invocable`。
+- 退役空 `.agents/` 清理 hook：`.agents/skills/` 是 Codex 官方 repo skill 路径，不再把项目根 `.agents/` 视为必须自动清除的异常；删除 `legacy_agents_cleanup.py` 及其 `PostToolUse` / `SessionStart` 注册。
+
 ## [0.16.1] - 2026-07-06
 
 ### Fixed

@@ -1,18 +1,18 @@
 ﻿"""用户级 skill 漂移自检 — SessionStart hook（支柱 B / 开机自检）
 
 机制:
-1. 定位上游骨架库的 skill 源: ~/.codex/skills/bridgeforge/skills/
+1. 定位上游骨架库的 skill 源: ~/.agents/skills/bridgeforge/skills/
    找不到 = 本机没装 bridgeforge → 静默 no-op (对非 bridgeforge 用户零影响,
    范式同 target_cleanup.py 的自门控)。
-2. 逐个比对"用户级架子" ~/.codex/skills/<skill> 与上游源的内容哈希:
+2. 逐个比对"用户级架子" ~/.agents/skills/<skill> 与上游源的内容哈希:
    - 上游有、架子没        → 缺失 (missing)
    - 两边内容不一致        → 漂移 (divergent: 旧版镜像 or 你的定制)
    只遍历上游出品的 skill, 故架子上的项目专属 skill (如 causis-api) 自然不被波及。
 3. 读 repo 根 RETIRED.md 墓碑名单: 已下架却仍赖在架子上的 → 已退役 (retired)。
 4. 有任何一类时打印一行 [skill-sync] 到 stdout (SessionStart 注入上下文),
-   建议跑 /bridgeforge 同步。
+   建议跑 $bridgeforge 同步。
 
-本 hook 只"检测 + 通知", 绝不改任何文件 —— 真正的补/更/删由 /bridgeforge
+本 hook 只"检测 + 通知", 绝不改任何文件 —— 真正的补/更/删由 $bridgeforge
 Step 0 在用户确认下执行 (绝不静默覆盖定制 / 静默删退役)。设计见
 docs/skill-distribution-gaps.md「支柱 B」。
 
@@ -88,7 +88,7 @@ def read_retired(upstream_root: Path) -> list[str]:
 
 
 def main() -> None:
-    shelf = Path.home() / ".codex" / "skills"
+    shelf = Path.home() / ".agents" / "skills"
     upstream = shelf / "bridgeforge" / "skills"
 
     # 自门控: 本机没装 bridgeforge 上游 → 静默退出
@@ -126,7 +126,7 @@ def main() -> None:
     print(
         "[skill-sync] 用户级通用 skill 与上游骨架不一致："
         + "；".join(parts)
-        + "。跑 /bridgeforge 同步（Step 0 逐个给 diff/问删，你的定制不会被静默覆盖或删除）。"
+        + "。跑 $bridgeforge 同步（Step 0 逐个给 diff/问删，你的定制不会被静默覆盖或删除）。"
     )
 
 
