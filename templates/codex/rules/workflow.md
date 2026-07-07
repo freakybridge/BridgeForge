@@ -86,7 +86,7 @@ paths:
 
 **Why（为什么是红线）**：文档分层是 bridgeforge 的核心范式之一，与 rules / memory 深度耦合：
 
-- 13 个协作 skill 中 4 个（`$archive-scan` `$todo` `$find-doc` `$sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
+- 多个协作 skill（如 `$feature-dev` `$archive-scan` `$todo` `$find-doc` `$sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
 - `workflow.md §6-§7` + `meta_rule_design.md` 的"案例下沉"范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
 - 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
 

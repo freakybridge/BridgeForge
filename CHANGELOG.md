@@ -17,6 +17,11 @@
 
 ---
 
+## [0.50.0] - 2026-07-08
+
+### Added
+- `[product][meta]` **新增 `feature-dev` 大需求交付流水线 + 入口模板瘦身**：新增 `skills/feature-dev/SKILL.md`，把“渐进澄清 → 按 `doc/` 规范落盘需求包 → 自动拆解开发 → 交付前独立 verification / review agent → 用户试用反馈修小 bug”固化成通用 skill。Claude/Codex 入口模板的 `[clarify]` 响应新增 `/feature-dev` / `$feature-dev` 触发指针，较大需求不再临时手搓流程；同时将两套入口文件压缩为“常驻红线 + 信号路由 + rule 索引”，把长解释交回 `rules/*` 承接，降低常驻上下文。`workflow.md` 的 doc/ 依赖说明同步加入 feature-dev 并去掉过时固定 skill 计数。`SKILL.md` 通用 skill 速查与复制清单补入 feature-dev，README 去掉“13 个 skill”固定计数。`templates/claude/VERSION` 升至 `0.18.0`，`templates/codex/VERSION` 升至 `0.22.0`，根 `VERSION` / `SKILL.md` 升至 `0.50.0`。
+
 ## [0.49.0] - 2026-07-07
 
 ### Changed

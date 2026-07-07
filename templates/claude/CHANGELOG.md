@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.18.0] - 2026-07-08
+
+### Added
+- [product] `CLAUDE.md` 的 `[clarify]` 响应新增 `/feature-dev` 触发指针：需要落盘需求 / 验收清单 / 用户试用闭环的大需求，转交通用 `feature-dev` skill 承接需求文档、自动拆解、开发、独立验证和反馈修复。同时将入口文件压缩为常驻红线 + 信号路由 + rule 索引，长解释回落到 `rules/*`。`rules/workflow.md` 的 doc/ 依赖说明同步加入 `/feature-dev`，并去掉过时固定 skill 计数。
+
 ## [0.17.0] - 2026-07-08
 
 ### Changed

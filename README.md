@@ -15,7 +15,7 @@
 | 后端服务 / 桌面应用 / 多 Gateway 集成 | 移动 app（无 doc/ 分层需求） |
 | 需要长记忆 + ctx 预警 + 鬼打墙红线 | 一次性脚本（不需要 session 管理） |
 
-**不太适合的项目也能用** — 跑 Claude Code `/bridgeforge` 或 Codex `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 13 个 skill 这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
+**不太适合的项目也能用** — 跑 Claude Code `/bridgeforge` 或 Codex `/bridgeforge` 时按引导答 OS / 主语言会自动裁剪不相关段落（详见 SKILL.md Step 3 的 OPTIONAL 段落处理），但 doc/ 六层 + Milestone-bound SemVer + 通用 skill 体系这些**核心范式假设了"项目有持续演进"** — 周末玩具用了反而是负担。
 
 > ⚠️ **使用 bridgeforge = 接受 `doc/` 六层文档结构强制**（红线，不可裁剪 / 不可改名 / 不可合并）。详见 `templates/claude/CLAUDE.md §11` / `templates/codex/AGENTS.md §11` + 对应 `rules/workflow.md §5.5`。如果不接受这个约束 → 改用其他更宽松的脚手架。
 
