@@ -17,6 +17,11 @@
 
 ---
 
+## [0.48.1] - 2026-07-07
+
+### Fixed
+- `[product][repo]` **Codex 模板 pre-commit BOM 修复**：剥离 `templates/codex/.githooks/pre-commit` 文件头 UTF-8 BOM，恢复首字节 `#!`，避免下游 Git for Windows 执行 hook 时误报 `cannot spawn .githooks/pre-commit: No such file or directory`。同时修正 `.gitattributes` 中模板 hook 路径为 `templates/*/.githooks/**`，并在 harness 新增三份 pre-commit 首字节检查，要求根、Claude 模板、Codex 模板均以 `23 21` 开头且无 BOM。`templates/codex/VERSION` 升至 `0.19.1`，根 `VERSION` / `SKILL.md` 升至 `0.48.1`。
+
 ## [0.48.0] - 2026-07-07
 
 ### Added

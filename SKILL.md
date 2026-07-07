@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.48.0
+version: 0.48.1
 user_invocable: true
 user-invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--apply-blocked PATH] [--keep-blocked PATH] [--delete-unknown PATH]，不带参数则初始化或更新当前项目骨架

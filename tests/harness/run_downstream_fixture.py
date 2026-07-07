@@ -225,6 +225,30 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
     return CheckResult("root_precommit_dual_agent_gates", ok, detail)
 
 
+def check_precommit_shebang_bytes() -> CheckResult:
+    paths = [
+        REPO_ROOT / ".githooks" / "pre-commit",
+        REPO_ROOT / "templates" / "claude" / ".githooks" / "pre-commit",
+        REPO_ROOT / "templates" / "codex" / ".githooks" / "pre-commit",
+    ]
+    bad: list[str] = []
+    for path in paths:
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        data = path.read_bytes()
+        if data.startswith(b"\xef\xbb\xbf"):
+            bad.append(f"{rel}: starts with UTF-8 BOM")
+        elif not data.startswith(b"#!"):
+            head = data[:4].hex(" ").upper()
+            bad.append(f"{rel}: expected shebang bytes 23 21, got {head}")
+
+    ok = not bad
+    return CheckResult(
+        "precommit_shebang_bytes",
+        ok,
+        "all pre-commit hooks start with #! and no BOM" if ok else "; ".join(bad),
+    )
+
+
 def _build_switch_fixture() -> Path:
     fixture = build_codex_fixture()
     scripts_dir = fixture / "scripts"
@@ -456,6 +480,7 @@ CHECKS = {
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,
     "mirror-noop": check_mirror_no_templates_noop,
+    "precommit-shebang": check_precommit_shebang_bytes,
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-refs": check_skill_references,
