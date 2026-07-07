@@ -17,6 +17,11 @@
 
 ---
 
+## [0.49.0] - 2026-07-07
+
+### Changed
+- `[product][repo][meta]` **`/bridgeforge switch` 改为归档恢复模型**：`switch claude|codex` 不再按“删除旧模板文件 + 复制新模板”硬切；跨 agent 切换现在会把旧 agent 骨架归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，每个 agent 只保留最新归档，归档成功后删除旧原路径。目标 agent 优先从当前项目归档恢复，没有归档才从上游模板安装；目标 live path 已存在时停止，不覆盖。memory 合并到目标 agent，完全重复自动去重、相似冲突逐条确认；settings 默认不迁移，需逐项确认；hooks / skills / rules / 入口文件默认只归档并报告，不自动迁移。同步更新根脚本、Claude/Codex 模板脚本、`.claude` / `.codex` dogfood 副本、`SKILL.md` / README / INSTALL / Codex 叶子入口，并新增 harness 覆盖归档恢复、Codex→Claude 归档范围、目标冲突、半成品目标冲突、dry-run 完整清单、memory 冲突、settings 逐项迁移、无旧骨架启用和同 agent no-op。`templates/claude/VERSION` 升至 `0.16.0`，`templates/codex/VERSION` 升至 `0.20.0`，根 `VERSION` / `SKILL.md` 升至 `0.49.0`。
+
 ## [0.48.1] - 2026-07-07
 
 ### Fixed

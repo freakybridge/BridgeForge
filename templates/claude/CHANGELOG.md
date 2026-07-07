@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.16.0] - 2026-07-07
+
+### Changed
+- `/bridgeforge switch` 改为归档恢复模型：跨 agent 切换会把旧 agent 骨架归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，每个 agent 只保留最新归档；目标 agent 优先从当前项目归档恢复，没有归档才从上游模板安装。memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移；目标 live path 已存在时停止。
+
 ## [0.15.0] - 2026-07-07
 
 ### Added

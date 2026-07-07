@@ -1,10 +1,10 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架；用户输入 /bridgeforge、bridgeforge、switch claude/codex 时使用。
-version: 0.48.0
+version: 0.49.0
 user_invocable: true
 user-invocable: true
-argument: 可选：switch claude|codex [--dry-run|--interactive] [--apply-blocked PATH] [--keep-blocked PATH] [--delete-unknown PATH]；不带参数则初始化或更新当前项目骨架
+argument: 可选：switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]；不带参数则初始化或更新当前项目骨架
 model: sonnet
 ---
 

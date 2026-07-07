@@ -128,7 +128,7 @@ git pull
 
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
-如果想把更新同步到已有项目，Codex 项目对比 `~/.agents/bridgeforge-home/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览；若强保护列出 blocked 文件，逐项确认覆盖/删除、保留跳过，或停止，不要批量静默覆盖。
+如果想把更新同步到已有项目，Codex 项目对比 `~/.agents/bridgeforge-home/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览完整计划：旧 agent 会归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，目标 agent 优先从当前项目归档恢复、否则从上游模板安装；memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移。若目标 live path 已存在，switch 会停止，不覆盖。
 
 > 开发者模式（junction / symlink，见上）下你自己就是上游，不需要在 home 目录 `git pull`；直接在开发仓库改并提交即可。
 

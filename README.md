@@ -142,7 +142,7 @@ git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE
 
 ### 切换目标 agent
 
-BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。第一版切换入口固定为：
+BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。切换入口固定为：
 
 ```bash
 /bridgeforge switch claude
@@ -151,7 +151,7 @@ BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨
 /bridgeforge switch codex --interactive
 ```
 
-核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，按 Git 工作区状态保护将被删除或覆盖的 agent 骨架文件，dry-run 会报告新增/覆盖/删除/阻塞项，真实切换只改工作区文件，不自动提交。若强保护发现 dirty / untracked 的 agent 骨架文件，脚本默认不改任何文件；agent 必须逐项让用户选择覆盖/删除、保留跳过，或停止。真实终端可用 `--interactive` 逐项确认；非交互工具可用 `--apply-blocked PATH` / `--keep-blocked PATH` / `--delete-unknown PATH` 回放用户选择。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
+核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，真实切换只改工作区文件，不自动提交。同 agent switch 等价普通 `/bridgeforge` 更新/收编；跨 agent switch 会把旧 agent 骨架归档进当前项目的 `.bridgeforge/archive/<agent>/<timestamp>/`，每个 agent 只保留最新一份归档，归档成功后删除旧 agent 原路径。目标 agent 优先从当前项目自己的归档恢复，没有归档才从上游模板安装；目标 live path 已存在时停止，不覆盖。memory 合并到目标 agent，完全重复自动去重，相似冲突逐条确认；settings 默认不迁移，逐项确认；hooks / skills / rules / 入口文件只归档并报告，不自动迁移。dry-run 会列完整清单。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
 
 ## 目录结构
 

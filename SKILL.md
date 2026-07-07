@@ -1,10 +1,10 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.48.1
+version: 0.49.0
 user_invocable: true
 user-invocable: true
-argument: 可选——switch claude|codex [--dry-run|--interactive] [--apply-blocked PATH] [--keep-blocked PATH] [--delete-unknown PATH]，不带参数则初始化或更新当前项目骨架
+argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则初始化或更新当前项目骨架
 model: sonnet
 ---
 
@@ -59,24 +59,30 @@ TEMPLATE_AGENT="codex"
 /bridgeforge switch codex --interactive
 ```
 
-不要进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
+先判断当前项目是否已经是目标 agent：
+- 已经是目标 agent（如已有 `AGENTS.md + .codex/` 又 `switch codex`）→ **不要调用切换脚本**，按普通 `/bridgeforge` 继续走初始化 / 更新 / 收编流程。
+- 不是目标 agent → 不进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
 
 ```bash
-python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [--apply-blocked PATH] [--keep-blocked PATH] [--delete-unknown PATH]
+python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]
 ```
 
 执行契约：
 - 只支持 `claude` / `codex`，不接受 `gpt` / `openai` / `claude-code` 等别名。
-- `--dry-run` 只报告计划和 Git 强保护结果，不改文件。
-- 若强保护发现将删除 / 覆盖的 agent 骨架文件 dirty 或 untracked，默认直接退出且**不改任何文件**。
-- blocked 后必须像更新模式一样逐项交给用户定：`apply` = 执行原计划的覆盖 / 删除，`keep` = 保留现状并跳过该文件，`delete-unknown` = 删除未知旧 agent 文件；用户不答或拿不准时默认 `keep` / 停止。
-- 非交互工具里不要让脚本卡在 stdin；先把 blocked 清单逐个问用户，再用 `--apply-blocked PATH` / `--keep-blocked PATH` / `--delete-unknown PATH` 重跑。真实终端里可用 `--interactive` 让脚本逐个问。
+- `--dry-run` 只报告完整计划，不改文件；清单必须覆盖归档、删除、目标来源、memory 合并、settings 候选、只归档不迁移项和目标冲突。
+- 旧 agent 归档范围固定：Claude → `CLAUDE.md + .claude/`；Codex → `AGENTS.md + .codex/ + .agents/skills/`。归档路径为 `.bridgeforge/archive/<agent>/<timestamp>/`，每个 agent 只保留最新一份归档，新归档成功后删除该 agent 旧归档。
+- 归档成功后删除旧 agent 原路径；`.agents/` 若因此变空可删除，若还有其他内容则保留。
+- 若当前项目没有旧 agent 骨架，允许 switch；语义变成启用目标 agent。
+- 目标 agent 优先从当前项目自己的归档恢复；没有目标归档才从上游 `templates/<agent>/` 安装全新骨架。**只认当前项目归档**，不读全局缓存或其他项目。
+- 目标 agent live path 已存在且不是“同 agent switch”时，直接停止，不覆盖、不归档继续。
+- memory 必须合并到目标 agent 的活跃 memory：完全重复自动去重；相似但不完全一样 / 同路径不同内容必须逐条确认。非交互时用 `--memory-conflict REL=keep-target|copy-old|append-old` 回放用户选择。
+- settings 默认不迁移；列出候选 key 后逐项确认。非交互时用 `--skip-settings-migration` 表示全部不迁移，或用 `--migrate-setting KEY` 指定迁移项。
+- hooks / skills / rules / 入口文件默认只归档并报告，不自动迁移；它们存在 agent 兼容性风险，不能机械搬入目标 agent。
 - 真实切换只改工作区文件，不 `git add` / `git commit` / `git push`。
-- 强保护只检查将被删除或覆盖的 agent 骨架文件；无关业务代码改动不阻塞。
 - 若项目内没有 `scripts/bridgeforge_switch.py`，用本 skill clone 里的 `templates/$TEMPLATE_AGENT/scripts/bridgeforge_switch.py` 兜底执行，并显式传 `--template-root "$BRIDGEFORGE_HOME"`。
 - 若 cwd 是 bridgeforge 源头仓库自己，切换脚本会拒绝执行；源头改框架应直接编辑 `templates/`。
 
-> 白话：`/bridgeforge switch ...` 是换 agent 骨架，不是重新初始化项目。它只搬 agent 工具箱，不替你提交，也不重置项目业务文档。
+> 白话：`/bridgeforge switch ...` 是换当前项目的 agent 工具箱。旧工具箱先封箱进项目自己的归档柜，目标工具箱优先从同项目归档柜拿，拿不到才领一套上游新工具箱；笔记本（memory）要合并，电线/专用工具/规章（hooks / skills / rules / 入口文件）只存档不硬接。
 
 ### 前置：拉上游最新 + 认场子（工厂自检 / 更新 / 收编 / init 四分类）
 

@@ -28,7 +28,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = REPO_ROOT / ".runtime" / "harness"
 CODEX_TEMPLATE = REPO_ROOT / "templates" / "codex"
+CLAUDE_TEMPLATE = REPO_ROOT / "templates" / "claude"
 CODEX_FIXTURE = RUNTIME_ROOT / "downstream-codex"
+SWITCH_FIXTURE = RUNTIME_ROOT / "downstream-switch"
 
 
 @dataclass
@@ -64,7 +66,7 @@ def _remove_readonly(func, path: str, _exc_info) -> None:
 def _copytree(src: Path, dst: Path) -> None:
     if dst.exists():
         shutil.rmtree(dst)
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
 
 def run(cmd: list[str], cwd: Path, timeout: int = 20) -> subprocess.CompletedProcess[str]:
@@ -250,42 +252,278 @@ def check_precommit_shebang_bytes() -> CheckResult:
 
 
 def _build_switch_fixture() -> Path:
+    _safe_reset_dir(SWITCH_FIXTURE)
+    fixture = SWITCH_FIXTURE
+    shutil.copy2(CLAUDE_TEMPLATE / "CLAUDE.md", fixture / "CLAUDE.md")
+    claude_dir = fixture / ".claude"
+    claude_dir.mkdir()
+    for name in ("hooks", "scripts", "rules", "memory"):
+        _copytree(CLAUDE_TEMPLATE / name, claude_dir / name)
+    shutil.copy2(CLAUDE_TEMPLATE / "settings.json", claude_dir / "settings.json")
+
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    shutil.copy2(CLAUDE_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+    return fixture
+
+
+def _add_codex_archive(fixture: Path, *, shared_memory: str | None = None) -> Path:
+    archive = fixture / ".bridgeforge" / "archive" / "codex" / "20260707-153000"
+    archive.mkdir(parents=True)
+    shutil.copy2(CODEX_TEMPLATE / "AGENTS.md", archive / "AGENTS.md")
+    codex_dir = archive / ".codex"
+    codex_dir.mkdir()
+    for name in ("hooks", "scripts", "rules", "memory"):
+        _copytree(CODEX_TEMPLATE / name, codex_dir / name)
+    shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    if shared_memory is not None:
+        (codex_dir / "memory" / "shared.md").write_text(shared_memory, encoding="utf-8")
+    else:
+        (codex_dir / "memory" / "codex-note.md").write_text("codex note\n", encoding="utf-8")
+    return archive
+
+
+def check_switch_archive_restore() -> CheckResult:
+    fixture = _build_switch_fixture()
+    _add_codex_archive(fixture)
+    (fixture / ".claude" / "memory" / "claude-note.md").write_text("claude note\n", encoding="utf-8")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    claude_archives = list((fixture / ".bridgeforge" / "archive" / "claude").glob("*"))
+    ok = (
+        r.returncode == 0
+        and (fixture / "AGENTS.md").exists()
+        and (fixture / ".codex").is_dir()
+        and not (fixture / "CLAUDE.md").exists()
+        and not (fixture / ".claude").exists()
+        and len(claude_archives) == 1
+        and (claude_archives[0] / "CLAUDE.md").exists()
+        and (fixture / ".codex" / "memory" / "codex-note.md").exists()
+        and (fixture / ".codex" / "memory" / "claude-note.md").exists()
+        and "Validation passed" in text
+    )
+    return CheckResult(
+        "switch_archive_restore",
+        ok,
+        "switch restores target archive, archives/removes old Claude skeleton, and merges unique memory"
+        if ok
+        else f"expected successful archive restore switch, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_dry_run_full_plan() -> CheckResult:
+    fixture = _build_switch_fixture()
+    _add_codex_archive(fixture)
+    (fixture / ".claude" / "memory" / "claude-note.md").write_text("claude note\n", encoding="utf-8")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--dry-run",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    ok = (
+        r.returncode == 0
+        and "Target source: archive" in text
+        and "Will archive old agent paths" in text
+        and "Memory notes copied automatically" in text
+        and "Settings migration candidates" in text
+        and "Archived-only surfaces" in text
+        and (fixture / "CLAUDE.md").exists()
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_dry_run_full_plan",
+        ok,
+        "dry-run prints the full switch plan and leaves files unchanged"
+        if ok
+        else f"expected dry-run full plan with no changes, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_target_conflict_stops() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / "AGENTS.md").write_text("preexisting codex entry\n", encoding="utf-8")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    ok = (
+        r.returncode == 2
+        and "target path conflicts" in text
+        and (fixture / "CLAUDE.md").exists()
+        and (fixture / ".claude").is_dir()
+        and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "preexisting codex entry\n"
+    )
+    return CheckResult(
+        "switch_target_conflict_stops",
+        ok,
+        "target agent live paths cause a stop before any files are changed"
+        if ok
+        else f"expected conflict stop with unchanged files, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_partial_target_conflict_stops() -> CheckResult:
+    _safe_reset_dir(SWITCH_FIXTURE)
+    fixture = SWITCH_FIXTURE
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir()
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+    (fixture / "AGENTS.md").write_text("partial codex skeleton\n", encoding="utf-8")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    ok = (
+        r.returncode == 2
+        and "target path conflicts" in text
+        and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "partial codex skeleton\n"
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_partial_target_conflict_stops",
+        ok,
+        "partial target skeleton is treated as a conflict, not as already-active target"
+        if ok
+        else f"expected partial target conflict stop, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_memory_conflict_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    _add_codex_archive(fixture, shared_memory="codex shared\n")
+    (fixture / ".claude" / "memory" / "shared.md").write_text("claude shared\n", encoding="utf-8")
+    blocked = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+        ],
+        fixture,
+    )
+    if blocked.returncode != 2 or not (fixture / "CLAUDE.md").exists():
+        return CheckResult(
+            "switch_memory_conflict_decision",
+            False,
+            f"expected first run to stop on memory conflict, got exit {blocked.returncode}",
+        )
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+            "--memory-conflict",
+            "shared.md=copy-old",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    side_files = list((fixture / ".codex" / "memory").glob("shared.from-claude*.md"))
+    ok = r.returncode == 0 and "Validation passed" in text and len(side_files) == 1
+    return CheckResult(
+        "switch_memory_conflict_decision",
+        ok,
+        "non-identical memory conflict stops until an explicit per-file decision is replayed"
+        if ok
+        else f"expected successful replay with side-file memory copy, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_settings_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    settings = json.loads((fixture / ".claude" / "settings.json").read_text(encoding="utf-8-sig"))
+    settings.setdefault("env", {})["BRIDGEFORGE_TEST_FLAG"] = "1"
+    (fixture / ".claude" / "settings.json").write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    blocked = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+        ],
+        fixture,
+    )
+    if blocked.returncode != 2 or not (fixture / "CLAUDE.md").exists() or "env.BRIDGEFORGE_TEST_FLAG" not in (blocked.stdout + blocked.stderr):
+        return CheckResult(
+            "switch_settings_decision",
+            False,
+            f"expected first run to stop on settings candidate, got exit {blocked.returncode}",
+        )
+
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+            "--migrate-setting",
+            "env.BRIDGEFORGE_TEST_FLAG",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    target_settings = json.loads((fixture / ".codex" / "settings.json").read_text(encoding="utf-8-sig"))
+    ok = (
+        r.returncode == 0
+        and target_settings.get("env", {}).get("BRIDGEFORGE_TEST_FLAG") == "1"
+        and "hooks" not in target_settings.get("env", {})
+        and "Validation passed" in text
+    )
+    return CheckResult(
+        "switch_settings_decision",
+        ok,
+        "settings migration stops by default and can replay one dotted setting path"
+        if ok
+        else f"expected selected env setting migration, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_same_agent_noop() -> CheckResult:
     fixture = build_codex_fixture()
     scripts_dir = fixture / "scripts"
     scripts_dir.mkdir(exist_ok=True)
     shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
-
-    add = run(["git", "add", "-A"], fixture)
-    if add.returncode != 0:
-        raise RuntimeError(f"git add failed: {add.stderr.strip()}")
-    commit = run(
-        [
-            "git",
-            "-c",
-            "user.name=BridgeForge Harness",
-            "-c",
-            "user.email=harness@example.invalid",
-            "commit",
-            "-m",
-            "baseline",
-        ],
-        fixture,
-    )
-    if commit.returncode != 0:
-        raise RuntimeError(f"git commit failed: {commit.stderr.strip()}")
-    return fixture
-
-
-def _dirty_agents_md(fixture: Path) -> str:
-    marker = "\nLOCAL DIRTY SWITCH MARKER\n"
-    path = fixture / "AGENTS.md"
-    path.write_text(path.read_text(encoding="utf-8") + marker, encoding="utf-8")
-    return marker
-
-
-def check_switch_blocked_guidance() -> CheckResult:
-    fixture = _build_switch_fixture()
-    marker = _dirty_agents_md(fixture)
     r = run(
         [
             sys.executable,
@@ -297,27 +535,65 @@ def check_switch_blocked_guidance() -> CheckResult:
         fixture,
     )
     text = r.stdout + r.stderr
-    unchanged = marker in (fixture / "AGENTS.md").read_text(encoding="utf-8")
+    ok = r.returncode == 0 and "Already target agent" in text and not (fixture / ".bridgeforge" / "archive" / "codex").exists()
+    return CheckResult(
+        "switch_same_agent_noop",
+        ok,
+        "switching to the already-active agent is a no-op and points back to normal /bridgeforge"
+        if ok
+        else f"expected same-agent no-op, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_codex_to_claude_archive_scope() -> CheckResult:
+    fixture = build_codex_fixture()
+    project_skill = fixture / ".agents" / "skills" / "project-only" / "SKILL.md"
+    project_skill.parent.mkdir(parents=True)
+    project_skill.write_text("---\nname: project-only\n---\n", encoding="utf-8")
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "claude",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    codex_archives = list((fixture / ".bridgeforge" / "archive" / "codex").glob("*"))
     ok = (
-        r.returncode == 2
-        and "strong protection blocked this switch" in text
-        and "--interactive" in text
-        and "--apply-blocked PATH" in text
-        and "No files were changed" in text
-        and unchanged
+        r.returncode == 0
+        and (fixture / "CLAUDE.md").exists()
+        and (fixture / ".claude" / "settings.json").exists()
+        and not (fixture / "AGENTS.md").exists()
+        and not (fixture / ".codex").exists()
+        and not (fixture / ".agents").exists()
+        and len(codex_archives) == 1
+        and (codex_archives[0] / "AGENTS.md").exists()
+        and (codex_archives[0] / ".codex" / "settings.json").exists()
+        and (codex_archives[0] / ".agents" / "skills" / "project-only" / "SKILL.md").exists()
+        and "Validation passed" in text
     )
     return CheckResult(
-        "switch_blocked_guidance",
+        "switch_codex_to_claude_archive_scope",
         ok,
-        "blocked switch exits 2 with per-file guidance and leaves dirty file unchanged"
+        "Codex to Claude archives AGENTS.md, .codex, and .agents/skills, then removes empty .agents"
         if ok
-        else f"expected exit 2 + guidance + unchanged file, got exit {r.returncode}",
+        else f"expected Codex archive scope and cleanup, got exit {r.returncode}: {text.strip()}",
     )
 
 
-def check_switch_keep_blocked_decision() -> CheckResult:
-    fixture = _build_switch_fixture()
-    marker = _dirty_agents_md(fixture)
+def check_switch_no_old_installs_target() -> CheckResult:
+    _safe_reset_dir(SWITCH_FIXTURE)
+    fixture = SWITCH_FIXTURE
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir()
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
     r = run(
         [
             sys.executable,
@@ -325,47 +601,23 @@ def check_switch_keep_blocked_decision() -> CheckResult:
             "codex",
             "--template-root",
             str(REPO_ROOT),
-            "--keep-blocked",
-            "AGENTS.md",
         ],
         fixture,
     )
     text = r.stdout + r.stderr
-    kept = marker in (fixture / "AGENTS.md").read_text(encoding="utf-8")
-    ok = r.returncode == 0 and "Validation passed" in text and kept
-    return CheckResult(
-        "switch_keep_blocked_decision",
-        ok,
-        "explicit keep-blocked continues switch and preserves reviewed dirty file"
-        if ok
-        else f"expected exit 0 + preserved marker, got exit {r.returncode}: {text.strip()}",
+    ok = (
+        r.returncode == 0
+        and (fixture / "AGENTS.md").exists()
+        and (fixture / ".codex" / "settings.json").exists()
+        and not (fixture / ".bridgeforge" / "archive" / "claude").exists()
+        and "Validation passed" in text
     )
-
-
-def check_switch_apply_blocked_decision() -> CheckResult:
-    fixture = _build_switch_fixture()
-    marker = _dirty_agents_md(fixture)
-    r = run(
-        [
-            sys.executable,
-            "scripts/bridgeforge_switch.py",
-            "codex",
-            "--template-root",
-            str(REPO_ROOT),
-            "--apply-blocked",
-            "AGENTS.md",
-        ],
-        fixture,
-    )
-    text = r.stdout + r.stderr
-    overwritten = marker not in (fixture / "AGENTS.md").read_text(encoding="utf-8")
-    ok = r.returncode == 0 and "Validation passed" in text and overwritten
     return CheckResult(
-        "switch_apply_blocked_decision",
+        "switch_no_old_installs_target",
         ok,
-        "explicit apply-blocked continues switch and overwrites reviewed dirty file"
+        "project without an old skeleton can enable the target agent from templates"
         if ok
-        else f"expected exit 0 + overwritten marker, got exit {r.returncode}: {text.strip()}",
+        else f"expected template install without old archive, got exit {r.returncode}: {text.strip()}",
     )
 
 
@@ -484,9 +736,15 @@ CHECKS = {
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-refs": check_skill_references,
-    "switch-apply": check_switch_apply_blocked_decision,
-    "switch-blocked": check_switch_blocked_guidance,
-    "switch-keep": check_switch_keep_blocked_decision,
+    "switch-archive": check_switch_archive_restore,
+    "switch-codex-archive": check_switch_codex_to_claude_archive_scope,
+    "switch-conflict": check_switch_target_conflict_stops,
+    "switch-dry-run": check_switch_dry_run_full_plan,
+    "switch-memory": check_switch_memory_conflict_decision,
+    "switch-no-old": check_switch_no_old_installs_target,
+    "switch-partial-target": check_switch_partial_target_conflict_stops,
+    "switch-same": check_switch_same_agent_noop,
+    "switch-settings": check_switch_settings_decision,
 }
 
 
