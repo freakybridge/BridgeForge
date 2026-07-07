@@ -57,6 +57,13 @@ class Plan:
     python_command: str | None
 
 
+@dataclass(frozen=True)
+class BlockedDecisions:
+    apply_blocked: set[str]
+    keep_blocked: set[str]
+    delete_unknown: set[str]
+
+
 def _posix(path: Path) -> str:
     return path.as_posix().rstrip("/")
 
@@ -75,6 +82,26 @@ def _print(title: str, items: list[str]) -> None:
     print(f"{title}:")
     for item in items:
         print(f"  - {item}")
+
+
+def _arg_rel_path(value: str, root: Path) -> str:
+    raw = value.strip().strip('"').strip("'")
+    path = Path(raw)
+    if path.is_absolute():
+        return _rel(path, root)
+    return raw.replace("\\", "/").strip("/")
+
+
+def _dedupe_paths(paths: list[Path]) -> list[Path]:
+    seen: set[str] = set()
+    out: list[Path] = []
+    for path in paths:
+        key = _posix(path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return sorted(out)
 
 
 def _candidate_roots(project_root: Path, script_path: Path, explicit: str | None) -> list[Path]:
@@ -292,6 +319,136 @@ def describe_plan(plan: Plan) -> None:
     _print("Blocked by strong protection", blocked)
 
 
+def _blocked_guidance() -> str:
+    return (
+        "ERROR: strong protection blocked this switch.\n"
+        "\n"
+        "These files already contain uncommitted or untracked content. BridgeForge will not overwrite or delete them without an explicit per-file decision.\n"
+        "\n"
+        "Choose per blocked file:\n"
+        "  1. Rerun with --interactive in a real terminal and answer one by one.\n"
+        "  2. Rerun with --apply-blocked PATH to approve the planned overwrite/delete for a reviewed file.\n"
+        "  3. Rerun with --keep-blocked PATH to keep a reviewed file and skip that planned operation.\n"
+        "  4. For unknown old-agent files, use --delete-unknown PATH only after review.\n"
+        "\n"
+        "No files were changed by this failed run."
+    )
+
+
+def _prompt_choice(rel: str, prompt: str, choices: str, default: str) -> str:
+    valid = {c.lower() for c in choices}
+    while True:
+        answer = input(f"{rel}: {prompt} [{choices}] default={default}: ").strip().lower()
+        if not answer:
+            return default
+        if answer in valid:
+            return answer
+        print(f"Please choose one of: {', '.join(sorted(valid))}")
+
+
+def _resolve_blocked_with_decisions(plan: Plan, decisions: BlockedDecisions) -> None:
+    blocked = {_rel(path, plan.project_root) for path in plan.blocked_paths}
+    unresolved: list[Path] = []
+
+    new_copy_items: list[CopyItem] = []
+    for item in plan.copy_items:
+        rel = _rel(item.dst, plan.project_root)
+        if rel not in blocked:
+            new_copy_items.append(item)
+        elif rel in decisions.apply_blocked:
+            new_copy_items.append(item)
+        elif rel in decisions.keep_blocked:
+            continue
+        else:
+            new_copy_items.append(item)
+            unresolved.append(item.dst)
+
+    new_delete_paths: list[Path] = []
+    for path in plan.delete_paths:
+        rel = _rel(path, plan.project_root)
+        if rel not in blocked:
+            new_delete_paths.append(path)
+        elif rel in decisions.apply_blocked:
+            new_delete_paths.append(path)
+        elif rel in decisions.keep_blocked:
+            continue
+        else:
+            new_delete_paths.append(path)
+            unresolved.append(path)
+
+    new_unknown_paths: list[Path] = []
+    for path in plan.unknown_old_paths:
+        rel = _rel(path, plan.project_root)
+        if rel in decisions.delete_unknown:
+            new_delete_paths.append(path)
+        elif rel in decisions.keep_blocked:
+            continue
+        else:
+            new_unknown_paths.append(path)
+            unresolved.append(path)
+
+    plan.copy_items = new_copy_items
+    plan.delete_paths = _dedupe_paths(new_delete_paths)
+    plan.unknown_old_paths = _dedupe_paths(new_unknown_paths)
+    plan.blocked_paths = _dedupe_paths(unresolved)
+
+
+def resolve_blocked_interactively(plan: Plan, decisions: BlockedDecisions, *, interactive: bool) -> None:
+    _resolve_blocked_with_decisions(plan, decisions)
+    if not plan.blocked_paths or not interactive:
+        return
+    if not sys.stdin.isatty():
+        return
+
+    copy_targets = {_rel(item.dst, plan.project_root) for item in plan.copy_items}
+    delete_targets = {_rel(path, plan.project_root) for path in plan.delete_paths}
+    unknown_targets = {_rel(path, plan.project_root) for path in plan.unknown_old_paths}
+
+    apply_blocked = set(decisions.apply_blocked)
+    keep_blocked = set(decisions.keep_blocked)
+    delete_unknown = set(decisions.delete_unknown)
+
+    print("Strong protection needs per-file decisions:")
+    for path in list(plan.blocked_paths):
+        rel = _rel(path, plan.project_root)
+        if rel in copy_targets:
+            choice = _prompt_choice(rel, "overwrite with template (o), keep existing and skip this file (k), abort (a)", "oka", "k")
+            if choice == "o":
+                apply_blocked.add(rel)
+            elif choice == "k":
+                keep_blocked.add(rel)
+            else:
+                raise SystemExit("ERROR: switch aborted by user.")
+        elif rel in delete_targets:
+            choice = _prompt_choice(rel, "delete old-agent managed file (d), keep it (k), abort (a)", "dka", "k")
+            if choice == "d":
+                apply_blocked.add(rel)
+            elif choice == "k":
+                keep_blocked.add(rel)
+            else:
+                raise SystemExit("ERROR: switch aborted by user.")
+        elif rel in unknown_targets:
+            choice = _prompt_choice(rel, "delete unknown old-agent file (d), keep it (k), abort (a)", "dka", "k")
+            if choice == "d":
+                delete_unknown.add(rel)
+            elif choice == "k":
+                keep_blocked.add(rel)
+            else:
+                raise SystemExit("ERROR: switch aborted by user.")
+        else:
+            unresolved = sorted({_rel(p, plan.project_root) for p in plan.blocked_paths})
+            raise SystemExit("ERROR: cannot classify blocked path. Refusing to continue: " + ", ".join(unresolved))
+
+    _resolve_blocked_with_decisions(
+        plan,
+        BlockedDecisions(
+            apply_blocked=apply_blocked,
+            keep_blocked=keep_blocked,
+            delete_unknown=delete_unknown,
+        ),
+    )
+
+
 def remove_empty_dirs(path: Path, stop_at: Path) -> None:
     current = path
     stop = stop_at.resolve()
@@ -338,7 +495,8 @@ def adapt_settings(path: Path, python_command: str | None) -> None:
 def apply_plan(plan: Plan) -> None:
     if plan.blocked_paths:
         describe_plan(plan)
-        raise SystemExit("ERROR: strong protection blocked this switch. Commit, stash, or clean the listed files first.")
+        print(_blocked_guidance(), file=sys.stderr)
+        raise SystemExit(2)
 
     for path in plan.delete_paths:
         if not path.exists():
@@ -381,6 +539,28 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Switch BridgeForge project skeleton between claude and codex.")
     parser.add_argument("agent", choices=AGENTS, help="target agent skeleton")
     parser.add_argument("--dry-run", action="store_true", help="show plan and protection results without changing files")
+    parser.add_argument("--interactive", action="store_true", help="ask what to do for each blocked file before applying")
+    parser.add_argument(
+        "--apply-blocked",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="approve the planned overwrite/delete for one blocked path",
+    )
+    parser.add_argument(
+        "--keep-blocked",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="keep one blocked path and skip its planned operation",
+    )
+    parser.add_argument(
+        "--delete-unknown",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="delete one unknown old-agent file after explicit review",
+    )
     parser.add_argument("--project-root", default=".", help="project root to switch (default: current directory)")
     parser.add_argument("--template-root", help="BridgeForge repository root containing templates/claude and templates/codex")
     return parser.parse_args(argv)
@@ -399,6 +579,12 @@ def main(argv: list[str]) -> int:
         describe_plan(plan)
         return 2 if plan.blocked_paths else 0
 
+    decisions = BlockedDecisions(
+        apply_blocked={_arg_rel_path(p, project_root) for p in args.apply_blocked},
+        keep_blocked={_arg_rel_path(p, project_root) for p in args.keep_blocked},
+        delete_unknown={_arg_rel_path(p, project_root) for p in args.delete_unknown},
+    )
+    resolve_blocked_interactively(plan, decisions, interactive=args.interactive)
     apply_plan(plan)
     problems = validate(plan)
     if problems:

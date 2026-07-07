@@ -148,9 +148,10 @@ BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨
 /bridgeforge switch claude
 /bridgeforge switch codex
 /bridgeforge switch codex --dry-run
+/bridgeforge switch codex --interactive
 ```
 
-核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，按 Git 工作区状态保护将被删除或覆盖的 agent 骨架文件，dry-run 会报告新增/覆盖/删除/阻塞项，真实切换只改工作区文件，不自动提交。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
+核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，按 Git 工作区状态保护将被删除或覆盖的 agent 骨架文件，dry-run 会报告新增/覆盖/删除/阻塞项，真实切换只改工作区文件，不自动提交。若强保护发现 dirty / untracked 的 agent 骨架文件，脚本默认不改任何文件；agent 必须逐项让用户选择覆盖/删除、保留跳过，或停止。真实终端可用 `--interactive` 逐项确认；非交互工具可用 `--apply-blocked PATH` / `--keep-blocked PATH` / `--delete-unknown PATH` 回放用户选择。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
 
 ## 目录结构
 

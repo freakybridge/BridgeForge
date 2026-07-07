@@ -17,6 +17,11 @@
 
 ---
 
+## [0.48.0] - 2026-07-07
+
+### Added
+- `[product][repo][meta]` **`/bridgeforge switch` 强保护逐项决策**：`scripts/bridgeforge_switch.py` 在 dirty / untracked 的 agent 骨架文件触发强保护时，不再只给一句 blocked 结论；新增 `--interactive` 终端逐项确认，以及 `--apply-blocked PATH` / `--keep-blocked PATH` / `--delete-unknown PATH` 三个非交互回放参数。默认仍是不改任何文件并退出，agent 必须像更新模式一样逐项让用户选择覆盖/删除、保留跳过，或停止。同步更新两套模板脚本、根脚本、`.claude` / `.codex` dogfood 副本、`SKILL.md` / README / INSTALL / Codex 叶子入口；`templates/codex/VERSION` 升至 `0.19.0`，`templates/claude/VERSION` 升至 `0.15.0`。
+
 ## [0.47.0] - 2026-07-07
 
 ### Fixed

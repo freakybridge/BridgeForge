@@ -225,6 +225,126 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
     return CheckResult("root_precommit_dual_agent_gates", ok, detail)
 
 
+def _build_switch_fixture() -> Path:
+    fixture = build_codex_fixture()
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+
+    add = run(["git", "add", "-A"], fixture)
+    if add.returncode != 0:
+        raise RuntimeError(f"git add failed: {add.stderr.strip()}")
+    commit = run(
+        [
+            "git",
+            "-c",
+            "user.name=BridgeForge Harness",
+            "-c",
+            "user.email=harness@example.invalid",
+            "commit",
+            "-m",
+            "baseline",
+        ],
+        fixture,
+    )
+    if commit.returncode != 0:
+        raise RuntimeError(f"git commit failed: {commit.stderr.strip()}")
+    return fixture
+
+
+def _dirty_agents_md(fixture: Path) -> str:
+    marker = "\nLOCAL DIRTY SWITCH MARKER\n"
+    path = fixture / "AGENTS.md"
+    path.write_text(path.read_text(encoding="utf-8") + marker, encoding="utf-8")
+    return marker
+
+
+def check_switch_blocked_guidance() -> CheckResult:
+    fixture = _build_switch_fixture()
+    marker = _dirty_agents_md(fixture)
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    unchanged = marker in (fixture / "AGENTS.md").read_text(encoding="utf-8")
+    ok = (
+        r.returncode == 2
+        and "strong protection blocked this switch" in text
+        and "--interactive" in text
+        and "--apply-blocked PATH" in text
+        and "No files were changed" in text
+        and unchanged
+    )
+    return CheckResult(
+        "switch_blocked_guidance",
+        ok,
+        "blocked switch exits 2 with per-file guidance and leaves dirty file unchanged"
+        if ok
+        else f"expected exit 2 + guidance + unchanged file, got exit {r.returncode}",
+    )
+
+
+def check_switch_keep_blocked_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    marker = _dirty_agents_md(fixture)
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--keep-blocked",
+            "AGENTS.md",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    kept = marker in (fixture / "AGENTS.md").read_text(encoding="utf-8")
+    ok = r.returncode == 0 and "Validation passed" in text and kept
+    return CheckResult(
+        "switch_keep_blocked_decision",
+        ok,
+        "explicit keep-blocked continues switch and preserves reviewed dirty file"
+        if ok
+        else f"expected exit 0 + preserved marker, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_apply_blocked_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    marker = _dirty_agents_md(fixture)
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+            "--apply-blocked",
+            "AGENTS.md",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    overwritten = marker not in (fixture / "AGENTS.md").read_text(encoding="utf-8")
+    ok = r.returncode == 0 and "Validation passed" in text and overwritten
+    return CheckResult(
+        "switch_apply_blocked_decision",
+        ok,
+        "explicit apply-blocked continues switch and overwrites reviewed dirty file"
+        if ok
+        else f"expected exit 0 + overwritten marker, got exit {r.returncode}: {text.strip()}",
+    )
+
+
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`([^`\n]+\.(?:md|py|json|ps1|sh))`")
 BARE_SCRIPT_RE = re.compile(r"\b([A-Za-z][\w-]{2,}\.py)\b")
@@ -339,6 +459,9 @@ CHECKS = {
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-refs": check_skill_references,
+    "switch-apply": check_switch_apply_blocked_decision,
+    "switch-blocked": check_switch_blocked_guidance,
+    "switch-keep": check_switch_keep_blocked_decision,
 }
 
 
