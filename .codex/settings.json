@@ -260,7 +260,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/clarify_reminder.py",
-            "comment": "较大需求澄清提醒 — 候选轮(非 slash / 非续接词 / 非极短)注入 [clarify] 信号, 提示模型对大需求先向用户结构化确认 2-4 个背景问题再动手 (详见 AGENTS.md §9.5)。混合判定: hook 粗筛 + 贴便利贴, 模型精判大小 + 真提问。"
+            "comment": "较大需求澄清提醒 — 候选轮(非 slash / 非续接词 / 非极短)注入 [clarify] 信号, 提示模型对大需求先给理解与推荐路线, 再低负担追问高质量问题 (详见 AGENTS.md §9.5)。混合判定: hook 粗筛 + 贴便利贴, 模型精判大小 + 真提问。"
           },
           {
             "type": "command",
