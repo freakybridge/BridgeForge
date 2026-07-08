@@ -123,6 +123,8 @@ Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.
 
 `/bridgeforge` 维护当前正在运行的 agent 骨架：在 Codex 里默认维护 Codex 骨架，在 Claude Code 里默认维护 Claude 骨架。若项目里只有另一套 agent 骨架，它不会静默多铺一套，而是先提示"继续会 switch 到当前 agent"，用户确认后才启动 switch 流程。
 
+每次调用 `/bridgeforge` 时，叶子入口会先对 `~/.bridgeforge` 执行 `git pull --ff-only`，刷新成功后才读取完整 `SKILL.md` 并进入后续判场；如果 pull 失败，会停下让用户先处理，不继续用旧模板执行。
+
 ### 新项目初始化 —— 对 agent 说这一句（任何机器都成立）
 
 在新项目根目录开 Codex 或 Claude Code，把下面这句话发给 agent：

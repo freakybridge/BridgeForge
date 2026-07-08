@@ -1,5 +1,5 @@
 ---
-description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，普通入口发现另一套骨架时先确认再切换。
+description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，入口先刷新 ~/.bridgeforge，发现另一套骨架时先确认再切换。
 ---
 
 # BridgeForge Command Model
@@ -8,6 +8,11 @@ description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgefor
 
 - `/bridgeforge`：维护当前正在运行的 agent 骨架。Codex 中默认维护 `AGENTS.md + .codex/`，Claude Code 中默认维护 `CLAUDE.md + .claude/`。
 - `/bridgeforge switch <claude|codex>`：显式切换当前项目使用的 agent 骨架。
+
+入口新鲜度红线：
+
+- Codex / Claude 的薄入口 wrapper 必须先对 `~/.bridgeforge` 执行 `git pull --ff-only`，成功后才读取完整 `SKILL.md`。
+- pull 失败时停止，不继续用旧模板执行；根 `SKILL.md` 也保留 Step -2 兜底，避免旧 wrapper 或显式 `switch` 绕过刷新。
 
 普通 `/bridgeforge` 的判场语义：
 

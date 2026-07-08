@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.52.2
+version: 0.52.3
 user_invocable: true
 user-invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
@@ -55,7 +55,19 @@ TEMPLATE_AGENT="codex"
 
 ## 执行流程
 
-### Step -1：switch 子命令优先分流
+### Step -2：刷新用户级骨架库（所有分支前）
+
+薄入口 wrapper 应该已经在读取本文件前执行过本步；这里仍保留兜底，防止用户直接打开根 `SKILL.md` 或使用旧 wrapper。
+
+```bash
+git -C "$BRIDGEFORGE_HOME" pull --ff-only
+```
+
+- pull 成功 → 继续后续判场。
+- pull 失败（冲突 / 网络 / 权限）→ 报告并停下，**不继续用旧模板执行**；让用户先处理 `$BRIDGEFORGE_HOME` 后重跑 `$ENTRY_COMMAND`。
+- `$BRIDGEFORGE_HOME` 不是 git 仓库（用户手动拷的）→ 跳过 pull，但提示"建议改用 `git clone` 到 `~/.bridgeforge`，后续 `$ENTRY_COMMAND` 才能自动拉更新"。
+
+### Step -1：switch 子命令优先分流（刷新后）
 
 如果用户调用的是：
 
@@ -91,16 +103,9 @@ python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [-
 
 > 白话：`/bridgeforge switch ...` 是换当前项目的 agent 工具箱。旧工具箱先封箱进项目自己的归档柜，目标工具箱优先从同项目归档柜拿，拿不到才领一套上游新工具箱；笔记本（memory）要合并，电线/专用工具/规章（hooks / skills / rules / 入口文件）只存档不硬接。
 
-### 前置：拉上游最新 + 认场子（工厂自检 / 当前 agent 维护 / 隐式 switch 确认）
+### 前置：认场子（工厂自检 / 当前 agent 维护 / 隐式 switch 确认）
 
-**Step 前-1 先拉上游**（无论 init 还是更新，都要先拿到最新模板，否则铺的是旧版本）：
-
-```bash
-git -C "$BRIDGEFORGE_HOME" pull --ff-only
-```
-
-- pull 失败（冲突 / 网络）→ 报告并停下，**不强拉**；让用户先手动处理 clone 再重跑。
-- clone 不是 git 仓库（用户手动拷的）→ 跳过 pull，提示"建议改用 `git clone` 以便后续 `$ENTRY_COMMAND` 自动拉更新"。
+**Step 前-1 刷新确认**：到这里时 `$BRIDGEFORGE_HOME` 应已由薄入口 wrapper 或 Step -2 刷新到最新；后续所有 init / 更新 / 收编 / switch 都以刷新后的模板和脚本为准。
 
 **Step 前-2 工厂自检（最先判，硬闸）**：cwd 是不是 bridgeforge 源头仓库**自己**？
 
@@ -233,7 +238,7 @@ fi
 - **绝不静默删**（同 Step 0.5 范式）：把 `RETIRED.md` 里该行的"原因"念给用户，问"删（回收下架 skill）/ 留"。用户改过它当定制 → 尊重保留。
 - 退役的 **hook**（项目级，如 `memory_guard.py` 活在 `<project>/.claude/hooks/` + 项目 settings 注册里）**不在本步范围**——本步只清用户级 skill。退役 hook 仍按 CHANGELOG 提示手动删（见 `docs/skill-distribution-gaps.md` 支柱 B 待办）。
 
-> **（可选）GitHub 新鲜度**：以上比对的是**本机上游 clone 的工作区**。要对 GitHub 最新版，先 `git -C "$SKILL_DIR" pull` 再跑本步。Codex 的 slash wrapper 不存模板；模板与通用 skills 只从 `$BRIDGEFORGE_HOME` 读取。
+> **新鲜度前置**：到这里时 `$BRIDGEFORGE_HOME` 已由薄入口 wrapper 或 Step -2 执行过 `git pull --ff-only`。Codex / Claude 的 slash wrapper 不存模板；模板与通用 skills 只从刷新后的 `$BRIDGEFORGE_HOME` 读取。
 
 **通用 skill 速查（清单以 `skills/` 目录为准）**：
 

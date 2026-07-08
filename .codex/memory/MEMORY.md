@@ -5,6 +5,6 @@
 > Active: 3 | Cold: 0
 
 ## Active（按新增时间，新在前；满 40 自动滚入 Cold）
-- [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，普通入口发现另一套骨架时先确认再切换。
+- [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，入口先刷新 ~/.bridgeforge，发现另一套骨架时先确认再切换。
 - [skill-metadata-precommit-gate](skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
 - [codex-bridgeforge-slash-entry-debug](codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、薄 wrapper 的最终修法。

@@ -17,6 +17,11 @@
 
 ---
 
+## [0.52.3] - 2026-07-08
+
+### Fixed
+- `[product][meta]` **把用户级骨架库刷新提前到 `/bridgeforge` 薄入口**：Codex / Claude 两个叶子 wrapper 在读取完整 `~/.bridgeforge/SKILL.md` 前先对完整仓库执行 `git pull --ff-only`，pull 成功后才进入 init / update / adopt / switch 判场；pull 失败时停止，不继续用旧模板执行。根 `SKILL.md` 同步新增 Step -2 兜底刷新，并把原本位于普通判场前的 pull 前移到 switch 分流之前，避免 `/bridgeforge switch ...` 绕过最新模板。README / INSTALL 同步说明自动刷新语义；根 `VERSION`、根 `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.52.3`。
+
 ## [0.52.2] - 2026-07-08
 
 ### Changed
