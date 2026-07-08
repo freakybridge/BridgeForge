@@ -32,6 +32,7 @@ CLAUDE_TEMPLATE = REPO_ROOT / "templates" / "claude"
 CODEX_FIXTURE = RUNTIME_ROOT / "downstream-codex"
 SWITCH_FIXTURE = RUNTIME_ROOT / "downstream-switch"
 SKILL_METADATA_FIXTURE = RUNTIME_ROOT / "skill-metadata"
+CODEX_GIT_SYNC_REMOTE = RUNTIME_ROOT / "codex-git-sync-remote.git"
 
 
 @dataclass
@@ -788,7 +789,60 @@ def check_skill_metadata() -> CheckResult:
     )
 
 
+def check_codex_git_sync_runner() -> CheckResult:
+    fixture = build_codex_fixture()
+    _safe_reset_dir(CODEX_GIT_SYNC_REMOTE)
+
+    steps = [
+        (["git", "config", "user.email", "fixture@example.invalid"], fixture, "config email"),
+        (["git", "config", "user.name", "BridgeForge Fixture"], fixture, "config name"),
+        (["git", "add", "."], fixture, "initial add"),
+        (["git", "commit", "-m", "chore: initial fixture"], fixture, "initial commit"),
+        (["git", "branch", "-M", "main"], fixture, "branch main"),
+        (["git", "init", "--bare"], CODEX_GIT_SYNC_REMOTE, "init bare remote"),
+        (["git", "remote", "add", "origin", str(CODEX_GIT_SYNC_REMOTE)], fixture, "remote add"),
+        (["git", "push", "-u", "origin", "main"], fixture, "initial push"),
+    ]
+    for cmd, cwd, label in steps:
+        result = run(cmd, cwd, timeout=60)
+        if result.returncode != 0:
+            return CheckResult("codex_git_sync_runner", False, f"{label} failed: {result.stderr.strip()}")
+
+    (fixture / "work.txt").write_text("fixture change\n", encoding="utf-8")
+    sync = run(
+        [sys.executable, ".codex/scripts/codex_git_sync.py", "--message", "chore: fixture sync"],
+        fixture,
+        timeout=120,
+    )
+    status = run(["git", "status", "--porcelain=v1"], fixture)
+    ahead = run(["git", "rev-list", "--left-right", "--count", "HEAD...@{u}"], fixture)
+    remote_log = run(
+        ["git", "--git-dir", str(CODEX_GIT_SYNC_REMOTE), "log", "--oneline", "--max-count=1", "refs/heads/main"],
+        fixture,
+    )
+
+    ok = (
+        sync.returncode == 0
+        and status.returncode == 0
+        and status.stdout.strip() == ""
+        and ahead.returncode == 0
+        and ahead.stdout.strip() == "0\t0"
+        and "chore: fixture sync" in remote_log.stdout
+    )
+    return CheckResult(
+        "codex_git_sync_runner",
+        ok,
+        "runner committed, pushed to local bare remote, and left fixture clean"
+        if ok
+        else (
+            f"sync={sync.returncode} status={status.stdout!r} ahead={ahead.stdout!r} "
+            f"remote_log={remote_log.stdout!r} output={(sync.stdout + sync.stderr).strip()}"
+        ),
+    )
+
+
 CHECKS = {
+    "codex-git-sync": check_codex_git_sync_runner,
     "rule-index": check_rule_index_missing,
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,

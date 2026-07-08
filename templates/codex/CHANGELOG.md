@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.25.0] - 2026-07-08
+
+### Added
+- [product] 新增 `.codex/scripts/codex_git_sync.py` 低弹窗同步执行器：Codex 运行 `$git-sync` 时可优先用一条 `python .codex/scripts/codex_git_sync.py --message "<提交信息>"` 承接 `fetch` / ahead-behind 判断 / memory 索引重建 / `add` / `commit` / `push` / 最终干净检查，并通过持久前缀规则减少多次权限弹窗；脚本遇到 diverged、缺 upstream、stash 冲突、push 竞态时停止报告，不自动 rebase / merge / reset / force push。
+
 ## [0.24.0] - 2026-07-08
 
 ### Added

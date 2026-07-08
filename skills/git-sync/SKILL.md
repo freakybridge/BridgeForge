@@ -10,6 +10,25 @@ model: sonnet
 
 此 Skill 实现代码无缝同步流程。
 
+## Codex 低弹窗执行路径
+
+在 Codex 中，若当前项目存在 `.codex/scripts/codex_git_sync.py`，**优先使用该脚本**承接机械 Git 步骤，避免把 `fetch` / `add` / `commit` / `push` 拆成多次权限弹窗。
+
+执行方式：
+
+1. 先按常规只读方式检查状态 / diff，并由模型生成中文提交信息。
+2. 只发起一条执行命令：
+
+```bash
+python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
+```
+
+3. 需要 Codex 提权审批时，使用持久前缀规则 `["python", ".codex/scripts/codex_git_sync.py"]`；不要为 `git fetch` / `git add` / `git commit` / `git push` 分别申请持久规则。
+
+脚本只封装安全的机械闭环：`fetch`、ahead/behind 判断、必要时 `stash + pull --ff-only + stash pop`、memory 索引重建、`add`、`commit`、`push`、最终干净检查。遇到 diverged、缺 upstream、stash pop 冲突、push 竞态等情况必须停止报告，不自动 rebase / merge / reset / force push。
+
+若脚本不存在、Python 不可用，或用户明确要求逐条执行，则回退到下面的标准流程。
+
 ## 自动化指令
 
 1. **远端状态探测**：先 `git fetch origin`，再用 `git rev-list --left-right --count HEAD...@{u}` 读取 ahead/behind。

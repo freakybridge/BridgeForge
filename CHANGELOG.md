@@ -17,6 +17,11 @@
 
 ---
 
+## [0.53.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **Codex `$git-sync` 新增低弹窗机械执行器**：新增 `templates/codex/scripts/codex_git_sync.py`，并 dogfood 到 `.codex/scripts/codex_git_sync.py`。`skills/git-sync/SKILL.md` 在 Codex 中优先使用单条 `python .codex/scripts/codex_git_sync.py --message "<提交信息>"` 命令承接 `fetch` / ahead-behind 判断 / memory 索引重建 / `add` / `commit` / `push` / 最终干净检查，提权时使用持久前缀规则 `["python", ".codex/scripts/codex_git_sync.py"]`，避免为多个 git 子命令反复弹窗；脚本遇到 diverged、缺 upstream、stash 冲突、push 竞态时停止报告，不自动 rebase / merge / reset / force push。新增 harness 用本地 bare remote 验证执行器能提交、推送并保持工作区干净。`templates/codex/VERSION` 升至 `0.25.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.53.0`。
+
 ## [0.52.3] - 2026-07-08
 
 ### Fixed
