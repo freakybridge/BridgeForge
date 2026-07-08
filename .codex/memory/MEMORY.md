@@ -6,7 +6,7 @@
 
 ## Active（按新增时间，新在前；满 40 自动滚入 Cold）
 - [bom-free-encoding-gate](bom-free-encoding-gate.md) — BridgeForge 全 repo 文本统一 UTF-8 without BOM，并用编辑后 hook + pre-commit 双层防线防模板污染。
-- [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，入口先刷新 ~/.bridgeforge，发现另一套骨架时先确认再切换。
+- [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>；显式 switch 时目标完整但旧骨架残留要 cleanup-only。
 - [claude-template-safety-hooks-review](claude-template-safety-hooks-review.md) — Claude 模板从 StratusAgent 反哺的三个轻量 hook 审查结论：产品层和 dogfood 成套、注册事件合理、以伪 payload 和阻断路径验收。
 - [codex-harness-parity-closure](codex-harness-parity-closure.md) — Codex 迁移兼容闭环验收：parity 覆盖 memory/skills，20 个差异必须归类，报告状态以未分类为 0 才算 OK。
 - [codex-model-routing-policy](codex-model-routing-policy.md) — Codex 成本路由权威落点：主对话用 config.toml，子 agent 用 .codex/agents/*.toml，hook 只做漂移机检。

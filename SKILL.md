@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.57.0
+version: 0.57.1
 user_invocable: true
 user-invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
@@ -78,9 +78,10 @@ git -C "$BRIDGEFORGE_HOME" pull --ff-only
 /bridgeforge switch codex --interactive
 ```
 
-先判断当前项目是否已经是目标 agent：
-- 已经是目标 agent（如已有 `AGENTS.md + .codex/` 又 `switch codex`）→ **不要调用切换脚本**，按普通 `/bridgeforge` 继续走初始化 / 更新 / 收编流程。
-- 不是目标 agent → 不进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
+先同时判断目标 agent 与旧 agent 的 live 路径；“目标 agent 完整”至少要求入口文件、配置目录和 `settings.json` 同时存在：
+- 目标 agent 完整存在，且旧 agent live 路径不存在（如已有 `AGENTS.md + .codex/settings.json`，且没有 `CLAUDE.md / .claude/`）→ 才算已经是目标 agent；**不要调用切换脚本**，按普通 `/bridgeforge` 继续走初始化 / 更新 / 收编流程。
+- 目标 agent 完整存在，但旧 agent live 路径仍存在（如 `AGENTS.md + .codex/settings.json` 与 `CLAUDE.md / .claude/` 同时存在）→ 仍然调用切换脚本；这是 cleanup-only switch，只归档/删除旧 agent 并合并 memory，不覆盖目标 agent。
+- 目标 agent 不完整或不存在 → 不进入下面的初始化 / 更新 / 收编流程，直接调用项目内切换脚本：
 
 ```bash
 python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]
@@ -93,7 +94,8 @@ python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [-
 - 归档成功后删除旧 agent 原路径；`.agents/` 若因此变空可删除，若还有其他内容则保留。
 - 若当前项目没有旧 agent 骨架，允许 switch；语义变成启用目标 agent。
 - 目标 agent 优先从当前项目自己的归档恢复；没有目标归档才从上游 `templates/<agent>/` 安装全新骨架。**只认当前项目归档**，不读全局缓存或其他项目。
-- 目标 agent live path 已存在且不是“同 agent switch”时，直接停止，不覆盖、不归档继续。
+- 若目标 agent 已完整存在且旧 agent 仍残留，切换脚本进入 cleanup-only：目标来源显示为 `live`，不恢复/安装目标文件，不把目标 live path 当冲突，只归档/删除旧 agent 并处理 memory/settings。
+- 目标 agent live path 只存在一部分、或会导致覆盖目标文件且不属于 cleanup-only 时，直接停止，不覆盖、不归档继续。
 - memory 必须合并到目标 agent 的活跃 memory：完全重复自动去重；相似但不完全一样 / 同路径不同内容必须逐条确认。非交互时用 `--memory-conflict REL=keep-target|copy-old|append-old` 回放用户选择。
 - settings 默认不迁移；列出候选 key 后逐项确认。非交互时用 `--skip-settings-migration` 表示全部不迁移，或用 `--migrate-setting KEY` 指定迁移项。
 - hooks / skills / rules / 入口文件默认只归档并报告，不自动迁移；它们存在 agent 兼容性风险，不能机械搬入目标 agent。

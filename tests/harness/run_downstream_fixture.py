@@ -404,9 +404,15 @@ def check_switch_dry_run_full_plan() -> CheckResult:
     )
 
 
-def check_switch_target_conflict_stops() -> CheckResult:
+def check_switch_complete_target_cleanup_only() -> CheckResult:
     fixture = _build_switch_fixture()
     (fixture / "AGENTS.md").write_text("preexisting codex entry\n", encoding="utf-8")
+    codex_dir = fixture / ".codex"
+    codex_dir.mkdir()
+    (codex_dir / "settings.json").write_text("{}\n", encoding="utf-8")
+    (codex_dir / "memory").mkdir()
+    (codex_dir / "memory" / "codex-note.md").write_text("codex note\n", encoding="utf-8")
+    (fixture / ".claude" / "memory" / "claude-note.md").write_text("claude note\n", encoding="utf-8")
     r = run(
         [
             sys.executable,
@@ -419,19 +425,75 @@ def check_switch_target_conflict_stops() -> CheckResult:
         fixture,
     )
     text = r.stdout + r.stderr
+    claude_archives = list((fixture / ".bridgeforge" / "archive" / "claude").glob("*"))
     ok = (
-        r.returncode == 2
-        and "target path conflicts" in text
-        and (fixture / "CLAUDE.md").exists()
-        and (fixture / ".claude").is_dir()
+        r.returncode == 0
+        and "Target source: live" in text
+        and "Target path conflicts: none" in text
+        and "Will restore/install target files: none" in text
+        and not (fixture / "CLAUDE.md").exists()
+        and not (fixture / ".claude").exists()
         and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "preexisting codex entry\n"
+        and (fixture / ".codex" / "memory" / "codex-note.md").exists()
+        and (fixture / ".codex" / "memory" / "claude-note.md").exists()
+        and len(claude_archives) == 1
+        and (claude_archives[0] / "CLAUDE.md").exists()
+        and "Validation passed" in text
     )
     return CheckResult(
-        "switch_target_conflict_stops",
+        "switch_complete_target_cleanup_only",
         ok,
-        "target agent live paths cause a stop before any files are changed"
+        "complete target skeleton plus old live skeleton archives/removes only the old skeleton"
         if ok
-        else f"expected conflict stop with unchanged files, got exit {r.returncode}: {text.strip()}",
+        else f"expected cleanup-only switch with preserved target files, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_claude_complete_target_cleanup_only() -> CheckResult:
+    fixture = build_codex_fixture()
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+    (fixture / "CLAUDE.md").write_text("preexisting claude entry\n", encoding="utf-8")
+    claude_dir = fixture / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "settings.json").write_text("{}\n", encoding="utf-8")
+    (claude_dir / "memory").mkdir()
+    (claude_dir / "memory" / "claude-note.md").write_text("claude note\n", encoding="utf-8")
+    (fixture / ".codex" / "memory" / "codex-note.md").write_text("codex note\n", encoding="utf-8")
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "claude",
+            "--template-root",
+            str(REPO_ROOT),
+            "--skip-settings-migration",
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    codex_archives = list((fixture / ".bridgeforge" / "archive" / "codex").glob("*"))
+    ok = (
+        r.returncode == 0
+        and "Target source: live" in text
+        and "Target path conflicts: none" in text
+        and "Will restore/install target files: none" in text
+        and not (fixture / "AGENTS.md").exists()
+        and not (fixture / ".codex").exists()
+        and (fixture / "CLAUDE.md").read_text(encoding="utf-8") == "preexisting claude entry\n"
+        and (fixture / ".claude" / "memory" / "claude-note.md").exists()
+        and (fixture / ".claude" / "memory" / "codex-note.md").exists()
+        and len(codex_archives) == 1
+        and (codex_archives[0] / "AGENTS.md").exists()
+        and "Validation passed" in text
+    )
+    return CheckResult(
+        "switch_claude_complete_target_cleanup_only",
+        ok,
+        "complete Claude target plus old Codex live skeleton archives/removes only the old skeleton"
+        if ok
+        else f"expected Claude cleanup-only switch with preserved target files, got exit {r.returncode}: {text.strip()}",
     )
 
 
@@ -465,6 +527,39 @@ def check_switch_partial_target_conflict_stops() -> CheckResult:
         "partial target skeleton is treated as a conflict, not as already-active target"
         if ok
         else f"expected partial target conflict stop, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def check_switch_partial_target_dir_conflict_stops() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / "AGENTS.md").write_text("partial codex skeleton\n", encoding="utf-8")
+    (fixture / ".codex").mkdir()
+    r = run(
+        [
+            sys.executable,
+            "scripts/bridgeforge_switch.py",
+            "codex",
+            "--template-root",
+            str(REPO_ROOT),
+        ],
+        fixture,
+    )
+    text = r.stdout + r.stderr
+    ok = (
+        r.returncode == 2
+        and "target path conflicts" in text
+        and (fixture / "CLAUDE.md").exists()
+        and (fixture / ".claude").is_dir()
+        and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "partial codex skeleton\n"
+        and (fixture / ".codex").is_dir()
+        and not (fixture / ".codex" / "settings.json").exists()
+    )
+    return CheckResult(
+        "switch_partial_target_dir_conflict_stops",
+        ok,
+        "target entry plus config dir without settings.json is still a conflict"
+        if ok
+        else f"expected partial target dir conflict stop, got exit {r.returncode}: {text.strip()}",
     )
 
 
@@ -953,11 +1048,13 @@ CHECKS = {
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
     "switch-archive": check_switch_archive_restore,
+    "switch-claude-cleanup-only": check_switch_claude_complete_target_cleanup_only,
     "switch-codex-archive": check_switch_codex_to_claude_archive_scope,
-    "switch-conflict": check_switch_target_conflict_stops,
+    "switch-cleanup-only": check_switch_complete_target_cleanup_only,
     "switch-dry-run": check_switch_dry_run_full_plan,
     "switch-memory": check_switch_memory_conflict_decision,
     "switch-no-old": check_switch_no_old_installs_target,
+    "switch-partial-target-dir": check_switch_partial_target_dir_conflict_stops,
     "switch-partial-target": check_switch_partial_target_conflict_stops,
     "switch-same": check_switch_same_agent_noop,
     "switch-settings": check_switch_settings_decision,

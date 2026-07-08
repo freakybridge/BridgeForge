@@ -17,6 +17,11 @@
 
 ---
 
+## [0.57.1] - 2026-07-09
+
+### Fixed
+- `[product][repo][meta]` **修复显式 switch 到目标 agent 时旧 live 骨架残留**：`SKILL.md` 的 switch 分流条件改为只有“目标 agent 完整存在且旧 agent live 路径不存在”才短路为普通维护；若 `AGENTS.md + .codex/` 与 `CLAUDE.md / .claude/` 同时存在，仍进入 `bridgeforge_switch.py`。切换脚本新增 cleanup-only 路径：目标骨架完整时不覆盖目标文件，只归档/删除旧 agent 并合并 memory/settings；目标入口 + 配置目录但缺 `settings.json` 仍按部分目标冲突阻断。补 harness 覆盖双向 cleanup-only 与部分目标冲突场景。`templates/claude/VERSION` 升至 `0.21.1`，`templates/codex/VERSION` 升至 `0.28.1`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.57.1`。
+
 ## [0.57.0] - 2026-07-08
 
 ### Added

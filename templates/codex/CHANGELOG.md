@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.28.1] - 2026-07-09
+
+### Fixed
+- [product] 修复 `/bridgeforge switch <agent>` 在目标 agent 已完整存在但旧 agent live 骨架仍残留时的处理：`bridgeforge_switch.py` 进入 cleanup-only，只归档/删除旧 agent 并合并 memory/settings，不覆盖目标 agent；目标只存在一部分时仍阻断。
+
 ## [0.28.0] - 2026-07-08
 
 ### Added

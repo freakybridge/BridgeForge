@@ -1,5 +1,5 @@
 ---
-description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>，入口先刷新 ~/.bridgeforge，发现另一套骨架时先确认再切换。
+description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>；显式 switch 时目标完整但旧骨架残留要 cleanup-only。
 ---
 
 # BridgeForge Command Model
@@ -22,6 +22,13 @@ description: BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgefor
 - 当前 agent 入口/rules 已存在但不像 BridgeForge：按既有项目首次接入处理，让用户选择保留补缺、备份覆盖或退出。
 - 当前 agent 骨架不存在但另一套 agent 骨架存在：先提示继续会执行 `switch <当前agent>`，用户确认后才启动 switch，不静默多铺一套。
 - Claude / Codex 两套 live 骨架同时存在：停止，让用户明确选择维护方向或先清理。
+
+显式 `/bridgeforge switch <agent>` 的例外语义：
+
+- 只有“目标 agent 完整存在，且旧 agent live 路径不存在”才算 already target，可短路回普通维护。
+- 目标 agent 完整存在但旧 agent live 仍残留时，不是 already target；进入 `bridgeforge_switch.py` 的 cleanup-only 路径。
+- cleanup-only 只归档/删除旧 agent，并把旧 memory/settings 按既有确认规则合入目标；禁止为了清理旧骨架而覆盖目标 `AGENTS.md` / `.codex/` 或 `CLAUDE.md` / `.claude/`。
+- 目标 agent 只存在一部分时仍按目标冲突阻断，不能把半套骨架当可用目标。
 
 设计理由：`bridgeforge` 可以引导用户进入 switch，但不能静默切换或静默多铺。这样保留“用户只记两个命令”的简单心智，同时避免已有项目被误判为空项目。
 

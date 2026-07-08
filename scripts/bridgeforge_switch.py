@@ -133,7 +133,12 @@ def _existing_agent_paths(spec: AgentSpec, project_root: Path) -> list[Path]:
 
 
 def _is_complete_agent(spec: AgentSpec, project_root: Path) -> bool:
-    return (project_root / spec.entry).is_file() and (project_root / spec.config_dir).is_dir()
+    config_dir = project_root / spec.config_dir
+    return (
+        (project_root / spec.entry).is_file()
+        and config_dir.is_dir()
+        and (config_dir / "settings.json").is_file()
+    )
 
 
 def _archive_agent_root(project_root: Path, agent: str) -> Path:
@@ -269,7 +274,7 @@ def archive_copy_items(archive_dir: Path, project_root: Path) -> list[CopyItem]:
 
 
 def _source_memory_dir(source_kind: str, source_root: Path, agent: str) -> Path | None:
-    if source_kind == "archive":
+    if source_kind in {"archive", "live"}:
         path = source_root / SPECS[agent].config_dir / "memory"
     else:
         path = source_root / "memory"
@@ -277,7 +282,7 @@ def _source_memory_dir(source_kind: str, source_root: Path, agent: str) -> Path 
 
 
 def _source_settings(source_kind: str, source_root: Path, agent: str) -> Path | None:
-    if source_kind == "archive":
+    if source_kind in {"archive", "live"}:
         path = source_root / SPECS[agent].config_dir / "settings.json"
     else:
         path = source_root / "settings.json"
@@ -418,6 +423,7 @@ def build_plan(agent: str, project_root: Path, template_root: Path) -> Plan:
     target_paths = _existing_agent_paths(target_spec, project_root)
     old_present = bool(old_paths)
     target_complete = _is_complete_agent(target_spec, project_root)
+    cleanup_only = target_complete and old_present
 
     if target_complete and not old_present:
         archive_dir = latest_archive(project_root, agent)
@@ -440,9 +446,12 @@ def build_plan(agent: str, project_root: Path, template_root: Path) -> Plan:
             python_command=choose_python_command(project_root),
         )
 
-    target_conflicts = target_paths
     archive_dir = latest_archive(project_root, agent)
-    if archive_dir is not None:
+    if cleanup_only:
+        source_kind = "live"
+        source_root = project_root
+        copy_items = []
+    elif archive_dir is not None:
         source_kind = "archive"
         source_root = archive_dir
         copy_items = archive_copy_items(archive_dir, project_root)
@@ -450,6 +459,7 @@ def build_plan(agent: str, project_root: Path, template_root: Path) -> Plan:
         source_kind = "template"
         source_root = template_root / "templates" / agent
         copy_items = template_copy_items(template_root, project_root, agent)
+    target_conflicts = [] if cleanup_only else target_paths
 
     archive_paths = old_paths
     archive_only = [
