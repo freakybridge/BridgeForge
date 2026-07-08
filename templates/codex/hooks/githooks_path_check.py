@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """SessionStart hook: git core.hooksPath 自愈。
 
 bridgeforge 的提交闸（.githooks/pre-commit）靠 git 的 core.hooksPath 指向 repo 内

@@ -1,4 +1,4 @@
-﻿"""rule 文件大小红线检查 — 双层:
+"""rule 文件大小红线检查 — 双层:
   · PostToolUse(Edit|Write): 编辑瞬间软提醒 [rule-size](exit 0, 不阻塞)
   · pre-commit(--pre-commit): 对 staged .codex/rules/*.md 硬拦(exit 2)
 
@@ -222,9 +222,9 @@ def main() -> int:
         return pre_commit()
 
     # ── PostToolUse 软提醒(exit 0) ──
-    # 输入双兜底（与 requirements_check.py 一致）：官方 PostToolUse 走 stdin JSON，
-    # file_path 嵌在 `tool_input` 下；老 hook 走环境变量 CLAUDE_TOOL_INPUT。
-    # 只读 env-var 会在「CC 仅走 stdin、不设该 env」时永不触发，故两路都试。
+    # 输入双兜底（与 requirements_check.py 一致）：官方 Codex hook 走 stdin JSON，
+    # file_path 嵌在 `tool_input` 下；环境变量只作兼容兜底，优先 CODEX_TOOL_INPUT，
+    # CLAUDE_TOOL_INPUT 仅保留给旧导入配置。
     data: dict = {}
     try:
         raw = sys.stdin.read()
@@ -236,7 +236,8 @@ def main() -> int:
         data = {}
     if not data:
         try:
-            data = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+            data = json.loads(env_raw)
         except Exception:
             return 0
     if not isinstance(data, dict):

@@ -208,6 +208,11 @@
             "type": "command",
             "command": "python .codex/hooks/fallback_smell_check.py",
             "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。详见 rules/debugging.md §3。"
+          },
+          {
+            "type": "command",
+            "command": "python .codex/hooks/encoding_check.py",
+            "comment": "??????????????? UTF-8 BOM?????? [encoding]??? md/json/rule/script/????????????"
           }
         ]
       },
@@ -255,7 +260,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/context_warning.py",
-            "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值时输出 [ctx-budget] 信号给 Codex (详见 AGENTS.md §10)。slash command 自动豁免不死锁。"
+            "comment": "上下文预算预警 — 跨 75%/85%/95% 阈值时输出 [ctx-budget] 信号给 Codex (详见 AGENTS.md §10)。命令 / skill 调用自动豁免不死锁。"
           },
           {
             "type": "command",
@@ -306,7 +311,7 @@
           {
             "type": "command",
             "command": "python .codex/hooks/skill_sync_check.py",
-            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.agents/skills/ 副本与上游源，缺失/不一致则提示跑 $bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
+            "comment": "用户级通用 skill 漂移自检（支柱 B / 开机自检）：装了 bridgeforge 时比对 ~/.agents/skills/ 副本与上游源，缺失/不一致则提示跑 /bridgeforge。只读不改。自门控：没装 bridgeforge 静默 no-op，对非用户零影响。"
           },
           {
             "type": "command",

@@ -1,4 +1,4 @@
-﻿"""上下文预算预警 — UserPromptSubmit hook
+"""上下文预算预警 — UserPromptSubmit hook
 
 机制:
 1. 读 transcript_path JSONL, 从末尾倒查最近一条 assistant 消息的 usage 字段

@@ -1,4 +1,4 @@
-﻿"""较大需求澄清提醒 — UserPromptSubmit hook
+"""较大需求澄清提醒 — UserPromptSubmit hook
 
 便宜负向 gate(纯字符串, hook 不判需求大小): command / skill 调用 / 极短输入(<MIN_CHARS) /
 纯续接确认词(next/继续) → 跳过; 其余「候选」轮 print [clarify] 中性提醒到 stdout,

@@ -36,6 +36,10 @@ run_exit2_hook() {
 run_exit2_hook ".claude/hooks/mirror_drift_check.py"
 run_exit2_hook ".codex/hooks/mirror_drift_check.py"
 
+# [encoding] UTF-8 BOM is forbidden in BridgeForge text surfaces.
+run_exit2_hook ".claude/hooks/encoding_check.py" --pre-commit
+run_exit2_hook ".codex/hooks/encoding_check.py" --pre-commit
+
 # ── [D6] 规则闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
 run_exit2_hook ".claude/hooks/rule_size_check.py" --pre-commit
 run_exit2_hook ".claude/hooks/rule_index_check.py" --pre-commit

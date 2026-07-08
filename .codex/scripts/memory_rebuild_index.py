@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 确定性重建 MEMORY.md（主索引）+ MEMORY_COLD.md（冷区索引）。
 

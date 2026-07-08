@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本规则见 `.codex/rules/workflow.md §9`（Milestone-bound SemVer，详细版）。
 
@@ -20,6 +20,24 @@
 ## [Unreleased]
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
+
+## [0.27.2] - 2026-07-08
+
+### Changed
+- [product] `.codex/hooks/encoding_check.py` 接入 `PostToolUse(Edit|Write|MultiEdit)`：编辑后立即扫描受管文本文件是否带 UTF-8 BOM，作为 pre-commit 前的早期防线。
+
+## [0.27.1] - 2026-07-08
+
+### Fixed
+- [product] 统一 Codex 骨架文本文件为 UTF-8 无 BOM，修复 `memory/_stats.json` 被普通 JSON 解析器拒绝的问题；新增 `.codex/hooks/encoding_check.py` 并接入 `.githooks/pre-commit`，提交前硬拦模板、入口、脚本、rule、JSON、memory 等文本文件继续混入 BOM。
+
+## [0.27.0] - 2026-07-08
+
+### Added
+- [product] 新增 `.codex/scripts/harness_parity_check.py`，用于刷新 `docs/codex-harness-parity.md`，长期维护 Claude/Codex harness 对照清单；Codex git-sync 执行器会在暂存前刷新该报告。
+
+### Changed
+- [product] Codex hook 的兼容环境变量回退改为优先读取 `CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME`，再兼容旧导入配置里的 `CLAUDE_TOOL_INPUT` / `CLAUDE_TOOL_NAME`；用户入口文案统一为 `/bridgeforge`，与 Claude 保持一致。
 
 ## [0.26.0] - 2026-07-08
 

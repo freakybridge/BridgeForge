@@ -28,6 +28,13 @@ if [ -n "$PY" ] && [ -f ".claude/hooks/mirror_drift_check.py" ]; then
   [ "$rc" = 2 ] && exit 2
 fi
 
+# [encoding] UTF-8 BOM is forbidden in BridgeForge text surfaces.
+if [ -n "$PY" ] && [ -f ".claude/hooks/encoding_check.py" ]; then
+  "$PY" .claude/hooks/encoding_check.py --pre-commit
+  rc=$?
+  [ "$rc" = 2 ] && exit 2
+fi
+
 # ── [D6] 规则闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
 if [ -n "$PY" ]; then
   if [ -f ".claude/hooks/rule_size_check.py" ]; then

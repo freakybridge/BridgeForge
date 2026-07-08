@@ -1,4 +1,4 @@
-﻿---
+---
 paths:
   - ".codex/rules/**"
   - "AGENTS.md"

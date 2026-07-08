@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 关键词搜索 .codex/memory/*.md 文件。
 

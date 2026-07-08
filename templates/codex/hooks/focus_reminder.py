@@ -1,4 +1,4 @@
-﻿"""任务防漂移 focus 提醒 — UserPromptSubmit hook
+"""任务防漂移 focus 提醒 — UserPromptSubmit hook
 
 机制(与 clarify_reminder 同族: hook 提醒 + 模型判断):
 1. 读 stdin JSON 的 prompt + transcript_path。

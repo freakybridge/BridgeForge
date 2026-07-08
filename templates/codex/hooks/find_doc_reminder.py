@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """PreToolUse Hook: 提醒 agent 搜 doc/ 时优先用 $find-doc skill。
 
 来源：2026-04-29 debate（doc 索引体系审视）—— D1+D4 决议：
@@ -73,9 +73,9 @@ def _log_call(tool_name: str, paths_desc: str) -> None:
 
 
 def main() -> int:
-    # 输入双兜底（与 requirements_check.py 一致）：官方 PreToolUse 走 stdin JSON
-    # （tool_name / tool_input 为顶层字段）；老 hook 走环境变量 CLAUDE_TOOL_NAME/_INPUT。
-    # 只读 env-var 会在「CC 仅走 stdin、不设该 env」时永不触发，故两路都试。
+    # 输入双兜底（与 requirements_check.py 一致）：官方 Codex hook 走 stdin JSON
+    # （tool_name / tool_input 为顶层字段）；环境变量只作兼容兜底。
+    # 若存在 env fallback，优先读 CODEX_TOOL_*；CLAUDE_TOOL_* 只保留给旧导入配置。
     tool_name = ""
     data: dict = {}
     try:
@@ -89,9 +89,10 @@ def main() -> int:
     except Exception:
         pass
     if not tool_name:
-        tool_name = os.environ.get("CLAUDE_TOOL_NAME", "")
+        tool_name = os.environ.get("CODEX_TOOL_NAME") or os.environ.get("CLAUDE_TOOL_NAME", "")
         try:
-            data = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+            data = json.loads(env_raw)
         except Exception:
             return 0
 

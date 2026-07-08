@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """pre-commit hook: dogfood 镜像漂移比对 templates/codex/hooks/*.py ↔ .codex/hooks/*.py。
 
 判据分级(AGENTS.md §1 第4问 dogfood 红线 + 设计 D8-M1):

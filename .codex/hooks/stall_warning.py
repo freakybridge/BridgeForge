@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """stall_warning.py — UserPromptSubmit hook：空转弱事后提醒（D4-M4）。
 
 **定位（诚实标注，务必先读）**：

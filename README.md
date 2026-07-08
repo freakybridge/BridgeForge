@@ -1,4 +1,4 @@
-﻿# bridgeforge
+# bridgeforge
 
 > AI 项目协作骨架初始化器。支持 Claude / Codex 双骨架，一行 skill 命令铺好入口说明、rules、memory、hooks 与 doc 分层归档。
 

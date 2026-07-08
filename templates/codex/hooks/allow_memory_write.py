@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 allow_memory_write.py — PreToolUse hook
 
@@ -46,7 +46,8 @@ def is_memory_md(file_path: str) -> bool:
 
 
 def main():
-    # 输入双兜底：官方 PreToolUse 走 stdin JSON；老 hook 走环境变量。
+    # 输入双兜底：官方 Codex hook 走 stdin JSON；环境变量只作兼容兜底。
+    # 若存在 env fallback，优先读 CODEX_TOOL_*；CLAUDE_TOOL_* 只保留给旧导入配置。
     data = {}
     try:
         raw = sys.stdin.read()
@@ -55,11 +56,16 @@ def main():
     except Exception:
         data = {}
 
-    tool_name = data.get("tool_name") or os.environ.get("CLAUDE_TOOL_NAME", "")
+    tool_name = (
+        data.get("tool_name")
+        or os.environ.get("CODEX_TOOL_NAME")
+        or os.environ.get("CLAUDE_TOOL_NAME", "")
+    )
     tool_input = data.get("tool_input")
     if not tool_input:
         try:
-            tool_input = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+            tool_input = json.loads(env_raw)
         except Exception:
             tool_input = {}
 

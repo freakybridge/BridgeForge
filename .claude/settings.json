@@ -239,6 +239,11 @@
             "type": "command",
             "command": "python .claude/hooks/fallback_smell_check.py",
             "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。dev 仓库无 .venv，用系统 python。自产自用：bridgeforge 自身写代码也受同款坏味道软提醒（dogfood）。详见 rules/debugging.md §3。"
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/encoding_check.py",
+            "comment": "??????????????? UTF-8 BOM?????? [encoding]??? md/json/rule/script/????????????"
           }
         ]
       },

@@ -1,4 +1,4 @@
-﻿"""用户级 skill 漂移自检 — SessionStart hook（支柱 B / 开机自检）
+"""用户级 skill 漂移自检 — SessionStart hook（支柱 B / 开机自检）
 
 机制:
 1. 定位上游骨架库的 skill 源: ~/.bridgeforge/skills/（旧安装路径仅作 fallback）

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """PostToolUse(Edit|Write) hook: 兜底坏味道软提醒（仅裸吞异常，D3-M1）。
 
 只抓**一类**近零合法用途的高置信坏味道——**裸/宽异常捕获后直接 pass（静默吞掉）**：
@@ -14,7 +14,7 @@
   - 只扫**代码文件**（.py/.js/.ts…），跳过 md/json 等（防文档里讨论此模式被误报）
 
 自门控: 非 Edit/Write、非代码文件、或无命中 → 静默 no-op exit 0。
-输入双兜底（stdin JSON / 环境变量）同 requirements_check.py。
+输入双兜底（stdin JSON / 兼容环境变量）同 requirements_check.py。
 """
 from __future__ import annotations
 
@@ -66,8 +66,8 @@ def find_smells(text: str) -> list[str]:
 
 
 def main() -> int:
-    # 输入双兜底：官方 PostToolUse 走 stdin JSON（file_path/new_string 在 tool_input 下）；
-    # 老 hook 走环境变量 CLAUDE_TOOL_INPUT（直接是 tool_input dict）。两路都试。
+    # 输入双兜底：官方 Codex hook 走 stdin JSON（file_path/new_string 在 tool_input 下）；
+    # 环境变量只作兼容兜底，优先 CODEX_TOOL_INPUT，CLAUDE_TOOL_INPUT 仅保留给旧导入配置。
     data: dict = {}
     try:
         raw = sys.stdin.read()
@@ -78,7 +78,8 @@ def main() -> int:
     tool_input = data.get("tool_input")
     if not tool_input:
         try:
-            tool_input = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+            tool_input = json.loads(env_raw)
         except Exception:
             tool_input = {}
     if not isinstance(tool_input, dict):

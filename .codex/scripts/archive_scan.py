@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """扫描 doc/2_pending/ 找出可归档的候选文档。
 
 判断逻辑（宽松）：

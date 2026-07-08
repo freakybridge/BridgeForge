@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """PostToolUse(Bash) hook: 测试类命令收据（D1-M2，尽量版）。
 
 命令匹配 pytest / cargo test / npm test / go test / tsc / make 时，把「这条命令真跑过、
@@ -20,7 +20,7 @@
   - source=inferred 的 0 是推断非铁证（成功场景无显式码），对账时以 source 字段自知硬度。
 
 自门控：非 Bash / 无 command / 非测试类命令 → 静默 no-op exit 0；任何异常 exit 0 不阻塞。
-输入双兜底（stdin JSON / 环境变量）同 requirements_check.py。输出纯 ASCII（防 GBK 乱码）。
+输入双兜底（stdin JSON / 兼容环境变量）同 requirements_check.py。输出纯 ASCII（防 GBK 乱码）。
 """
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ _EXIT_KEYS = ("exit_code", "exitCode", "returncode", "returnCode", "code", "stat
 
 
 def _read_payload() -> dict:
-    """官方 PostToolUse 走 stdin JSON；老通道只有 CLAUDE_TOOL_INPUT（无 tool_response）。"""
+    """官方 Codex hook 走 stdin JSON；环境变量只作旧导入兼容且没有 tool_response。"""
     data: dict = {}
     try:
         raw = sys.stdin.read()
@@ -67,7 +67,8 @@ def _read_payload() -> dict:
         data = {}
     if not data.get("tool_input"):
         try:
-            ti = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "{}")
+            ti = json.loads(env_raw)
             if isinstance(ti, dict) and ti:
                 data.setdefault("tool_input", ti)
         except Exception:

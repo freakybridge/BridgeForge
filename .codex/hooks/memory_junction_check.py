@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """SessionStart hook: memory junction 自愈。
 
 把 memory 纳入项目 git（项目内 `.codex/memory/`），但 Codex 读写走系统路径

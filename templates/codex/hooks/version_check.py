@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Hook: git commit 前强制版本号 bump 检查（PreToolUse / Bash matcher）。
 
 落实 rules/workflow.md §9 红线「每次 commit 前必须提升一次版本号」——从机制上防忘，
@@ -44,7 +44,7 @@ VERSION_FILES = ["package.json", "Cargo.toml", "pyproject.toml", "VERSION"]
 
 
 def get_command() -> str:
-    """取本次 Bash 命令文本。优先 stdin JSON（标准），回退 CLAUDE_TOOL_INPUT 环境变量。"""
+    """取本次 Bash 命令文本。优先 stdin JSON；环境变量只作兼容兜底。"""
     try:
         raw = sys.stdin.read()
     except Exception:
@@ -57,7 +57,7 @@ def get_command() -> str:
                 return ti["command"]
         except Exception:
             pass
-    env_raw = os.environ.get("CLAUDE_TOOL_INPUT", "")
+    env_raw = os.environ.get("CODEX_TOOL_INPUT") or os.environ.get("CLAUDE_TOOL_INPUT", "")
     if env_raw:
         try:
             return (json.loads(env_raw) or {}).get("command", "") or ""

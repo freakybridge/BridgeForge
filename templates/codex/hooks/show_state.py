@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """UserPromptSubmit & SessionStart hook: 打印当前项目状态（分支 / uncommitted / ahead-behind / 版本）。
 
 被两个 hook 复用：

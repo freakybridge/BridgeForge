@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """SessionStart hook: 骨架必要配置开机体检（只读，不自动修）。
 
 每次 session 开始照一份「骨架约定的必要配置」清单逐项核对，发现不达标只**报告**

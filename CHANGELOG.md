@@ -17,6 +17,21 @@
 
 ---
 
+## [0.55.2] - 2026-07-08
+
+### Changed
+- `[product][repo]` **把 BOM 检查前移到编辑后**：`encoding_check.py` 除 pre-commit 硬拦外，同步接入 Claude/Codex 模板与自身 dogfood settings 的 `PostToolUse(Edit|Write|MultiEdit)`，编辑 md/json/rule/script/入口等受管文本文件后立即扫描 BOM 并打印 `[encoding]` 信号；`templates/codex/VERSION` 升至 `0.27.2`，`templates/claude/VERSION` 升至 `0.20.2`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.2`。
+
+## [0.55.1] - 2026-07-08
+
+### Fixed
+- `[product][repo][meta]` **统一 BridgeForge 全 repo UTF-8 无 BOM 红线**：剥离 Codex 模板与 dogfood 副本中已混入的 UTF-8 BOM，覆盖 `templates/codex/memory/MEMORY.md`、`_stats.json`、Codex hooks/rules/scripts/doc 等文本入口，并补齐 `encoding_check.py` 到 Claude/Codex 模板与自身 `.claude` / `.codex` dogfood 副本；三份 `.githooks/pre-commit` 现在会硬拦文本文件开头 `EF BB BF`，harness 新增 `encoding-no-bom` 回归。`templates/codex/VERSION` 升至 `0.27.1`，`templates/claude/VERSION` 升至 `0.20.1`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.1`。
+
+## [0.55.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **Codex harness 对齐与长期对照检查**：Codex hook 输入回退改为 stdin JSON 优先、`CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME` 次之、旧 `CLAUDE_TOOL_INPUT` / `CLAUDE_TOOL_NAME` 仅作兼容兜底；Codex 入口文案统一回 `/bridgeforge`，不再把 BridgeForge 日常入口写成 `$bridgeforge`。新增 `templates/codex/scripts/harness_parity_check.py` 并 dogfood 到 `.codex/scripts/`，生成 `docs/codex-harness-parity.md` 作为 Claude/Codex harness 长期对照清单；Codex git-sync 执行器在暂存前刷新该报告，`skills/git-sync` 同步说明刷新步骤。新增 feature-dev 需求包 `doc/1_plan/codex-harness-parity/`；`templates/codex/VERSION` 升至 `0.27.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.0`。
+
 ## [0.54.0] - 2026-07-08
 
 ### Added

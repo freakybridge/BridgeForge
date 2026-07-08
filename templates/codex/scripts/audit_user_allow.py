@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """用户级 settings.json allow 审计 — 找出项目专属/一次性条目。
 
 扫描 ~/.codex/settings.json 的 permissions.allow，揪出疑似项目专属的条目：

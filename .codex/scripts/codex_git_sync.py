@@ -131,6 +131,27 @@ def _rebuild_memory_index() -> None:
         raise SyncStop(f"memory_rebuild_index.py failed: {detail}", result.returncode or 1)
 
 
+def _refresh_harness_parity_report() -> None:
+    script = REPO_ROOT / ".codex" / "scripts" / "harness_parity_check.py"
+    if not script.exists():
+        return
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=_env(),
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise SyncStop(f"harness_parity_check.py failed: {detail}", result.returncode or 1)
+    if result.stdout.strip():
+        print(result.stdout.strip())
+
+
 def _pull_ff_with_optional_stash(dirty: bool) -> None:
     stashed = False
     if dirty:
@@ -159,6 +180,7 @@ def sync(args: argparse.Namespace) -> int:
     _upstream()
 
     ahead, behind = _ahead_behind()
+    _refresh_harness_parity_report()
     dirty = bool(_status())
 
     if ahead and behind:

@@ -8,6 +8,7 @@ exercise the parts that are easy to miss in the source repo:
 * D8 dogfood mirror checks in a factory-shaped fixture.
 * settings.json matcher coverage for Edit|Write|MultiEdit.
 * Root pre-commit coverage for both Claude and Codex dogfood gates.
+* Repository text surfaces must be UTF-8 without BOM.
 * Codex model / reasoning-effort routing policy.
 * high-confidence `skills/**/SKILL.md` metadata and local reference health.
 
@@ -182,6 +183,7 @@ def check_settings_multiedit_matchers() -> CheckResult:
         ".codex/hooks/rule_size_check.py",
         ".codex/hooks/requirements_check.py",
         ".codex/hooks/fallback_smell_check.py",
+        ".codex/hooks/encoding_check.py",
     }
     missing: list[str] = []
     for block in settings.get("hooks", {}).get("PostToolUse", []):
@@ -191,10 +193,15 @@ def check_settings_multiedit_matchers() -> CheckResult:
             for hook in block.get("hooks", [])
             if isinstance(hook, dict)
         }
-        if not required_commands.intersection(commands):
+        matched = {
+            required
+            for required in required_commands
+            if any(command.endswith(required) for command in commands)
+        }
+        if not matched:
             continue
         if not {"Edit", "Write", "MultiEdit"}.issubset(tokens):
-            missing.extend(sorted(required_commands.intersection(commands)))
+            missing.extend(sorted(matched))
     ok = not missing
     return CheckResult(
         "codex_settings_multiedit_matchers",
@@ -213,6 +220,8 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.codex/hooks/rule_size_check.py" --pre-commit',
         '.codex/hooks/rule_index_check.py" --pre-commit',
         '.codex/hooks/model_policy_check.py" --pre-commit',
+        '.claude/hooks/encoding_check.py" --pre-commit',
+        '.codex/hooks/encoding_check.py" --pre-commit',
         '.claude/hooks/skill_metadata_check.py" --pre-commit',
         '.codex/hooks/skill_metadata_check.py" --pre-commit',
         'for CONFIG_DIR in .claude .codex; do',
@@ -225,6 +234,8 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.codex/hooks/rule_size_check.py --pre-commit',
         '.codex/hooks/rule_index_check.py --pre-commit',
         '.codex/hooks/model_policy_check.py --pre-commit',
+        '.claude/hooks/encoding_check.py --pre-commit',
+        '.codex/hooks/encoding_check.py --pre-commit',
         '.claude/hooks/skill_metadata_check.py --pre-commit',
         '.codex/hooks/skill_metadata_check.py --pre-commit',
     ]
@@ -259,6 +270,30 @@ def check_precommit_shebang_bytes() -> CheckResult:
         "precommit_shebang_bytes",
         ok,
         "all pre-commit hooks start with #! and no BOM" if ok else "; ".join(bad),
+    )
+
+
+def check_encoding_no_bom() -> CheckResult:
+    source = run([sys.executable, ".codex/hooks/encoding_check.py", "--pre-commit"], REPO_ROOT)
+    if source.returncode != 0:
+        return CheckResult(
+            "encoding_no_bom",
+            False,
+            f"source tree should not contain UTF-8 BOM, got exit {source.returncode}: {(source.stdout + source.stderr).strip()}",
+        )
+
+    fixture = build_codex_fixture()
+    target = fixture / ".codex" / "memory" / "_stats.json"
+    target.write_bytes(b"\xef\xbb\xbf" + target.read_bytes())
+    bad = run([sys.executable, ".codex/hooks/encoding_check.py", "--pre-commit"], fixture)
+
+    ok = bad.returncode == 2 and ".codex/memory/_stats.json" in (bad.stdout + bad.stderr)
+    return CheckResult(
+        "encoding_no_bom",
+        ok,
+        "encoding hook passes source and blocks a BOM-prefixed fixture file"
+        if ok
+        else f"expected fixture BOM to exit 2, got exit {bad.returncode}: {(bad.stdout + bad.stderr).strip()}",
     )
 
 
@@ -906,6 +941,7 @@ def check_codex_git_sync_runner() -> CheckResult:
 
 CHECKS = {
     "codex-git-sync": check_codex_git_sync_runner,
+    "encoding-no-bom": check_encoding_no_bom,
     "model-policy": check_model_policy,
     "rule-index": check_rule_index_missing,
     "rule-size": check_rule_size_over_limit,

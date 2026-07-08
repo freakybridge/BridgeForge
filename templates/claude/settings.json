@@ -208,6 +208,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/fallback_smell_check.py",
             "comment": "兜底坏味道软提醒（仅裸吞异常：裸/宽 except 后直接 pass、空 catch{}）。命中打印 [fallback-smell]，exit 0 非阻塞。只扫代码文件；合法默认值/惯用法/具体异常不命中。详见 rules/debugging.md §3。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/encoding_check.py",
+            "comment": "??????????????? UTF-8 BOM?????? [encoding]??? md/json/rule/script/????????????"
           }
         ]
       },

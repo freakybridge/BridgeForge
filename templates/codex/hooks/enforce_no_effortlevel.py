@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """SessionStart hook: 从项目 .codex/settings.json 强制剔除 effortLevel。
 
 为什么是 hook 而非 rule：项目级 effortLevel 合并优先级高于用户级全局（Project > User），

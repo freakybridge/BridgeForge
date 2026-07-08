@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Hook: 把当前工作状态快照落盘到 `.runtime/session_state/`。
 
 触发方式（通过第 1 个 positional arg 区分事件来源）：

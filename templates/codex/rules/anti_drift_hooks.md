@@ -1,4 +1,4 @@
-﻿---
+---
 paths:
   - ".codex/hooks/**"
   - ".codex/settings.json"

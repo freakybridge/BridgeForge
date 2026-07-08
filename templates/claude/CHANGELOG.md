@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.20.2] - 2026-07-08
+
+### Changed
+- [product] `.claude/hooks/encoding_check.py` 接入 `PostToolUse(Edit|Write|MultiEdit)`：编辑后立即扫描受管文本文件是否带 UTF-8 BOM，作为 pre-commit 前的早期防线。
+
+## [0.20.1] - 2026-07-08
+
+### Fixed
+- [product] 明确 Claude 骨架同样执行 UTF-8 无 BOM 规则；新增 `.claude/hooks/encoding_check.py` 并接入 `.githooks/pre-commit`，防止模板、入口、脚本、rule、JSON、memory 等文本文件混入 BOM。
+
 ## [0.20.0] - 2026-07-08
 
 ### Added

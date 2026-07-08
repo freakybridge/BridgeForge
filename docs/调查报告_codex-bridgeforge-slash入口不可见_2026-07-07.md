@@ -1,4 +1,4 @@
-﻿# Codex 中 `/bridgeforge` 斜杠命令不可见问题报告
+# Codex 中 `/bridgeforge` 斜杠命令不可见问题报告
 
 ## 1. 问题现象
 

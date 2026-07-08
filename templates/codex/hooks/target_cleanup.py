@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """SessionStart hook: Rust target/ 体积治理 (两遍 pass, 后台执行, 不阻塞启动).
 
 背景: cargo-sweep --time 看文件访问时间 (atime), 但 Windows 上 Defender 实时扫描 /
