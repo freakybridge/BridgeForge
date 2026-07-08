@@ -2,6 +2,7 @@
 # bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
 #   [D8] dogfood 镜像闸: templates/<agent>/hooks/*.py 缺 .<agent>/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
 #   [D6] 规则闸: rule_size 读 staged blob + rule_index 读工作树 → 违规 exit 2
+#   [skills] 通用 skill metadata 闸: skills/<name>/SKILL.md 缺可调用 frontmatter → exit 2
 #   [既有] memory 索引重建: 提交前重建衍生索引(_stats.json/MEMORY.md/MEMORY_COLD.md)并纳入本次提交
 #          —— 卫生段，永 exit 0 兜底。杜绝"花名册欠账"溜过任意提交路径(git-sync/手动/IDE 都拦得住)。
 #
@@ -39,6 +40,10 @@ run_exit2_hook ".claude/hooks/rule_size_check.py" --pre-commit
 run_exit2_hook ".claude/hooks/rule_index_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_size_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_index_check.py" --pre-commit
+
+# ── [skills] 通用 skill metadata 闸(硬拦; 下游无 skills/ 则自门控 no-op) ──
+run_exit2_hook ".claude/hooks/skill_metadata_check.py" --pre-commit
+run_exit2_hook ".codex/hooks/skill_metadata_check.py" --pre-commit
 
 # ── [既有] memory 索引重建(卫生段, 永 exit 0 兜底) ──
 for CONFIG_DIR in .claude .codex; do

@@ -1,6 +1,8 @@
 ---
 name: escalate
 description: 急停按钮 + 求外援。用户感觉当前 agent 卡住/打墙时强制中断，派一个独立 agent 研判已试方案的盲点，呈现推荐路径让用户拍板。是 CLAUDE.md / AGENTS.md 鬼打墙自觉规则的兜底。
+user_invocable: true
+argument: 当前卡住的问题、已尝试路径或希望外援研判的盲点
 ---
 
 # /escalate / $escalate — 急停 + 外部视角研判

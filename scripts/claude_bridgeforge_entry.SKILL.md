@@ -8,9 +8,9 @@ argument: 可选：switch claude|codex [--dry-run|--interactive] [--skip-setting
 model: sonnet
 ---
 
-# BridgeForge Codex Slash Entry
+# BridgeForge Claude Slash Entry
 
-这是 Codex 专用的薄入口，只负责让 `/bridgeforge` 出现在 slash 命令清单里。
+这是 Claude Code 专用的薄入口，只负责让 `/bridgeforge` 出现在 skill 命令清单里。
 
 执行时必须立刻读取完整 BridgeForge skill：
 
@@ -19,10 +19,10 @@ model: sonnet
 
 读取后按完整 skill 的说明执行，并把 `/bridgeforge` 后面的用户参数原样当作 `ARGUMENTS` 处理。
 
-兼容提示：如果新路径不存在，但旧路径 `%USERPROFILE%\.agents\bridgeforge-home\SKILL.md` / `~/.agents/bridgeforge-home/SKILL.md` 存在，说明本机还是旧安装布局。不要静默迁移；提示用户按 INSTALL.md 把完整仓库移到 `.bridgeforge`，再保留本叶子入口。
+兼容提示：如果新路径不存在，但旧路径 `%USERPROFILE%\.claude\skills\bridgeforge\SKILL.md` / `~/.claude/skills/bridgeforge/SKILL.md` 是完整 BridgeForge 仓库，说明本机还是旧安装布局。不要静默迁移；提示用户按 INSTALL.md 把完整仓库移到 `.bridgeforge`，再保留本叶子入口。
 
 如果完整 skill 文件不存在，说明 BridgeForge 尚未安装或路径错了。此时不要继续猜测，直接提示用户先安装：
 
 ```text
-完整 BridgeForge 工厂放在 ~/.bridgeforge；Codex 入口放在 ~/.agents/skills/bridgeforge/SKILL.md。
+完整 BridgeForge 工厂放在 ~/.bridgeforge；Claude 入口放在 ~/.claude/skills/bridgeforge/SKILL.md。
 ```

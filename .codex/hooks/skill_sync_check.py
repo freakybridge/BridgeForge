@@ -1,7 +1,7 @@
 ﻿"""用户级 skill 漂移自检 — SessionStart hook（支柱 B / 开机自检）
 
 机制:
-1. 定位上游骨架库的 skill 源: ~/.agents/skills/bridgeforge/skills/
+1. 定位上游骨架库的 skill 源: ~/.bridgeforge/skills/（旧安装路径仅作 fallback）
    找不到 = 本机没装 bridgeforge → 静默 no-op (对非 bridgeforge 用户零影响,
    范式同 target_cleanup.py 的自门控)。
 2. 逐个比对"用户级架子" ~/.agents/skills/<skill> 与上游源的内容哈希:
@@ -22,8 +22,8 @@ docs/skill-distribution-gaps.md「支柱 B」。
 - "已退役"靠 repo 根 RETIRED.md 墓碑名单 (支柱 B 第二块: 退役检测)。退役的 hook
   (项目级, 如 memory_guard) 不在此列, 仍靠手动删。
 
-自产自用: bridgeforge 自身 .codex/ 也挂此 hook。Codex 用户级 bridgeforge
-入口应是真实 clone, 因此它检测的是"用户级 clone 与通用 skill 货架"之间的漂移。
+自产自用: bridgeforge 自身 .codex/ 也挂此 hook。完整 BridgeForge 工厂位于
+~/.bridgeforge, 因此它检测的是"工厂源头与 Codex 用户级通用 skill 货架"之间的漂移。
 """
 from __future__ import annotations
 
@@ -87,12 +87,27 @@ def read_retired(upstream_root: Path) -> list[str]:
     return names
 
 
+def find_upstream(shelf: Path) -> Path | None:
+    """定位 BridgeForge 工厂源头，优先新布局，旧布局只作迁移期兼容。"""
+    home = Path.home()
+    candidates = [
+        home / ".bridgeforge" / "skills",
+        home / ".agents" / "bridgeforge-home" / "skills",
+        home / ".claude" / "skills" / "bridgeforge" / "skills",
+        shelf / "bridgeforge" / "skills",
+    ]
+    for path in candidates:
+        if path.is_dir():
+            return path
+    return None
+
+
 def main() -> None:
     shelf = Path.home() / ".agents" / "skills"
-    upstream = shelf / "bridgeforge" / "skills"
+    upstream = find_upstream(shelf)
 
     # 自门控: 本机没装 bridgeforge 上游 → 静默退出
-    if not upstream.is_dir() or not shelf.is_dir():
+    if upstream is None or not shelf.is_dir():
         return
 
     missing: list[str] = []

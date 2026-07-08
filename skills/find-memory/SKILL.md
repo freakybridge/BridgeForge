@@ -2,6 +2,7 @@
 name: find-memory
 description: 按关键词搜索当前 agent 项目的 memory 目录（Claude `.claude/memory/`，Codex `.codex/memory/`）下所有文件，按需召回热区未覆盖的 memory。当 MEMORY.md 找不到所需知识时使用。
 user_invocable: true
+argument: 搜索关键词
 model: sonnet
 ---
 

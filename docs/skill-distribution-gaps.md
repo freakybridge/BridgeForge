@@ -36,7 +36,7 @@
 
 #### 第一块 — 开机自检（检测 + 通知）｜**已实现 v0.25.0（待发版）**
 - 落点：`templates/hooks/skill_sync_check.py` + dogfood `.claude/hooks/` + 两处 settings `SessionStart` 注册。
-- 做什么：每次 session 开始，**离线**比对 `~/.claude/skills/<skill>` 副本与上游源 `~/.claude/skills/bridgeforge/skills/` 的**内容哈希**，缺失/不一致打印一行 `[skill-sync]` 提示跑 `/bridgeforge`。
+- 做什么：每次 session 开始，**离线**比对用户级 `<skill>` 副本与上游源 `~/.bridgeforge/skills/` 的**内容哈希**，缺失/不一致打印一行 `[skill-sync]` 提示跑 `/bridgeforge`。
 - **只读不改**：hook 绝不动文件；真正的补/更/删仍由 `/bridgeforge` Step 0 在用户确认下做（**绝不静默覆盖定制** —— 与既有原则一致，故 hook 只通知不自动盖）。
 - 自门控：没装 bridgeforge → 静默 no-op（范式同 `target_cleanup.py`）。
 - **v1 有意收窄**：离线比对本机上游 clone 工作区（不 git fetch —— SessionStart 必须快且不能联网失败）；只报缺失/漂移，**不报"已退役"**（需下方第二块的 provenance 标记/退役清单）。

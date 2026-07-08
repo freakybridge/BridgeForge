@@ -1,6 +1,8 @@
 ---
 name: archive-scan
 description: 扫描 doc/2_pending/ 下可归档的完成文档，列出候选让用户 review，确认后批量 git mv 到 doc/4_archive/ 并同步 doc/README.md 索引。
+user_invocable: true
+argument: 无
 model: haiku
 ---
 

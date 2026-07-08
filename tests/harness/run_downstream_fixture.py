@@ -8,7 +8,7 @@ exercise the parts that are easy to miss in the source repo:
 * D8 dogfood mirror checks in a factory-shaped fixture.
 * settings.json matcher coverage for Edit|Write|MultiEdit.
 * Root pre-commit coverage for both Claude and Codex dogfood gates.
-* high-confidence `skills/**/SKILL.md` local reference health.
+* high-confidence `skills/**/SKILL.md` metadata and local reference health.
 
 Generated fixture directories are disposable and are never product source.
 """
@@ -31,6 +31,7 @@ CODEX_TEMPLATE = REPO_ROOT / "templates" / "codex"
 CLAUDE_TEMPLATE = REPO_ROOT / "templates" / "claude"
 CODEX_FIXTURE = RUNTIME_ROOT / "downstream-codex"
 SWITCH_FIXTURE = RUNTIME_ROOT / "downstream-switch"
+SKILL_METADATA_FIXTURE = RUNTIME_ROOT / "skill-metadata"
 
 
 @dataclass
@@ -207,6 +208,8 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py" --pre-commit',
         '.codex/hooks/rule_size_check.py" --pre-commit',
         '.codex/hooks/rule_index_check.py" --pre-commit',
+        '.claude/hooks/skill_metadata_check.py" --pre-commit',
+        '.codex/hooks/skill_metadata_check.py" --pre-commit',
         'for CONFIG_DIR in .claude .codex; do',
         '$CONFIG_DIR/scripts/memory_rebuild_index.py',
     ]
@@ -216,6 +219,8 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py --pre-commit',
         '.codex/hooks/rule_size_check.py --pre-commit',
         '.codex/hooks/rule_index_check.py --pre-commit',
+        '.claude/hooks/skill_metadata_check.py --pre-commit',
+        '.codex/hooks/skill_metadata_check.py --pre-commit',
     ]
     broken = [needle for needle in bad_quoted_args if needle in precommit]
     ok = not missing and not broken
@@ -727,6 +732,62 @@ def check_skill_references() -> CheckResult:
     )
 
 
+def check_skill_metadata() -> CheckResult:
+    source = run([sys.executable, ".codex/hooks/skill_metadata_check.py", "--pre-commit"], REPO_ROOT)
+    if source.returncode != 0:
+        return CheckResult(
+            "skill_metadata_health",
+            False,
+            f"source skills metadata should pass, got exit {source.returncode}: {(source.stdout + source.stderr).strip()}",
+        )
+
+    _safe_reset_dir(SKILL_METADATA_FIXTURE)
+    hook_dir = SKILL_METADATA_FIXTURE / ".codex" / "hooks"
+    hook_dir.mkdir(parents=True)
+    shutil.copy2(CODEX_TEMPLATE / "hooks" / "skill_metadata_check.py", hook_dir / "skill_metadata_check.py")
+
+    bad_skill = SKILL_METADATA_FIXTURE / "skills" / "bad-skill" / "SKILL.md"
+    bad_skill.parent.mkdir(parents=True)
+    bad_skill.write_text(
+        "---\n"
+        "name: bad-skill\n"
+        "description: fixture bad skill\n"
+        "argument: 无\n"
+        "---\n\n"
+        "# Bad Skill\n",
+        encoding="utf-8",
+    )
+    bad = run([sys.executable, ".codex/hooks/skill_metadata_check.py", "--pre-commit"], SKILL_METADATA_FIXTURE)
+
+    bad_skill.write_text(
+        "---\n"
+        "name: bad-skill\n"
+        "description: fixture good skill\n"
+        "user_invocable: true\n"
+        "argument: 无\n"
+        "---\n\n"
+        "# Good Skill\n",
+        encoding="utf-8",
+    )
+    good = run([sys.executable, ".codex/hooks/skill_metadata_check.py", "--pre-commit"], SKILL_METADATA_FIXTURE)
+
+    ok = (
+        bad.returncode == 2
+        and "user_invocable: true is required" in (bad.stdout + bad.stderr)
+        and good.returncode == 0
+    )
+    return CheckResult(
+        "skill_metadata_health",
+        ok,
+        "skill metadata hook passes source/good fixture and blocks missing user_invocable"
+        if ok
+        else (
+            f"expected bad exit 2 and good exit 0, got bad={bad.returncode}, "
+            f"good={good.returncode}: {(bad.stdout + bad.stderr + good.stdout + good.stderr).strip()}"
+        ),
+    )
+
+
 CHECKS = {
     "rule-index": check_rule_index_missing,
     "rule-size": check_rule_size_over_limit,
@@ -735,6 +796,7 @@ CHECKS = {
     "precommit-shebang": check_precommit_shebang_bytes,
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,
+    "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
     "switch-archive": check_switch_archive_restore,
     "switch-codex-archive": check_switch_codex_to_claude_archive_scope,

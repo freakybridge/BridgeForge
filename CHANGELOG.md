@@ -17,6 +17,21 @@
 
 ---
 
+## [0.52.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **新增通用 skill metadata 提交闸**：新增 `skill_metadata_check.py`，对 `skills/<name>/SKILL.md` 的 frontmatter 做 pre-commit 硬拦，要求 `name` 与目录一致、`description` 非空、使用 `user_invocable: true` 当前拼写并提供 `argument`，同时拒绝 BOM 开头和旧 `user-invocable` 拼写。根 `.githooks/pre-commit`、Claude/Codex 模板 `.githooks/pre-commit`、dogfood `.claude/.codex/hooks/` 与 harness 均已接入；补齐现有通用 skill 的 `user_invocable` / `argument` 元数据，避免新增 skill 再出现“源头存在但不可手动调用”的漏标。`templates/claude/VERSION` 升至 `0.20.0`，`templates/codex/VERSION` 升至 `0.24.0`，根 `VERSION` / `SKILL.md` 升至 `0.52.0`。
+
+## [0.51.1] - 2026-07-08
+
+### Fixed
+- `[product][meta]` **补齐 `feature-dev` 可手动调用元数据**：`skills/feature-dev/SKILL.md` 增加 `user_invocable: true` 和参数说明，避免通用 skill 已在 BridgeForge 源头存在、但同步到用户级 skill 货架后仍不显示为可调用入口。根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.51.1`。
+
+## [0.51.0] - 2026-07-08
+
+### Changed
+- `[product][repo][meta]` **用户级 BridgeForge 工厂源头改为 `~/.bridgeforge`**：完整 BridgeForge 仓库不再推荐放在 Codex 专属 `~/.agents/bridgeforge-home` 或 Claude 的 `~/.claude/skills/bridgeforge` 下，统一放到中立 `~/.bridgeforge`。Codex 与 Claude Code 的 `skills/bridgeforge/SKILL.md` 都改为叶子薄入口，分别复制 `scripts/codex_bridgeforge_entry.SKILL.md` / `scripts/claude_bridgeforge_entry.SKILL.md`，再读取 `~/.bridgeforge/SKILL.md`。`skill_sync_check.py` 改为从 `~/.bridgeforge/skills` 比对通用 skill 源，`bridgeforge_switch.py` 优先识别 `~/.bridgeforge` 并保留旧路径 fallback。同步更新 README / INSTALL / SKILL.md / harvest 说明 / skill-distribution 文档，新增 feature-dev 需求包 `doc/1_plan/bridgeforge-home-layout/`。`templates/claude/VERSION` 升至 `0.19.0`，`templates/codex/VERSION` 升至 `0.23.0`，根 `VERSION` / `SKILL.md` 升至 `0.51.0`。
+
 ## [0.50.0] - 2026-07-08
 
 ### Added

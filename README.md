@@ -91,19 +91,23 @@ bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期
 ## 安装
 
 ```bash
-# Codex：完整仓库放到 bridgeforge-home，slash 命令目录只放薄入口 wrapper
-git clone https://github.com/<你的用户名>/bridgeforge.git ~/.agents/bridgeforge-home
-mkdir -p ~/.agents/skills/bridgeforge
-cp ~/.agents/bridgeforge-home/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
+# 完整 BridgeForge 工厂统一放到中立目录
+git clone https://github.com/<你的用户名>/bridgeforge.git ~/.bridgeforge
 
-# Claude Code：clone 到 Claude Code 用户级 skill 目录
-git clone https://github.com/<你的用户名>/bridgeforge.git ~/.claude/skills/bridgeforge
+# Codex：slash 命令目录只放薄入口 wrapper
+mkdir -p ~/.agents/skills/bridgeforge
+cp ~/.bridgeforge/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
+
+# Claude Code：skill 命令目录也只放薄入口 wrapper
+mkdir -p ~/.claude/skills/bridgeforge
+cp ~/.bridgeforge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
 
 # Windows（PowerShell）
-git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.agents\bridgeforge-home"
+git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.bridgeforge"
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills\bridgeforge" | Out-Null
-Copy-Item "$env:USERPROFILE\.agents\bridgeforge-home\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
-git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\bridgeforge" | Out-Null
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.claude\skills\bridgeforge\SKILL.md"
 ```
 
 详细安装说明见 [INSTALL.md](INSTALL.md)。
@@ -114,9 +118,9 @@ git clone https://github.com/<你的用户名>/bridgeforge.git "$env:USERPROFILE
 
 在新项目根目录开 Codex 或 Claude Code，把下面这句话发给 agent：
 
-> 如果这台机器还没装 bridgeforge：Codex 把完整仓库 clone 到 `~/.agents/bridgeforge-home`，再把 `scripts/codex_bridgeforge_entry.SKILL.md` 复制到 `~/.agents/skills/bridgeforge/SKILL.md`；若存在旧的 `~/.codex/skills/bridgeforge`，先移到 `~/.codex/backups/`；Claude Code 直接 clone 到 `~/.claude/skills/bridgeforge`；然后照它的 SKILL.md 给当前项目铺设骨架。
+> 如果这台机器还没装 bridgeforge：把完整仓库 clone 到 `~/.bridgeforge`；Codex 把 `scripts/codex_bridgeforge_entry.SKILL.md` 复制到 `~/.agents/skills/bridgeforge/SKILL.md`；Claude Code 把 `scripts/claude_bridgeforge_entry.SKILL.md` 复制到 `~/.claude/skills/bridgeforge/SKILL.md`；若存在旧的 `~/.codex/skills/bridgeforge`，先移到 `~/.codex/backups/`；然后照它的 SKILL.md 给当前项目铺设骨架。
 
-这一句**自带兜底**：装过的机器直接铺，没装过的先自举（Codex 建 `bridgeforge-home` + slash 叶子入口；Claude Code clone 到用户级 skill 目录）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
+这一句**自带兜底**：装过的机器直接铺，没装过的先自举（建 `.bridgeforge` 工厂源头 + 两个 agent 的叶子入口）再铺。agent 会读 [SKILL.md](SKILL.md) 按 Step 0~7 执行——问你 4 个问题（项目名 / 主语言 / OS / 是否需要换机 checklist），铺骨架，最后列出要手填的 3 处占位。
 
 > ⚠️ 自举安装那次跑完需**重启当前 agent**。Codex 和 Claude Code 都用 `/bridgeforge`。
 

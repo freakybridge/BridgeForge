@@ -1,6 +1,8 @@
 ---
 name: snapshot
 description: 手动存档当前 session 的工作状态到 .runtime/session_state/ — 与自动 hook 互补，能写入当前 agent 主观的"本轮做了啥 / 下一步打算"。
+user_invocable: true
+argument: 可选——本次 snapshot 的补充说明
 model: sonnet
 ---
 

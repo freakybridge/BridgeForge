@@ -151,12 +151,13 @@ def _candidate_roots(project_root: Path, script_path: Path, explicit: str | None
     env = os.environ.get("BRIDGEFORGE_HOME")
     if env:
         raw.append(Path(env))
+    home = Path.home()
+    raw.append(home / ".bridgeforge")
     raw.append(project_root)
     raw.extend(project_root.parents)
     raw.append(script_path.parent)
     raw.extend(script_path.parents)
 
-    home = Path.home()
     raw.extend([
         home / ".claude" / "skills" / "bridgeforge",
         home / ".agents" / "bridgeforge-home",
@@ -181,6 +182,14 @@ def find_template_root(project_root: Path, script_path: Path, explicit: str | No
         if (root / "templates" / "claude").is_dir() and (root / "templates" / "codex").is_dir():
             return root
     raise SystemExit("ERROR: cannot find BridgeForge template root. Set BRIDGEFORGE_HOME or pass --template-root.")
+
+
+def looks_like_bridgeforge_source(root: Path) -> bool:
+    return (
+        (root / "templates" / "claude").is_dir()
+        and (root / "templates" / "codex").is_dir()
+        and (root / "SKILL.md").is_file()
+    )
 
 
 def choose_python_command(project_root: Path) -> str | None:
@@ -872,6 +881,8 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     script_path = Path(__file__).resolve()
+    if looks_like_bridgeforge_source(project_root):
+        raise SystemExit("ERROR: refusing to switch the BridgeForge source repository itself.")
     template_root = find_template_root(project_root, script_path, args.template_root)
     if project_root == template_root:
         raise SystemExit("ERROR: refusing to switch the BridgeForge source repository itself.")

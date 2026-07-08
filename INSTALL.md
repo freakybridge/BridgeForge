@@ -1,18 +1,81 @@
 ﻿# 安装与卸载
 
-## 安装到 Codex
+## 安装总览
 
-bridgeforge 在 Codex 里拆成两部分：完整仓库放到 `~/.agents/bridgeforge-home/`，`~/.agents/skills/bridgeforge/` 只放一个极小 wrapper `SKILL.md`，这样 `/bridgeforge` 才会出现在 slash 命令清单里。`~/.codex/` 是 Codex 配置和 memory 系统路径，不是用户级 skill 安装目录。
+bridgeforge 现在分成三块：
 
-> 不要把完整 BridgeForge 仓库放在 `~/.agents/skills/bridgeforge/`。Codex 会加载里面的子 skill，但不会把仓库根 `SKILL.md` 显示成 `/bridgeforge`。
+```text
+~/.bridgeforge/                         # 完整 BridgeForge 工厂源仓库
+~/.agents/skills/bridgeforge/SKILL.md    # Codex 薄入口
+~/.claude/skills/bridgeforge/SKILL.md    # Claude Code 薄入口
+```
+
+`~/.agents/skills/bridgeforge/` 和 `~/.claude/skills/bridgeforge/` 都只放一个极小 wrapper `SKILL.md`，这样 `/bridgeforge` 才会出现在各自命令清单里。完整仓库统一放在 `~/.bridgeforge/`，避免把同时包含 Claude / Codex 两套骨架的工厂误看成某个 agent 的私有目录。`~/.codex/` 是 Codex 配置和 memory 系统路径，不是用户级 skill 安装目录。
+
+> 不要把完整 BridgeForge 仓库放在 `~/.agents/skills/bridgeforge/` 或 `~/.claude/skills/bridgeforge/`。入口货架只放 wrapper，完整工厂只放 `~/.bridgeforge/`。
 > 如果旧版曾安装到 `~/.codex/skills/bridgeforge`，必须先把这个旧入口移出 `~/.codex/skills/`。否则 Codex 可能继续扫到 BridgeForge 的子 skill，却仍然不显示根 `/bridgeforge`。
+
+## 旧完整仓库迁移到 `.bridgeforge`
+
+如果机器上已有旧布局，先把完整仓库或 junction/symlink 移到 `~/.bridgeforge`。这一步只移动目录入口本身；如果旧路径是 junction/symlink，不会删除它指向的真实开发仓库。
 
 ### Windows
 
 ```powershell
-git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.agents\bridgeforge-home"
+$new = "$env:USERPROFILE\.bridgeforge"
+$candidates = @(
+  "$env:USERPROFILE\.agents\bridgeforge-home",
+  "$env:USERPROFILE\.claude\skills\bridgeforge"
+)
+
+if (!(Test-Path $new)) {
+  foreach ($old in $candidates) {
+    if ((Test-Path "$old\SKILL.md") -and (Test-Path "$old\templates")) {
+      Move-Item -LiteralPath $old -Destination $new
+      break
+    }
+  }
+}
+```
+
+然后重建两个 agent 的薄入口：
+
+```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills\bridgeforge" | Out-Null
-Copy-Item "$env:USERPROFILE\.agents\bridgeforge-home\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\bridgeforge" | Out-Null
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.claude\skills\bridgeforge\SKILL.md"
+```
+
+### macOS / Linux
+
+```bash
+if [ ! -e ~/.bridgeforge ]; then
+  for old in ~/.agents/bridgeforge-home ~/.claude/skills/bridgeforge; do
+    if [ -f "$old/SKILL.md" ] && [ -d "$old/templates" ]; then
+      mv "$old" ~/.bridgeforge
+      break
+    fi
+  done
+fi
+```
+
+然后重建两个 agent 的薄入口：
+
+```bash
+mkdir -p ~/.agents/skills/bridgeforge ~/.claude/skills/bridgeforge
+cp ~/.bridgeforge/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
+cp ~/.bridgeforge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
+```
+
+## 安装到 Codex
+
+### Windows
+
+```powershell
+git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.bridgeforge"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills\bridgeforge" | Out-Null
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
 ```
 
 旧安装迁移（只移动链接/旧入口，不删除真实仓库）：
@@ -29,9 +92,9 @@ if (Test-Path $old) {
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/<你的用户名>/BridgeForge.git ~/.agents/bridgeforge-home
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.bridgeforge
 mkdir -p ~/.agents/skills/bridgeforge
-cp ~/.agents/bridgeforge-home/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
+cp ~/.bridgeforge/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
 ```
 
 旧安装迁移：
@@ -45,60 +108,70 @@ fi
 
 ## 安装到 Claude Code
 
-bridgeforge 是一个 Claude Code **用户级 skill**，clone 到 `~/.claude/skills/bridgeforge/` 即可被所有项目调用。
+Claude Code 也使用薄入口。完整 BridgeForge 工厂仍在 `~/.bridgeforge/`，`~/.claude/skills/bridgeforge/` 只放 wrapper。
 
 ### Windows
 
 ```powershell
 # PowerShell
-git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.claude\skills\bridgeforge"
+# 若已安装 Codex 且 $env:USERPROFILE\.bridgeforge 已存在，跳过 clone
+git clone https://github.com/<你的用户名>/BridgeForge.git "$env:USERPROFILE\.bridgeforge"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\bridgeforge" | Out-Null
+Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.claude\skills\bridgeforge\SKILL.md"
 ```
 
 或 Git Bash：
 ```bash
-git clone https://github.com/<你的用户名>/BridgeForge.git ~/.claude/skills/bridgeforge
+# 若已安装 Codex 且 ~/.bridgeforge 已存在，跳过 clone
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.bridgeforge
+mkdir -p ~/.claude/skills/bridgeforge
+cp ~/.bridgeforge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
 ```
 
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/<你的用户名>/BridgeForge.git ~/.claude/skills/bridgeforge
+# 若已安装 Codex 且 ~/.bridgeforge 已存在，跳过 clone
+git clone https://github.com/<你的用户名>/BridgeForge.git ~/.bridgeforge
+mkdir -p ~/.claude/skills/bridgeforge
+cp ~/.bridgeforge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
 ```
 
-### 开发者模式：Codex 用叶子入口，Claude Code 可用 junction
+### 开发者模式：完整工厂用 junction，两个 agent 都用叶子入口
 
-上面的直接 clone 适合**只用不改**的人——它在用户级 skill 目录下放一份真实副本。
+上面的直接 clone 适合**只用不改**的人——它在 `~/.bridgeforge` 下放一份真实副本。
 
-如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），Codex 和 Claude Code 的取舍不同：
-
-- **Codex**：`~/.agents/skills/bridgeforge` 仍只放薄入口 wrapper；完整仓库放在 `~/.agents/bridgeforge-home`，可用 junction 指向开发仓库，也可用真实 clone。
-- **Claude Code**：可以继续用 junction 指向开发仓库，物理只留一份。
+如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），让 `~/.bridgeforge` 指向开发仓库；Codex 和 Claude Code 的用户级 skill 目录都只放 wrapper。
 
 ```powershell
 # Windows：开发仓库放哪自己定，例 D:\Quant\BridgeForge
 git clone https://github.com/<你的用户名>/BridgeForge.git D:\Quant\BridgeForge
-# Codex 完整仓库 home 可指向开发仓库；slash 发现目录只放 wrapper
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\bridgeforge-home" -Target "D:\Quant\BridgeForge"
+# 完整 BridgeForge 工厂指向开发仓库
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.bridgeforge" -Target "D:\Quant\BridgeForge"
+# Codex slash 发现目录只放 wrapper
 New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills\bridgeforge" | Out-Null
 Copy-Item "D:\Quant\BridgeForge\scripts\codex_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.agents\skills\bridgeforge\SKILL.md"
-# Claude Code skill 发现目录 junction 指向开发仓库（NTFS junction，无需管理员）
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\bridgeforge" -Target "D:\Quant\BridgeForge"
+# Claude Code skill 发现目录也只放 wrapper
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\bridgeforge" | Out-Null
+Copy-Item "D:\Quant\BridgeForge\scripts\claude_bridgeforge_entry.SKILL.md" "$env:USERPROFILE\.claude\skills\bridgeforge\SKILL.md"
 ```
 
 ```bash
 # macOS / Linux：用 symlink
 git clone https://github.com/<你的用户名>/BridgeForge.git ~/dev/BridgeForge
-# Codex 完整仓库 home 可 symlink 指向开发仓库；slash 发现目录只放 wrapper
-ln -s ~/dev/BridgeForge ~/.agents/bridgeforge-home
+# 完整 BridgeForge 工厂指向开发仓库
+ln -s ~/dev/BridgeForge ~/.bridgeforge
+# Codex slash 发现目录只放 wrapper
 mkdir -p ~/.agents/skills/bridgeforge
 cp ~/dev/BridgeForge/scripts/codex_bridgeforge_entry.SKILL.md ~/.agents/skills/bridgeforge/SKILL.md
-# Claude Code
-ln -s ~/dev/BridgeForge ~/.claude/skills/bridgeforge
+# Claude Code slash 发现目录也只放 wrapper
+mkdir -p ~/.claude/skills/bridgeforge
+cp ~/dev/BridgeForge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
 ```
 
-**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；Claude Code 的 `~/.claude/skills/bridgeforge` 可以是透明入口。Codex 的 `~/.agents/skills/bridgeforge` 只是叶子入口 wrapper，模板和脚本读取 `$HOME/.agents/bridgeforge-home`。
+**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.bridgeforge` 指向它。Codex 的 `~/.agents/skills/bridgeforge` 和 Claude Code 的 `~/.claude/skills/bridgeforge` 都只是叶子入口 wrapper，模板和脚本读取 `$HOME/.bridgeforge`。
 
-> **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.agents\skills\bridgeforge" -Force` 应是普通目录，里面只需要 `SKILL.md`；`Get-Item "$env:USERPROFILE\.agents\bridgeforge-home" -Force` 才是完整仓库或 junction。
+> **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.bridgeforge" -Force` 才是完整仓库或 junction；`Get-Item "$env:USERPROFILE\.agents\skills\bridgeforge" -Force` 和 `Get-Item "$env:USERPROFILE\.claude\skills\bridgeforge" -Force` 应是普通目录，里面只需要 `SKILL.md`。
 
 ## 验证安装
 
@@ -118,17 +191,17 @@ ln -s ~/dev/BridgeForge ~/.claude/skills/bridgeforge
 
 ```bash
 # Codex
-cd ~/.agents/bridgeforge-home
+cd ~/.bridgeforge
 git pull
 
 # Claude Code
-cd ~/.claude/skills/bridgeforge
+cd ~/.bridgeforge
 git pull
 ```
 
 模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
 
-如果想把更新同步到已有项目，Codex 项目对比 `~/.agents/bridgeforge-home/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.claude/skills/bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览完整计划：旧 agent 会归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，目标 agent 优先从当前项目归档恢复、否则从上游模板安装；memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移。若目标 live path 已存在，switch 会停止，不覆盖。
+如果想把更新同步到已有项目，Codex 项目对比 `~/.bridgeforge/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览完整计划：旧 agent 会归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，目标 agent 优先从当前项目归档恢复、否则从上游模板安装；memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移。若目标 live path 已存在，switch 会停止，不覆盖。
 
 > 开发者模式（junction / symlink，见上）下你自己就是上游，不需要在 home 目录 `git pull`；直接在开发仓库改并提交即可。
 
@@ -137,10 +210,12 @@ git pull
 ```bash
 # Codex
 rm -rf ~/.agents/skills/bridgeforge
-rm -rf ~/.agents/bridgeforge-home
 
 # Claude Code
 rm -rf ~/.claude/skills/bridgeforge
+
+# 完整 BridgeForge 工厂
+rm -rf ~/.bridgeforge
 ```
 
 **注意**：卸载 skill 不会影响已经用 skill 铺过骨架的项目——它们的 CLAUDE.md / rules / memory 都在项目自己的 git 里。
@@ -159,7 +234,7 @@ rm -rf ~/.claude/skills/bridgeforge
 ### Q：skill 不出现在列表里
 
 检查：
-1. Codex 路径必须是 `~/.agents/skills/bridgeforge/SKILL.md`；Claude Code 路径必须是 `~/.claude/skills/bridgeforge/SKILL.md`（clone 时不要嵌套成 `bridgeforge/bridgeforge/SKILL.md`）
+1. 完整仓库必须在 `~/.bridgeforge/SKILL.md`；Codex 路径必须是 `~/.agents/skills/bridgeforge/SKILL.md`；Claude Code 路径必须是 `~/.claude/skills/bridgeforge/SKILL.md`
 2. `SKILL.md` frontmatter 必须有 `name: bridgeforge` 和 `description:`
 3. 重启当前 agent 让它重新扫描 skill 目录
 

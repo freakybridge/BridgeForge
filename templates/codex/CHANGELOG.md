@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.24.0] - 2026-07-08
+
+### Added
+- [product] 新增 `skill_metadata_check.py` 并接入 `.githooks/pre-commit`：当项目包含 BridgeForge 工厂源头 `skills/<name>/SKILL.md` 时，提交前硬拦缺 `name` / `description` / `user_invocable: true` / `argument` 或 BOM/旧拼写的通用 skill frontmatter；普通下游项目没有根 `skills/` 时自门控 no-op。
+
+## [0.23.0] - 2026-07-08
+
+### Changed
+- [product] 用户级 BridgeForge 工厂源头改为 `~/.bridgeforge`：Codex 的 `~/.agents/skills/bridgeforge/SKILL.md` 仍是叶子薄入口，但完整仓库不再推荐放在 `~/.agents/bridgeforge-home`。`skill_sync_check.py` 改为从 `~/.bridgeforge/skills` 比对通用 skill 源，`bridgeforge_switch.py` 优先识别 `~/.bridgeforge` 并保留旧路径 fallback。
+
 ## [0.22.0] - 2026-07-08
 
 ### Added

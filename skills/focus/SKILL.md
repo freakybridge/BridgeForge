@@ -1,6 +1,8 @@
 ---
 name: focus
 description: 查看 / 设置 / 重置本会话的「任务锚 anchor」，并按需手动自检是否漂移。focus_reminder.py hook 自动维护锚 + 周期提醒（主动），本 skill 给用户手动控制权（被动入口）。
+user_invocable: true
+argument: 可选——查看、设置或重置任务锚的说明
 model: sonnet
 ---
 

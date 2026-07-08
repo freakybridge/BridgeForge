@@ -1,6 +1,8 @@
 ---
 name: feature-dev
 description: 大需求 / 新功能交付流水线。Use when the user explicitly invokes /feature-dev or $feature-dev, says this is a large requirement, asks to open a feature, asks to follow the full requirement-to-delivery flow, or when Codex/Claude judges a development request is too large or ambiguous for direct execution and should be clarified, written to doc/, implemented, independently verified, then handed to the user for trial feedback.
+user_invocable: true
+argument: 需要交付的新功能 / 大需求描述
 ---
 
 # feature-dev — 大需求交付流水线

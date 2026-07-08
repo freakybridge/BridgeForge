@@ -1,6 +1,8 @@
 ---
 name: spinoff
 description: 任务漂移到「前置阻塞问题」时的交接原语 — 存档当前主任务状态 + 生成解决前置问题的种子提示词 + 双向回链，引导去新对话解前置后再用 /resume（Claude）或 $resume（Codex）回来。当发现"要解决 A 得先解决 B 且 B 阻塞 A 又够大"时主动调用。
+user_invocable: true
+argument: 前置阻塞问题描述
 model: sonnet
 ---
 

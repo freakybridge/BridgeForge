@@ -1,6 +1,8 @@
 ---
 name: resume
 description: 读取 .runtime/session_state/ 下的 snapshot 文件，把工作状态带入当前 session。不带参数时让当前 agent 列出候选让用户选，或带 `latest` 直接读最新一份。
+user_invocable: true
+argument: 可选——latest 或指定 snapshot 文件名
 model: sonnet
 ---
 
