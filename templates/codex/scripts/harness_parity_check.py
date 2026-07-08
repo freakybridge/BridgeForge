@@ -72,6 +72,7 @@ SUBSTITUTIONS: list[tuple[str, str]] = [
 
 DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/allow_memory_write.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_* fallback"),
+    "hooks/cargo_default_run_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/clarify_reminder.py": ("expected-codex-adapter", "Codex must skip both / commands and $ skills"),
     "hooks/config_health_check.py": ("codex-only", "Codex registers model_policy_check health signal"),
     "hooks/context_warning.py": ("expected-codex-adapter", "Codex skill calls use $ and must bypass ctx warning"),
@@ -79,6 +80,8 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/fallback_smell_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/find_doc_reminder.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_* fallback"),
     "hooks/focus_reminder.py": ("expected-codex-adapter", "Codex text and skill command surface differ"),
+    "hooks/git_add_all_guard.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback and broader git flag parsing"),
+    "hooks/memory_dup_check.py": ("expected-codex-adapter", "Codex memory path plus hyphen/underscore topic splitting"),
     "hooks/memory_lint.py": ("expected-codex-adapter", "Codex memory path and CODEX_TOOL_INPUT fallback"),
     "hooks/mirror_drift_check.py": ("expected-codex-adapter", "Codex dogfood paths and AGENTS.md wording differ"),
     "hooks/requirements_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),

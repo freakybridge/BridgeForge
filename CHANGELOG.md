@@ -17,6 +17,11 @@
 
 ---
 
+## [0.57.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **移植 Claude 安全与轻量检查 hook 到 Codex 模板**：新增 `.codex/hooks/git_add_all_guard.py`、`.codex/hooks/memory_dup_check.py`、`.codex/hooks/cargo_default_run_check.py` 并接入 Codex 模板与 BridgeForge 自身 `.codex` dogfood；Codex 版按 stdin JSON → `CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME` → legacy `CLAUDE_*` 的输入范式适配，分别用于阻断高风险 bulk git add、新建 Codex memory 前提示同主题碎片化、编辑多 `[[bin]]` 的 `Cargo.toml` 后提示缺少 `default-run`；同步登记 `harness_parity_check.py` 差异分类并刷新 parity 报告为 `OK`。`templates/codex/VERSION` 升至 `0.28.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.57.0`。
+
 ## [0.56.0] - 2026-07-08
 
 ### Added

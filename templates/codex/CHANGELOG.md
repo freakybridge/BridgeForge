@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.28.0] - 2026-07-08
+
+### Added
+- [product] 新增 `.codex/hooks/git_add_all_guard.py`、`.codex/hooks/memory_dup_check.py`、`.codex/hooks/cargo_default_run_check.py` 并接入 settings：阻断高风险 bulk git add，新建 Codex memory 前提示同主题碎片化，编辑多 `[[bin]]` 的 `Cargo.toml` 后提示缺少 `default-run`；同步登记 `harness_parity_check.py` 差异分类。
+
 ## [0.27.4] - 2026-07-08
 
 ### Changed
