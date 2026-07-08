@@ -17,6 +17,7 @@ except Exception:
     pass
 
 MEMORY_MAX_LINES = 200
+GENERATED_MEMORY_FILES = {"MEMORY.md", "MEMORY_COLD.md"}
 
 
 def main() -> int:
@@ -60,10 +61,10 @@ def main() -> int:
             f"超过会被 Codex 静默截断"
         )
 
-    # 提取 MEMORY.md 中 link 的相对文件名 (仅 *.md)
-    linked = set(re.findall(r"\(([a-z0-9_]+\.md)\)", text))
+    # 提取 MEMORY.md 中 link 的相对文件名 (仅当前目录下的 *.md)
+    linked = set(re.findall(r"\(([A-Za-z0-9_.-]+\.md)\)", text))
     # 磁盘实际 active 文件（排除 archive/ 子目录）
-    actual = {p.name for p in memory_dir.glob("*.md")} - {"MEMORY.md"}
+    actual = {p.name for p in memory_dir.glob("*.md")} - GENERATED_MEMORY_FILES
 
     orphans = sorted(actual - linked)
     broken = sorted(linked - actual)

@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.20.3] - 2026-07-08
+
+### Fixed
+- [product] 修复 `.claude/hooks/memory_lint.py` 运行态误报：MEMORY.md 链接解析支持带连字符 / 点号的 memory 文件名，并排除生成索引 `MEMORY_COLD.md`，避免正常 memory 文件被报成 orphan。
+
 ## [0.20.2] - 2026-07-08
 
 ### Changed

@@ -17,6 +17,16 @@
 
 ---
 
+## [0.55.4] - 2026-07-08
+
+### Changed
+- `[product][repo][meta]` **关闭 Codex harness parity 未归类差异**：`harness_parity_check.py` 扩展覆盖 `templates/*/memory`，新增共享 `skills/*/SKILL.md` metadata / BOM / Claude-only marker 检查；20 个 Claude/Codex 差异全部登记为 `expected-codex-adapter` / `codex-only` / `codex-path-adapter` / `cleanup-only`，报告状态可在无缺失、无未分类差异、无 skill 问题时变为 `OK`。同时收紧 slash skill 归一化，只替换独立 `/skill` 命令，并在原文件字节一致时直接判无差异，避免路径片段或共享脚本被误报；`templates/codex/VERSION` 升至 `0.27.4`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.4`。
+
+## [0.55.3] - 2026-07-08
+
+### Fixed
+- `[product][repo]` **修复 memory_lint 运行态误报**：`memory_lint.py` 的 MEMORY.md 链接解析支持带连字符 / 点号的 memory 文件名，并把生成索引 `MEMORY_COLD.md` 与 `MEMORY.md` 一起排除出 orphan 检测，避免 Codex / Claude 在编辑 memory 后把正常文件误报成未索引；同步 Claude/Codex 模板与自身 dogfood，`templates/codex/VERSION` 升至 `0.27.3`，`templates/claude/VERSION` 升至 `0.20.3`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.3`。
+
 ## [0.55.2] - 2026-07-08
 
 ### Changed

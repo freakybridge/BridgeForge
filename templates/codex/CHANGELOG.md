@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.27.4] - 2026-07-08
+
+### Changed
+- [product] `.codex/scripts/harness_parity_check.py` 扩展覆盖 `memory`，新增共享 `skills/*/SKILL.md` metadata / BOM / Claude-only marker 检查；20 个 Claude/Codex harness 差异全部带机器可读分类，报告在无缺失、无未分类差异、无 skill 问题时输出 `OK`。同时只替换独立 `/skill` 命令，并对原文件一致的共享脚本直接判无差异，避免路径片段和共享脚本误报。
+
+## [0.27.3] - 2026-07-08
+
+### Fixed
+- [product] 修复 `.codex/hooks/memory_lint.py` 运行态误报：MEMORY.md 链接解析支持带连字符 / 点号的 memory 文件名，并排除生成索引 `MEMORY_COLD.md`，避免正常 memory 文件被报成 orphan。
+
 ## [0.27.2] - 2026-07-08
 
 ### Changed
