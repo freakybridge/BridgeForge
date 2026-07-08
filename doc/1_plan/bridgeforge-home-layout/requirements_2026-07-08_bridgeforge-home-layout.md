@@ -1,6 +1,6 @@
 # 需求：BridgeForge 用户级工厂目录改为 `.bridgeforge`
 > 日期：2026-07-08
-> 状态：verifying
+> 状态：trial
 > 入口：用户认可将完整 BridgeForge 工厂从 Codex 专属 `.agents` 下移出，并明确不要额外 `repo` 包装层。
 
 ## 背景与目标
@@ -13,7 +13,7 @@
 
 - 不取消 Codex 的薄入口 wrapper；`~/.agents/skills/bridgeforge/SKILL.md` 仍必须是叶子 skill。
 - 不把完整 BridgeForge 仓库放进 `~/.agents/skills/bridgeforge` 或 `~/.claude/skills/bridgeforge`。
-- 不在本轮实际迁移用户机器上的目录；本轮先改 BridgeForge 产品层说明和机制。
+- 不在产品层改造提交里自动迁移用户机器上的目录；真实迁移需由用户单独确认后执行。
 - 不改变项目级骨架目录：Codex 项目仍是 `.codex/ + AGENTS.md`，Claude 项目仍是 `.claude/ + CLAUDE.md`。
 
 ## 用户可见行为
@@ -41,9 +41,9 @@
 - [x] README / INSTALL / SKILL.md / templates changelog / root changelog / VERSION 均同步。
 - [x] 全仓搜索主路径不再把 `~/.agents/bridgeforge-home` 当推荐安装路径；剩余命中仅为迁移 recipe、兼容 fallback、历史记录或需求背景。
 
-## 暂缓项
+## 后续项
 
-- 真实迁移用户机器上的 `C:\Users\bridg\.agents\bridgeforge-home` 到 `C:\Users\bridg\.bridgeforge`，等产品层改完并验证后由用户单独执行或下次 `$bridgeforge` 安装流程处理。
+- 已完成当前机器真实迁移：`C:\Users\bridg\.bridgeforge` 是指向 `D:\Quant\BridgeForge` 的 junction；Codex / Claude 两个 `bridgeforge` skill 入口均为普通 wrapper 目录；旧 `C:\Users\bridg\.agents\bridgeforge-home` 已不存在。
 - 是否自动生成迁移脚本暂缓，本轮先改机制说明和代码路径。
 
 ## 实施计划
@@ -60,6 +60,7 @@
 - 2026-07-08：需求确认。推荐采用 `~/.bridgeforge` 作为完整工厂源头，不使用 `.bridgeforge/repo` 包装层。
 - 2026-07-08：实现完成。新增 Claude 薄入口，Codex / Claude wrapper 均指向 `~/.bridgeforge/SKILL.md`；`skill_sync_check.py` 和 `bridgeforge_switch.py` 新路径优先并保留旧路径 fallback；README / INSTALL / SKILL / CHANGELOG / VERSION 同步。
 - 2026-07-08：独立 review 发现两项迁移期问题：switch 候选顺序未严格优先 `~/.bridgeforge`，INSTALL 缺旧完整仓库迁移 recipe。均已修复。
+- 2026-07-08：用户确认后完成本机真实迁移。旧 `C:\Users\bridg\.agents\bridgeforge-home` junction 移到 `C:\Users\bridg\.bridgeforge`；发现并修正旧 Claude 入口仍是完整仓库 junction 的残留，最终 Codex / Claude 入口均为普通 wrapper 目录。
 
 ## 验证记录
 
@@ -69,7 +70,8 @@
 - wrapper BOM 检查：`scripts/codex_bridgeforge_entry.SKILL.md` 与 `scripts/claude_bridgeforge_entry.SKILL.md` 均 `bom=False`，首字节为 `b'---'`。
 - 镜像哈希检查：Codex / Claude 的 template hook/script 与 `.codex` / `.claude` dogfood 副本均一致。
 - 独立 verification agent：只读复核完成，初次指出 2 个 P2 问题；修复后本地复验通过。
+- 本机用户级布局验真：`C:\Users\bridg\.bridgeforge` 为 junction 且目标是 `D:\Quant\BridgeForge`；`C:\Users\bridg\.agents\skills\bridgeforge` 与 `C:\Users\bridg\.claude\skills\bridgeforge` 为普通目录；两份 wrapper hash 与源文件一致；`C:\Users\bridg\.agents\bridgeforge-home` 不存在；仓库 `git diff --name-only` 为空。
 
 ## 用户试用反馈
 
-- 待用户试用 `$bridgeforge` / `/bridgeforge` 新入口后补充。
+- 下游 agent 反馈入口文件已按新版逻辑寻找 `C:\Users\bridg\.bridgeforge`，但本机完整工厂仍停在旧 `C:\Users\bridg\.agents\bridgeforge-home`。已据此完成真实迁移；下一步只剩重启/刷新对应 agent 后实际跑 `/bridgeforge` 验 slash 缓存与入口读取。
