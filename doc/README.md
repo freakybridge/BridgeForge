@@ -8,3 +8,4 @@ This `doc/` tree tracks active feature requirements and verification records cre
 |------|--------|---------|
 | `1_plan/bridgeforge-command-clarity/requirements_2026-07-08_bridgeforge-command-clarity.md` | trial | Clarify BridgeForge's user-facing command model around `bridgeforge` and `bridgeforge switch <agent>`. |
 | `1_plan/bridgeforge-home-layout/requirements_2026-07-08_bridgeforge-home-layout.md` | trial | Move the user-level BridgeForge factory home from `.agents/bridgeforge-home` to neutral `.bridgeforge`. |
+| `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |

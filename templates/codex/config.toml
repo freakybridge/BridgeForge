@@ -1,0 +1,12 @@
+# Codex project defaults managed by BridgeForge.
+#
+# Keep model defaults here, not in .codex/settings.json. settings.json stays
+# responsible for hooks / permissions in this skeleton; Codex model defaults use
+# config.toml.
+
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+
+[agents]
+max_threads = 6
+max_depth = 1

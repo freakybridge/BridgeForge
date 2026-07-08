@@ -1,4 +1,4 @@
-﻿{
+{
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
@@ -282,6 +282,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/config_health_check.py",
             "comment": "骨架必要配置开机体检（只读，不自动修）：照 ACTIVE_CHECKS 清单核对 PYTHONUTF8（UTF-8 Mode 真生效没，GBK Windows 乱码承重柱，原 utf8-guard 已归位到这）+ user/project settings.json 是否合法 JSON，不达标只打纯 ASCII 报告 + 修复提示，全绿静默。修不修由用户决定（为什么不自动修：复印进所有下游、每机每次开机跑，自动改配置=替别人埋雷）。其余必要配置由专职 hook 兜（DELEGATED 登记备查）。文件内 ACTIVE_CHECKS+DELEGATED 即单一事实源。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/model_policy_check.py",
+            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：检查 .codex/config.toml 默认 gpt-5.5+medium、.codex/agents 四档齐全、xhigh 明示需用户确认；SessionStart 只提示，pre-commit 模式硬拦漂移。"
           },
           {
             "type": "command",

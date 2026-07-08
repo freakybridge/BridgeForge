@@ -14,10 +14,10 @@ paths:
 
 ## 1. 红线
 
-- 所有影响开发体验的配置 **必须** 存放在项目 `.codex/` 内，纳入 git 管理
+- 所有影响开发体验的项目级配置 **必须** 存放在项目 `.codex/` 内，纳入 git 管理
 - **禁止** 在用户目录 (`~/.codex/`) 下创建仅特定机器才有的关键配置
 - 新增配置/技能/规则时，默认放项目内，除非明确只对当前机器有意义
-- `effortLevel` 是上条的反向例外：**不放项目内、由用户级全局统一管**（项目级会盖全局、顶掉顺手的 slider/`/effort`）。此约束**不靠 rule，由 `SessionStart` hook `enforce_no_effortlevel.py` 机检强制剔除项目级值**（本骨架特征：能机检的红线一律 hook 化）。覆盖关系与决策见 memory `effort-config-layering`。
+- `effortLevel` 是旧 settings 键，**禁止** 放进 `.codex/settings.json`；由 `SessionStart` hook `enforce_no_effortlevel.py` 机检剔除。Codex 当前模型 / effort 默认值用 `.codex/config.toml` 的 `model` / `model_reasoning_effort`，由 `model_policy_check.py` 机检。
 
 ---
 
@@ -29,7 +29,9 @@ paths:
 | Rules | `.codex/rules/` | 直接 git 管理 |
 | 项目专属 Skill | `.agents/skills/` | 直接 git 管理。**仅项目独有、bridgeforge 不出品的 skill**（如某项目的 restart-ui） |
 | 通用 skill 的项目数据 | `.codex/find-doc.map.md` / `.codex/sync-docs.map.md` 等 | 通用 skill 本体在 bridgeforge，但其**项目专属映射表**留项目内，直接 git 管理 |
-| 项目设置 | `.codex/settings.json` | hooks、defaultMode、项目级权限 |
+| Codex 配置 | `.codex/config.toml` | 模型默认值、reasoning effort、custom agent 全局参数 |
+| Custom agents | `.codex/agents/*.toml` | 轻量探索 / 开发 / 复核 / xhigh 审计档位 |
+| 项目设置 | `.codex/settings.json` | hooks、defaultMode、项目级权限（legacy 骨架承载面） |
 
 > **通用协作 skill 不进项目 git（单一源拆分）**：plan / escalate / snapshot / find-doc 本体等通用 skill 的**工厂源头是 `~/.bridgeforge/skills/`**，装到用户级 `~/.agents/skills/`（Codex 规范路径），**不在项目 `.agents/skills/` 留副本**（留副本会 shadow 单一源、各项目漂移；`$bridgeforge` Step 0.5 会清掉）。换机恢复靠在该机跑 `$bridgeforge`（装用户级），不靠 `git clone`。这是 DRY 对 clone-完整性的**有意取舍**；项目专属**数据**（上表 `.map.md`）仍在项目 git，可移植性不受影响。
 
@@ -50,9 +52,23 @@ memory 纳入项目 git（`.codex/memory/`），但 Codex 读写走系统路径 
 | 文件 | 说明 | 处理方式 |
 |------|------|---------|
 | `.codex/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
-| 用户级 `~/.codex/settings.json` | 全局默认（effortLevel 等）| 换机后手动设置；**effortLevel 一律在此（全局）管；项目级由 `enforce_no_effortlevel` SessionStart hook 自动剔除，本机配 `reset_effort` SessionEnd hook 还原 medium baseline** |
+| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；项目内 BridgeForge 骨架用 `.codex/config.toml` 明确覆盖主对话 `gpt-5.5 + medium` |
+| 用户级 `~/.codex/settings.json` | 旧式 / 本机设置 | 不放项目策略；项目级 `effortLevel` 由 `enforce_no_effortlevel` 剔除 |
 
-### 3.1 项目专属授权禁放用户级（红线）
+### 3.1 Codex 模型 / effort 策略（机检）
+
+**项目 `.codex/config.toml` 必须保留默认主对话 `model = "gpt-5.5"` 与 `model_reasoning_effort = "medium"`；`.codex/agents/*.toml` 必须保留四档子 agent；`xhigh` agent 必须明示需要用户确认。**
+
+策略漂移由 `.codex/hooks/model_policy_check.py` 负责：
+
+- `SessionStart`：只读提示，不自动修。
+- `pre-commit`：硬拦漂移，避免把高成本默认值或无确认的 `xhigh` 传播到下游。
+
+禁止把 Codex skill frontmatter 的 `model:` 当成本路由依据；本骨架的路由权威是 `config.toml` + custom agent 文件 + hook 机检。
+
+**Why**: 见 memory `codex-model-routing-policy`。
+
+### 3.2 项目专属授权禁放用户级（红线）
 
 **项目专属 `additionalDirectories` / `permissions.allow` 条目禁放 `~/.codex/settings.json`；被权限弹窗时，优先落本项目 `settings.local.json`（已 `.gitignore`），不扩散用户级。**
 

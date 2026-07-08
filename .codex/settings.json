@@ -285,6 +285,11 @@
           },
           {
             "type": "command",
+            "command": "python .codex/hooks/model_policy_check.py",
+            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：检查 .codex/config.toml 默认 gpt-5.5+medium、.codex/agents 四档齐全、xhigh 明示需用户确认；SessionStart 只提示，pre-commit 模式硬拦漂移。"
+          },
+          {
+            "type": "command",
             "command": "python .codex/hooks/memory_junction_check.py",
             "comment": "memory junction 自愈：把 memory 纳入项目 git（.codex/memory/），系统路径 ~/.codex/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。"
           },

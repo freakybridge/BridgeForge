@@ -61,6 +61,26 @@
 
 ---
 
+## 4.5 Codex 模型 / effort 路由（红线）
+
+配置负责选档，hook 负责防漂：`.codex/config.toml` 是主对话默认档，`.codex/agents/*.toml` 是子 agent 预设档，`model_policy_check.py` 负责检查这些档位是否被改坏。
+
+| 场景 | Agent / 配置 | 模型 | Effort |
+|------|--------------|------|--------|
+| 默认主对话 | `.codex/config.toml` | `gpt-5.5` | `medium` |
+| 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.4-mini` | `low` |
+| 真实开发 / 跨文件实现 | `implementation-worker` | `gpt-5.5` | `high` |
+| 独立复核 / 验收审计 | `review-auditor` | `gpt-5.5` | `high` |
+| 超强审计 / 专家会诊 | `xhigh-auditor` | `gpt-5.5` | `xhigh` |
+
+- `low` / `medium` / `high` 由 agent 按任务选择；`xhigh` 必须先得到用户本轮明确确认。
+- 禁止因为“任务大但机械”就用 `xhigh`；只有疑难根因、高风险决策、或 high 复核仍判断不清时才申请。
+- Codex 的 `SKILL.md` frontmatter `model:` 不作为本骨架的自动切换依据；Codex 模型路由以 `config.toml` 和 `.codex/agents/*.toml` 为准。
+
+白话类比：主对话是总控台默认中火，子 agent 是预设工具箱；hook 是巡检员，发现档位被拧错就报警或在提交前拦住。
+
+---
+
 ## 5. Memory 项目内托管（自动）
 
 memory 纳入项目 git（`.codex/memory/`），系统路径 `~/.codex/projects/<hash>/memory/` 用 junction 透明转发；`memory_junction_check.py` 每次 SessionStart 自动维护。禁止硬删可能含数据的目录，迁移失败用 `.bak`。

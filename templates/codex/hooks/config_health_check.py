@@ -82,6 +82,7 @@ ACTIVE_CHECKS = (
 DELEGATED = (
     ("memory-junction-intact", "memory_junction_check.py (self-heals + reports on action)"),
     ("no-project-effortlevel", "enforce_no_effortlevel.py (strips + reports on action)"),
+    ("model-routing-policy", "model_policy_check.py (reports drift; pre-commit blocks drift)"),
     ("user-skill-sync", "skill_sync_check.py (reports drift)"),
     ("hooks-mirror-intact", "mirror_drift_check.py (pre-commit; exit 2 on missing dogfood mirror)"),
 )

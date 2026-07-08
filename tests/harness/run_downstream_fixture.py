@@ -8,6 +8,7 @@ exercise the parts that are easy to miss in the source repo:
 * D8 dogfood mirror checks in a factory-shaped fixture.
 * settings.json matcher coverage for Edit|Write|MultiEdit.
 * Root pre-commit coverage for both Claude and Codex dogfood gates.
+* Codex model / reasoning-effort routing policy.
 * high-confidence `skills/**/SKILL.md` metadata and local reference health.
 
 Generated fixture directories are disposable and are never product source.
@@ -96,6 +97,8 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
+    _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
 
     _copytree(CODEX_TEMPLATE / ".githooks", CODEX_FIXTURE / ".githooks")
 
@@ -209,6 +212,7 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py" --pre-commit',
         '.codex/hooks/rule_size_check.py" --pre-commit',
         '.codex/hooks/rule_index_check.py" --pre-commit',
+        '.codex/hooks/model_policy_check.py" --pre-commit',
         '.claude/hooks/skill_metadata_check.py" --pre-commit',
         '.codex/hooks/skill_metadata_check.py" --pre-commit',
         'for CONFIG_DIR in .claude .codex; do',
@@ -220,6 +224,7 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py --pre-commit',
         '.codex/hooks/rule_size_check.py --pre-commit',
         '.codex/hooks/rule_index_check.py --pre-commit',
+        '.codex/hooks/model_policy_check.py --pre-commit',
         '.claude/hooks/skill_metadata_check.py --pre-commit',
         '.codex/hooks/skill_metadata_check.py --pre-commit',
     ]
@@ -282,6 +287,8 @@ def _add_codex_archive(fixture: Path, *, shared_memory: str | None = None) -> Pa
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
+    _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
     if shared_memory is not None:
         (codex_dir / "memory" / "shared.md").write_text(shared_memory, encoding="utf-8")
     else:
@@ -789,6 +796,62 @@ def check_skill_metadata() -> CheckResult:
     )
 
 
+def check_model_policy() -> CheckResult:
+    source = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], REPO_ROOT)
+    if source.returncode != 0:
+        return CheckResult(
+            "model_policy_health",
+            False,
+            f"source model policy should pass, got exit {source.returncode}: {(source.stdout + source.stderr).strip()}",
+        )
+
+    fixture = build_codex_fixture()
+    good = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
+    xhigh = fixture / ".codex" / "agents" / "xhigh-auditor.toml"
+    text = xhigh.read_text(encoding="utf-8")
+    xhigh.write_text(
+        text.replace(
+            "Use only after explicit user confirmation for xhigh / super-strong reasoning in the current request.",
+            "Extra-high-effort audit subagent for rare expert review.",
+        ),
+        encoding="utf-8",
+    )
+    bad_description = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
+    fixture = build_codex_fixture()
+    xhigh = fixture / ".codex" / "agents" / "xhigh-auditor.toml"
+    text = xhigh.read_text(encoding="utf-8")
+    xhigh.write_text(
+        text.replace(
+            "- You may be spawned only after explicit user confirmation in the current request.\n"
+            "- If the parent prompt does not include that confirmation, stop and report that xhigh requires user confirmation.\n",
+            "- Run a deep audit when requested by the parent.\n",
+        ),
+        encoding="utf-8",
+    )
+    bad_instructions = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
+    ok = (
+        good.returncode == 0
+        and bad_description.returncode == 2
+        and bad_instructions.returncode == 2
+        and "description must state" in (bad_description.stdout + bad_description.stderr)
+        and "developer_instructions must state" in (bad_instructions.stdout + bad_instructions.stderr)
+    )
+    return CheckResult(
+        "model_policy_health",
+        ok,
+        "model policy hook passes source/good fixture and separately blocks xhigh without confirmation in description or instructions"
+        if ok
+        else (
+            f"expected good exit 0 and two bad exit 2 cases, got good={good.returncode}, "
+            f"bad_description={bad_description.returncode}, bad_instructions={bad_instructions.returncode}: "
+            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr).strip()}"
+        ),
+    )
+
+
 def check_codex_git_sync_runner() -> CheckResult:
     fixture = build_codex_fixture()
     _safe_reset_dir(CODEX_GIT_SYNC_REMOTE)
@@ -843,6 +906,7 @@ def check_codex_git_sync_runner() -> CheckResult:
 
 CHECKS = {
     "codex-git-sync": check_codex_git_sync_runner,
+    "model-policy": check_model_policy,
     "rule-index": check_rule_index_missing,
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,

@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.26.0] - 2026-07-08
+
+### Added
+- [product] 新增 Codex 模型 / effort 分层路由：`.codex/config.toml` 默认主对话 `gpt-5.5 + medium`；`.codex/agents/` 预置 `light-explorer`（`gpt-5.4-mini + low`）、`implementation-worker`（`gpt-5.5 + high`）、`review-auditor`（`gpt-5.5 + high`）和需用户确认的 `xhigh-auditor`（`gpt-5.5 + xhigh`）；新增 `model_policy_check.py`，SessionStart 只读提示漂移，pre-commit 硬拦配置漂移。同步更新 AGENTS、portability rule、settings 注册和 harness；`settings.json` 统一为 UTF-8 无 BOM。
+
 ## [0.25.0] - 2026-07-08
 
 ### Added

@@ -17,6 +17,11 @@
 
 ---
 
+## [0.54.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **Codex 模型 / effort 分层路由落地**：新增 `templates/codex/config.toml`，默认主对话固定为 `gpt-5.5 + medium`；新增 `templates/codex/agents/{light-explorer,implementation-worker,review-auditor,xhigh-auditor}.toml` 四档子 agent，分别承接轻量探索、开发实现、独立复核和需用户确认的 `xhigh` 超强审计；新增 `model_policy_check.py`，SessionStart 只读提示配置漂移、pre-commit 模式硬拦 `config.toml` / agents 策略漂移，并 dogfood 到 `.codex/`。同步更新 Codex `AGENTS.md`、`rules/portability.md`、settings 注册、harness 覆盖和 feature-dev 需求包；顺手去除 `templates/codex/settings.json` UTF-8 BOM，避免普通 UTF-8 JSON 解析失败。`templates/codex/VERSION` 升至 `0.26.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.54.0`。
+
 ## [0.53.0] - 2026-07-08
 
 ### Added
