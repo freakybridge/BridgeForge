@@ -199,9 +199,11 @@ cd ~/.bridgeforge
 git pull
 ```
 
-模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，新项目调用 skill 才会拿到新模板。
+模板更新后**不会自动重铺**已有项目——已铺设的项目保持原样，项目里重新运行 `/bridgeforge` 才会进入更新 / 收编 / 首次接入判定。
 
-如果想把更新同步到已有项目，Codex 项目对比 `~/.bridgeforge/templates/codex/` 与 `<已有项目>/.codex/`；Claude 项目对比 `~/.bridgeforge/templates/claude/` 与 `<已有项目>/.claude/`。切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览完整计划：旧 agent 会归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，目标 agent 优先从当前项目归档恢复、否则从上游模板安装；memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移。若目标 live path 已存在，switch 会停止，不覆盖。
+如果想把更新同步到已有项目，在项目根目录运行 `/bridgeforge`。它会维护当前正在运行的 agent 骨架：Codex 里维护 `AGENTS.md + .codex/`，Claude Code 里维护 `CLAUDE.md + .claude/`；已托管项目按 `.bridgeforge_version` 对比上游 `[product]` 增量，旧骨架缺戳先收编，已有文件但不像 BridgeForge 的项目按首次接入处理并先问冲突。若项目只有另一套 agent 骨架，`/bridgeforge` 会先提示"继续将执行 `/bridgeforge switch <当前agent>`"，用户确认后才切换。
+
+切换目标 agent 时优先用 `/bridgeforge switch <claude|codex> --dry-run` 预览完整计划：旧 agent 会归档到当前项目 `.bridgeforge/archive/<agent>/<timestamp>/`，目标 agent 优先从当前项目归档恢复、否则从上游模板安装；memory 合并到目标 agent，settings 逐项确认，hooks / skills / rules / 入口文件只归档不自动迁移。若目标 live path 已存在，switch 会停止，不覆盖。
 
 > 开发者模式（junction / symlink，见上）下你自己就是上游，不需要在 home 目录 `git pull`；直接在开发仓库改并提交即可。
 

@@ -114,6 +114,15 @@ Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.
 
 ## 使用
 
+用户只需要记两个入口：
+
+```text
+/bridgeforge
+/bridgeforge switch <claude|codex>
+```
+
+`/bridgeforge` 维护当前正在运行的 agent 骨架：在 Codex 里默认维护 Codex 骨架，在 Claude Code 里默认维护 Claude 骨架。若项目里只有另一套 agent 骨架，它不会静默多铺一套，而是先提示"继续会 switch 到当前 agent"，用户确认后才启动 switch 流程。
+
 ### 新项目初始化 —— 对 agent 说这一句（任何机器都成立）
 
 在新项目根目录开 Codex 或 Claude Code，把下面这句话发给 agent：
@@ -144,6 +153,8 @@ Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.
 
 判断半场（rules/入口文件吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
 
+如果项目已有 `AGENTS.md` / `CLAUDE.md` 或 agent 配置目录，但没有 BridgeForge 版本戳，`/bridgeforge` 会先判定它像不像旧 BridgeForge 骨架：像旧骨架就走"收编"并登记纳管；不像旧骨架就按"既有项目首次接入"处理，保留现有内容并在入口文件、rules、settings、memory、doc 有冲突时先问用户。
+
 ### 切换目标 agent
 
 BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨架。切换入口固定为：
@@ -156,6 +167,8 @@ BridgeForge 模板已拆为 `templates/claude/` 与 `templates/codex/` 两套骨
 ```
 
 核心逻辑由 `scripts/bridgeforge_switch.py` 执行：只支持 `claude` / `codex`，真实切换只改工作区文件，不自动提交。同 agent switch 等价普通 `/bridgeforge` 更新/收编；跨 agent switch 会把旧 agent 骨架归档进当前项目的 `.bridgeforge/archive/<agent>/<timestamp>/`，每个 agent 只保留最新一份归档，归档成功后删除旧 agent 原路径。目标 agent 优先从当前项目自己的归档恢复，没有归档才从上游模板安装；目标 live path 已存在时停止，不覆盖。memory 合并到目标 agent，完全重复自动去重，相似冲突逐条确认；settings 默认不迁移，逐项确认；hooks / skills / rules / 入口文件只归档并报告，不自动迁移。dry-run 会列完整清单。切换脚本拒绝在 BridgeForge 源头仓库自己身上执行。
+
+日常 `/bridgeforge` 也可能引导进入 switch：例如项目当前只有 Codex 骨架，而你在 Claude Code 里运行 `/bridgeforge`，它会先提示即将执行 `/bridgeforge switch claude`，说明归档和恢复后果，得到确认后才切换。
 
 ## 目录结构
 

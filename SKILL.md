@@ -1,16 +1,20 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.52.0
+version: 0.52.2
 user_invocable: true
 user-invocable: true
-argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则初始化或更新当前项目骨架
+argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
 model: sonnet
 ---
 
 # bridgeforge — 项目协作骨架初始化 / 更新
 
 **定位**：一次性给新项目装好 Claude Code 或 Codex 协作管理体系——入口说明、rules 分层加载、memory junction、hooks、doc 分层归档；**并自检用户级通用协作 skill（清单以本仓库 `skills/` 目录为准），缺哪个补哪个，再清掉项目里的重复副本（单一源）**。运行后用户只需填占位（架构红线 / 快速命令 / 项目结构）即可上线。
+
+**用户只需记两个入口**：
+- `$ENTRY_COMMAND`：维护当前正在运行的 agent 骨架。空项目走初始化，已托管项目走更新，旧骨架走收编，既有项目首次接入时先问冲突；若发现项目里只有另一套 agent 骨架，先提示"继续会 switch 到当前 agent"，用户确认后再启动 switch。
+- `$ENTRY_COMMAND switch <claude|codex>`：显式切换当前项目使用的 agent 骨架。
 
 > 模板素材出自 StratusAgent 项目长期沉淀（鬼打墙红线、UI 主动问 4 件事、换机可移植性、文档分层归档、通用协作 skill 集）。已剥离项目特定内容，只留通用骨架。
 
@@ -87,7 +91,7 @@ python scripts/bridgeforge_switch.py <claude|codex> [--dry-run|--interactive] [-
 
 > 白话：`/bridgeforge switch ...` 是换当前项目的 agent 工具箱。旧工具箱先封箱进项目自己的归档柜，目标工具箱优先从同项目归档柜拿，拿不到才领一套上游新工具箱；笔记本（memory）要合并，电线/专用工具/规章（hooks / skills / rules / 入口文件）只存档不硬接。
 
-### 前置：拉上游最新 + 认场子（工厂自检 / 更新 / 收编 / init 四分类）
+### 前置：拉上游最新 + 认场子（工厂自检 / 当前 agent 维护 / 隐式 switch 确认）
 
 **Step 前-1 先拉上游**（无论 init 还是更新，都要先拿到最新模板，否则铺的是旧版本）：
 
@@ -114,14 +118,26 @@ test -f "templates/$TEMPLATE_AGENT/$PROJECT_ENTRY_FILE" && grep -q "项目协作
 test -f "$PROJECT_AGENT_DIR/.bridgeforge_version" && cat "$PROJECT_AGENT_DIR/.bridgeforge_version"
 ```
 
-按下表四分类：
+先按当前运行环境确定两套 live 骨架：
+
+| 当前 agent | 当前 live 骨架 | 另一套 live 骨架 |
+|------------|----------------|------------------|
+| Claude Code | `CLAUDE.md` 或 `.claude/` | `AGENTS.md` 或 `.codex/` 或 `.agents/skills/` |
+| Codex | `AGENTS.md` 或 `.codex/` 或 `.agents/skills/` | `CLAUDE.md` 或 `.claude/` |
+
+普通 `$ENTRY_COMMAND` 的核心语义：**维护当前 agent；发现只有另一套 agent 时，先确认再转 `$ENTRY_COMMAND switch $TEMPLATE_AGENT`，绝不静默多铺一套。**
+
+按下表判定：
 
 | 场景 | 判据 | 走哪 |
 |------|------|------|
+| **双 live 骨架冲突** | 当前 live 骨架和另一套 live 骨架同时存在 | 停止，提示项目处于双骨架状态；让用户选择：(A) 只维护当前 agent 骨架并进入下方当前判场；(B) 退出，先手动归档/清理另一套后再切换；(C) 退出 |
 | **更新** | 有 `$PROJECT_AGENT_DIR/.bridgeforge_version` | 【更新模式】跳到下方 "## 更新模式" 段（Step 0 + Step 0.5 自检仍先跑一遍：幂等补 skill + 清项目重复副本） |
-| **收编 (adopt)** | 无戳，但已有 `$PROJECT_ENTRY_FILE` / `$PROJECT_AGENT_DIR/rules` **像 bridgeforge 铺过的**（指纹 ≥2 项命中） | 【收编模式】跳到下方 "## 收编模式 (adopt)" 段 |
-| **全新 init** | 无戳，且 cwd 干净（无 `$PROJECT_ENTRY_FILE` / `$PROJECT_AGENT_DIR/rules/`） | 继续 Step 0 → Step 7 |
-| **有内容但不像衍生** | 无戳，有 `$PROJECT_ENTRY_FILE` / `$PROJECT_AGENT_DIR/rules` 但**不命中**衍生指纹 | 问用户：(A) 当作全新 init（已存在文件按 Step 1 备份/跳过处理）+ 末尾补写版本戳；(B) 退出 |
+| **收编 (adopt)** | 无戳，但当前 agent 的 `$PROJECT_ENTRY_FILE` / `$PROJECT_AGENT_DIR/rules` **像 bridgeforge 铺过的**（指纹 ≥2 项命中） | 【收编模式】跳到下方 "## 收编模式 (adopt)" 段 |
+| **当前 agent 文件冲突** | 无戳，当前 agent 的 `$PROJECT_ENTRY_FILE` / `$PROJECT_AGENT_DIR/rules` 已存在但**不命中**衍生指纹 | 【既有项目首次接入】继续 Step 0 → Step 1；Step 1 必须问用户跳过补缺 / 备份覆盖 / 退出，禁止静默覆盖 |
+| **隐式 switch 候选** | 当前 live 骨架不存在，但另一套 live 骨架存在 | 提示："检测到本项目是另一套 agent 骨架；继续将执行 `$ENTRY_COMMAND switch $TEMPLATE_AGENT`。" 用户确认后启动 switch；不确认则退出，不改文件 |
+| **全新 init** | 两套 live 骨架都不存在，且 cwd 基本为空 / 无业务文件 | 继续 Step 0 → Step 7 |
+| **既有项目首次接入** | 两套 live 骨架都不存在，但 cwd 已有业务文件 / git 历史 / 项目配置 | 说明会安装当前 agent 骨架且保留已有内容；继续 Step 0 → Step 1，遇到入口文件 / settings / rules / memory / doc 冲突必须问 |
 
 **bridgeforge 衍生指纹**（命中 **≥2 项**即判"像铺过的"，走收编；目的只是区分"我铺的 vs 别人的项目"，宁松勿严）：
 
@@ -135,10 +151,13 @@ test -f "$PROJECT_AGENT_DIR/rules/workflow.md"                             # 工
 
 > **判别树（文字版）**：
 > ① 工厂自检命中 → 硬拒退出
-> ② 有版本戳 → 更新模式
-> ③ 无戳 + 像衍生（指纹 ≥2）→ 收编模式（写戳转更新，**绝不覆盖**）
-> ④ 无戳 + 干净 → 全新 init（Step 0→7）
-> ⑤ 无戳 + 有内容但不像衍生 → 问用户 (A) init / (B) 退出
+> ② 双 live 骨架 → 停止让用户选方向
+> ③ 当前 agent 有版本戳 → 更新模式
+> ④ 当前 agent 无戳 + 像衍生（指纹 ≥2）→ 收编模式（写戳转更新，**绝不覆盖**）
+> ⑤ 当前 agent 无戳 + 有入口/规则但不像衍生 → 既有项目首次接入，Step 1 处理冲突
+> ⑥ 当前 agent 不存在 + 另一套 agent 存在 → 先确认，再转 `$ENTRY_COMMAND switch $TEMPLATE_AGENT`
+> ⑦ 两套都不存在 + 空项目 → 全新 init（Step 0→7）
+> ⑧ 两套都不存在 + 已有业务内容 → 既有项目首次接入，保守补骨架
 
 ### Step 0：自检并补齐用户级通用 skill
 
@@ -366,7 +385,7 @@ ls -la                              # 看是否已有 $PROJECT_ENTRY_FILE / $PRO
 git rev-parse --is-inside-work-tree # 是否已 git init
 ```
 
-**若 cwd 已有 `$PROJECT_ENTRY_FILE` 或 `$PROJECT_AGENT_DIR/rules/`** → 立即停下问用户："检测到已存在入口文件/rules，要 (A) 跳过已存在的文件只补缺失部分；(B) 备份后覆盖；(C) 退出？"
+**若 cwd 已有 `$PROJECT_ENTRY_FILE` 或 `$PROJECT_AGENT_DIR/rules/`** → 立即停下问用户："检测到当前 agent 的入口文件/rules 已存在，但本项目还没有 BridgeForge 版本戳。要 (A) 保留现有内容，只补缺失骨架并 merge 配置；(B) 备份后覆盖入口文件/rules；(C) 退出？"
 
 > 注：若该 dir 有 `$PROJECT_AGENT_DIR/.bridgeforge_version`，前置步骤已路由到**更新模式**，不会到这里。本分支只针对"有入口文件但无版本戳"的非托管项目。
 

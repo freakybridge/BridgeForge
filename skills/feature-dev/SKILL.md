@@ -1,13 +1,13 @@
 ---
 name: feature-dev
-description: 大需求 / 新功能交付流水线。Use when the user explicitly invokes /feature-dev or $feature-dev, says this is a large requirement, asks to open a feature, asks to follow the full requirement-to-delivery flow, or when Codex/Claude judges a development request is too large or ambiguous for direct execution and should be clarified, written to doc/, implemented, independently verified, then handed to the user for trial feedback.
+description: 大需求 / 新功能交付流水线。Use when the user explicitly invokes /feature-dev or $feature-dev, says this is a large requirement, asks to open a feature, asks to follow the full requirement-to-delivery flow, or when Codex/Claude judges a development request is too large or ambiguous for direct execution and should be clarified, scope-confirmed, written to doc/, implemented, independently verified, then handed to the user for trial feedback.
 user_invocable: true
 argument: 需要交付的新功能 / 大需求描述
 ---
 
 # feature-dev — 大需求交付流水线
 
-定位：把“讨论需求 → 落盘需求文档 → 自动开发 → 独立验证 → 用户试用反馈”串成一个默认闭环。用户只参与需求边界和试用反馈，不参与任务拆分、agent 调度、实现顺序等开发流程细节。
+定位：把“讨论需求 → 用户确认修改方向 → 落盘需求文档 → 自动开发 → 独立验证 → 用户试用反馈”串成一个默认闭环。用户只参与需求边界确认、必要卡点决策和试用反馈，不参与任务拆分、agent 调度、实现顺序等开发流程细节。
 
 ## 适用边界
 
@@ -26,19 +26,33 @@ argument: 需要交付的新功能 / 大需求描述
 
 ## 工作流
 
-### Step 1：需求澄清
+### Step 1：需求澄清与修改方向确认
 
 沿用入口文件的 `[clarify]` 渐进澄清规则：
 - 每轮最多问一个真正会改变开发路线、验收标准或风险边界的问题。
 - 每累计 3 个问题，暂停复述已确认目标、非目标、验收口径、剩余卡点。
 - 超过 6 个问题仍未收敛，停止追问，输出 PRD / 验收草案让用户改。
-- 当能用 3-5 句话说清目标、非目标、触发条件、验收口径、已确认项 / 合理假设 / 剩余风险时，停止追问。
+- 当能用 3-5 句话说清目标、非目标、触发条件、验收口径、已确认项 / 合理假设 / 剩余风险时，停止追问，进入下方确认卡。
 
 只问需求问题，不问开发流程问题。不要让用户选择拆分粒度、agent 数量、文件顺序、测试命令组合；这些由 agent 自己判断。
 
+**写文件硬闸**：点名 `feature-dev` 不等于授权落盘或改代码。若用户的话仍是“讨论 / 对齐 / 想清楚 / 方案是什么 / 应该怎么做”，只能继续澄清和复述，禁止创建 `doc/`、改代码或改配置。
+
+澄清收口前，必须先输出“修改方向确认卡”，让用户看见本轮准备改什么：
+
+```text
+目标：这次要解决什么
+不做：这次明确不碰什么
+拟修改：预计会新增/修改哪些文档、代码、配置类别
+验收：做完怎么判断对
+自动化边界：确认后我会自动落盘、开发、验证；中途只在卡点/高风险/完成时打断
+```
+
+只有用户明确确认后，才能进入 Step 2。明确确认包括“按这个写”“可以落盘”“开始实现”“直接按这个做”等同义表达；用户只说“继续讨论”“再看看”“这个方向呢”不算确认。
+
 ### Step 2：落盘需求包
 
-需求收敛后，先写文档，再写代码。
+用户确认 Step 1 的修改方向后，先写文档，再写代码。Step 2 开始后属于自动执行闭环，不要再为“是否写需求包 / 如何拆任务 / 先改哪个文件”反复打断用户。
 
 文档位置按 `doc/` 规范判断：
 - 项目级长期需求 / roadmap / 架构约束：更新 `doc/0_architecture/` 下对应 PRD / roadmap / acceptance 文档。
@@ -56,18 +70,21 @@ argument: 需要交付的新功能 / 大需求描述
 - 暂缓项
 - 实施假设
 
-写完需求包后，给用户一个短确认：只确认“需求是否写对”。用户确认后，后续开发自动推进；不要再就任务拆分或执行流程反复征求意见。若用户明确说“直接按这个做”，可不额外停一轮。
+写完需求包后，继续自动推进 Step 3。后续只在三类情况中断用户：
+- **卡点**：缺少关键输入，不问就无法继续。
+- **高风险**：会覆盖 / 删除 / 迁移重要内容，或实现发现需求边界、验收口径需要改变。
+- **完成**：交付结果、验证证据、剩余风险和试用路径。
 
 ### Step 3：自动拆解与实现
 
-确认需求后，由 agent 自行拆解任务：
+落盘需求包后，由 agent 自行拆解任务：
 - 先读相关代码 / 文档，找单一事实源和既有模式。
 - 选择单线还是并行：预计 ≤2 文件或强依赖顺序明显 → 单线；可拆成无依赖子任务且文件边界清楚 → 多 agent 并行。
 - 多 agent 并行时，必须先定义接口约定和文件边界；同一并行组内禁止多个 agent 修改同一文件。
 - 每个子任务 prompt 必须包含整体目标、需求文档路径、验收清单、文件边界、接口约定。
 - 子任务失败最多重试 1 次；仍失败则停下报告卡点，不闷头循环。
 
-需要并行时，复用 `collab` 的执行约束，但不要把用户重新带进 `collab` 的三道闸。`feature-dev` 已经完成需求确认，后续只在发现会改变需求边界、验收口径或高风险不可逆操作时回问用户。
+需要并行时，复用 `collab` 的执行约束，但不要把用户重新带进 `collab` 的三道闸。`feature-dev` 已经在 Step 1 完成修改方向确认，后续只在卡点、高风险或完成交付时回到用户。
 
 ### Step 4：同步文档
 
@@ -151,9 +168,10 @@ argument: 需要交付的新功能 / 大需求描述
 ## 红线
 
 1. 先落盘需求包，再开发；除非确认是轻量出口。
-2. 只向用户确认需求边界，不让用户管理开发流程。
-3. `doc/README.md` 必须同步。
-4. 交付前必须独立验证；做不到就明示未完成。
-5. 不自动 `git add` / `commit` / `push`，除非用户明确要求。
+2. Step 1 未输出修改方向确认卡并得到用户明确确认前，禁止写 `doc/`、改代码或改配置。
+3. Step 2 以后自动推进；除卡点、高风险、完成交付外，不把用户拉回开发流程细节。
+4. `doc/README.md` 必须同步。
+5. 交付前必须独立验证；做不到就明示未完成。
+6. 不自动 `git add` / `commit` / `push`，除非用户明确要求。
 
 输入：用户的大需求 / 新功能描述（目标、背景、期望行为、约束、验收线索等）。

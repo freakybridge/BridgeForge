@@ -17,6 +17,16 @@
 
 ---
 
+## [0.52.2] - 2026-07-08
+
+### Changed
+- `[product][meta]` **收敛 `/bridgeforge` 命令判场语义**：根 `SKILL.md` 明确用户只需记住 `/bridgeforge` 与 `/bridgeforge switch <claude|codex>`；普通 `/bridgeforge` 维护当前正在运行的 agent 骨架，已托管项目更新、旧骨架收编、既有项目首次接入均走保守判场。若当前 agent 骨架不存在但另一套 agent 骨架存在，先提示继续将执行 switch，用户确认后才启动 `bridgeforge_switch.py`，禁止静默多铺一套。补齐当前 agent 入口/rules 已存在但不像 BridgeForge 时的首次接入兜底，README / INSTALL / 需求包同步更新；根 `VERSION`、根 `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.52.2`。
+
+## [0.52.1] - 2026-07-08
+
+### Fixed
+- `[product][meta]` **收紧 `feature-dev` 澄清到落盘的授权闸**：`skills/feature-dev/SKILL.md` 将 Step 1 改为“需求澄清与修改方向确认”，明确点名 `feature-dev` 不等于授权写文件；在落盘前必须输出目标 / 不做 / 拟修改 / 验收 / 自动化边界确认卡，并等待用户明确确认。Step 2 以后改为自动执行闭环，中途只在卡点、高风险或完成交付时打断用户，避免讨论阶段被 agent 自行判定为已收敛后直接创建需求包。根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.52.1`。
+
 ## [0.52.0] - 2026-07-08
 
 ### Added
