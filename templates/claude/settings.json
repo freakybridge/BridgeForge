@@ -161,6 +161,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/version_check.py",
             "comment": "git commit 前强制版本号 bump 检查（workflow.md §9 红线）：staged 未含版本号文件则 exit 2 阻断。非 commit 命令立即放行。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/git_add_all_guard.py",
+            "comment": "Bulk git add safety guard: blocks git add -A/--all/. when credentials or .runtime artifacts would be staged; exact-path git add remains allowed."
           }
         ]
       },
@@ -171,6 +176,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/allow_memory_write.py",
             "comment": "放行 memory .md 写入免弹窗：.claude/ 是受保护目录，写入无视 acceptEdits/allow 规则强制弹窗，memory 在其下被连带保护。本 hook 弹窗前返回 permissionDecision:allow，只放行 memory 的 .md，settings/hooks 本体不碰。改完须开新会话生效。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/memory_dup_check.py",
+            "comment": "Warn before creating a new memory file when several existing memory files share the same filename topic tokens; non-blocking."
           }
         ]
       }
@@ -203,6 +213,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/requirements_check.py",
             "comment": "requirements*.txt 改动后校验可移植性红线：绝对路径 URL（@ file://）+ 非 ASCII 字符（Windows pip GBK 解码会报错）。详见 rules/portability.md §4.1/§4.2。自门控：非 requirements*.txt 静默 no-op。"
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .claude/hooks/cargo_default_run_check.py",
+            "comment": "Warn after Cargo.toml edits when multiple [[bin]] sections lack default-run, so plain cargo run would be ambiguous."
           },
           {
             "type": "command",

@@ -214,6 +214,9 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 | 日期 | 源项目 | 目标文件 | 反哺内容（一句话） | 操作人 |
 |------|--------|----------|--------------------|--------|
+| 2026-07-08 | StratusAgent | templates/claude/hooks/git_add_all_guard.py + settings.json | 新 hook：bulk git add 安全护栏；脱敏项目文案后阻断凭证类文件和 `.runtime/` 临时产物被全量 add | bridgexue |
+| 2026-07-08 | StratusAgent | templates/claude/hooks/memory_dup_check.py + settings.json | 新 hook：新建 memory 前按文件名主题词提示同主题碎片化；脱敏本地 debate/memory 来源记录 | bridgexue |
+| 2026-07-08 | StratusAgent | templates/claude/hooks/cargo_default_run_check.py + settings.json | 新 hook：多 `[[bin]]` Cargo.toml 缺少 default-run 时软提醒；脱敏本地启动脚本与 memory 来源 | bridgexue |
 | 2026-05-24 | causis_risk_suite | modules.md | +§4 `.runtime/` 运行时数据目录 + §5 根目录极简 | bridgexue |
 | 2026-05-24 | causis_risk_suite | portability.md | +§4.3 venv 不可移植 + §4.4 CRLF + §4.4.1 入口脚本 ASCII + §4.5 editable 安装 | bridgexue |
 | 2026-05-24 | StratusAgent | workflow.md | §9 版本号简版 → Milestone-bound SemVer 详细版 | bridgexue |

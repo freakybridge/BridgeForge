@@ -4,8 +4,8 @@
 
 ## Summary
 
-- 状态：`OK`
-- Claude 有但 Codex 缺失：0
+- 状态：`REVIEW`
+- Claude 有但 Codex 缺失：3
 - 未登记的 Codex-only 文件：0
 - 归一化后仍有差异的同名文件：20（未分类：0）
 - skills 内容检查问题：0
@@ -14,7 +14,7 @@
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 24 | 25 | - | `model_policy_check.py` |
+| `hooks` | 27 | 25 | `cargo_default_run_check.py`, `git_add_all_guard.py`, `memory_dup_check.py` | `model_policy_check.py` |
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 5 | 7 | - | `codex_git_sync.py`, `harness_parity_check.py` |
 | `memory` | 2 | 2 | - | - |

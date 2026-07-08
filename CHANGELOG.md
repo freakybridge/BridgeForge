@@ -17,6 +17,10 @@
 
 ---
 
+## [0.56.0] - 2026-07-08
+
+### Added
+- `[product][repo][meta]` **新增 Claude 模板安全与轻量检查 hook**：新增 `git_add_all_guard.py`、`memory_dup_check.py`、`cargo_default_run_check.py` 并接入 Claude 模板与 BridgeForge 自身 `.claude` dogfood；分别用于阻断高风险 bulk git add、新建 memory 前提示同主题碎片化、编辑多 `[[bin]]` 的 `Cargo.toml` 后提示缺少 `default-run`。`templates/claude/VERSION` 升至 `0.21.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.56.0`。
 ## [0.55.4] - 2026-07-08
 
 ### Changed

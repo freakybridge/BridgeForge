@@ -21,6 +21,10 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.21.0] - 2026-07-08
+
+### Added
+- [product] 新增 `.claude/hooks/git_add_all_guard.py`、`.claude/hooks/memory_dup_check.py`、`.claude/hooks/cargo_default_run_check.py` 并接入 settings：阻断高风险 bulk git add，新建 memory 前提示同主题碎片化，编辑多 `[[bin]]` 的 `Cargo.toml` 后提示缺少 `default-run`。
 ## [0.20.3] - 2026-07-08
 
 ### Fixed
