@@ -19,6 +19,7 @@ command / skill 调用（以 / 或 $ 开头）跳过预警 — 否则 $snapshot 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -28,12 +29,11 @@ try:
 except Exception:
     pass
 
-# ⚠️ 上下文窗口大小 (tokens) —— 装模板后第一个必核对的手动旋钮:
-#   1M 专用版 Opus (model-id 含 [1m] 后缀)        → 1_000_000  (默认)
-#   标准版 Opus 4.8 / Sonnet 4.6 / Haiku 4.5      → 200_000  (标准 200k 模型需手动下调)
-# 静默失效陷阱: 200k 模型不下调此值, 真实用量 85% 会被算成 17%,
-# 三级预警【永不触发】且无任何报错 —— 上下文爆掉前你不会收到任何警告。
-WINDOW = 1_000_000
+# Codex Desktop 的有效 compact 窗口尚未在本骨架中实测确认。Claude 侧可硬编码
+# 1_000_000；Codex 侧先用保守默认，避免真实窗口较小时被误算成低占用。
+# 需要按机器/版本校准时设置 BRIDGEFORGE_CODEX_CTX_WINDOW，例如 1000000。
+DEFAULT_CODEX_WINDOW = 258_000
+WINDOW_ENV = "BRIDGEFORGE_CODEX_CTX_WINDOW"
 
 # 三个阶梯阈值
 THR_MEDIUM = 75
@@ -42,6 +42,19 @@ THR_CRITICAL = 95
 
 # 倒查 transcript 末尾的字节数 (单条 assistant 消息通常 < 50KB, 256KB 足够覆盖最后几轮)
 TAIL_BYTES = 256 * 1024
+
+
+def effective_window() -> tuple[int, str]:
+    raw = os.environ.get(WINDOW_ENV, "").strip()
+    if not raw:
+        return DEFAULT_CODEX_WINDOW, "default"
+    try:
+        value = int(raw.replace("_", ""))
+    except ValueError:
+        return DEFAULT_CODEX_WINDOW, f"invalid-env:{WINDOW_ENV}"
+    if value <= 0:
+        return DEFAULT_CODEX_WINDOW, f"invalid-env:{WINDOW_ENV}"
+    return value, f"env:{WINDOW_ENV}"
 
 
 def read_last_usage(path: Path) -> int | None:
@@ -104,16 +117,17 @@ def main() -> None:
         return
 
     tokens = read_last_usage(p)
-    source = "usage"
+    token_source = "usage"
     if tokens is None:
         # Fallback: char/4 启发 (旧 session 缺 usage 字段时)
         try:
             tokens = p.stat().st_size // 4
-            source = "estimate"
+            token_source = "estimate"
         except Exception:
             return
 
-    pct = tokens * 100 // WINDOW
+    window, window_source = effective_window()
+    pct = tokens * 100 // window
     if pct < THR_MEDIUM:
         return  # 充裕, 不打扰
 
@@ -139,8 +153,9 @@ def main() -> None:
         )
 
     msg = (
-        f"[ctx-budget] 上下文用量 {tokens // 1000}k / {WINDOW // 1000}k = {pct}% "
-        f"({level}, source={source})\n[ctx-budget] {instruction}"
+        f"[ctx-budget] surface=codex 上下文用量 {tokens // 1000}k / {window // 1000}k = {pct}% "
+        f"({level}, token_source={token_source}, window_source={window_source})\n"
+        f"[ctx-budget] {instruction}"
     )
     print(msg)
 

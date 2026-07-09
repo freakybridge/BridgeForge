@@ -17,6 +17,11 @@
 
 ---
 
+## [0.57.3] - 2026-07-09
+
+### Fixed
+- `[product][repo][meta]` **修复 Codex ctx-budget 误用 Claude 1M 窗口假设**：保留 Claude 骨架已验证的 `context_warning.py` 结构和 Claude 侧 1M 口径不变，仅将 Codex 模板与 BridgeForge dogfood 副本改为按 `/status` 实测约 `258K` 的 `258_000` 有效窗口，并支持 `BRIDGEFORGE_CODEX_CTX_WINDOW` 校准覆盖；`[ctx-budget]` 输出新增 `surface=codex`、`token_source`、`window_source`，文档补充 Claude 是参考基准、Codex 需按自身窗口校准。新增 feature-dev 需求包 `doc/1_plan/ctx-management/`；`templates/codex/VERSION` 升至 `0.28.3`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.57.3`。
+
 ## [0.57.2] - 2026-07-09
 
 ### Changed

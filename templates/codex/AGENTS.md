@@ -166,6 +166,8 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 边界附近以信号为准；软化的是“拒不拒活”，不是“报不报用量”。`$snapshot` / `$resume` / `$git-sync` 等保命操作放行。细节见 `rules/anti_drift_hooks.md` §3。
 
+Codex 的有效 compact 窗口不得照抄 Claude 1M 假设；`context_warning.py` 默认按保守窗口计算，并在信号里打印 `surface=codex` / `window_source`，实测确认后再调参。
+
 ---
 
 ## 10.5 空转弱提醒 — `[stall]`

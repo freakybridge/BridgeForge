@@ -30,7 +30,7 @@
 | `hooks/cargo_default_run_check.py` | 4 | -6 / +6 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/clarify_reminder.py` | 2 | -3 / +3 | `expected-codex-adapter` | Codex must skip both / commands and $ skills |
 | `hooks/config_health_check.py` | 1 | -0 / +1 | `codex-only` | Codex registers model_policy_check health signal |
-| `hooks/context_warning.py` | 4 | -4 / +4 | `expected-codex-adapter` | Codex skill calls use $ and must bypass ctx warning |
+| `hooks/context_warning.py` | 11 | -15 / +30 | `expected-codex-adapter` | Codex skill calls use $ and must bypass ctx warning |
 | `hooks/fallback_smell_check.py` | 3 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/find_doc_reminder.py` | 4 | -6 / +7 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_* fallback |
 | `hooks/focus_reminder.py` | 1 | -1 / +1 | `expected-codex-adapter` | Codex text and skill command surface differ |
@@ -45,7 +45,7 @@
 | `hooks/skill_sync_check.py` | 4 | -4 / +4 | `codex-path-adapter` | Codex user skill shelf is ~/.agents/skills |
 | `hooks/test_receipt.py` | 3 | -3 / +4 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/version_check.py` | 3 | -4 / +4 | `expected-codex-adapter` | Codex command payload fallback differs |
-| `rules/anti_drift_hooks.md` | 1 | -1 / +1 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
+| `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
 | `rules/portability.md` | 6 | -10 / +26 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |

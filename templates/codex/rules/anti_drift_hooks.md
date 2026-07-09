@@ -53,7 +53,9 @@ paths:
 
 ## 3. `[ctx-budget]` 信号 — 上下文预算（AGENTS.md §10）
 
-**机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）在每次用户提交 prompt 时估算上下文用量，超阈值时输出 `[ctx-budget]` system reminder（MEDIUM / HIGH / CRITICAL 三级）。判定基于 char/4 启发式，精度 ±10%；边界附近以信号为准。
+**机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）在每次用户提交 prompt 时读取 transcript usage，超阈值时输出 `[ctx-budget]` system reminder（MEDIUM / HIGH / CRITICAL 三级）。缺 usage 时才 fallback 到 char/4 启发式。
+
+**Codex 窗口口径**：Claude 侧 1M 窗口可硬编码；Codex Desktop 当前 `/status` 实测显示约 `258K` 背景信息上限，默认按 `258_000` 计算，避免照抄 1M 导致预警静默失效。需要按机器 / 版本校准时设置环境变量 `BRIDGEFORGE_CODEX_CTX_WINDOW`，hook 输出会带 `surface=codex`、`token_source`、`window_source` 方便核对。
 
 **command / skill 豁免**：`$snapshot` / `$resume` / `$git-sync` 等以 `$` 开头的 skill 调用不触发预警（`/` 开头的 Codex 内置命令也放行）— 否则用户连保命操作都被拦，死锁。所以响应 CRITICAL 时建议用户做的 `$snapshot` 不会自相矛盾。
 
@@ -61,4 +63,4 @@ paths:
 
 - Hook 入口：`.codex/hooks/context_warning.py`（项目内）
 - 注册位置：`.codex/settings.json` → `hooks.UserPromptSubmit`
-- 调参：在 hook 文件开头改 `WINDOW`（窗口大小，按模型选 1M / 200k）和 `THR_MEDIUM/HIGH/CRITICAL`（三个阶梯阈值，默认 75/85/95）
+- 调参：在 hook 文件开头改 `DEFAULT_CODEX_WINDOW` 或设置 `BRIDGEFORGE_CODEX_CTX_WINDOW`；阈值仍由 `THR_MEDIUM/HIGH/CRITICAL` 控制（默认 75/85/95）

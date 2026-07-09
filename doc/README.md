@@ -13,6 +13,7 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `1_plan/codex-harness-parity/requirements_2026-07-08_codex-harness-parity.md` | trial | Align Codex harness with Claude harness, fix migration residue, and add a parity report before git-sync. |
 | `1_plan/codex-harness-parity/compatibility_closure_2026-07-08.md` | review | Closed-loop compatibility audit for Claude-to-Codex hooks, rules, scripts, skills, and memory migration. |
 | `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
+| `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
 | `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
 
 ### Pending

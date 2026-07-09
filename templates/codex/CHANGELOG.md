@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.28.3] - 2026-07-09
+
+### Fixed
+- [product] 修复 Codex `context_warning.py` 照抄 Claude 1M 上下文窗口导致预警静默失效的问题：Codex 侧保留 Claude 成熟的 transcript usage 读取和 `$snapshot` / `$resume` 豁免机制，但默认按 `/status` 实测约 `258K` 的 `258_000` 有效窗口计算，并支持 `BRIDGEFORGE_CODEX_CTX_WINDOW` 覆盖；`[ctx-budget]` 输出新增 `surface=codex`、`token_source`、`window_source` 便于后续校准。
+
 ## [0.28.2] - 2026-07-09
 
 ### Changed
