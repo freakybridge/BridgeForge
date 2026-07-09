@@ -2,7 +2,7 @@
 """
 确定性重建 MEMORY.md（主索引）+ MEMORY_COLD.md（冷区索引）。
 
-设计（2026-06-27 改版，见 docs/memory-scoring-design.md）：
+设计（2026-06-27 改版，见 doc/3_design/memory-scoring-design.md）：
   - 纯确定性：索引内容 = f(memory 文件集, created_at, pinned)，**不含当天日期 / 访问热度**。
     → 不碰 memory 时，重建产出逐字不变；git 只比对内容，故工作区永不"自发变脏"。
   - 事件驱动：由 PostToolUse(Write/Edit memory 文件) 触发（--from-hook），不再每轮 Stop 跑。

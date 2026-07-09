@@ -28,7 +28,7 @@ bridgeforge 上游仓库通常在 `~/.bridgeforge/`（clone 或 junction/symlink
 
 ## 仪式（严格按 reverse-sync-playbook 执行）
 
-权威流程 + 脱敏 checklist 见上游仓库的 `docs/reverse-sync-playbook.md`。核心步骤：
+权威流程 + 脱敏 checklist 见上游仓库的 `doc/3_design/reverse-sync-playbook.md`。核心步骤：
 
 1. **取候选**：无参 → 读收件箱全部未处理行；带参 → 就这一条。
 2. **逐条判通用性**（playbook §2）：🟢 通用增量(反哺) / 🟡 可抽象(脱敏后反哺) / 🔴 业务专属(**不**反哺)。

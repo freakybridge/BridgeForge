@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.21.2] - 2026-07-09
+
+### Changed
+- [product] 模板内文档指针统一改向 `doc/` 体系：`skill_sync_check.py` 的设计文档引用改为 `doc/3_design/skill-distribution-gaps.md`，`encoding_check.py` 不再扫描已退役的根 `docs` 目录。
+
 ## [0.21.1] - 2026-07-09
 
 ### Fixed

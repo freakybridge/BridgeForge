@@ -38,10 +38,10 @@
 1. **这属于哪一层？**
    - **产品层** `templates/` `skills/` → 会被复印给所有下游项目
    - **自身配置层** `.codex/` `AGENTS.md`（本文件）→ 只影响 bridgeforge 这个 repo 自己
-   - **元文档** `docs/` `README.md` `SKILL.md` `CHANGELOG.md` → 描述产品，但不随产品下沉
+   - **元文档** `doc/` `README.md` `SKILL.md` `CHANGELOG.md` → 描述产品，但不随产品下沉
 2. **如果是通用改进，我写进 `templates/` / `skills/` 了吗？**
    - 最常见的事故：把一条通用规矩只写进了自身配置层或元文档，**忘了镜像进产品层** → 下游永远拿不到。
-   - 反向也算事故：把项目特定的东西误塞进 `templates/` → 污染所有下游。判据见 [docs/design-rationale.md](docs/design-rationale.md) §6「模板 vs 占位」。
+   - 反向也算事故：把项目特定的东西误塞进 `templates/` → 污染所有下游。判据见 [doc/3_design/design-rationale.md](doc/3_design/design-rationale.md) §6「模板 vs 占位」。
 3. **传播出去要不要 bump 版本 + 记 CHANGELOG？**
    - 改动产品层 → 几乎一定要 bump（下游靠版本号判断该不该 sync）。
    - 记 CHANGELOG 时**按 §3 打层标签**。
@@ -71,7 +71,7 @@
 | `templates/**` | 产品层 | ✅ 下游复印时全量继承 |
 | `skills/**` | 产品层 | ✅ 下游 `$bridgeforge` Step 0 自检补齐到 `~/.agents/skills/` |
 | `.codex/**` `AGENTS.md` | 自身配置层 | ❌ 只管 bridgeforge 自己（自产自用：理论上应与 `templates/` 同款，见下） |
-| `docs/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
+| `doc/**` `README.md` `SKILL.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/<agent>/VERSION` |
 
 **自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.codex/hooks/*.py` 理论上应与 `templates/codex/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边（已提升为 §1 第 4 问红线）。
@@ -86,17 +86,17 @@
 |------|------|---------|
 | `[product]` | 改了 `templates/` / `skills/`，会下沉 | sync-from-upstream 时**应当**拉取 |
 | `[repo]` | 只改了 bridgeforge 自身配置 / 工具，不下沉 | 无关，跳过 |
-| `[meta]` | 只改了 `docs/` / `README` / `SKILL.md` 等说明 | 一般无关（除非想了解设计） |
+| `[meta]` | 只改了 `doc/` / `README` / `SKILL.md` 等说明 | 一般无关（除非想了解设计） |
 
 混合改动就并列标，如 `[product][meta]`。这是让"下游同步收益"最直接的抓手——下游 `grep "\[product\]" CHANGELOG.md` 即知增量。
 
 ---
 
-## §4 跨项目传播机制（详见 docs/）
+## §4 跨项目传播机制（详见 doc/）
 
-- **上游 → 下游**（拉新手册回老房子）：[docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)
-- **下游 → 上游**（把老房子攒的通用经验脱敏反哺回手册）：[docs/reverse-sync-playbook.md](docs/reverse-sync-playbook.md)
-- **整体设计 / 双重身份论述**：[docs/design-rationale.md](docs/design-rationale.md) §9
+- **上游 → 下游**（拉新手册回老房子）：[doc/3_design/sync-from-upstream-playbook.md](doc/3_design/sync-from-upstream-playbook.md)
+- **下游 → 上游**（把老房子攒的通用经验脱敏反哺回手册）：[doc/3_design/reverse-sync-playbook.md](doc/3_design/reverse-sync-playbook.md)
+- **整体设计 / 双重身份论述**：[doc/3_design/design-rationale.md](doc/3_design/design-rationale.md) §9
 
 两条 playbook 都**靠人脑判断、手动触发**——§1 四问是它们的"前门闸"（改动进门即分层 + 产品层 hook 当场 dogfood）。
 

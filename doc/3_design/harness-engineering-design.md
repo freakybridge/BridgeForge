@@ -1,6 +1,6 @@
 # bridgeforge harness 正式设计文档 · 九维系统方案（v1）
 
-> 版本：v1（2026-07-01）｜依据：`harness-preferences.md`（19 问 + 宪法原则，权威）+ 9 维已复核设计（含 verify 修正）+ `docs/antifabrication-framework.md`（既有四层框架）+ 对抗式批评 11 项 + 事实核查结论
+> 版本：v1（2026-07-01）｜依据：`harness-preferences.md`（19 问 + 宪法原则，权威）+ 9 维已复核设计（含 verify 修正）+ `doc/3_design/antifabrication-framework.md`（既有四层框架）+ 对抗式批评 11 项 + 事实核查结论
 > 定位：本文是**可直接照着开工**的实现蓝图。所有 verify 打回/降级项与对抗式批评项均已按结论修正并融进正文，凡与仓库现状对不上的地方均已订正。v0.1→v1 的逐条修订记录见 §6。
 
 ---
@@ -267,7 +267,7 @@ pre-commit 执行序（严格顺序，硬伤2 约束）：
 
 ## 3. 与 antifabrication-framework 的对齐 / 翻案
 
-framework 当年把 C1(L4 deny) / C2(超时哨兵) / Stop(甩锅自检) 三 hook 刻意留在 docs/examples、**不进产品层**，理由：C1「hint 恒空≈啰嗦 FileNotFoundError + 误伤是硬停」；C2「hint 恒空 + 硬卡死失明 + 与 C3 重叠」；Stop「每回合 LLM-judge 贵 + 文字判定难」。
+framework 当年把 C1(L4 deny) / C2(超时哨兵) / Stop(甩锅自检) 三 hook 刻意留在 doc/9_reference/examples、**不进产品层**，理由：C1「hint 恒空≈啰嗦 FileNotFoundError + 误伤是硬停」；C2「hint 恒空 + 硬卡死失明 + 与 C3 重叠」；Stop「每回合 LLM-judge 贵 + 文字判定难」。
 
 **逐条结论**：
 
@@ -374,7 +374,7 @@ framework 当年把 C1(L4 deny) / C2(超时哨兵) / Stop(甩锅自检) 三 hook
 
 相关文件锚点（全绝对路径）：
 - 权威偏好：`d:/Quant/BridgeForge/.claude/memory/harness-preferences.md`（N7 换方案 L78、N6 假验证 L74-76、Q11 L105-106、Q14 L116-117）
-- 既有框架：`d:/Quant/BridgeForge/docs/antifabrication-framework.md`（§7 残余风险 2 节流 hook 预留 L111；C2 失明缺陷 L72）
+- 既有框架：`d:/Quant/BridgeForge/doc/3_design/antifabrication-framework.md`（§7 残余风险 2 节流 hook 预留 L111；C2 失明缺陷 L72）
 - pre-commit 底座：`d:/Quant/BridgeForge/.githooks/pre-commit`（现仅 memory rebuild、无 version_check）、`d:/Quant/BridgeForge/templates/.githooks/pre-commit`
 - memory「当场报」正确落点：`memory_rebuild_index.py --from-hook`（PostToolUse，settings.json:189-197 / templates:178-186）；错误落点辨析：`allow_memory_write.py`（PreToolUse 放行闸）、pre-commit 的 `.claude/scripts/memory_rebuild_index.py`（commit 时跑、当轮不可见）
 - rule 读法：`templates/hooks/rule_size_check.py`（改读 staged blob）、`templates/hooks/rule_index_check.py`（保留工作树 L36/L39；正则 `rules/([a-z_]+\.md)` L38 放宽为 `[\w-]`）

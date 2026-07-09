@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.57.1
+version: 0.57.2
 user_invocable: true
 user-invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
@@ -117,7 +117,7 @@ test -f "templates/$TEMPLATE_AGENT/$PROJECT_ENTRY_FILE" && grep -q "项目协作
 ```
 
 - 命中 `FACTORY_SELF` → **立即硬拒并退出**，告诉用户："这是 bridgeforge 源头仓库（模板工厂），不能在它自己身上 bootstrap / 更新——要改框架请直接编辑 `templates/` / `SKILL.md`，不要跑 `$ENTRY_COMMAND`。"
-- 为什么这是第一闸：源头仓库**故意不带** `$PROJECT_AGENT_DIR/.bridgeforge_version`（靠 `templates/` 存在性识别身份，比版本戳更本质，见 [docs/design-rationale.md](docs/design-rationale.md) §9.4）。没有这道闸，源头会落进下方"无戳 + 有 `$PROJECT_ENTRY_FILE`"分支被误当 init → 等于装修队拆自己样板间。
+- 为什么这是第一闸：源头仓库**故意不带** `$PROJECT_AGENT_DIR/.bridgeforge_version`（靠 `templates/` 存在性识别身份，比版本戳更本质，见 [doc/3_design/design-rationale.md](doc/3_design/design-rationale.md) §9.4）。没有这道闸，源头会落进下方"无戳 + 有 `$PROJECT_ENTRY_FILE`"分支被误当 init → 等于装修队拆自己样板间。
 
 **Step 前-3 认场子（判定模式）**：
 
@@ -238,7 +238,7 @@ fi
 ```
 
 - **绝不静默删**（同 Step 0.5 范式）：把 `RETIRED.md` 里该行的"原因"念给用户，问"删（回收下架 skill）/ 留"。用户改过它当定制 → 尊重保留。
-- 退役的 **hook**（项目级，如 `memory_guard.py` 活在 `<project>/.claude/hooks/` + 项目 settings 注册里）**不在本步范围**——本步只清用户级 skill。退役 hook 仍按 CHANGELOG 提示手动删（见 `docs/skill-distribution-gaps.md` 支柱 B 待办）。
+- 退役的 **hook**（项目级，如 `memory_guard.py` 活在 `<project>/.claude/hooks/` + 项目 settings 注册里）**不在本步范围**——本步只清用户级 skill。退役 hook 仍按 CHANGELOG 提示手动删（见 `doc/3_design/skill-distribution-gaps.md` 支柱 B 待办）。
 
 > **新鲜度前置**：到这里时 `$BRIDGEFORGE_HOME` 已由薄入口 wrapper 或 Step -2 执行过 `git pull --ff-only`。Codex / Claude 的 slash wrapper 不存模板；模板与通用 skills 只从刷新后的 `$BRIDGEFORGE_HOME` 读取。
 
@@ -714,7 +714,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 ## 更新模式（cwd 已被 bridgeforge 铺过时）
 
-> 触发：前置步骤检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version`。这是 `$ENTRY_COMMAND` 的"拉上游增量到现有项目"流程——**机械半场**（拉 / diff / 分类 / 呈现）由 skill 做，**判断半场**（rules/入口文件选择性吸收）全程交用户。完整判据见 `$BRIDGEFORGE_HOME/docs/sync-from-upstream-playbook.md`（下称 playbook）。
+> 触发：前置步骤检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version`。这是 `$ENTRY_COMMAND` 的"拉上游增量到现有项目"流程——**机械半场**（拉 / diff / 分类 / 呈现）由 skill 做，**判断半场**（rules/入口文件选择性吸收）全程交用户。完整判据见 `$BRIDGEFORGE_HOME/doc/3_design/sync-from-upstream-playbook.md`（下称 playbook）。
 
 ### U1：算增量
 - 读 cwd 的 `$PROJECT_AGENT_DIR/.bridgeforge_version`（下游上次同步的版本）vs clone 的 `VERSION`（上游当前版本，前置步骤已 pull 到最新）。

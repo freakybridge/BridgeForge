@@ -10,12 +10,17 @@
 
 - `[product]` — 改了 `templates/` / `skills/`，会下沉到下游 → 下游 sync-from-upstream 时**应当**拉取
 - `[repo]` — 只改了 setup_agent 自身配置 / 工具，不下沉 → 下游无关
-- `[meta]` — 只改了 `docs/` / `README` / `SKILL.md` 等说明 → 一般无关
+- `[meta]` — 只改了 `doc/` / `README` / `SKILL.md` 等说明 → 一般无关
 - 混合改动并列标，如 `[product][meta]`
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
 ---
+
+## [0.57.2] - 2026-07-09
+
+### Changed
+- `[product][repo][meta]` **统一 BridgeForge 文档系统为 `doc/`**：迁移根目录旧 `docs` 内容到 `doc/3_design/`、`doc/4_archive/`、`doc/9_reference/`，重建 `doc/README.md` 唯一索引，并删除空的旧 `docs` 目录；同步修正 README / AGENTS / CLAUDE / SKILL / skills / templates / tests / dogfood hooks/scripts 中的旧路径引用，Codex harness parity 报告生成目标改为 `doc/3_design/codex-harness-parity.md`。新增 feature-dev 需求包 `doc/1_plan/doc-unification/`；`templates/claude/VERSION` 升至 `0.21.2`，`templates/codex/VERSION` 升至 `0.28.2`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.57.2`。
 
 ## [0.57.1] - 2026-07-09
 
@@ -54,7 +59,7 @@
 ## [0.55.0] - 2026-07-08
 
 ### Added
-- `[product][repo][meta]` **Codex harness 对齐与长期对照检查**：Codex hook 输入回退改为 stdin JSON 优先、`CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME` 次之、旧 `CLAUDE_TOOL_INPUT` / `CLAUDE_TOOL_NAME` 仅作兼容兜底；Codex 入口文案统一回 `/bridgeforge`，不再把 BridgeForge 日常入口写成 `$bridgeforge`。新增 `templates/codex/scripts/harness_parity_check.py` 并 dogfood 到 `.codex/scripts/`，生成 `docs/codex-harness-parity.md` 作为 Claude/Codex harness 长期对照清单；Codex git-sync 执行器在暂存前刷新该报告，`skills/git-sync` 同步说明刷新步骤。新增 feature-dev 需求包 `doc/1_plan/codex-harness-parity/`；`templates/codex/VERSION` 升至 `0.27.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.0`。
+- `[product][repo][meta]` **Codex harness 对齐与长期对照检查**：Codex hook 输入回退改为 stdin JSON 优先、`CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME` 次之、旧 `CLAUDE_TOOL_INPUT` / `CLAUDE_TOOL_NAME` 仅作兼容兜底；Codex 入口文案统一回 `/bridgeforge`，不再把 BridgeForge 日常入口写成 `$bridgeforge`。新增 `templates/codex/scripts/harness_parity_check.py` 并 dogfood 到 `.codex/scripts/`，生成 `doc/3_design/codex-harness-parity.md` 作为 Claude/Codex harness 长期对照清单；Codex git-sync 执行器在暂存前刷新该报告，`skills/git-sync` 同步说明刷新步骤。新增 feature-dev 需求包 `doc/1_plan/codex-harness-parity/`；`templates/codex/VERSION` 升至 `0.27.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.55.0`。
 
 ## [0.54.0] - 2026-07-08
 
@@ -156,7 +161,7 @@
 - `[product]` **harvest skill 旧模板路径死链**：`skills/harvest/SKILL.md` 仍引用拆分前的 `templates/CLAUDE.md` / `templates/rules/`，现改为 `templates/claude/CLAUDE.md`、`templates/codex/AGENTS.md`、`templates/<agent>/rules/`，避免反哺时把 agent 引到不存在的路径。
 - `[product][meta]` **拆目录后的旧路径死链**：修正 `templates/claude/rules/portability.md` 的 dogfood 镜像路径为 `templates/claude/hooks ↔ .claude/hooks`，并把 Claude/Codex settings 注释里的 `templates/rules/meta_rule_design.md` 改为各自 agent 分支路径。
 - `[product][repo]` **archive_scan 旧 Python 兼容**：`templates/<agent>/scripts/archive_scan.py` 与自身 `.claude/.codex` 副本补 `from __future__ import annotations`，避免默认 `python` 低于 3.10 时因 `int | None` 类型注解运行时求值直接崩溃。
-- `[meta]` **同步 / 反哺 playbook 路径分支化**：`docs/sync-from-upstream-playbook.md` 与 `docs/reverse-sync-playbook.md` 的当前流程改为先选 `agent`，再读写 `templates/<agent>/hooks`、`templates/<agent>/scripts`、`templates/<agent>/settings.json`、`templates/<agent>/rules`，避免按拆分前路径操作失败。
+- `[meta]` **同步 / 反哺 playbook 路径分支化**：`doc/3_design/sync-from-upstream-playbook.md` 与 `doc/3_design/reverse-sync-playbook.md` 的当前流程改为先选 `agent`，再读写 `templates/<agent>/hooks`、`templates/<agent>/scripts`、`templates/<agent>/settings.json`、`templates/<agent>/rules`，避免按拆分前路径操作失败。
 
 ## [0.43.0] - 2026-07-06
 
@@ -207,11 +212,11 @@
 
 ### 欠账收口（2026-07-01 精简会搁置项，全部清账）
 - `[meta]` **E-1**（四问豁免机械改动）→ KEEP 收口：不豁免——任务深浅与改动分层正交，且 Q4 已有 mirror_drift 机检，开豁免口子会在漏镜像事故上开洞。**E-2**（workflow §4 收尾自查）→ KEEP 收口，语境无变化。**E-4 / E-5** → 已修（见上）。**行为变更1**（debugging §11 根因预测收紧）→ 判定已被 v0.39.0 debugging §3 verbalized-uncertainty 红线吸收（低置信假说禁包装成结论下手），不再单独改。**B-6**（「适用才镜像」替代提案）→ 不采纳收口：现行「也要挂上 + `[dogfood-exempt]` 豁免语法」已是机检硬机制，07-01 的纯自觉搁置语境不复存在。**git-sync 过时 Why** → 已修（见上）。
-- `[meta]` **补记 v0.39.0 漏账**：f6788d3 实际还夹带 8 个 skill（git-sync/collab/summary/sync-docs/archive-scan/debate/escalate/resume）+ 2 个 rule（modules/anti_fabrication）的文本瘦身——均为 `[product]` 层 cosmetic 改动，当时 CHANGELOG 未记，本条补记，下游 sync 时一并覆盖。
+- `[meta]` **补记 v0.39.0 漏账**：f6788d3 实际还夹带 8 个 skill（git-sync/collab/summary/sync-doc/archive-scan/debate/escalate/resume）+ 2 个 rule（modules/anti_fabrication）的文本瘦身——均为 `[product]` 层 cosmetic 改动，当时 CHANGELOG 未记，本条补记，下游 sync 时一并覆盖。
 
 ## [0.39.1] - 2026-07-02
 
-> 修复下游项目（ClaudeBridgeAssist）实测报告的 P0 假阳性，调查报告见 `docs/调查报告_rule-index-check-HTML注释误判_2026-07-02.md`。
+> 修复下游项目（ClaudeBridgeAssist）实测报告的 P0 假阳性，调查报告见 `doc/4_archive/调查报告_rule-index-check-HTML注释误判_2026-07-02.md`。
 
 ### Fixed
 - `[product]` **`rule_index_check.py` HTML 注释误判死链（P0）**：`_detect()` 对 CLAUDE.md 全文正则扫描前未剔除 `<!-- ... -->` 注释块——§2 索引表下方的占位示例注释（如 `<!-- rules/api.md -->`）会被当成真实索引条目，命中不存在的文件后 0.39.0 新增的 pre-commit 硬拦直接 `exit 2`，且不会自愈（触发条件本身不变）。**影响面**：早期 bootstrap、CLAUDE.md 仍带"具体文件名占位示例"写法（当前模板已改用 `<topic>` 占位规避）的存量下游项目，升级到 0.39.0 后每次 commit 都会被卡住。修法：`read_text()` 后先剔除 HTML 注释块再做索引正则匹配。已同步镜像 `.claude/hooks/rule_index_check.py`（逐字一致）。
@@ -221,7 +226,7 @@
 
 ## [0.39.0] - 2026-07-02
 
-> **Harness 九维方案整批落地**（12 工单 P0-1~P2-11，蓝图 `docs/harness-engineering-design.md`，施工序 `docs/harness-impl-plan.md`）。宪法原则：硬闸只给「机器一眼判死的事实」（近零误伤），软的留给用户判断。
+> **Harness 九维方案整批落地**（12 工单 P0-1~P2-11，蓝图 `doc/3_design/harness-engineering-design.md`，施工序 `doc/3_design/harness-impl-plan.md`）。宪法原则：硬闸只给「机器一眼判死的事实」（近零误伤），软的留给用户判断。
 > **dogfood 声明（§1 第 4 问）**：D6 规则闸在 bridgeforge 自身**恒 no-op**（无 `.claude/rules/` 目录）、D8 镜像闸的真实拦截也只发生在下游——两闸仍全量挂上自身 pre-commit，自门控 no-op 正是持续验证产品承诺。
 
 ### Added
@@ -243,7 +248,7 @@
 - `[product]` **settings.json**（两侧）：注册 `fallback_smell_check`/`test_receipt`（PostToolUse）+ `stall_warning`（UserPromptSubmit）。**deny/ask 危险动作清单经 P0-5 查漏确认无缺项、零新增**——在此明示：该清单（`rm -rf`、`git reset --hard/clean`、`push --force/--delete`、`npm/cargo publish`、`twine upload`、`gh release create`、`docker push`、`Remove-Item` 等 deny + push/rebase/reset/checkout/merge 等 ask）是**产品层承诺**，下游继承的危险动作 PreToolUse 硬闸。
 - `[repo]` **P0-1 dogfood 欠账清偿**：`.claude/hooks/` 补齐 4 个缺失镜像（`show_state.py`/`rule_index_check.py`/`memory_lint.py`/`find_doc_reminder.py`）+ 对齐 `clarify_reminder`/`context_warning`/`requirements_check` 正文漂移 + `.claude/settings.json` 补注册（系统 python 前缀）。自此 snapshot 开场提示（`[snapshot]`）在自身也生效。
 - `[repo]` memory `ghost-wall-threshold-conflict` 标已收口（P0-4 解 E-3）。
-- `[meta]` 新增 `docs/harness-engineering-design.md`（九维设计 v1，含对抗批评 11 项+verify 修正融入）+ `docs/harness-impl-plan.md`（12 工单施工序）+ `docs/调查报告_AB对话_空转与幻觉_2026-07-01.md`（外援调查核实与纠偏记录）。
+- `[meta]` 新增 `doc/3_design/harness-engineering-design.md`（九维设计 v1，含对抗批评 11 项+verify 修正融入）+ `doc/3_design/harness-impl-plan.md`（12 工单施工序）+ `doc/4_archive/调查报告_AB对话_空转与幻觉_2026-07-01.md`（外援调查核实与纠偏记录）。
 - `[meta]` D9（人机沟通）确认零产品改动：三条沟通偏好归用户级全局 CLAUDE.md（skill/advisory + user-global），不进 templates。
 
 ### 验证
@@ -272,10 +277,10 @@
 ### Added
 - `[product]` **新增常驻红线 `templates/rules/anti_fabrication.md`（防 AI 幻觉资源 R1–R5）**：源自 CausisRiskSuite 一次「幻觉文件名 → 工具空转 → 纯文字嫁祸」真实事故，经两轮跨项目对抗式 debate 反哺。R1 用前必验存在 / R2 验不到如实说缺啥并停下 / R3 禁编造资源来源 / R4 禁把失败甩锅给用户·工具·编辑器没做过的事 / R5 先认再改。**始终加载**（幻觉不挑 path → 无 frontmatter 触发器、常驻；口诀写在 rule 开头每轮在场）。新增「始终加载」rule 已对齐 meta_rule §4.1。
   - `[product]` CLAUDE.md §2 规则索引登记一行（`rule_index_check` 要求）。**未在 CLAUDE.md 正文新增小节**——该文件已 274 行、超 meta_rule ≤200 红线，改由「始终加载 rule」承载常驻，不加剧超标（CLAUDE.md 瘦身是既有债，另案处理）。
-- `[meta]` **新增 `docs/antifabrication-framework.md`**：四层纵深框架（L1 诱因 / L2 认知 / L3 行为 / L4 IO）+ 通用壳 vs 项目填充切分判据 + C1 deny / C2 超时哨兵 / Stop 甩锅自检三个 hook 的完整设计与「为什么都不进产品层」决策留痕。
-- `[meta]` 新增 `docs/examples/antifab-deny-hook.py`：C1 四-gate deny 参考脚本（宿主无关纯函数 + 3 个项目配置占位 + 空配置降级），**非出厂 hook、不注册、不自动运行**，下游撞痛点自取。
+- `[meta]` **新增 `doc/3_design/antifabrication-framework.md`**：四层纵深框架（L1 诱因 / L2 认知 / L3 行为 / L4 IO）+ 通用壳 vs 项目填充切分判据 + C1 deny / C2 超时哨兵 / Stop 甩锅自检三个 hook 的完整设计与「为什么都不进产品层」决策留痕。
+- `[meta]` 新增 `doc/9_reference/examples/antifab-deny-hook.py`：C1 四-gate deny 参考脚本（宿主无关纯函数 + 3 个项目配置占位 + 空配置降级），**非出厂 hook、不注册、不自动运行**，下游撞痛点自取。
 
-### 决策（两轮 debate 定案，详见 `docs/handoff_2026-06-30_antifabrication-playbook*.md`）
+### 决策（两轮 debate 定案，详见 `doc/handoff_2026-06-30_antifabrication-playbook*.md`）
 - **三个 hook（C1/C2/Stop）一律不进 `templates/hooks/`**：C1 误伤是硬停 + 价值零件 `REAL_SOURCE_HINT` 在 templates 恒空 + dogfood 先伤自己；C2 对真·硬卡死失明（PostToolUse 不触发）+ 软超时与 C3 重叠 + 阈值误刷噪声；Stop 需每回合 LLM judge 太贵。→ 产品强制层只进零误伤的 C3 红线，hook 设计降级 docs。
 - **据此本次不新增任何 hook、不动 `settings.json`、不触发 dogfood 镜像**（CLAUDE.md §1 第 4 问不触发）。
 - 残余风险诚实标注：纯文字嫁祸（L3）是 0 工具调用，任何 hook 都看不见，全靠 C3 常驻 + R5 反激励压低概率，无事后补救。
@@ -308,13 +313,13 @@
 ## [0.34.0] - 2026-06-27
 
 ### Changed
-- `[product]` **Memory 索引系统：废弃艾宾浩斯热度评分，改为确定性事件驱动**（templates/VERSION 0.5.0→0.6.0）。根因：热度分 `exp(-days/S)` 含 `today` 变量 → MEMORY.md 是时间的函数 → 没人改 memory 也每天自发变脏，与用户硬需求「git-sync 后工作区干净、多机不莫名冲突」**数学上不兼容**；辅以实测 `_stats.json` 长期仅 1 条记录、17 条全进 Top-40 = 伪热度、属过早优化。双 agent 两轮辩论定案，见 [docs/debates_2026-06-27_memory-untrack.md](docs/debates_2026-06-27_memory-untrack.md)。决定性技术事实：git 只比对内容、不看 mtime，故脏的唯一来源是「内容自发变化」。
+- `[product]` **Memory 索引系统：废弃艾宾浩斯热度评分，改为确定性事件驱动**（templates/VERSION 0.5.0→0.6.0）。根因：热度分 `exp(-days/S)` 含 `today` 变量 → MEMORY.md 是时间的函数 → 没人改 memory 也每天自发变脏，与用户硬需求「git-sync 后工作区干净、多机不莫名冲突」**数学上不兼容**；辅以实测 `_stats.json` 长期仅 1 条记录、17 条全进 Top-40 = 伪热度、属过早优化。双 agent 两轮辩论定案，见 [doc/4_archive/debates_2026-06-27_memory-untrack.md](doc/4_archive/debates_2026-06-27_memory-untrack.md)。决定性技术事实：git 只比对内容、不看 mtime，故脏的唯一来源是「内容自发变化」。
   - `[product]` MEMORY.md / MEMORY_COLD.md 改由 `memory_rebuild_index.py` 按「memory 文件集 + created_at + pinned」**确定性生成**（无访问热度、无日期戳）→ 不碰 memory 时逐字不变、工作区不自发变脏；多机同规则同输入算出一致结果、不冲突。
   - `[product]` 排序：pinned 置顶 + created_at 倒序（新增在前），主索引满 `ACTIVE_N=40` **自动滚入冷区** —— 冷热维护全自动、不需人工决定，只在真增删 memory 时变（本就该提交）。
   - `[product]` 触发时机从 Stop 链路移到 **PostToolUse(Write/Edit memory，`--from-hook` 过滤防自触发) + SessionStart 兜底**；memory 写入当下即同步索引 → sync 后对话结束不再弄脏。
   - `[product]` **删除**：`memory_access_tracker.py`（访问追踪 hook）、`memory_bootstrap_cold.py`（衰减冷启动工具）、`_stats.json` 的 `session_dates`、MEMORY_COLD.md 日期戳。
   - `[repo]` dogfood 镜像同步进自身 `.claude/`（脚本逐字一致，hook 命令用系统 `python`）；删自身 `memory_access_tracker.py` + 简化 `_stats.json`；junction 那条 memory 的 description 去 YAML 引号转义（修提取半截）。
-  - `[meta]` 重写 [docs/memory-scoring-design.md](docs/memory-scoring-design.md) 为新确定性设计；`templates/CLAUDE.md` §5「热区」措辞改「主索引」+ 补确定性说明。
+  - `[meta]` 重写 [doc/3_design/memory-scoring-design.md](doc/3_design/memory-scoring-design.md) 为新确定性设计；`templates/CLAUDE.md` §5「热区」措辞改「主索引」+ 补确定性说明。
 
 ## [0.33.0] - 2026-06-26
 
@@ -335,7 +340,7 @@
 - `[product][meta]` **反漂移 / 反工具污染红线补强（"评估仓库能否公开"会话跑偏调查的落地）**——一次评估问被做成全量脱敏执行（实则全程 dry-run、一字未落盘）+ 工具"传结果线"概率性抽风（重影 / 命中 0 假空 / 幻影文件名 `clouddev` / 含大段中文的 `AskUserQuestion` 入参转义炸成 `__unparsedToolInput`）的复盘后，往 `templates/CLAUDE.md` 补 4 条软约束红线。**经多 agent 结构化辩论裁定：产品层 hook 加固性价比为负**（招牌污染标记一个对 `AskUserQuestion` call 隐形、一个在本 repo 高误报、一个时序慢一拍，正中 v0.28.2 focus 重武装"噪声诱导跑偏"覆辙），故**零新 hook、零 settings 改动**，只补软约束文本。
   - `[product]` **`templates/CLAUDE.md §2.5`**：① 禁止自拼 `for`+管道 / 多命令 `;` 串做大检索 / 大输出（一律受控 `Grep`/`Glob` 单命令）——这是传话线抽风的首要触发器；② **红线·脏数据上不拍板**——返回现重影 / 命中 0 与预期矛盾 / 不认识文件名 / `__unparsedToolInput` 时禁止直接下结论或改盘，先 `wc -c`/`git status`/受控 `Grep` 二次验真（口诀"dry-run 报的 N 处 ≠ 已改 N 处"——调查中母对话正因误信 dry-run 数字而把"已改 81 处"传错）。
   - `[product]` **`templates/CLAUDE.md §9.5`**：① 新增第三条红线——评估 / 咨询 / 可行性类问（"能不能 / 有没有 / 该不该"只要结论的诊断问）答完即收口，**禁止**主动把建议包装成 `AskUserQuestion` 执行菜单（要不要执行由用户下一条 prompt 决定）；同时收窄原第一分支为"已表达执行意图、但范围模糊"的需求——堵住本次跑偏的真门（评估被悄悄递成执行菜单、用户顺手点选）；② `AskUserQuestion` 选项 / 入参必须短、纯文本、避免大段中文（长中文→`\u` 长串是 `__unparsedToolInput` 转义炸的直接诱因）。
-  - `[meta]` **`docs/design-rationale.md §7`**：记一条 focus 对"点击背书的 scope 升级"结构性盲区的"按设计不修"指针（focus 是 `UserPromptSubmit` hook 抓不到"点击选项"那一跳、且重武装重蹈 v0.28.2 覆辙），改由 medium baseline + §9.5 红线 + `/focus` 被动入口三层兜底——作为后人不再重提此议的指针。
+  - `[meta]` **`doc/3_design/design-rationale.md §7`**：记一条 focus 对"点击背书的 scope 升级"结构性盲区的"按设计不修"指针（focus 是 `UserPromptSubmit` hook 抓不到"点击选项"那一跳、且重武装重蹈 v0.28.2 覆辙），改由 medium baseline + §9.5 红线 + `/focus` 被动入口三层兜底——作为后人不再重提此议的指针。
   - 背景：病根（Opus 4.8 答完不收口 / 思考空转）不在本轮范围，已由 `[0.31.0]` effort 治理（`medium` baseline）接管；本轮只补 medium 够不着的"工具传话抽风"与"clarify 把评估推成执行"两条具体路径。调查 + 辩论存档见 `.runtime/spinoff/live-offtrack-FINDINGS.md`。
 
 ## [0.31.0] - 2026-06-26
@@ -359,7 +364,7 @@
   - **`skills/find-doc/SKILL.md` 170 → 97**（高频自动调用 skill，注入成本最高）：Step 3 输出模板 + Step 4 映射 SOP 外置到 `references/{output-format,map-reminder-sop}.md`（仿 summary/deep-steps 范本，命中时才 Read）；Step 4 三条禁止护栏随外置文件原样搬运并标注"不可丢"。repo 源与 `~/.claude/skills/find-doc/` 部署副本逐字一致（dogfood）。
   - **`templates/rules/` 三件就地压缩**：`workflow.md` 243→213（§9 版本号 SemVer 通识教程 + commit 举例压缩，保留 bump 红线 + §9.7 禁止 + §9.8 hook 兜底）；`portability.md` 244→192（§4 三语言包安装"正确❌错误✅"对照大块压成各一行最小命令，红线全留）；`meta_rule_design.md` 227→206（§3 的 >20 行教学示例压成 ≤10 行骨架——消除"自打脸"：正撞它自己 §7「>20 行示例搬 doc」红线；§5 量化阈值等地基判据一字未动）。
   - **背景**：本轮溯源发现"每次敲长 skill/常驻长文档把 context 顶过 auto-compact 阈值"是高频痛点的帮凶（见 `[0.29.2]` summary 瘦身）。第二类「跨文件红线去重」因涉及"红线放常驻层还是触发层"的护栏覆盖权衡，单独走 debate（见下条）。
-- `[product]` **第二类跨文件红线去重——doc 分层组落地（debate 驱动，鬼打墙组暂缓）**。两轮 debate（`docs/debates_2026-06-25_redline-placement.md`）的核心结论：三个诊断 agent 报的"红线重复"实为**骨架（粗粒度红线）+ 细节（场景操作）的分工**，meta_rule §4.3 禁的是「逐字复制正文→漂移」而非分工式共存。切分判据：**「这条约束在不触发该 rule 的轮次也可能被违反吗？是→红线骨架常驻 CLAUDE.md / 否→场景细节沉触发层」**，红线断言一律不降为纯 pointer。
+- `[product]` **第二类跨文件红线去重——doc 分层组落地（debate 驱动，鬼打墙组暂缓）**。两轮 debate（`doc/4_archive/debates_2026-06-25_redline-placement.md`）的核心结论：三个诊断 agent 报的"红线重复"实为**骨架（粗粒度红线）+ 细节（场景操作）的分工**，meta_rule §4.3 禁的是「逐字复制正文→漂移」而非分工式共存。切分判据：**「这条约束在不触发该 rule 的轮次也可能被违反吗？是→红线骨架常驻 CLAUDE.md / 否→场景细节沉触发层」**，红线断言一律不降为纯 pointer。
   - **doc 分层组**：`CLAUDE.md §11` 259→251——保留红线骨架（六层目录树 + 5 条禁止/强制 + 立场句），删「为什么是红线」3 段论述（Why 正文改向触发层）。`workflow.md §5.5` 213→210——删与 §11 逐字重叠的「强制项表」正文（消除双份漂移），改承接 Why 正文 + 操作细节，顶部加"红线条文见 §11"指针。常驻层留断言、触发层留 Why+操作，无逐字重叠。
   - **鬼打墙组暂缓**：debate 暴露 `CLAUDE.md §8`(连续 3 次/第 4 次硬停) 与 `debugging.md §6 T1`(≥2 次升级) **阈值冲突**。统一阈值=改变 agent 行为，属行为变更，**不混进"只省体积不改效力"的瘦身**；用户选"不修改"。该组整组去重（删近义句+加 pointer）与阈值统一打包待单独决策，记入 memory `ghost-wall-threshold-conflict`。
   - 注：CLAUDE.md 当前 251 行仍超 `meta_rule §5` 的 ≤200 软红线，但剩余超额主要在 §8 鬼打墙（暂缓组），且 debate 判定"宁可超 200 也不误伤红线骨架"——降回 200 待鬼打墙组决策时一并完成。
@@ -375,7 +380,7 @@
 ## [0.29.1] - 2026-06-25
 
 ### Added
-- `[product]` **`memory_junction_check.py` 加 UTF-8 Mode 承重柱自检 `_utf8_mode_guard()`**（`templates/hooks/` + 自身 `.claude/hooks/` 双份 dogfood）— SessionStart 时查 `sys.flags.utf8_mode`（**事实**，不被文件顶部 `stdout.reconfigure` 掩盖），仅 OFF 时打**一行纯 ASCII** 告警提示补 `env.PYTHONUTF8=1`，稳态静默。守的是唯一承重柱（PYTHONUTF8 是否生效），**不**巡逻与之功能重叠的 per-hook `reconfigure`。背景：中文 hook 输出在 GBK Windows 上糊成 U+FFFD 注入 context、曾高频致 agent 跑偏（8.5 万字符 / 横跨所有下游；根因 + 调查 + 反过度加固决策见 memory `utf8-garble-rootcause` + `docs/debates_2026-06-25_encoding-fix-scope.md`）。
+- `[product]` **`memory_junction_check.py` 加 UTF-8 Mode 承重柱自检 `_utf8_mode_guard()`**（`templates/hooks/` + 自身 `.claude/hooks/` 双份 dogfood）— SessionStart 时查 `sys.flags.utf8_mode`（**事实**，不被文件顶部 `stdout.reconfigure` 掩盖），仅 OFF 时打**一行纯 ASCII** 告警提示补 `env.PYTHONUTF8=1`，稳态静默。守的是唯一承重柱（PYTHONUTF8 是否生效），**不**巡逻与之功能重叠的 per-hook `reconfigure`。背景：中文 hook 输出在 GBK Windows 上糊成 U+FFFD 注入 context、曾高频致 agent 跑偏（8.5 万字符 / 横跨所有下游；根因 + 调查 + 反过度加固决策见 memory `utf8-garble-rootcause` + `doc/4_archive/debates_2026-06-25_encoding-fix-scope.md`）。
 
 ### Changed
 - `[product]` **`templates/CLAUDE.md` §6 换机 checklist 加一行可选 git UTF-8 配置**（`core.quotepath=false` + `i18n.logOutputEncoding/commitEncoding=utf-8`）— 中文 Windows 下避免 git 中文文件名 / log 显示乱码；`.git/config` 不随 clone 走，换机需重跑。本仓库已 `--local` 应用。
@@ -387,7 +392,7 @@
 ### Changed
 - `[product][repo][meta]` **项目 / skill 更名：`setup_agent` → `bridgeforge`**：
   - **更名说明**：自本版（v0.29.0）起，本骨架库 / skill 由 `setup_agent` 更名为 `bridgeforge`（`bridge` = 作者署名，亦取"跨接"之意——把一套上游骨架跨接到每个下游项目；`forge` = 锻造工厂，对应本仓库"协作骨架工厂"的自定位）。**历史 CHANGELOG / `.claude/memory/` 等流水账保留旧名 `setup_agent` 不改写**——本注脚是唯一的更名锚点。
-  - **改了什么**：活文档 + 活代码共 252 处 `setup_agent` 字样替换为 `bridgeforge`，覆盖 README / INSTALL / SKILL.md / CLAUDE.md / docs/ 活 playbook / `skills/*/SKILL.md` / `templates/`（含 `templates/hooks/skill_sync_check.py` 的 junction 名硬编码 `~/.claude/skills/bridgeforge/` + SKILL.md 里版本戳文件名 `.bridgeforge_version`）/ 自身 `.claude/hooks/`。
+  - **改了什么**：活文档 + 活代码共 252 处 `setup_agent` 字样替换为 `bridgeforge`，覆盖 README / INSTALL / SKILL.md / CLAUDE.md / doc/ 活 playbook / `skills/*/SKILL.md` / `templates/`（含 `templates/hooks/skill_sync_check.py` 的 junction 名硬编码 `~/.claude/skills/bridgeforge/` + SKILL.md 里版本戳文件名 `.bridgeforge_version`）/ 自身 `.claude/hooks/`。
   - **接口契约变更（下游必读）**：skill 名 `/setup_agent` → `/bridgeforge`，junction 名 `~/.claude/skills/setup_agent` → `~/.claude/skills/bridgeforge`，版本戳 `.claude/.setup_agent_version` → `.claude/.bridgeforge_version`。**下游每个项目需重建 junction + 改调用习惯 + 改版本戳文件名**（正向同步红线，属 `[product]`）。
   - **故意未改**：① `memory_junction_check.py` 的两处 `setup_agent` 是讲解哈希下划线 bug 的教学例子（`bridgeforge` 同样无下划线，改了会让"本仓库正中此坑"的注释自相矛盾）→ 保留；② 历史流水账（本文件旧条目 / `.claude/memory/*` / dated docs）按"保留旧名 + 本注脚"决策不改写。
   - **大小写约定（刻意，非不一致）**：人面向用 PascalCase（GitHub repo `BridgeForge` + 本机目录 `D:\Quant\BridgeForge`），机器面向用小写（skill 命令 `/bridgeforge`、junction `~/.claude/skills/bridgeforge`、版本戳 `.bridgeforge_version`、hook 硬编码）。同"仓库 VSCode → 命令 code"惯例。文档里 clone URL / dev-dir 路径示例用 PascalCase，其余小写。
@@ -405,7 +410,7 @@
   - 单文件 `print` 块改动,零连锁(不碰 `/focus`、`/spinoff` skill、不改触发逻辑 / 存储)。下游 StratusAgent 已实测复现 + 修复后 5 项验证通过
 - `[product][meta]` **全局统一 hook/script 的 UTF-8 兜底 `except` 写法 —— 消除冗余 + 修正 v0.27.0 回归**：
   - 27 个 `.py`(templates 16 + 自用 `.claude` 11) 顶部 UTF-8 兜底块里的 `except (AttributeError, Exception):` 统一改为 `except Exception:` —— `Exception` 本就是 `AttributeError` 父类，并列纯冗余，**行为完全等价**
-  - 同步修正 `docs/repositioning-from-StratusAgent-2026-06-24.md` 里把冗余写法定为 normative 规范的表述：v0.27.0 (见下方条目) 曾把两个 hook 改成 `except Exception`，但被后续 UTF-8 批量补丁按旧规范覆盖回去 → **悄悄回归**，本次连同规范源头一并纠正
+  - 同步修正 `doc/repositioning-from-StratusAgent-2026-06-24.md` 里把冗余写法定为 normative 规范的表述：v0.27.0 (见下方条目) 曾把两个 hook 改成 `except Exception`，但被后续 UTF-8 批量补丁按旧规范覆盖回去 → **悄悄回归**，本次连同规范源头一并纠正
   - 纯 refactor，零行为变更；27 文件 `py_compile` 全过 + dogfood 双份逐字一致复验
 
 ---
@@ -448,7 +453,7 @@
 ### Changed
 - `[product]` **`templates/CLAUDE.md`** — 新增 §9.5 较大需求澄清（`[clarify]` 信号）+ §9.6 任务防漂移（`[focus]` 信号 + 漂移分类响应）两节，与 §10 ctx-budget 同范式。
 - `[product]` **`templates/rules/portability.md`** — §1 补 `effortLevel` 唯一例外红线 + Why；§3 表注更新 effortLevel 分层语义。
-- `[meta]` **`SKILL.md` 表更新**、**`docs/repositioning-from-StratusAgent-2026-06-24.md`**（C1–C10 反哺总 spec）、**`.claude/harvest-inbox.md`** 指针。
+- `[meta]` **`SKILL.md` 表更新**、**`doc/repositioning-from-StratusAgent-2026-06-24.md`**（C1–C10 反哺总 spec）、**`.claude/harvest-inbox.md`** 指针。
 
 ## [0.26.4] - 2026-06-10
 
@@ -505,7 +510,7 @@
 ## [0.25.0] - 2026-06-09
 
 ### Added
-- `[product]` **用户级 skill 漂移自检 + 退役检测（支柱 B / 开机自检，设计见 [docs/skill-distribution-gaps.md](docs/skill-distribution-gaps.md)）**：
+- `[product]` **用户级 skill 漂移自检 + 退役检测（支柱 B / 开机自检，设计见 [doc/3_design/skill-distribution-gaps.md](doc/3_design/skill-distribution-gaps.md)）**：
   - **`templates/hooks/skill_sync_check.py`（新 hook）+ dogfood `.claude/hooks/` + 两处 settings `SessionStart` 注册**：每次 session 开始比对 `~/.claude/skills/<skill>` 副本与上游源 `~/.claude/skills/setup_agent/skills/` 的内容哈希，**缺失/不一致/已退役**则打印一行 `[skill-sync]` 提示跑 `/setup_agent`。**只读不改**（补/更/删仍由 Step 0 在用户确认下做，绝不静默覆盖或删除）。自门控：本机没装 setup_agent → 静默 no-op（范式同 `target_cleanup.py`）。
   - **`RETIRED.md`（新增 repo 根墓碑名单）**：机器可读的"已退役 skill"清单（首条 `prune-memory` v0.24.0），让自检 + Step 0 认出"下架的 skill 还赖在架子上"——补「删除不传播」洞（正向同步只增不减）。
   - **`SKILL.md` Step 0 退役清理**：读 `RETIRED.md`，把仍在用户级架子上的退役 skill 列出来**问用户删**（Step 0.5 清"重复"副本的亲兄弟，本步清"退役"副本；绝不静默删）。
@@ -517,14 +522,14 @@
 - `[product]` **`SKILL.md` Step 0.5（新增）— 清理项目级通用 skill 重复副本（单一源红线）** — 通用 skill 单一源在 setup_agent（装用户级 `~/.claude/skills/`）；项目 `.claude/skills/` 里的同名副本会 shadow 单一源、各项目各自漂移。Step 0.5 对 `skills/` 清单逐个比对：DUP-IDENTICAL / 纯旧版镜像 → 删；含项目专属数据（find-doc/sync-docs 旧内联字典 → 先迁 `.map.md` 再删；其他用户定制 → 给 diff 问用户）→ **绝不静默删**。init / 更新 / 收编三模式都跑（幂等，fresh-init 空跑）。项目专属 skill（不在 `skills/` 清单里的）绝不碰。
 
 ### Changed
-- `[product]` **`skills/find-doc/SKILL.md` + `skills/sync-docs/SKILL.md` — 项目专属字典/映射表外置** — find-doc 的 `topic→rule` 字典、sync-docs 的源码→文档映射，从 skill 本体内联 placeholder 改为**读项目本地** `.claude/find-doc.map.md` / `.claude/sync-docs.map.md`。skill 本体回归纯通用单一源（怎么查），项目只维护数据文件（查什么）；这是让 find-doc/sync-docs 也能安全去重（Step 0.5）的前提。Step 4/7 收尾提醒同步改为"建/补 `.map.md`"。
+- `[product]` **`skills/find-doc/SKILL.md` + `skills/sync-doc/SKILL.md` — 项目专属字典/映射表外置** — find-doc 的 `topic→rule` 字典、sync-docs 的源码→文档映射，从 skill 本体内联 placeholder 改为**读项目本地** `.claude/find-doc.map.md` / `.claude/sync-docs.map.md`。skill 本体回归纯通用单一源（怎么查），项目只维护数据文件（查什么）；这是让 find-doc/sync-docs 也能安全去重（Step 0.5）的前提。Step 4/7 收尾提醒同步改为"建/补 `.map.md`"。
 - `[product]` **`SKILL.md` Step 0 install loop — 改 `ls` 派生（修 find-memory 漏装）** — 安装清单从硬编码 13 名改为 `ls "$SKILLS_SRC"` 派生；历史硬编码漏了 `find-memory`（仓库 ship 但从不装用户级），`ls` 派生杜绝此类漂移，且日后增删 skill 只动目录、不改这段。
 - `[product]` **`templates/rules/portability.md §2` — 记录 skills 单一源拆分** — 明确"项目专属 skill + 通用 skill 的项目数据（`.map.md`）进项目 git；通用 skill 本体**不进**项目 git，靠 `/setup_agent` 装用户级恢复"。DRY 对 clone-完整性的有意取舍。
 - `[product]` **`templates/hooks/context_warning.py` + dogfood `.claude/hooks/`** — 移植下游 (StratusAgent) 已验证的「读真实 usage」机制回灌上游：弃用 char/4 文件大小估算（受 JSONL 结构开销 UUID/时间戳/JSON 信封污染、越聊越虚高），改为从 transcript 末尾倒查最近一条 assistant 消息的 `usage`（input + cache_creation + cache_read + output），与 Claude Code `/context` 一致、精确到个位 token；缺 usage 字段（旧 session/损坏）时 fallback char/4。模板侧此前一直是老的 char/4 版，本次补齐。
 - `[product]` **`context_warning.py`** — `WINDOW` 默认值 200k → `1_000_000`（**反转 v0.23.2**）。动因：Claude Code 不向任何 hook 暴露 model-id 的 `[1m]` 窗口标记（transcript 剥后缀、project/user settings 无 model 字段、`~/.claude.json` 无激活 model、env 无 model 变量、切 model 不触发 hook、仅 SessionStart 带 model 但同样剥 `[1m]`），hook 无法自动判窗口；默认 1M 让 1M Opus 主力用户开局即准。**权衡（已知并接受）**：标准 200k 模型项目若忘记手动下调 WINDOW，会因分母过大永不预警（静默 compact 风险），实例化后须手动改回 `200_000`。
 
 ### Removed
-- `[product]` **废弃手动 MEMORY.md 治理整代：`memory_guard.py` hook + `prune-memory` skill 退役** — 删 `templates/hooks/memory_guard.py`（185 行硬阻断）+ dogfood `.claude/hooks/` + 两处 settings 注册；`prune-memory` skill 正式废弃（手动引导式裁剪）。动因：`memory_rebuild`（Stop hook 自动评分，封顶活跃 40 条 + >45 天冷区化）已把 MEMORY.md 自动控制在 ~45 条、且改由机器每轮重排 —— 185 cap 从不触发，手动 prune 成冗余。`summary` skill / `docs/memory-scoring-design.md` 内 `/prune-memory` 引用一并清理。**下游**：已装项目若有 `memory_guard.py` / `prune-memory/`，需手动删（update 模式暂不自动删"上游已移除"的文件）。
+- `[product]` **废弃手动 MEMORY.md 治理整代：`memory_guard.py` hook + `prune-memory` skill 退役** — 删 `templates/hooks/memory_guard.py`（185 行硬阻断）+ dogfood `.claude/hooks/` + 两处 settings 注册；`prune-memory` skill 正式废弃（手动引导式裁剪）。动因：`memory_rebuild`（Stop hook 自动评分，封顶活跃 40 条 + >45 天冷区化）已把 MEMORY.md 自动控制在 ~45 条、且改由机器每轮重排 —— 185 cap 从不触发，手动 prune 成冗余。`summary` skill / `doc/3_design/memory-scoring-design.md` 内 `/prune-memory` 引用一并清理。**下游**：已装项目若有 `memory_guard.py` / `prune-memory/`，需手动删（update 模式暂不自动删"上游已移除"的文件）。
 
 ## [0.25.0] - 2026-06-05
 
@@ -535,7 +540,7 @@
 
 ### Added
 - `[product]` **`templates/scripts/memory_bootstrap_cold.py`（新脚本）** — 冷启动一次性引导：把从未被 recall（`session_dates` 为空）的 memory 的 `created_at` 拨到数周前，使其立即沉入 Cold 区，让 Hot 区在首次铺设/重置后立刻收敛成"近期 recall 过的"，跳过约 1-2 周自愈期；只动空 `session_dates` 文件（`created_at` 对已 recall 文件是死字段，绝对安全）。来源 StratusAgent harvest
-- `[meta]` **`docs/memory-scoring-design.md`** — 加「冷启动 / 首次激活」节：首次重建覆盖手工 MEMORY.md 的备份提醒 + Hot 区头 1-2 周随机的成因 + bootstrap 引导 + 安全不变量
+- `[meta]` **`doc/3_design/memory-scoring-design.md`** — 加「冷启动 / 首次激活」节：首次重建覆盖手工 MEMORY.md 的备份提醒 + Hot 区头 1-2 周随机的成因 + bootstrap 引导 + 安全不变量
 
 ## [0.23.2] - 2026-06-03
 
@@ -550,7 +555,7 @@
 ## [0.23.0] - 2026-06-03
 
 ### Added
-- `[meta]` **`docs/memory-scoring-design.md`（新文档）** — Memory 热度评分系统完整设计规范（艾宾浩斯衰减公式 + 五组件架构 + 决策记录），来源 2026-06-03 双轮 debate
+- `[meta]` **`doc/3_design/memory-scoring-design.md`（新文档）** — Memory 热度评分系统完整设计规范（艾宾浩斯衰减公式 + 五组件架构 + 决策记录），来源 2026-06-03 双轮 debate
 - `[product]` **`templates/hooks/memory_access_tracker.py`（新 hook）** — PostToolUse/Read：检测 memory 文件访问，快速预过滤后写入 `_stats.json` 唯一日期，防突发读取污染
 - `[product]` **`templates/hooks/session_snapshot.py`** — Stop 末尾追加调用 `memory_rebuild_index.py`（`_rebuild_memory_index()`），闭合触发链路
 - `[product]` **`templates/scripts/memory_rebuild_index.py`（新脚本）** — 按艾宾浩斯衰减分重建 MEMORY.md 热区 + MEMORY_COLD.md 冷区；Stop hook 末尾调用
@@ -605,7 +610,7 @@
   - `templates/settings.json` PreToolUse 注册该 hook（matcher `Write|Edit|MultiEdit|NotebookEdit`）
   - **改完须开新会话生效**（hook 不热重载）。详见下游 memory `feedback_claude_dir_protected_memory_write_hook`
 - `[repo]` **dogfood：上面两个产品层 hook 当场镜像进自身 `.claude/`**。`allow_memory_write.py` + `target_cleanup.py` 复制进 `.claude/hooks/`，`.claude/settings.json` 注册（命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。`allow_memory_write` 对 setup_agent 自己的 `.claude/memory/` 实有收益；`target_cleanup` 非 Rust 永远自门控 no-op，挂着 = 持续验证「无 Cargo.toml 静默跳过」这条产品承诺。已实测：JSON 合法、target dry-run 正确跳过、memory `.md` 放行 / 非 memory 不干预
-- `[repo][meta]` **「传播三问」升级为「传播四问」**：新增第 4 问——产品层 hook/settings 改动必须当场镜像进自身 `.claude/` 吃狗粮（红线）。本次正是漏了这一环才补立。同步更新 `CLAUDE.md §1`/§2/§4、`docs/design-rationale.md §9.1`/§9.3 的措辞
+- `[repo][meta]` **「传播三问」升级为「传播四问」**：新增第 4 问——产品层 hook/settings 改动必须当场镜像进自身 `.claude/` 吃狗粮（红线）。本次正是漏了这一环才补立。同步更新 `CLAUDE.md §1`/§2/§4、`doc/3_design/design-rationale.md §9.1`/§9.3 的措辞
 
 ## [0.18.1] - 2026-05-29
 
@@ -644,8 +649,8 @@
   - `skills/harvest/SKILL.md` **新建**（第 13 个通用 skill）：推送侧。无参=读下游 `.claude/harvest-inbox.md` 批量清；带描述=立即单条快车道。两入口汇进同一套脱敏 harvest 仪式（判通用性 → §3 七项脱敏 → 写 `templates/` → bump+CHANGELOG → 记日志 → 回收收件箱 → 给 diff 不自动 push）
   - `skills/summary/SKILL.md` 新增**第 6 步「反哺候选捕捉」**：summary 顺手判"本轮经验是否通用"，通用的追加一行进 `.claude/harvest-inbox.md`（收件箱）。捕捉是 summary 副产品，零新纪律
   - `SKILL.md` Step 0 自检循环加入 `harvest`（12→13 个 skill），各处计数 + 速查表 + 模板速查表同步
-- `[meta]` `docs/reverse-sync-playbook.md` §1 触发时机重写：标注 v0.16.0 起捕捉/推送分离；触发从"凭感觉≥3条"升级为"收件箱≥3行（可数）"+ `/harvest <描述>` 快车道；强调"两个入口一个仪式"不分叉
-- `[meta]` `docs/design-rationale.md` §7「不做什么」新增"**不监督下游合规**（不做 doctor / fleet）"——记录单项目体检 + 多项目合规盘探讨后**否决**的决定与理由（出版方非监管方 / 合理例外噪音 / 要可信须 PULL 而非 PUSH 自报 / junction 隐患已被开机自检覆盖），防止将来重提。与 §9.3"镜像漂移检查 hook"（工厂自查）区分
+- `[meta]` `doc/3_design/reverse-sync-playbook.md` §1 触发时机重写：标注 v0.16.0 起捕捉/推送分离；触发从"凭感觉≥3条"升级为"收件箱≥3行（可数）"+ `/harvest <描述>` 快车道；强调"两个入口一个仪式"不分叉
+- `[meta]` `doc/3_design/design-rationale.md` §7「不做什么」新增"**不监督下游合规**（不做 doctor / fleet）"——记录单项目体检 + 多项目合规盘探讨后**否决**的决定与理由（出版方非监管方 / 合理例外噪音 / 要可信须 PULL 而非 PUSH 自报 / junction 隐患已被开机自检覆盖），防止将来重提。与 §9.3"镜像漂移检查 hook"（工厂自查）区分
 
 ### Note
 - **设计要点**：反哺真正的痛点不是"推送"（推送必须人工脱敏，公开 repo 不能自动化），而是"等盘点时已忘了学过啥"。故拆分——**捕捉做到当场零成本（搭车 `/summary`），推送保持人工批量**。复用 sync-from-upstream 的"机械半场/判断半场"拆分哲学
@@ -661,7 +666,7 @@
   - `SKILL.md` 新增 **「## 收编模式 (adopt)」** 主段：无戳但像衍生的项目走"登记纳管，绝不覆盖"——写戳=当前 VERSION 作同步基线，可选补差。固化此前靠 agent 临场判断的安全路径
   - `SKILL.md` 更新模式 U1 新增 **`[product]` 短路**：`(上次, 现在]` 区间无 `[product]` 条目 → 不跑全量 diff，直接刷戳退出（CHANGELOG 标签分布实测近半 bump 与下游无关，省空跑）
   - `SKILL.md` 禁止段补"不在源头仓库自己身上跑"
-- `[meta]` `docs/design-rationale.md` §9.4「工厂自身不带版本戳——靠 `templates/` 存在性识别」：把"源头无戳"从 v0.14.0 潜在自伤正式定性为设计意图，附推论"识别项目类型优先用结构性事实而非约定标记"
+- `[meta]` `doc/3_design/design-rationale.md` §9.4「工厂自身不带版本戳——靠 `templates/` 存在性识别」：把"源头无戳"从 v0.14.0 潜在自伤正式定性为设计意图，附推论"识别项目类型优先用结构性事实而非约定标记"
 
 ### Note
 - 本批次**全是 setup_agent 自身行为（SKILL.md）+ 元文档（design-rationale）改动**，产品层 `templates/` / `skills/` 未动 → 下游无新增量（无 `[product]` 条目）。下游下次跑 `/setup_agent`（pull 到本版后）自动获得新的认场子行为，无需 per-project sync
@@ -677,7 +682,7 @@
 - `[meta]` `README.md` 使用段重构：开头新增「新项目初始化——对 agent 说这一句」自带兜底引导（没装过先 clone+junction 自举、装过直接铺），并保留「更新已有项目（重跑即更新）」说明
 
 ### Changed
-- `[meta]` `docs/sync-from-upstream-playbook.md` §6：标注机械半场已并入 `/setup_agent` 更新模式（判断半场仍人脑，不违反"别把判断错误自动化"红线）；§5 日志追加 v0.14.0 行
+- `[meta]` `doc/3_design/sync-from-upstream-playbook.md` §6：标注机械半场已并入 `/setup_agent` 更新模式（判断半场仍人脑，不违反"别把判断错误自动化"红线）；§5 日志追加 v0.14.0 行
 
 ### Note
 - **存量项目**（已装过但无版本戳，如早期下游）首次重跑 `/setup_agent` 时落到「前置」例外分支：当作 init 处理已存在文件 + 补写版本戳纳入管理
@@ -687,7 +692,7 @@
 
 ### Added
 - `[repo]` **工厂自觉前门闸**：新建 setup_agent 自己的 `CLAUDE.md`（之前缺失，自产自用只落实了 version_check 一小块）。核心是 §1「传播三问」always-on 红线——每个改动落地前必须回答 (1) 属于哪一层（产品 `templates`/`skills` vs 自身配置 `.claude` vs 元文档 `docs`/README/SKILL）(2) 通用的话镜像进 `templates/` 了吗 (3) 要不要 bump + 记 CHANGELOG。附 §2 分层地图 + §3 CHANGELOG 层标签约定 + §4 传播机制指引
-- `[meta]` `docs/design-rationale.md` §9「setup_agent 的双重身份：工厂 + 自产自用」：固化 framing（工厂 vs 样板间两个身份）+ §9.1 前门闸 + §9.2 CHANGELOG 层标签为何能让下游有抓手 + §9.3 演进节奏（软规则先跑顺再升级为「镜像漂移检查 hook」机制）
+- `[meta]` `doc/3_design/design-rationale.md` §9「setup_agent 的双重身份：工厂 + 自产自用」：固化 framing（工厂 vs 样板间两个身份）+ §9.1 前门闸 + §9.2 CHANGELOG 层标签为何能让下游有抓手 + §9.3 演进节奏（软规则先跑顺再升级为「镜像漂移检查 hook」机制）
 
 ### Changed
 - `[meta]` `CHANGELOG.md` 顶部图例新增「层标签」说明（`[product]`/`[repo]`/`[meta]`），本版起所有 entry 打标签，下游 `grep "\[product\]"` 即得 sync 增量清单
@@ -752,7 +757,7 @@
 - `SKILL.md` Step 3：新增"版本号 SoT 条件复制"段（检测 `package.json` / `Cargo.toml` / `pyproject.toml` → 跳过 VERSION 避免双 SoT；CHANGELOG.md 仍统一复制）
 - `SKILL.md` Step 3 复制清单 + 模板速查表：新增 VERSION / CHANGELOG.md 两行
 - `README.md` 新增"未反哺的上游 hook（为什么不在 templates 里）"段，明列 `cargo_check.py` 等语言/业务专属 hook 不反哺的判断标准
-- `docs/reverse-sync-playbook.md` 新增 §3.1 实战记录（v0.6.0 / v0.7.0 / v0.8.0 三次反哺的 checklist 实例化）+ §3.2 元规则（含"禁止虚构踩坑故事"红线）
+- `doc/3_design/reverse-sync-playbook.md` 新增 §3.1 实战记录（v0.6.0 / v0.7.0 / v0.8.0 三次反哺的 checklist 实例化）+ §3.2 元规则（含"禁止虚构踩坑故事"红线）
 
 ### Fixed
 - 自打脸 v2：v0.8.0 给 setup_agent 自己装了版本号但**没下沉到 templates**，下游项目装完 `/setup_agent` 仍然没有版本号机制 → 本版闭环
@@ -774,11 +779,11 @@
 - 反哺 5 个通用 hook：`memory_lint.py` / `rule_index_check.py` / `rule_size_check.py` / `find_doc_reminder.py` / `show_state.py`（脱敏简化版）
 - `templates/settings.json` 扩展到 6 类 hook 注册段（PreToolUse / PostToolUse / PostCompact / Stop / UserPromptSubmit / SessionStart）
 - `templates/rules/modules.md §3.1 §3.2` 从 causis_risk_suite 反哺（协调中枢三块分层 + 提炼共享常量三件套）
-- `docs/sync-from-upstream-playbook.md`（与 reverse-sync-playbook 互为镜像，按业务专属程度分 4 层决定覆盖策略）
+- `doc/3_design/sync-from-upstream-playbook.md`（与 reverse-sync-playbook 互为镜像，按业务专属程度分 4 层决定覆盖策略）
 
 ### Changed
 - `SKILL.md` Step 3 改造：加 Python hook 体系条件复制（基于 Q2 主语言）+ 无 `.venv` fallback + 非 Python 项目跳过说明
-- `docs/reverse-sync-playbook.md §7` 改为引用新 sync-from-upstream playbook 的精简版
+- `doc/3_design/reverse-sync-playbook.md §7` 改为引用新 sync-from-upstream playbook 的精简版
 
 ## [0.6.0] - 2026-05-24（追溯，commit 9cfa7ae）
 
@@ -787,7 +792,7 @@
 - `templates/scripts/archive_scan.py`（通用版直接 cp）
 - `templates/settings.json` 加 PostCompact + Stop hook 注册
 - `README.md` "Python 依赖（agent 安装前必读）"段
-- `docs/reverse-sync-playbook.md §4` 白名单扩展（加 `templates/hooks/` + `templates/scripts/`）
+- `doc/3_design/reverse-sync-playbook.md §4` 白名单扩展（加 `templates/hooks/` + `templates/scripts/`）
 - `skills/find-doc` + `skills/sync-docs` SKILL.md 末尾加 placeholder 检测与提醒段
 
 ## [0.5.0] - 2026-05-24（追溯，commit d73ea5a）

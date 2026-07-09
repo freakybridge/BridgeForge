@@ -1,8 +1,10 @@
-# BridgeForge Feature Documents
+# BridgeForge Documents
 
-This `doc/` tree tracks active feature requirements and verification records created by `feature-dev`.
+This `doc/` tree is the only documentation system for BridgeForge. It tracks active feature work, long-lived design and playbook material, pending investigations, archived records, and reference examples.
 
 ## Index
+
+### Active Plans
 
 | Path | Status | Purpose |
 |------|--------|---------|
@@ -11,3 +13,51 @@ This `doc/` tree tracks active feature requirements and verification records cre
 | `1_plan/codex-harness-parity/requirements_2026-07-08_codex-harness-parity.md` | trial | Align Codex harness with Claude harness, fix migration residue, and add a parity report before git-sync. |
 | `1_plan/codex-harness-parity/compatibility_closure_2026-07-08.md` | review | Closed-loop compatibility audit for Claude-to-Codex hooks, rules, scripts, skills, and memory migration. |
 | `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
+| `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
+
+### Pending
+
+| Path | Status | Purpose |
+|------|--------|---------|
+| `2_pending/2026-07-09_switch_codex_left_claude_live_dir_report.md` | pending | Investigation report for leftover Claude live directory behavior after switching to Codex. |
+
+### Design And Playbooks
+
+| Path | Purpose |
+|------|---------|
+| `3_design/antifabrication-framework.md` | Anti-fabrication framework and reference hook design. |
+| `3_design/codex-harness-parity.md` | Generated Claude/Codex harness parity report. |
+| `3_design/design-rationale.md` | BridgeForge architecture and design rationale. |
+| `3_design/harness-engineering-design.md` | Harness engineering design. |
+| `3_design/harness-impl-plan.md` | Harness implementation plan. |
+| `3_design/memory-scoring-design.md` | Memory scoring and deterministic indexing design. |
+| `3_design/reverse-sync-playbook.md` | Downstream-to-upstream harvest playbook. |
+| `3_design/skill-distribution-gaps.md` | Skill distribution and drift design notes. |
+| `3_design/sync-from-upstream-playbook.md` | Upstream-to-downstream sync playbook. |
+
+### Archive
+
+| Path | Purpose |
+|------|---------|
+| `4_archive/audit_handoff_2026-06-27_debate-collab-rewrite.md` | Historical audit handoff for debate/collab rewrite. |
+| `4_archive/codex_agents_dir_cleanup_investigation_2026-07-06.md` | Historical investigation for Codex `.agents` cleanup behavior. |
+| `4_archive/debates_2026-06-25_encoding-fix-scope.md` | Historical debate on encoding fix scope. |
+| `4_archive/debates_2026-06-25_harness-drift.md` | Historical debate on harness drift. |
+| `4_archive/debates_2026-06-25_redline-placement.md` | Historical debate on redline placement. |
+| `4_archive/debates_2026-06-27_memory-untrack.md` | Historical debate on memory tracking and deterministic indexing. |
+| `4_archive/handoff_2026-06-30_antifabrication-playbook.md` | Historical anti-fabrication playbook handoff. |
+| `4_archive/handoff_2026-06-30_antifabrication-playbook_addendum.md` | Historical anti-fabrication playbook addendum. |
+| `4_archive/handoff_2026-06-30_antifabrication-playbook_consensus.md` | Historical anti-fabrication playbook consensus. |
+| `4_archive/handoff_2026-06-30_stall-vs-fabrication.md` | Historical stall-versus-fabrication handoff. |
+| `4_archive/调查报告_AB对话_空转与幻觉_2026-07-01.md` | Historical investigation report for idle-loop and fabrication behavior. |
+| `4_archive/调查报告_BOM-no-BOM统一策略与模板污染修复_2026-07-08.md` | Historical investigation report for BOM/no-BOM policy and template contamination. |
+| `4_archive/调查报告_bridgeforge-switch-codex-强保护无交互确认_2026-07-07.md` | Historical investigation report for switch-codex strong protection without interactive confirmation. |
+| `4_archive/调查报告_codex-bridgeforge-slash入口不可见_2026-07-07.md` | Historical investigation report for invisible Codex slash entry. |
+| `4_archive/调查报告_codex-pre-commit-BOM导致spawn失败_2026-07-07.md` | Historical investigation report for Codex pre-commit BOM spawn failure. |
+| `4_archive/调查报告_rule-index-check-HTML注释误判_2026-07-02.md` | Historical investigation report for rule-index HTML comment false positive. |
+
+### Reference
+
+| Path | Purpose |
+|------|---------|
+| `9_reference/examples/antifab-deny-hook.py` | Reference implementation for the anti-fabrication deny hook. |

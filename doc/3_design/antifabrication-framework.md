@@ -28,7 +28,7 @@
 - **最便宜**（0 代码，纯文字红线）、**最高即时收益**（立刻拿走事故里最伤人的「嫁祸+编造」那段）。
 - **零误伤**（不阻断任何工具）→ 唯一够格进 `templates/`「clone 即复印全下游 + 必须 dogfood」强制层的。
 
-条文本身见 rule 文件，本文不重抄（单一事实源）。三个 hook（C1/C2/Stop）各自栽在不同一条上，**都不进 `templates/hooks/`**，设计留本文 + `docs/examples/`，下游撞上痛点再自取落地。下面逐个记决策。
+条文本身见 rule 文件，本文不重抄（单一事实源）。三个 hook（C1/C2/Stop）各自栽在不同一条上，**都不进 `templates/hooks/`**，设计留本文 + `doc/9_reference/examples/`，下游撞上痛点再自取落地。下面逐个记决策。
 
 ---
 
@@ -57,7 +57,7 @@
 3. **dogfood 先伤自己**：bridgeforge 日常高频 touch-before-write、读未创建的 `templates/**` 占位，正命中 C1 的「读取意图明确 ∧ 路径可解析 ∧ 确证不存在」——active-by-default 会先在上游开发流误伤。
 4. **休眠代码也复印全下游**：「填俩配置就激活」是危险开关，邀请不理解误伤风险的下游打开 = 维护负担 + 误启用风险，两头不讨好（与 Stop hook 同标准）。
 
-→ **出厂态**：四-gate 判定逻辑做成宿主无关的参考脚本放 [`docs/examples/antifab-deny-hook.py`](examples/antifab-deny-hook.py)，下游真有「幻觉读文件」痛点、又愿填 hint，再照着落地。常驻 rule 的口诀里挂指针导向它，避免「记得去上游翻」的发现性缺口。
+→ **出厂态**：四-gate 判定逻辑做成宿主无关的参考脚本放 [`doc/9_reference/examples/antifab-deny-hook.py`](examples/antifab-deny-hook.py)，下游真有「幻觉读文件」痛点、又愿填 hint，再照着落地。常驻 rule 的口诀里挂指针导向它，避免「记得去上游翻」的发现性缺口。
 
 ---
 

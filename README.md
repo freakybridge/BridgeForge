@@ -54,7 +54,7 @@ hook 体系是 bridgeforge 区别于"纯文档脚手架"的核心价值——尤
 
 ## 未反哺的上游 hook（为什么不在 templates 里）
 
-bridgeforge 反哺工作流（详见 `docs/reverse-sync-playbook.md`）会定期从下游项目（StratusAgent / causis_risk_suite）拉新通用范式回 templates。但**不是所有上游 hook 都会反哺** — 以下类别**故意不反哺**：
+bridgeforge 反哺工作流（详见 `doc/3_design/reverse-sync-playbook.md`）会定期从下游项目（StratusAgent / causis_risk_suite）拉新通用范式回 templates。但**不是所有上游 hook 都会反哺** — 以下类别**故意不反哺**：
 
 | 未反哺 hook | 来源 | 为什么不反哺 |
 |------------|------|--------------|
@@ -153,7 +153,7 @@ Copy-Item "$env:USERPROFILE\.bridgeforge\scripts\claude_bridgeforge_entry.SKILL.
 2. 读项目里的 agent 版本戳（Claude `.claude/.bridgeforge_version`；Codex `.codex/.bridgeforge_version`），对比上游 `CHANGELOG.md` 的 `[product]` 条目，给你一份"上游这些更新冲着下游来"的增量清单；
 3. 按业务专属程度分类处理：hooks/scripts 一致就覆盖、settings.json merge、**rules/入口文件（CLAUDE.md 或 AGENTS.md）只 diff 让你逐段定**、memory/doc 碰都不碰。
 
-判断半场（rules/入口文件吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [docs/sync-from-upstream-playbook.md](docs/sync-from-upstream-playbook.md)。
+判断半场（rules/入口文件吸收哪段）全程交你——skill 只做拉取/diff/分类/呈现的机械活。详见 [doc/3_design/sync-from-upstream-playbook.md](doc/3_design/sync-from-upstream-playbook.md)。
 
 如果项目已有 `AGENTS.md` / `CLAUDE.md` 或 agent 配置目录，但没有 BridgeForge 版本戳，`/bridgeforge` 会先判定它像不像旧 BridgeForge 骨架：像旧骨架就走"收编"并登记纳管；不像旧骨架就按"既有项目首次接入"处理，保留现有内容并在入口文件、rules、settings、memory、doc 有冲突时先问用户。
 
@@ -198,13 +198,13 @@ bridgeforge/
 │   ├── bridgeforge_switch.py   ← bridgeforge switch <agent> 核心切换逻辑
 │   ├── setup-junction.ps1      ← Windows: New-Item -ItemType Junction
 │   └── setup-junction.sh       ← macOS/Linux: ln -s
-└── docs/
+└── doc/
     └── design-rationale.md     ← 为什么这样分层（设计说明）
 ```
 
 ## 设计原则
 
-完整论述见 [docs/design-rationale.md](docs/design-rationale.md)。核心：
+完整论述见 [doc/3_design/design-rationale.md](doc/3_design/design-rationale.md)。核心：
 
 1. **rules vs memory 分工**
    - rules：架构约束/红线/范式（"必须 / 禁止"），少且稳定

@@ -42,7 +42,6 @@ ROOTS = (
     ".githooks",
     ".claude",
     ".codex",
-    "docs",
     "doc",
     "README.md",
     "INSTALL.md",

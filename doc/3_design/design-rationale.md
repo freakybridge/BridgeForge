@@ -124,7 +124,7 @@ bridgeforge 故意**不做**这些事，留给项目自己决定：
 >
 > **结论**：框架的杠杆在"**发布**好默认 + 把改进**推**出去"，不在"**监管**谁照没照做"。这与本节其余各条（不强制、留给项目自决）一脉相承。
 >
-> 注：`docs/design-rationale.md §9.3` 的"镜像漂移检查 hook"是**工厂自查样板间**（bridgeforge 自己的 `.claude/hooks` vs `templates/hooks` 一致性），与"监督下游"是两回事，不受本决定影响。
+> 注：`doc/3_design/design-rationale.md §9.3` 的"镜像漂移检查 hook"是**工厂自查样板间**（bridgeforge 自己的 `.claude/hooks` vs `templates/hooks` 一致性），与"监督下游"是两回事，不受本决定影响。
 
 > **关于 focus 对"点击背书的 scope 升级"结构性盲区（2026-06-26 跑偏调查后否决重武装 focus）**
 >

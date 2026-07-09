@@ -24,7 +24,7 @@
 
 ## parity 当前结果
 
-`docs/codex-harness-parity.md` 当前状态：
+`doc/3_design/codex-harness-parity.md` 当前状态：
 
 - 状态：`OK`
 - Claude 有但 Codex 缺失：0

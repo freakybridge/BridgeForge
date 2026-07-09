@@ -312,7 +312,7 @@ python scripts/bridgeforge_switch.py codex --interactive
 
 如果增加交互/收编模式，需要同步更新：
 
-- `docs/sync-from-upstream-playbook.md` 或新增 switch 故障处理小节；
+- `doc/3_design/sync-from-upstream-playbook.md` 或新增 switch 故障处理小节；
 - `templates/*/AGENTS.md` 中 `/bridgeforge switch` 的用户预期说明；
 - 对下游迁移过程补一条“中间态处理”说明。
 

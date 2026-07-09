@@ -18,6 +18,6 @@
 >
 > **范围**：本清单只管**用户级 skill**。退役的 **hook**（如 `memory_guard.py`，活在下游
 > 项目 `.claude/hooks/` + 项目 settings 注册里）是项目级、需另一套机制，暂仍靠手动删
-> （见 CHANGELOG v0.24.0 Removed 条 + `docs/skill-distribution-gaps.md` 支柱 B 待办）。
+> （见 CHANGELOG v0.24.0 Removed 条 + `doc/3_design/skill-distribution-gaps.md` 支柱 B 待办）。
 
 - prune-memory | v0.24.0 | 2026-06-09 | 手动 MEMORY.md 治理整代废弃，改由 memory_rebuild 自动评分（封顶活跃 40 + >45 天冷区化）

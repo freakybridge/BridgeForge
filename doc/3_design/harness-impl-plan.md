@@ -6,13 +6,13 @@
 
 # BridgeForge Harness 九维方案 · 实施开发计划（供实施 agent 直接照做）
 
-> 依据：`docs/harness-engineering-design.md`（v1，已融 verify 修正 + 对抗批评 11 项）。本计划把设计文档的 §4 路线图落成可逐条施工的工单，verify 打回/降级项已按结论修正后呈现，不含带病原稿。
+> 依据：`doc/3_design/harness-engineering-design.md`（v1，已融 verify 修正 + 对抗批评 11 项）。本计划把设计文档的 §4 路线图落成可逐条施工的工单，verify 打回/降级项已按结论修正后呈现，不含带病原稿。
 
 ---
 
 ## 【使用说明】给实施 agent 的话
 
-1. **先读设计**：动手前 **Read `d:/Quant/BridgeForge/docs/harness-engineering-design.md`** 拿全上下文（尤其 §1 各维落地机制、§2 全局机制清单、§5 残余风险、§6 修订记录）。本计划是施工序，设计文档是判据源，冲突以设计文档为准。
+1. **先读设计**：动手前 **Read `d:/Quant/BridgeForge/doc/3_design/harness-engineering-design.md`** 拿全上下文（尤其 §1 各维落地机制、§2 全局机制清单、§5 残余风险、§6 修订记录）。本计划是施工序，设计文档是判据源，冲突以设计文档为准。
 2. **严守 dogfood 镜像红线（CLAUDE §1 第 4 问）**：凡改 `templates/hooks/` 或 `templates/settings.json`，**当场镜像进自身 `.claude/`**。命令前缀：`templates/` 用 `.venv/Scripts/python.exe`，自身 `.claude/settings.json` 用系统 `python`（dev 仓无 `.venv`）。对 bridgeforge 恒 no-op 的闸也要挂上（自门控 no-op = 持续验证产品承诺）。
 3. **不 commit / 不 push**：只改文件，改完停下交还用户。提交与同步由用户亲自运行。
 4. **逐工单自验再进下一个**：每完成一个工单，按该工单 **acceptance** 自验通过后才推进；不满足就修，别带病往下堆。
@@ -289,9 +289,9 @@
 ---
 
 相关文件锚点（全绝对路径）：
-- 设计源（先读）：`d:/Quant/BridgeForge/docs/harness-engineering-design.md`
+- 设计源（先读）：`d:/Quant/BridgeForge/doc/3_design/harness-engineering-design.md`
 - 权威偏好：`d:/Quant/BridgeForge/.claude/memory/harness-preferences.md`
-- 既有框架：`d:/Quant/BridgeForge/docs/antifabrication-framework.md`
+- 既有框架：`d:/Quant/BridgeForge/doc/3_design/antifabrication-framework.md`
 - pre-commit 底座：`d:/Quant/BridgeForge/.githooks/pre-commit`、`d:/Quant/BridgeForge/templates/.githooks/pre-commit`
 - 待镜像补齐（P0-1）：`d:/Quant/BridgeForge/.claude/hooks/`（缺 show_state.py / rule_index_check.py / memory_lint.py / find_doc_reminder.py）
 - 复用骨架：`templates/hooks/context_warning.py`（stall）、`requirements_check.py`（fallback_smell）、`skill_sync_check.py`（mirror_drift 的 dir_content_hash）、`version_check.py`（exit2+skip 逃生舱范式）、`show_state.py`（snapshot 提示已实现）

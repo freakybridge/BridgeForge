@@ -47,7 +47,7 @@
 | 2 | **C1 四-gate `deny` hook 骨架**（治 L4，确证不存在则硬拦 + 投喂真实源） | PreToolUse hook + 空配置槽 | `templates/hooks/<新增>.py` + `templates/settings.json` 注册 matcher | 待落 |
 | 3 | **C2 超时哨兵 + 降级提示骨架**（治 L1 诱因） | hook（包一层 / PostToolUse）+ 固定降级措辞 | `templates/hooks/<新增>.py` | 待落 |
 | 4 | **Stop hook 甩锅自检**（实验性 C3 硬化，机检纯文字嫁祸） | Stop hook（事后扫输出 + `block` 打回） | `templates/hooks/`（标实验性，**待用户决断是否上**——检测难、需 LLM judge、成本高） | **待决** |
-| 5 | **四层纵深框架 + 切分判据**（方法论） | 设计文档 | bridgeforge `docs/`（如 `design-rationale.md` 补一节，或独立 `antifabrication-framework.md`） | 待落 |
+| 5 | **四层纵深框架 + 切分判据**（方法论） | 设计文档 | bridgeforge `doc/`（如 `design-rationale.md` 补一节，或独立 `antifabrication-framework.md`） | 待落 |
 
 **强制配套**（bridgeforge 红线，见其 CLAUDE.md）：
 - 凡改 `templates/hooks/` 或 `templates/settings.json` → 必须同步 **dogfood 镜像**（bridgeforge 自己的 `.claude/hooks/`）保持一致。
@@ -90,7 +90,7 @@
 
 ## 7. 通用打法完整正文（可逐字搬运进 templates / docs）
 
-> 以下是 debate 记录 §5 的完整通用正文，已去除一切项目私货。bridgeforge 收尾时按第 3 节映射拆进 `templates/rules/`、`templates/hooks/`、`docs/`。
+> 以下是 debate 记录 §5 的完整通用正文，已去除一切项目私货。bridgeforge 收尾时按第 3 节映射拆进 `templates/rules/`、`templates/hooks/`、`doc/`。
 
 ## 5.5 通用解决方案：跨项目「防 AI 幻觉资源」防御打法
 
@@ -264,7 +264,7 @@ C2 治**诱因层**，和 C1 互补：C1 在「已抄近路去读假资源」那
 
 ## 8. 传播四问自检（bridgeforge CLAUDE.md §1）
 
-1. **哪一层**：`templates/`（rules + hooks，下游 clone 即得）+ bridgeforge 自身 dogfood 镜像 `.claude/hooks/` + 方法论入 `docs/`。
+1. **哪一层**：`templates/`（rules + hooks，下游 clone 即得）+ bridgeforge 自身 dogfood 镜像 `.claude/hooks/` + 方法论入 `doc/`。
 2. **通用改进是否进产品层**：是——纯通用壳，无业务依赖，正是 templates 的目标内容。
 3. **bump + CHANGELOG**：待收尾时 bump（新增产品层防御 → minor）+ 记 `[product]` entry。
 4. **改的是 hooks/settings 吗**：是（C1/C2/可选 #4 都是 hook）→ **必须同步 dogfood 镜像**，且按 bridgeforge 约定 `templates/hooks/` 与自身 `.claude/hooks/` 保持一致。

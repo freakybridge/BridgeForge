@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.28.2] - 2026-07-09
+
+### Changed
+- [product] 模板内文档指针统一改向 `doc/` 体系：`harness_parity_check.py` 的报告目标改为 `doc/3_design/codex-harness-parity.md`，`skill_sync_check.py` 的设计文档引用改为 `doc/3_design/skill-distribution-gaps.md`，`encoding_check.py` 不再扫描已退役的根 `docs` 目录。
+
 ## [0.28.1] - 2026-07-09
 
 ### Fixed
@@ -54,7 +59,7 @@
 ## [0.27.0] - 2026-07-08
 
 ### Added
-- [product] 新增 `.codex/scripts/harness_parity_check.py`，用于刷新 `docs/codex-harness-parity.md`，长期维护 Claude/Codex harness 对照清单；Codex git-sync 执行器会在暂存前刷新该报告。
+- [product] 新增 `.codex/scripts/harness_parity_check.py`，用于刷新 `doc/3_design/codex-harness-parity.md`，长期维护 Claude/Codex harness 对照清单；Codex git-sync 执行器会在暂存前刷新该报告。
 
 ### Changed
 - [product] Codex hook 的兼容环境变量回退改为优先读取 `CODEX_TOOL_INPUT` / `CODEX_TOOL_NAME`，再兼容旧导入配置里的 `CLAUDE_TOOL_INPUT` / `CLAUDE_TOOL_NAME`；用户入口文案统一为 `/bridgeforge`，与 Claude 保持一致。

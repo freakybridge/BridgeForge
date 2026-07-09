@@ -818,7 +818,7 @@ def _candidate_existing_paths(token: str, skill_dir: Path) -> list[Path]:
         return [skill_dir / norm]
     if norm.startswith(("./", "../")):
         return [(skill_dir / norm).resolve()]
-    if norm.startswith(("docs/", "templates/", "skills/", "scripts/")) or norm in {
+    if norm.startswith(("doc/", "templates/", "skills/", "scripts/")) or norm in {
         "README.md",
         "CHANGELOG.md",
         "VERSION",
@@ -833,7 +833,7 @@ def check_skill_references() -> CheckResult:
     search_roots = [
         REPO_ROOT / "templates",
         REPO_ROOT / "skills",
-        REPO_ROOT / "docs",
+        REPO_ROOT / "doc",
         REPO_ROOT / "scripts",
         REPO_ROOT / "tests",
     ]

@@ -8,7 +8,7 @@
 
 ## 0. 一句话
 
-经两轮对抗式审计，最终出厂态：**C3 红线立刻进（口诀进常驻 + 完整进 rule）；C1、C2、Stop hook 三个 hook 都不进 `templates/hooks/` 强制层，四-gate / 超时哨兵 / 甩锅自检的完整设计与脚本进 `docs/`（或 `docs/examples/`）按需取；方法论框架进 `docs/`。**
+经两轮对抗式审计，最终出厂态：**C3 红线立刻进（口诀进常驻 + 完整进 rule）；C1、C2、Stop hook 三个 hook 都不进 `templates/hooks/` 强制层，四-gate / 超时哨兵 / 甩锅自检的完整设计与脚本进 `doc/`（或 `doc/9_reference/examples/`）按需取；方法论框架进 `doc/`。**
 
 > **核心收敛逻辑**：`templates/hooks/` 是「clone 即复印全下游 + 必须 dogfood 镜像」的强制层。只有「通用、低误伤、净收益清晰」的东西配进去。三个 hook 各自栽在不同一条上（C1 误伤是硬停 + 价值零件不能进 templates；C2 在 Claude Code 宿主下够不到诱因现场；Stop hook 贵 + 每轮 LLM judge）。**红线（C3）是纯文字、零代码、零误伤、堵最伤人的 L3 → 唯一进强制层的。**
 
@@ -16,7 +16,7 @@
 
 ## 1. 分歧 B（C1 出厂态）：来源侧**全采纳** BridgeForge 裁决
 
-**裁决**：C1 四-gate deny hook **连休眠骨架都不进 `templates/hooks/`**；完整四-gate 判定逻辑（含三道防误伤保险）作为「已知设计」完整进 `docs/`（建议 `docs/examples/antifab-deny-hook.py` + 设计说明），哪个下游真撞上「幻觉读文件」痛点、又愿填 `REAL_SOURCE_HINT`+`EXEMPT_PREFIXES`，再照着落地一份。
+**裁决**：C1 四-gate deny hook **连休眠骨架都不进 `templates/hooks/`**；完整四-gate 判定逻辑（含三道防误伤保险）作为「已知设计」完整进 `doc/`（建议 `doc/9_reference/examples/antifab-deny-hook.py` + 设计说明），哪个下游真撞上「幻觉读文件」痛点、又愿填 `REAL_SOURCE_HINT`+`EXEMPT_PREFIXES`，再照着落地一份。
 
 **采纳理由**（BridgeForge 用来源侧自己毙 Stop hook 的标准反套，三条全成立）：
 - 休眠代码照样 clone 即复印全下游；
@@ -26,13 +26,13 @@
 
 **来源侧自认不自洽点**：原 addendum 给 C1「休眠出厂」、给 Stop hook「不进」，是同一把尺子两个待遇。统一后两者同级处置：**都不进 templates 代码，设计进 docs。**
 
-**来源侧补一个零件（堵 docs 化后的发现性缺口）**：C3 红线条文里**挂一行指针**指向 `docs/examples/antifab-deny-hook.py`——下游撞上痛点时，常驻的 C3 规则能把人导到那个 example，不靠"记得去 bridgeforge 翻"。
+**来源侧补一个零件（堵 docs 化后的发现性缺口）**：C3 红线条文里**挂一行指针**指向 `doc/9_reference/examples/antifab-deny-hook.py`——下游撞上痛点时，常驻的 C3 规则能把人导到那个 example，不靠"记得去 bridgeforge 翻"。
 
 ---
 
 ## 2. 分歧 A（C2 出厂态）：来源侧**采纳结论**（C2 降级 docs），但**修正其论证**
 
-**裁决（结论一致）**：C2 超时哨兵**不 active 出厂、不进 `templates/hooks/`**，降级为 `docs/` 方法论。
+**裁决（结论一致）**：C2 超时哨兵**不 active 出厂、不进 `templates/hooks/`**，降级为 `doc/` 方法论。
 
 **但 BridgeForge 的论证有一处机制错误，须更正——否则共识建在错误前提上**：
 
@@ -46,7 +46,7 @@
 3. 对软超时，C2-b 的注入**与 C3 常驻红线高度重叠**（模型已经看到超时错误），边际增益薄。
 4. 阈值式 delta 检测会在 bridgeforge 大量慢-成功操作上**误刷"疑似超时"噪声**（BridgeForge 第 4 问的担心，此处成立）；改成「按超时错误签名触发」可消除误报，但那已退化成「软超时后再喊一句 C3」，更不值一个强制层 hook。
 
-**净判**：C2 有**薄而真**的价值（软超时返回后重注入、对冲 C3 长会话衰减），但够不上 `templates/hooks/`+dogfood 的门槛 → **降级 `docs/` 方法论**。落点与 BridgeForge 一致，理由更硬。
+**净判**：C2 有**薄而真**的价值（软超时返回后重注入、对冲 C3 长会话衰减），但够不上 `templates/hooks/`+dogfood 的门槛 → **降级 `doc/` 方法论**。落点与 BridgeForge 一致，理由更硬。
 
 ---
 
@@ -56,8 +56,8 @@
 |----|------|
 | **C3 红线落点** | **口诀一行进 `templates/CLAUDE.md` 常驻正文（始终在场）+ 完整 R1–R5 与四层框架进 `templates/rules/anti_fabrication.md`（详情库，按需查）。** 复用 bridgeforge 已验证的 redline-placement 两档范式，**不新造「SessionStart 注入完整红线」第三种机制**，不撞 meta_rule ≤200 行。 |
 | **不加 `[anti-fab]` 轻信号 hook** | 同意。幻觉是低频事件，每轮注入信号是噪声。一行口诀常驻已够本；真发现长会话衰减，再仿 focus「攒够轮数才注入」的节流式补，不迟。 |
-| **Stop hook** | 不进 templates 代码，只在 `docs/` 留「唯一能机检纯文字嫁祸但贵」的备选设计。 |
-| **方法论框架 + 切分判据** | 进 `docs/`。 |
+| **Stop hook** | 不进 templates 代码，只在 `doc/` 留「唯一能机检纯文字嫁祸但贵」的备选设计。 |
+| **方法论框架 + 切分判据** | 进 `doc/`。 |
 
 ---
 
@@ -67,11 +67,11 @@
 |---|------|--------|------|
 | 1 | R1–R5 口诀 | **进常驻强制层** | `templates/CLAUDE.md` 正文一行 |
 | 2 | R1–R5 完整 + 四层框架 + 切分判据 | 进详情库 | `templates/rules/anti_fabrication.md` |
-| 3 | C1 四-gate deny 脚本 + 设计 | **不进 templates** | `docs/examples/antifab-deny-hook.py` + docs 说明；C3 规则挂指针 |
-| 4 | C2 超时哨兵设计 | **不进 templates** | `docs/` 方法论 |
-| 5 | Stop hook 甩锅自检设计 | **不进 templates** | `docs/` 备选 |
+| 3 | C1 四-gate deny 脚本 + 设计 | **不进 templates** | `doc/9_reference/examples/antifab-deny-hook.py` + docs 说明；C3 规则挂指针 |
+| 4 | C2 超时哨兵设计 | **不进 templates** | `doc/` 方法论 |
+| 5 | Stop hook 甩锅自检设计 | **不进 templates** | `doc/` 备选 |
 
-**强制配套**：本轮结论下，`templates/hooks/` **不新增任何文件** → 无需动 dogfood 镜像、无需注册 settings.json hook。只动 `templates/CLAUDE.md`（一行）+ 新增 `templates/rules/anti_fabrication.md` + `docs/`。bump VERSION（新增产品层红线规则 → 视 bridgeforge 约定 patch/minor）+ CHANGELOG `[product]`。
+**强制配套**：本轮结论下，`templates/hooks/` **不新增任何文件** → 无需动 dogfood 镜像、无需注册 settings.json hook。只动 `templates/CLAUDE.md`（一行）+ 新增 `templates/rules/anti_fabrication.md` + `doc/`。bump VERSION（新增产品层红线规则 → 视 bridgeforge 约定 patch/minor）+ CHANGELOG `[product]`。
 
 ---
 
@@ -83,4 +83,4 @@
 
 ---
 
-> 双方意见至此统一。落地动作仅在 `templates/CLAUDE.md` / `templates/rules/anti_fabrication.md` / `docs/`，不碰 `templates/hooks/` 与 dogfood 镜像。
+> 双方意见至此统一。落地动作仅在 `templates/CLAUDE.md` / `templates/rules/anti_fabrication.md` / `doc/`，不碰 `templates/hooks/` 与 dogfood 镜像。

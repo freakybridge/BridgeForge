@@ -67,7 +67,7 @@ ls D:/Quant/BridgeForge/templates/codex/rules/
   - `templates/doc/` — doc 分层模板
   - `templates/<agent>/hooks/` — Python hook 脚本（2026-05-24 加入：session_snapshot.py / memory_lint.py / rule_index_check.py / context_warning.py 等，agent 检测项目有 `.venv` 时复制）
   - `templates/<agent>/scripts/` — Python 工具脚本（2026-05-24 加入：archive_scan.py 等给 skill 调用的脚本）
-  - `docs/` — playbook / rationale 等 bridgeforge 自身文档
+  - `doc/` — playbook / rationale 等 bridgeforge 自身文档
 - **禁止**自动写：
   - `skills/<name>/SKILL.md` — 用户级 skill 描述，独立维护（**例外**：当下游已实测验证的 SKILL.md 改动需要回灌时，单条修改允许 — 不允许批量改写多个 SKILL.md）
   - `scripts/` — bridgeforge 自身工具（如 `setup-junction.ps1`），不是给下游模板的
@@ -167,7 +167,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 #### 批次（v0.24.0 / 2026-06-05）— memory 冷启动引导脚本反哺
 
-源：StratusAgent → `templates/scripts/memory_bootstrap_cold.py` + `docs/memory-scoring-design.md`
+源：StratusAgent → `templates/scripts/memory_bootstrap_cold.py` + `doc/3_design/memory-scoring-design.md`
 
 实测应用的 checklist 项：
 
@@ -229,9 +229,9 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 | 2026-05-24 | causis_risk_suite | templates/rules/modules.md | 加 §3.1 协调中枢内部分层（纯常量 / 幂等引导 / 横切服务）+ §3.2 提炼共享常量三件套范式（脱敏 `risk_daily` / `causis_api` / `BusyTracker` 等业务专属） | bridgexue |
 | 2026-05-30 | StratusAgent | templates/hooks/target_cleanup.py + settings.json | 新 hook：Rust target/incremental 缓存体积触发式清理（脱敏：项目特定子目录硬编码 → 通用 Cargo.toml 查找 + 删事故实测数值；自门控故无条件挂 SessionStart，不改主 SKILL.md） | bridgexue |
 | 2026-06-03 | StratusAgent | templates/hooks/memory_guard.py + skills/prune-memory/ + settings.json | 新 hook：MEMORY.md 写入行数硬阻断（PreToolUse，>185 行 exit 2）；新 skill：prune-memory 引导式清理流程（删留标准 + 用户确认 + archive 移档）；settings 注册同步 | bridgexue |
-| 2026-06-03 | StratusAgent | docs/memory-scoring-design.md + hooks/memory_access_tracker.py + scripts/memory_rebuild_index.py + scripts/memory_search.py + memory/_stats.json + skills/find-memory/ + settings.json + session_snapshot.py | Memory 热度评分系统（艾宾浩斯衰减）完整闭环：tracker→_stats.json→Stop时rebuild→MEMORY.md热区+MEMORY_COLD.md冷区；本次核实系统完整性并发版 v0.23.0 | bridgexue |
+| 2026-06-03 | StratusAgent | doc/3_design/memory-scoring-design.md + hooks/memory_access_tracker.py + scripts/memory_rebuild_index.py + scripts/memory_search.py + memory/_stats.json + skills/find-memory/ + settings.json + session_snapshot.py | Memory 热度评分系统（艾宾浩斯衰减）完整闭环：tracker→_stats.json→Stop时rebuild→MEMORY.md热区+MEMORY_COLD.md冷区；本次核实系统完整性并发版 v0.23.0 | bridgexue |
 | 2026-06-03 | CausisRiskSuite | templates/scripts/memory_search.py | main() 顶部加 stdout UTF-8 reconfigure，防 Windows 中文环境输出乱码 | bridgexue |
-| 2026-06-05 | StratusAgent | templates/scripts/memory_bootstrap_cold.py + docs/memory-scoring-design.md | 新脚本：memory 冷启动一次性引导（拨 never-recalled 文件 created_at 入 Cold，跳过约 1-2 周自愈期；只动空 session_dates 文件，安全）+ 设计文档加「冷启动/首次激活」节（含手工 MEMORY.md 备份提醒；回收收件箱 line 24）| bridgexue |
+| 2026-06-05 | StratusAgent | templates/scripts/memory_bootstrap_cold.py + doc/3_design/memory-scoring-design.md | 新脚本：memory 冷启动一次性引导（拨 never-recalled 文件 created_at 入 Cold，跳过约 1-2 周自愈期；只动空 session_dates 文件，安全）+ 设计文档加「冷启动/首次激活」节（含手工 MEMORY.md 备份提醒；回收收件箱 line 24）| bridgexue |
 | 2026-06-05 | StratusAgent | templates/hooks/target_cleanup.py | 给已反哺的 hook 叠加 L2 deps 多版本变体裁剪（按 crate 分组、mtime 留最新 N=2、删旧变体）；脱敏下游实测数值（"deps 85GB / stratus_* 280+ 变体 / 降到 9GB"）为 normative 表述，复用上游已通用化的 find_workspace + `**` 递归 glob；快车道单条，无收件箱条目可回收 | bridgexue |
 | 2026-06-09 | StratusAgent | templates/hooks/{memory_junction_check,requirements_check}.py + rule_size_check.py + rules/meta_rule_design.md + settings.json | 把 3 条「机械可判定」的 rule 约束 hook 化（v0.26.0）：①新 SessionStart hook memory_junction_check 自愈 junction（通用 project-hash 推导 + rename-to-.bak 不硬删）②新 requirements_check 查绝对URL+非ASCII ③rule_size_check 加触发器宽度检查（单段通配=伪常驻）；meta_rule §6.4/§8 校准阈值消漂移。脱敏：§10「本项目实测案例库」含 stratus/**/gateway_ctp_sopt.md 等项目专属名，整段不反哺 | bridgexue |
 | 2026-06-25 | StratusAgent | templates/hooks/focus_reminder.py（+ 自用副本）| `[focus]` 措辞中性化（v0.28.2）：审问+催办语气（"还在推进它吗?…别闷头做…→/spinoff"）诱导模型把正当新任务误判为漂移 → 答非所问；改为"用户转入新任务是正常的,默认忽略"的中性提示,只在真不知不觉偏离时才纠偏。无业务术语,纯通用机制改进,7 项 checklist 全过；快车道单条无收件箱条目可回收 | bridgexue |
@@ -268,5 +268,5 @@ reverse-sync 和 sync-from-upstream 互为镜像：通常**先 sync-from-upstrea
 
 ## 参考
 
-- [docs/design-rationale.md](design-rationale.md) — bridgeforge 整体设计思路
+- [doc/3_design/design-rationale.md](design-rationale.md) — bridgeforge 整体设计思路
 - [templates/claude/rules/meta_rule_design.md](../templates/claude/rules/meta_rule_design.md) / [templates/codex/rules/meta_rule_design.md](../templates/codex/rules/meta_rule_design.md) — 怎么写 rule 才不退化（反哺时判断"通用 vs 业务"的关键依据）

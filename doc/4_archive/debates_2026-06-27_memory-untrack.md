@@ -1,7 +1,7 @@
 # 讨论：MEMORY.md 每轮变脏 — 是否移出 git 跟踪
 
 > 日期：2026-06-27
-> 相关文件：`.claude/scripts/memory_rebuild_index.py`、`.claude/hooks/memory_access_tracker.py`、`.claude/hooks/session_snapshot.py`、`.claude/memory/MEMORY.md`、`.claude/memory/MEMORY_COLD.md`、`.claude/memory/_stats.json`、`docs/memory-scoring-design.md`、`.claude/settings.json`
+> 相关文件：`.claude/scripts/memory_rebuild_index.py`、`.claude/hooks/memory_access_tracker.py`、`.claude/hooks/session_snapshot.py`、`.claude/memory/MEMORY.md`、`.claude/memory/MEMORY_COLD.md`、`.claude/memory/_stats.json`、`doc/3_design/memory-scoring-design.md`、`.claude/settings.json`
 > 用户硬需求：**每次 `/git-sync` 动作结束后，工作区必须没有未提交文件；下次打开、多机协作也不应莫名变脏。**
 > 用户取向：低系统复杂度 > 高度解耦 > 单一事实源 > 可删除性，不以开发效率为选型标准。
 
@@ -52,7 +52,7 @@
 - **认账**：决定性事实让"写前比对"那条**冗余**（git 本就不看 mtime）。唯一每天必遇脏源 = COLD 日期戳，删它即消。
 - **但轻修在规模上去后必破**：memory 涨到几十上百条、`_stats.json` 有真信号后，`score=exp(-days/S)` 每天变 → 跨天某些条目穿越 Top-40 边界 → 名单翻转 → MEMORY.md 内容真变 → **纯系统抖动的 dirty**，且多机各自不同步。
 - **核心论断**：只要分数含 `today` 变量，派生文件就是时间的函数，与"不自发变脏"**数学上不兼容**。修不好，因为需求本身排斥这个机制。
-- **主张：砍掉热度系统**（非轻修）。删三件套：`memory_access_tracker.py` + PostToolUse hook、`memory_rebuild_index.py`、`session_snapshot.py` 的 rebuild 调用、`_stats.json`、`MEMORY_COLD.md`/冷区概念、产品层镜像 + 退役 `docs/memory-scoring-design.md`。
+- **主张：砍掉热度系统**（非轻修）。删三件套：`memory_access_tracker.py` + PostToolUse hook、`memory_rebuild_index.py`、`session_snapshot.py` 的 rebuild 调用、`_stats.json`、`MEMORY_COLD.md`/冷区概念、产品层镜像 + 退役 `doc/3_design/memory-scoring-design.md`。
 - 删后 memory 系统剩干净三件套：**各 memory 文件（事实源）+ 纯人工 MEMORY.md 索引 + `/find-memory` 搜索召回**。MEMORY.md 只在人真改 memory 时变（该变），零自发抖动、零信息丢失、人工措辞天然保留。
 - 新 memory 进索引靠 `/summary` skill checklist 手动加一行（不引入"防漏脚本"——那本身是新脏源）。
 

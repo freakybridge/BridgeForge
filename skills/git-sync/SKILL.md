@@ -38,7 +38,7 @@ python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
    - **仅 ahead（M/0）或本地有未提交变更** → 走原有提交流程（第 3~5 步）。
    - **diverged（M/N，双向都有提交）** → 停下来报告本地/远端提交摘要。> ⛔ **硬契约**：必须用 **AskUserQuestion**（选项：rebase / merge / 放弃）**结束当前回合**；用户未选前**禁止**执行任何 rebase / merge——"静默执行"基调到此失效，此处无豁免。
 3. **暂存前刷新衍生产物（根治"sync 完又脏"）**：
-   - Codex 项目若存在 `.codex/scripts/harness_parity_check.py`，先刷新 `docs/codex-harness-parity.md`，维护 Claude/Codex harness 对照清单。
+   - Codex 项目若存在 `.codex/scripts/harness_parity_check.py`，先刷新 `doc/3_design/codex-harness-parity.md`，维护 Claude/Codex harness 对照清单。
    - 若本项目存在 `.claude/scripts/memory_rebuild_index.py` 或 `.codex/scripts/memory_rebuild_index.py`，再运行对应脚本重抄 MEMORY.md 热区 / MEMORY_COLD.md，让衍生产物在提交前就是最新态。Claude 项目用 `.claude/scripts/...`，Codex 项目用 `.codex/scripts/...`。
    - **Why**：MEMORY.md 由 PostToolUse hook 在 **memory 文件被编辑时**自动重建（SessionStart 兜底，索引是文件集的确定性函数）；若提交的是旧产物，之后一旦触发重建就会再次弄脏工作区 → 被迫再 sync 一次。提前重建 → 提交进去即最新 → 后续重建产出字节一致 → 工作区干净。bridgeforge 系项目 pre-commit 亦会重建并 `git add`（v0.38.0 起），此步是给没有该闸门的仓库兜底。
    - 脚本不存在则**静默跳过**（非 bridgeforge 系下游项目无此机制，不报错）。

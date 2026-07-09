@@ -33,7 +33,7 @@ def _repo_root() -> Path:
 REPO_ROOT = _repo_root()
 CLAUDE_ROOT = REPO_ROOT / "templates" / "claude"
 CODEX_ROOT = REPO_ROOT / "templates" / "codex"
-REPORT = REPO_ROOT / "docs" / "codex-harness-parity.md"
+REPORT = REPO_ROOT / "doc" / "3_design" / "codex-harness-parity.md"
 
 COMPARE_DIRS = ("hooks", "rules", "scripts", "memory")
 CODEX_ONLY_EXPECTED = {

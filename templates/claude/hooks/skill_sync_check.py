@@ -14,7 +14,7 @@
 
 本 hook 只"检测 + 通知", 绝不改任何文件 —— 真正的补/更/删由 /bridgeforge
 Step 0 在用户确认下执行 (绝不静默覆盖定制 / 静默删退役)。设计见
-docs/skill-distribution-gaps.md「支柱 B」。
+doc/3_design/skill-distribution-gaps.md「支柱 B」。
 
 范围 (v1, 有意收窄):
 - 离线比对本机上游 clone 的工作区, 不 git fetch —— SessionStart 必须快且不能因
