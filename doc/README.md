@@ -13,14 +13,18 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `1_plan/codex-harness-parity/requirements_2026-07-08_codex-harness-parity.md` | trial | Align Codex harness with Claude harness, fix migration residue, and add a parity report before git-sync. |
 | `1_plan/codex-harness-parity/compatibility_closure_2026-07-08.md` | review | Closed-loop compatibility audit for Claude-to-Codex hooks, rules, scripts, skills, and memory migration. |
 | `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
+| `1_plan/cross-project-write-guard/requirements_2026-07-10_cross-project-write-guard.md` | implementing | Add Claude/Codex hook protection against accidental cross-project writes and dangerous external git operations. |
 | `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
 | `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
+| `1_plan/non-ascii-shell-guard/requirements_2026-07-10_non-ascii-shell-guard.md` | trial | Add Claude/Codex hook protection against non-ASCII shell transit corruption and scan existing skeleton text. |
 
 ### Pending
 
 | Path | Status | Purpose |
 |------|--------|---------|
 | `2_pending/2026-07-09_switch_codex_left_claude_live_dir_report.md` | pending | Investigation report for leftover Claude live directory behavior after switching to Codex. |
+| `2_pending/2026-07-10_non_ascii_shell_pipe_hook_proposal.md` | pending | Proposal for Claude/Codex hook protection against non-ASCII shell transit corruption. |
+| `2_pending/2026-07-10_cross_project_write_guard_proposal.md` | pending | Proposal for Claude/Codex hook protection against accidental cross-project writes. |
 
 ### Design And Playbooks
 

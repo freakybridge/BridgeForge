@@ -14,7 +14,7 @@
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 27 | 28 | - | `model_policy_check.py` |
+| `hooks` | 29 | 30 | - | `model_policy_check.py` |
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 5 | 7 | - | `codex_git_sync.py`, `harness_parity_check.py` |
 | `memory` | 2 | 2 | - | - |

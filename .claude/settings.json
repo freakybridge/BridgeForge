@@ -166,12 +166,37 @@
             "type": "command",
             "command": "python .claude/hooks/git_add_all_guard.py",
             "comment": "Dogfood bulk git add safety guard: blocks git add -A/--all/. when credentials or .runtime artifacts would be staged; exact-path git add remains allowed."
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/non_ascii_shell_guard.py",
+            "comment": "Dogfood non-ASCII shell guard: blocks non-ASCII text routed through shell write/dynamic execution paths; use apply_patch or explicit UTF-8 files instead."
+          },
+          {
+            "type": "command",
+            "command": "python .claude/hooks/cross_project_write_guard.py",
+            "comment": "Dogfood cross-project write guard: blocks silent writes/deletes/moves outside the current project root and dangerous external git operations."
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/cross_project_write_guard.py",
+            "comment": "Dogfood cross-project write guard: blocks silent PowerShell writes/deletes/moves outside the current project root and dangerous external git operations."
           }
         ]
       },
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/cross_project_write_guard.py",
+            "comment": "Dogfood cross-project write guard: blocks Write/Edit/MultiEdit targets outside the current project root."
+          },
           {
             "type": "command",
             "command": "python .claude/hooks/allow_memory_write.py",
@@ -258,7 +283,7 @@
           {
             "type": "command",
             "command": "python .claude/hooks/encoding_check.py",
-            "comment": "??????????????? UTF-8 BOM?????? [encoding]??? md/json/rule/script/????????????"
+            "comment": "Encoding hygiene: blocks UTF-8 BOM and reports suspicious replacement text in managed text files."
           }
         ]
       },

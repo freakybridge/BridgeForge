@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.22.0] - 2026-07-10
+
+### Added
+- [product] 新增 `.claude/hooks/non_ascii_shell_guard.py` 并接入 `PreToolUse(Bash)`：阻断含非 ASCII 文本且经 shell 写入或动态执行路径的高风险命令，避免中文、CJK、emoji 等正文在 shell / 终端 / 解释器编码边界被污染；`encoding_check.py` 扩展可疑连续问号 / `U+FFFD` 扫描，编辑后提示、pre-commit 检查 staged 文本。
+- [product] 新增 `.claude/hooks/cross_project_write_guard.py` 并接入 `PreToolUse(Bash|PowerShell|Write|Edit|MultiEdit)`：阻断当前项目根外的显式写入、删除、移动和危险外部 git 操作，避免 A 项目对话框静默修改 B 项目代码。
+
 ## [0.21.2] - 2026-07-09
 
 ### Changed

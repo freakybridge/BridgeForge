@@ -85,6 +85,24 @@ def run(cmd: list[str], cwd: Path, timeout: int = 20) -> subprocess.CompletedPro
     )
 
 
+def run_with_input(
+    cmd: list[str],
+    cwd: Path,
+    input_text: str,
+    timeout: int = 20,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        input=input_text,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+
+
 def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     """Build a disposable Codex downstream fixture."""
     _safe_reset_dir(CODEX_FIXTURE)
@@ -294,6 +312,97 @@ def check_encoding_no_bom() -> CheckResult:
         "encoding hook passes source and blocks a BOM-prefixed fixture file"
         if ok
         else f"expected fixture BOM to exit 2, got exit {bad.returncode}: {(bad.stdout + bad.stderr).strip()}",
+    )
+
+
+def _shell_guard_payload(command: str) -> str:
+    return json.dumps({"tool_input": {"command": command}}, ensure_ascii=False)
+
+
+def _run_shell_guard(script: Path, command: str) -> subprocess.CompletedProcess[str]:
+    return run_with_input([sys.executable, str(script)], REPO_ROOT, _shell_guard_payload(command))
+
+
+def check_non_ascii_shell_guard() -> CheckResult:
+    scripts = [
+        CODEX_TEMPLATE / "hooks" / "non_ascii_shell_guard.py",
+        CLAUDE_TEMPLATE / "hooks" / "non_ascii_shell_guard.py",
+    ]
+    cases = [
+        ("ascii_pipe_python_stdin", "Write-Output hello | python -", 0),
+        ("chinese_here_string_python_stdin", "@'\nprint(\"中文\")\n'@ | python -", 2),
+        ("emoji_redirection", '"😀" > out.txt', 2),
+        ("chinese_set_content", 'Set-Content README.md -Value "中文"', 2),
+        ("chinese_write_output_readonly", 'Write-Output "中文"', 0),
+        ("node_inline_write", 'node -e "fs.writeFileSync(\'x.md\', \'中文\')"', 2),
+    ]
+
+    failures: list[str] = []
+    for script in scripts:
+        for label, command, expected in cases:
+            result = _run_shell_guard(script, command)
+            if result.returncode != expected:
+                failures.append(
+                    f"{script.relative_to(REPO_ROOT).as_posix()}:{label} "
+                    f"expected {expected}, got {result.returncode}: {(result.stdout + result.stderr).strip()}"
+                )
+
+    return CheckResult(
+        "non_ascii_shell_guard",
+        not failures,
+        "Claude and Codex guards block risky non-ASCII shell writes and allow safe output"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_non_ascii_shell_guard_settings() -> CheckResult:
+    expected = {
+        CODEX_TEMPLATE / "settings.json": ".codex/hooks/non_ascii_shell_guard.py",
+        CLAUDE_TEMPLATE / "settings.json": ".claude/hooks/non_ascii_shell_guard.py",
+    }
+    missing: list[str] = []
+    for settings_path, command_suffix in expected.items():
+        settings = json.loads(settings_path.read_text(encoding="utf-8-sig"))
+        found = False
+        for block in settings.get("hooks", {}).get("PreToolUse", []):
+            if "Bash" not in _matcher_tokens(block.get("matcher", "")):
+                continue
+            for hook in block.get("hooks", []):
+                if isinstance(hook, dict) and hook.get("command", "").endswith(command_suffix):
+                    found = True
+        if not found:
+            missing.append(settings_path.relative_to(REPO_ROOT).as_posix())
+
+    return CheckResult(
+        "non_ascii_shell_guard_settings",
+        not missing,
+        "Claude and Codex settings register non_ascii_shell_guard.py on PreToolUse Bash"
+        if not missing
+        else "missing guard registration: " + ", ".join(missing),
+    )
+
+
+def check_encoding_garble_scan() -> CheckResult:
+    fixture = build_codex_fixture()
+    target = fixture / ".codex" / "settings.json"
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            "Encoding hygiene",
+            "?" * 3,
+            1,
+        ),
+        encoding="utf-8",
+    )
+    result = run([sys.executable, ".codex/hooks/encoding_check.py", "--scan-garble", ".codex"], fixture)
+    text = result.stdout + result.stderr
+    ok = result.returncode == 2 and ".codex/settings.json" in text and "?" * 3 in text
+    return CheckResult(
+        "encoding_garble_scan",
+        ok,
+        "encoding scan reports suspicious question-mark replacement text"
+        if ok
+        else f"expected garble scan exit 2 mentioning settings.json, got {result.returncode}: {text.strip()}",
     )
 
 
@@ -1036,8 +1145,11 @@ def check_codex_git_sync_runner() -> CheckResult:
 
 CHECKS = {
     "codex-git-sync": check_codex_git_sync_runner,
+    "encoding-garble": check_encoding_garble_scan,
     "encoding-no-bom": check_encoding_no_bom,
     "model-policy": check_model_policy,
+    "non-ascii-shell-guard": check_non_ascii_shell_guard,
+    "non-ascii-shell-settings": check_non_ascii_shell_guard_settings,
     "rule-index": check_rule_index_missing,
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,

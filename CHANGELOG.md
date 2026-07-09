@@ -17,6 +17,12 @@
 
 ---
 
+## [0.58.0] - 2026-07-10
+
+### Added
+- `[product][repo][meta]` **新增非 ASCII shell 中转防护 hook**：Claude / Codex 模板新增 `non_ascii_shell_guard.py` 并接入 `PreToolUse(Bash)`，当命令同时含非 ASCII 文本并进入 shell 写入或动态执行路径时阻断，提示改用 `apply_patch`、Edit/Write 或显式 UTF-8 文件；`encoding_check.py` 扩展可疑连续问号 / `U+FFFD` 扫描，编辑后软提示、pre-commit 检查 staged 文本，并修复两套模板与 dogfood settings 中已存在的问号乱码注释。新增 feature-dev 需求包 `doc/1_plan/non-ascii-shell-guard/`；`templates/claude/VERSION` 升至 `0.22.0`，`templates/codex/VERSION` 升至 `0.29.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.58.0`。
+- `[product][repo][meta]` **新增跨项目写入保护 hook**：Claude / Codex 模板新增 `cross_project_write_guard.py` 并接入 `PreToolUse(Bash|PowerShell|Write|Edit|MultiEdit)`，阻断当前对话项目根外的显式写入、删除、移动和危险外部 git 操作，避免 A 项目对话框静默修改 B 项目代码；同步 dogfood 到 BridgeForge 自身 `.claude` / `.codex`。新增 feature-dev 需求包 `doc/1_plan/cross-project-write-guard/`。
+
 ## [0.57.3] - 2026-07-09
 
 ### Fixed

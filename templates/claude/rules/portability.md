@@ -101,6 +101,12 @@ mypackage==1.0.0
 
 部分工具（如 Windows 上的 pip）默认用本地编码（GBK / cp936）解析依赖清单。**保险做法**：注释只用 ASCII，中文说明放 `README.md` 或 `doc/setup/`。
 
+### 4.2.1 非 ASCII 正文禁止经 shell 中转写入 / 动态执行（红线）
+
+**禁止**把中文、CJK、重音拉丁字符、emoji 等非 ASCII 正文放进 shell 命令字符串，再通过管道、重定向、here-string、heredoc、`python -`、`python -c`、`node -e`、`Set-Content`、`Out-File`、`tee` 等路径写文件或动态执行。
+
+**必须**改用 `apply_patch`、Edit/Write/MultiEdit、复制已存在 UTF-8 文件，或让脚本源码保持 ASCII 并显式读取 UTF-8 输入文件后写入。
+
 <!-- OPTIONAL_BEGIN LANG: python -->
 ### 4.3 venv 不可移植，目录改名 / 移位后必须重建（红线）
 
