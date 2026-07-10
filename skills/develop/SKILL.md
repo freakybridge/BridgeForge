@@ -1,11 +1,11 @@
 ---
-name: delivery-flow
-description: 大需求 / 新功能交付流水线。Use when the user explicitly invokes /delivery-flow or $delivery-flow, says this is a large requirement, asks to open a feature, asks to follow the full requirement-to-delivery flow, or when Codex/Claude judges a development request is too large or ambiguous for direct execution and should be clarified, scope-confirmed, written to doc/, implemented, independently verified, then handed to the user for trial feedback.
+name: develop
+description: 大需求 / 新功能交付流水线。Use when the user explicitly invokes /develop or $develop, says this is a large requirement, asks to open a feature, asks to follow the full requirement-to-delivery flow, or when Codex/Claude judges a development request is too large or ambiguous for direct execution and should be clarified, scope-confirmed, written to doc/, implemented, independently verified, then handed to the user for trial feedback.
 user_invocable: true
 argument: 需要交付的新功能 / 大需求描述
 ---
 
-# delivery-flow — 大需求交付流水线
+# develop — 大需求交付流水线
 
 定位：把“讨论需求 → 用户确认修改方向 → 落盘需求文档 → 自动开发 → 独立验证 → 用户试用反馈”串成一个默认闭环。用户只参与需求边界确认、必要卡点决策和试用反馈，不参与任务拆分、agent 调度、实现顺序等开发流程细节。
 
@@ -14,7 +14,7 @@ argument: 需要交付的新功能 / 大需求描述
 适用：
 - 新功能 / 大需求 / 跨模块改动
 - 验收口径尚不清楚，先要讨论需求
-- 用户明确说“按完整流程做”“开一个需求”“走 delivery-flow”
+- 用户明确说“按完整流程做”“开一个需求”“走 develop”
 - 小改动看似简单，但会改变多个模块、文档或用户工作流
 
 不适用：
@@ -36,7 +36,7 @@ argument: 需要交付的新功能 / 大需求描述
 
 只问需求问题，不问开发流程问题。不要让用户选择拆分粒度、agent 数量、文件顺序、测试命令组合；这些由 agent 自己判断。
 
-**写文件硬闸**：点名 `delivery-flow` 不等于授权落盘或改代码。若用户的话仍是“讨论 / 对齐 / 想清楚 / 方案是什么 / 应该怎么做”，只能继续澄清和复述，禁止创建 `doc/`、改代码或改配置。
+**写文件硬闸**：点名 `develop` 不等于授权落盘或改代码。若用户的话仍是“讨论 / 对齐 / 想清楚 / 方案是什么 / 应该怎么做”，只能继续澄清和复述，禁止创建 `doc/`、改代码或改配置。
 
 澄清收口前，必须先输出“修改方向确认卡”，让用户看见本轮准备改什么：
 
@@ -84,7 +84,7 @@ argument: 需要交付的新功能 / 大需求描述
 - 每个子任务 prompt 必须包含整体目标、需求文档路径、验收清单、文件边界、接口约定。
 - 子任务失败最多重试 1 次；仍失败则停下报告卡点，不闷头循环。
 
-需要并行时，复用 `collab` 的执行约束，但不要把用户重新带进 `collab` 的三道闸。`delivery-flow` 已经在 Step 1 完成修改方向确认，后续只在卡点、高风险或完成交付时回到用户。
+需要并行时，复用 `collab` 的执行约束，但不要把用户重新带进 `collab` 的三道闸。`develop` 已经在 Step 1 完成修改方向确认，后续只在卡点、高风险或完成交付时回到用户。
 
 ### Step 4：同步文档
 
@@ -122,7 +122,7 @@ argument: 需要交付的新功能 / 大需求描述
 用户反馈小 bug 时：
 - 先判断是否仍属当前需求闭环。
 - 小 bug 直接修，更新同一需求包的反馈记录和验收状态。
-- 新范围 / 新功能 / 设计替换，写入 TODO 或开启新的 `delivery-flow`，不要悄悄扩张当前需求。
+- 新范围 / 新功能 / 设计替换，写入 TODO 或开启新的 `develop`，不要悄悄扩张当前需求。
 - 同一症状修复失败两次后停下，按项目鬼打墙规则升级。
 
 ## 需求包模板

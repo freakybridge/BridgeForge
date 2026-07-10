@@ -17,6 +17,11 @@
 
 ---
 
+## [0.60.1] - 2026-07-11
+
+### Changed
+- `[product][meta]` **大需求交付 skill 简化命名为 `develop`**：将 `skills/delivery-flow/` 重命名为 `skills/develop/`，同步 Claude `/develop` 与 Codex `$develop` 触发指针、通用 skill 分发清单、退役墓碑和 harness parity 校验；旧 `feature-dev` / `delivery-flow` 不再作为当前命令入口。模板版本升至 Claude `0.22.2`、Codex `0.31.1`，根版本与两套 BridgeForge 薄入口升至 `0.60.1`。
+
 ## [0.60.0] - 2026-07-10
 
 ### Changed

@@ -57,7 +57,7 @@
 
 技能目录：`.agents/skills/<name>/SKILL.md`（项目内，仅项目专属）和 `~/.agents/skills/<name>/SKILL.md`（用户级通用；Codex 规范路径）。
 
-常见通用 skill：`$delivery-flow`（大需求交付流水线）/ `$plan` / `$collab` / `$debate` / `$summary` / `$todo` / `$find-doc` / `$archive-scan` / `$escalate` / `$snapshot` / `$resume` / `$git-sync`。
+常见通用 skill：`$develop`（大需求交付流水线）/ `$plan` / `$collab` / `$debate` / `$summary` / `$todo` / `$find-doc` / `$archive-scan` / `$escalate` / `$snapshot` / `$resume` / `$git-sync`。
 
 ---
 
@@ -135,7 +135,7 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 - 已表达执行意图但范围 / 验收 / 关键取舍模糊：先给当前理解、可选路线、推荐路线和理由，再只问当前最关键的一个问题。
 - 每轮最多问一个问题；累计每 3 个问题必须暂停总结；超过 6 个问题仍未收敛，改出 PRD / 验收草案 / 设计讨论稿让用户改。
 - 能说清目标、非目标、触发条件、验收口径、已确认项 / 合理假设 / 剩余风险时，停止追问。
-- 需要落盘需求、验收清单、用户试用闭环的大需求，或用户说“按完整流程做 / 开一个需求 / 走 delivery-flow”，进入 `$delivery-flow`。
+- 需要落盘需求、验收清单、用户试用闭环的大需求，或用户说“按完整流程做 / 开一个需求 / 走 develop”，进入 `$develop`。
 - 评估 / 咨询类只给结论 + 风险即收口；不要包装成执行菜单替用户开单。
 
 细节、hook 路径和调参见 `rules/anti_drift_hooks.md` §1。

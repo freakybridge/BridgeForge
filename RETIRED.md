@@ -21,3 +21,5 @@
 > （见 CHANGELOG v0.24.0 Removed 条 + `doc/3_design/skill-distribution-gaps.md` 支柱 B 待办）。
 
 - prune-memory | v0.24.0 | 2026-06-09 | 手动 MEMORY.md 治理整代废弃，改由 memory_rebuild 自动评分（封顶活跃 40 + >45 天冷区化）
+- feature-dev | v0.59.2 | 2026-07-10 | 大需求交付流水线先更名为 delivery-flow，避免命令名只表达开发阶段
+- delivery-flow | v0.60.1 | 2026-07-11 | 大需求交付流水线入口进一步简化为 develop

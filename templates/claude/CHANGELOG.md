@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.22.2] - 2026-07-11
+
+### Changed
+- [product] 大需求交付入口从 `/delivery-flow` 简化为 `/develop`，同步入口文件和 workflow rule 示例。
+
 ## [0.22.0] - 2026-07-10
 
 ### Added
