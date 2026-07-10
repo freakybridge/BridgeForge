@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.30.1] - 2026-07-10
+
+### Changed
+- [product] Codex `context_warning.py` 默认窗口按当前 `/status` 观察从 `258_000` 重新校准为 `353_000`，保留 `BRIDGEFORGE_CODEX_CTX_WINDOW` 覆盖能力；`[ctx-budget]` 仍输出 `surface=codex`、`token_source`、`window_source` 便于后续继续校准。
+
+## [0.30.0] - 2026-07-10
+
+### Changed
+- [product] Codex 模型 / effort 路由升级到 GPT-5.6 代际：`.codex/config.toml` 默认主对话改为 `gpt-5.6-terra + medium`；`.codex/agents/` 四档 agent 改为 `light-explorer`（`gpt-5.6-luna + low`）、`implementation-worker`（`gpt-5.6-sol + high`）、`review-auditor`（`gpt-5.6-sol + high`）和需用户确认的 `xhigh-auditor`（`gpt-5.6-sol + xhigh`）；`model_policy_check.py` 同步硬拦新策略漂移，`xhigh` 用户确认门槛不变。
+
 ## [0.29.0] - 2026-07-10
 
 ### Added

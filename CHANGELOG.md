@@ -17,6 +17,16 @@
 
 ---
 
+## [0.59.1] - 2026-07-10
+
+### Changed
+- `[product][repo][meta]` **Codex ctx-budget 默认窗口校准到 353K**：根据用户当前 `/status` 观察，Codex 背景信息上限已从先前实测约 `258K` 提升到 `353K`；`templates/codex/hooks/context_warning.py` 与 dogfood `.codex/hooks/context_warning.py` 的 `DEFAULT_CODEX_WINDOW` 同步改为 `353_000`，保留 `BRIDGEFORGE_CODEX_CTX_WINDOW` 覆盖能力，不改变 Claude 侧 1M 逻辑。同步更新 Codex `rules/anti_drift_hooks.md`、ctx-management 需求包和 project memory；`templates/codex/VERSION` 升至 `0.30.1`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.59.1`。
+
+## [0.59.0] - 2026-07-10
+
+### Changed
+- `[product][repo][meta]` **Codex 模型 / effort 路由升级到 GPT-5.6 代际**：`templates/codex/config.toml` 与 dogfood `.codex/config.toml` 默认主对话改为 `gpt-5.6-terra + medium`；四档 custom agent 同步升级为 `light-explorer = gpt-5.6-luna + low`、`implementation-worker = gpt-5.6-sol + high`、`review-auditor = gpt-5.6-sol + high`、`xhigh-auditor = gpt-5.6-sol + xhigh`，并保留 `xhigh` 必须用户当轮明确确认的门槛。同步更新 `model_policy_check.py` 机检期望、Codex `AGENTS.md`、`rules/portability.md`、settings 注释、project memory 和 feature-dev 需求包 `doc/1_plan/codex-model-routing-56/`；`templates/codex/VERSION` 升至 `0.30.0`，根 `VERSION` / `SKILL.md` 与两套 `/bridgeforge` 薄入口版本升至 `0.59.0`。
+
 ## [0.58.0] - 2026-07-10
 
 ### Added

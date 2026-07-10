@@ -1,6 +1,6 @@
 name = "xhigh-auditor"
 description = "Extra-high-effort audit subagent for rare expert review. Use only after explicit user confirmation for xhigh / super-strong reasoning in the current request."
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """

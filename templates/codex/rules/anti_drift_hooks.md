@@ -55,7 +55,7 @@ paths:
 
 **机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）在每次用户提交 prompt 时读取 transcript usage，超阈值时输出 `[ctx-budget]` system reminder（MEDIUM / HIGH / CRITICAL 三级）。缺 usage 时才 fallback 到 char/4 启发式。
 
-**Codex 窗口口径**：Claude 侧 1M 窗口可硬编码；Codex Desktop 当前 `/status` 实测显示约 `258K` 背景信息上限，默认按 `258_000` 计算，避免照抄 1M 导致预警静默失效。需要按机器 / 版本校准时设置环境变量 `BRIDGEFORGE_CODEX_CTX_WINDOW`，hook 输出会带 `surface=codex`、`token_source`、`window_source` 方便核对。
+**Codex 窗口口径**：Claude 侧 1M 窗口可硬编码；Codex Desktop 当前 `/status` 实测显示约 `353K` 背景信息上限，默认按 `353_000` 计算，避免照抄 1M 导致预警静默失效。需要按机器 / 版本校准时设置环境变量 `BRIDGEFORGE_CODEX_CTX_WINDOW`，hook 输出会带 `surface=codex`、`token_source`、`window_source` 方便核对。
 
 **command / skill 豁免**：`$snapshot` / `$resume` / `$git-sync` 等以 `$` 开头的 skill 调用不触发预警（`/` 开头的 Codex 内置命令也放行）— 否则用户连保命操作都被拦，死锁。所以响应 CRITICAL 时建议用户做的 `$snapshot` 不会自相矛盾。
 

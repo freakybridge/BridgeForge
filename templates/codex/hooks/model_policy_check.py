@@ -25,29 +25,29 @@ except Exception:
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 EXPECTED_CONFIG = {
-    "model": "gpt-5.5",
+    "model": "gpt-5.6-terra",
     "model_reasoning_effort": "medium",
 }
 
 EXPECTED_AGENTS = {
     "light-explorer.toml": {
         "name": "light-explorer",
-        "model": "gpt-5.4-mini",
+        "model": "gpt-5.6-luna",
         "model_reasoning_effort": "low",
     },
     "implementation-worker.toml": {
         "name": "implementation-worker",
-        "model": "gpt-5.5",
+        "model": "gpt-5.6-sol",
         "model_reasoning_effort": "high",
     },
     "review-auditor.toml": {
         "name": "review-auditor",
-        "model": "gpt-5.5",
+        "model": "gpt-5.6-sol",
         "model_reasoning_effort": "high",
     },
     "xhigh-auditor.toml": {
         "name": "xhigh-auditor",
-        "model": "gpt-5.5",
+        "model": "gpt-5.6-sol",
         "model_reasoning_effort": "xhigh",
     },
 }

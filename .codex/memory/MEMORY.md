@@ -5,7 +5,7 @@
 > Active: 8 | Cold: 0
 
 ## Active（按新增时间，新在前；满 40 自动滚入 Cold）
-- [codex-ctx-budget-window](codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 258K 校准，hook 用 transcript usage 计算比例。
+- [codex-ctx-budget-window](codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 353K 校准，hook 用 transcript usage 计算比例。
 - [bom-free-encoding-gate](bom-free-encoding-gate.md) — BridgeForge 全 repo 文本统一 UTF-8 without BOM，并用编辑后 / pre-commit / shell 中转 hook 防编码污染。
 - [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>；显式 switch 时目标完整但旧骨架残留要 cleanup-only。
 - [claude-template-safety-hooks-review](claude-template-safety-hooks-review.md) — Claude 模板从 StratusAgent 反哺的三个轻量 hook 审查结论：产品层和 dogfood 成套、注册事件合理、以伪 payload 和阻断路径验收。

@@ -4,16 +4,16 @@ description: Codex 成本路由权威落点：主对话用 config.toml，子 age
 
 # Codex Model Routing Policy
 
-2026-07-08，用户反馈 Codex 骨架 token 消耗偏快，要求仿 Claude 的模型 / effort 治理，但进一步明确“不能只靠 md，hook 约束更可靠”。
+2026-07-08，用户反馈 Codex 骨架 token 消耗偏快，要求仿 Claude 的模型 / effort 治理，但进一步明确“不能只靠 md，hook 约束更可靠”。2026-07-10，用户确认把同一策略升级到 GPT-5.6 代际。
 
 确认后的 Codex 方案：
 
-- 主对话默认落 `.codex/config.toml`：`model = "gpt-5.5"`，`model_reasoning_effort = "medium"`。
+- 主对话默认落 `.codex/config.toml`：`model = "gpt-5.6-terra"`，`model_reasoning_effort = "medium"`。
 - 子 agent 档位落 `.codex/agents/*.toml`：
-  - `light-explorer`: `gpt-5.4-mini + low`
-  - `implementation-worker`: `gpt-5.5 + high`
-  - `review-auditor`: `gpt-5.5 + high`
-  - `xhigh-auditor`: `gpt-5.5 + xhigh`
+  - `light-explorer`: `gpt-5.6-luna + low`
+  - `implementation-worker`: `gpt-5.6-sol + high`
+  - `review-auditor`: `gpt-5.6-sol + high`
+  - `xhigh-auditor`: `gpt-5.6-sol + xhigh`
 - `xhigh` 默认必须用户当轮明确确认；agent 不能静默启用。
 - `model_policy_check.py` 负责机检：SessionStart 只提示，pre-commit 模式 exit 2 硬拦漂移。
 

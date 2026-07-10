@@ -29,10 +29,10 @@ try:
 except Exception:
     pass
 
-# Codex Desktop 的有效 compact 窗口尚未在本骨架中实测确认。Claude 侧可硬编码
-# 1_000_000；Codex 侧先用保守默认，避免真实窗口较小时被误算成低占用。
+# Codex Desktop 的有效 compact 窗口按当前 /status 实测校准。Claude 侧可硬编码
+# 1_000_000；Codex 侧单独校准，避免照抄 Claude 口径导致预警静默失效。
 # 需要按机器/版本校准时设置 BRIDGEFORGE_CODEX_CTX_WINDOW，例如 1000000。
-DEFAULT_CODEX_WINDOW = 258_000
+DEFAULT_CODEX_WINDOW = 353_000
 WINDOW_ENV = "BRIDGEFORGE_CODEX_CTX_WINDOW"
 
 # 三个阶梯阈值
