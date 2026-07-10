@@ -39,6 +39,7 @@ COMPARE_DIRS = ("hooks", "rules", "scripts", "memory")
 CODEX_ONLY_EXPECTED = {
     "config.toml",
     "hooks/model_policy_check.py",
+    "hooks/user_config_write_guard.py",
     "scripts/codex_git_sync.py",
     "scripts/harness_parity_check.py",
 }
@@ -90,6 +91,7 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/show_state.py": ("expected-codex-adapter", "Codex startup hints use $ skills and .codex scripts"),
     "hooks/skill_sync_check.py": ("codex-path-adapter", "Codex user skill shelf is ~/.agents/skills"),
     "hooks/test_receipt.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
+    "hooks/enforce_no_effortlevel.py": ("expected-codex-adapter", "Codex removes only the legacy project effortLevel while leaving user config read-only"),
     "hooks/version_check.py": ("expected-codex-adapter", "Codex command payload fallback differs"),
     "rules/anti_drift_hooks.md": ("expected-codex-adapter", "Codex rule paths, AGENTS.md refs, and $ skills differ"),
     "rules/debugging.md": ("expected-codex-adapter", "Codex rule text references AGENTS.md and $debate"),

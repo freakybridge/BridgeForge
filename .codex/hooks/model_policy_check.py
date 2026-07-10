@@ -12,6 +12,7 @@ only have `.codex/`, so the template target self-gates away.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -25,19 +26,19 @@ except Exception:
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 EXPECTED_CONFIG = {
-    "model": "gpt-5.6-terra",
+    "model": "gpt-5.5",
     "model_reasoning_effort": "medium",
 }
 
 EXPECTED_AGENTS = {
     "light-explorer.toml": {
         "name": "light-explorer",
-        "model": "gpt-5.6-luna",
+        "model": "gpt-5.5",
         "model_reasoning_effort": "low",
     },
     "implementation-worker.toml": {
         "name": "implementation-worker",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-5.6-terra",
         "model_reasoning_effort": "high",
     },
     "review-auditor.toml": {
@@ -51,6 +52,12 @@ EXPECTED_AGENTS = {
         "model_reasoning_effort": "xhigh",
     },
 }
+
+USER_CONFIG_GUARD_MARKERS = (
+    'Path.home() / ".codex" / "config.toml"',
+    "Blocked write to user-level Codex model configuration",
+)
+USER_CONFIG_GUARD_MATCHERS = ("Bash", "PowerShell", "Write|Edit|MultiEdit")
 
 CONFIRMATION_PATTERNS = (
     "explicit user confirmation",
@@ -180,6 +187,40 @@ def _check_target(root: Path, label: str) -> list[str]:
     return issues
 
 
+def _check_user_config_guard(root: Path, label: str) -> list[str]:
+    path = root / "hooks" / "user_config_write_guard.py"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception as exc:
+        return [f"{label}/hooks/user_config_write_guard.py missing or unreadable: {exc}"]
+
+    issues = [
+        f"{label}/hooks/user_config_write_guard.py missing marker {marker!r}"
+        for marker in USER_CONFIG_GUARD_MARKERS
+        if marker not in text
+    ]
+    settings = root / "settings.json"
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        return [*issues, f"{label}/settings.json unreadable: {exc}"]
+
+    blocks = data.get("hooks", {}).get("PreToolUse", [])
+    if not isinstance(blocks, list):
+        return [*issues, f"{label}/settings.json PreToolUse must be a list"]
+    for matcher in USER_CONFIG_GUARD_MATCHERS:
+        matching = [block for block in blocks if isinstance(block, dict) and block.get("matcher") == matcher]
+        commands = [
+            hook.get("command", "")
+            for block in matching
+            for hook in block.get("hooks", [])
+            if isinstance(hook, dict)
+        ]
+        if not any(str(command).endswith(".codex/hooks/user_config_write_guard.py") for command in commands):
+            issues.append(f"{label}/settings.json must register user_config_write_guard.py for {matcher}")
+    return issues
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pre-commit", action="store_true", help="exit 2 on policy drift")
@@ -193,6 +234,8 @@ def main() -> int:
     issues: list[str] = []
     for root, label in targets:
         issues.extend(_check_target(root, label))
+        if root.exists():
+            issues.extend(_check_user_config_guard(root, label))
 
     if not issues:
         return 0

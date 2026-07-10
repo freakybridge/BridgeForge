@@ -176,6 +176,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/cross_project_write_guard.py",
             "comment": "Blocks silent writes/deletes/moves outside the current project root and dangerous external git operations."
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/user_config_write_guard.py",
+            "comment": "Never allows this skeleton to write the user-level ~/.codex/config.toml model configuration."
           }
         ]
       },
@@ -186,6 +191,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/cross_project_write_guard.py",
             "comment": "Blocks silent PowerShell writes/deletes/moves outside the current project root and dangerous external git operations."
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/user_config_write_guard.py",
+            "comment": "Never allows this skeleton to write the user-level ~/.codex/config.toml model configuration."
           }
         ]
       },
@@ -196,6 +206,11 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/cross_project_write_guard.py",
             "comment": "Blocks Write/Edit/MultiEdit targets outside the current project root."
+          },
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe .codex/hooks/user_config_write_guard.py",
+            "comment": "Never allows this skeleton to write the user-level ~/.codex/config.toml model configuration."
           },
           {
             "type": "command",
@@ -331,7 +346,7 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/model_policy_check.py",
-            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：检查 .codex/config.toml 默认 gpt-5.6-terra+medium、.codex/agents 四档齐全、xhigh 明示需用户确认；SessionStart 只提示，pre-commit 模式硬拦漂移。"
+            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：检查 .codex/config.toml 默认 gpt-5.5+medium、.codex/agents 四档齐全、用户级 config 写保护和 xhigh 用户选择门槛；SessionStart 只提示，pre-commit 模式硬拦漂移。"
           },
           {
             "type": "command",
@@ -356,7 +371,7 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/enforce_no_effortlevel.py",
-            "comment": "强制剔除项目级 effortLevel：项目级合并优先级高于全局（Project > User），一旦流入就架空「全局统一管 effort + SessionEnd 自动还原」机制，散文 rule 拦不住 sync/clone/手加，故 hook 化机检（自愈式，仿 memory_junction_check）。原子删除 + .bak，无则静默 no-op。详见 memory effort-config-layering。"
+            "comment": "强制剔除项目级 effortLevel：项目级合并优先级高于全局（Project > User），会遮住用户级 /config slider / /effort；骨架不写回用户级配置，故 hook 化机检（自愈式，仿 memory_junction_check）。原子删除 + .bak，无则静默 no-op。详见 memory effort-config-layering。"
           },
           {
             "type": "command",

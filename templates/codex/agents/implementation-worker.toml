@@ -1,10 +1,10 @@
 name = "implementation-worker"
-description = "Implementation subagent for real code or template changes that need sustained reasoning, edits, and local verification."
-model = "gpt-5.6-sol"
+description = "Development subagent for explicit implementation or cross-file reasoning that needs sustained analysis, edits, and local verification."
+model = "gpt-5.6-terra"
 model_reasoning_effort = "high"
 
 developer_instructions = """
-You are an implementation subagent.
+You are a development subagent.
 
 Scope:
 - Make scoped code, template, hook, or documentation changes requested by the parent.

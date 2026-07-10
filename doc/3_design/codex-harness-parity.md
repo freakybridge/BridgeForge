@@ -7,14 +7,14 @@
 - 状态：`OK`
 - Claude 有但 Codex 缺失：0
 - 未登记的 Codex-only 文件：0
-- 归一化后仍有差异的同名文件：23（未分类：0）
+- 归一化后仍有差异的同名文件：24（未分类：0）
 - skills 内容检查问题：0
 
 ## Inventory
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 29 | 30 | - | `model_policy_check.py` |
+| `hooks` | 29 | 31 | - | `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 5 | 7 | - | `codex_git_sync.py`, `harness_parity_check.py` |
 | `memory` | 2 | 2 | - | - |
@@ -31,6 +31,7 @@
 | `hooks/clarify_reminder.py` | 2 | -3 / +3 | `expected-codex-adapter` | Codex must skip both / commands and $ skills |
 | `hooks/config_health_check.py` | 1 | -0 / +1 | `codex-only` | Codex registers model_policy_check health signal |
 | `hooks/context_warning.py` | 11 | -15 / +30 | `expected-codex-adapter` | Codex skill calls use $ and must bypass ctx warning |
+| `hooks/enforce_no_effortlevel.py` | 1 | -2 / +2 | `expected-codex-adapter` | Codex removes only the legacy project effortLevel while leaving user config read-only |
 | `hooks/fallback_smell_check.py` | 3 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/find_doc_reminder.py` | 4 | -6 / +7 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_* fallback |
 | `hooks/focus_reminder.py` | 1 | -1 / +1 | `expected-codex-adapter` | Codex text and skill command surface differ |
@@ -48,7 +49,7 @@
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
-| `rules/portability.md` | 6 | -10 / +26 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
+| `rules/portability.md` | 6 | -10 / +28 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
 
 ## Shared Skills Checks
 

@@ -10,6 +10,7 @@ exercise the parts that are easy to miss in the source repo:
 * Root pre-commit coverage for both Claude and Codex dogfood gates.
 * Repository text surfaces must be UTF-8 without BOM.
 * Codex model / reasoning-effort routing policy.
+* User-level Codex model configuration must remain read-only to skeleton hooks.
 * high-confidence `skills/**/SKILL.md` metadata and local reference health.
 
 Generated fixture directories are disposable and are never product source.
@@ -1071,22 +1072,123 @@ def check_model_policy() -> CheckResult:
     )
     bad_instructions = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
 
+    fixture = build_codex_fixture()
+    settings_path = fixture / ".codex" / "settings.json"
+    settings = json.loads(settings_path.read_text(encoding="utf-8-sig"))
+    for block in settings["hooks"]["PreToolUse"]:
+        if block.get("matcher") == "Bash":
+            block["hooks"] = [
+                hook
+                for hook in block["hooks"]
+                if not hook.get("command", "").endswith(".codex/hooks/user_config_write_guard.py")
+            ]
+    settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    bad_registration = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
     ok = (
         good.returncode == 0
         and bad_description.returncode == 2
         and bad_instructions.returncode == 2
+        and bad_registration.returncode == 2
         and "description must state" in (bad_description.stdout + bad_description.stderr)
         and "developer_instructions must state" in (bad_instructions.stdout + bad_instructions.stderr)
+        and "must register user_config_write_guard.py for Bash" in (bad_registration.stdout + bad_registration.stderr)
     )
     return CheckResult(
         "model_policy_health",
         ok,
-        "model policy hook passes source/good fixture and separately blocks xhigh without confirmation in description or instructions"
+        "model policy hook passes source/good fixture and separately blocks xhigh confirmation drift and missing guard registration"
         if ok
         else (
             f"expected good exit 0 and two bad exit 2 cases, got good={good.returncode}, "
-            f"bad_description={bad_description.returncode}, bad_instructions={bad_instructions.returncode}: "
-            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr).strip()}"
+            f"bad_description={bad_description.returncode}, bad_instructions={bad_instructions.returncode}, "
+            f"bad_registration={bad_registration.returncode}: "
+            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr + bad_registration.stdout + bad_registration.stderr).strip()}"
+        ),
+    )
+
+
+def check_user_config_write_guard() -> CheckResult:
+    fixture = build_codex_fixture()
+    guard = fixture / ".codex" / "hooks" / "user_config_write_guard.py"
+    user_config = Path.home() / ".codex" / "config.toml"
+    before = user_config.read_bytes() if user_config.exists() else None
+
+    read_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": f"Get-Content -LiteralPath '{user_config}'"},
+        }
+    )
+    write_payload = json.dumps(
+        {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(user_config)},
+        }
+    )
+    shell_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": f"Set-Content -LiteralPath '{user_config}' -Value 'fixture'"},
+        }
+    )
+    home_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": 'Set-Content -LiteralPath "$HOME\\.codex\\config.toml" -Value fixture'},
+        }
+    )
+    redirect_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": '"fixture" > "$env:USERPROFILE\\.codex\\config.toml"'},
+        }
+    )
+    tilde_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": 'Set-Content -LiteralPath "~\\.codex\\config.toml" -Value fixture'},
+        }
+    )
+
+    read = run_with_input([sys.executable, str(guard)], fixture, read_payload)
+    blocked_write = run_with_input([sys.executable, str(guard)], fixture, write_payload)
+    blocked_shell = run_with_input([sys.executable, str(guard)], fixture, shell_write_payload)
+    blocked_home = run_with_input([sys.executable, str(guard)], fixture, home_write_payload)
+    blocked_redirect = run_with_input([sys.executable, str(guard)], fixture, redirect_write_payload)
+    blocked_tilde = run_with_input([sys.executable, str(guard)], fixture, tilde_write_payload)
+    after = user_config.read_bytes() if user_config.exists() else None
+
+    settings = json.loads((fixture / ".codex" / "settings.json").read_text(encoding="utf-8-sig"))
+    registered = all(
+        any(
+            hook.get("command", "").endswith(".codex/hooks/user_config_write_guard.py")
+            for hook in block.get("hooks", [])
+            if isinstance(hook, dict)
+        )
+        for block in settings.get("hooks", {}).get("PreToolUse", [])
+        if block.get("matcher") in {"Bash", "PowerShell", "Write|Edit|MultiEdit"}
+    )
+    ok = (
+        read.returncode == 0
+        and blocked_write.returncode == 2
+        and blocked_shell.returncode == 2
+        and blocked_home.returncode == 2
+        and blocked_redirect.returncode == 2
+        and blocked_tilde.returncode == 2
+        and before == after
+        and registered
+    )
+    return CheckResult(
+        "user_config_write_guard",
+        ok,
+        "user config reads pass, absolute and variable-path writes are blocked, settings registers the guard, and the user config sentinel is unchanged"
+        if ok
+        else (
+            f"read={read.returncode} write={blocked_write.returncode} shell={blocked_shell.returncode} "
+            f"home={blocked_home.returncode} redirect={blocked_redirect.returncode} tilde={blocked_tilde.returncode} "
+            f"unchanged={before == after} registered={registered}: "
+            f"{(read.stdout + read.stderr + blocked_write.stdout + blocked_write.stderr + blocked_shell.stdout + blocked_shell.stderr + blocked_home.stdout + blocked_home.stderr + blocked_redirect.stdout + blocked_redirect.stderr + blocked_tilde.stdout + blocked_tilde.stderr).strip()}"
         ),
     )
 
@@ -1159,6 +1261,7 @@ CHECKS = {
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
+    "user-config-write-guard": check_user_config_write_guard,
     "switch-archive": check_switch_archive_restore,
     "switch-claude-cleanup-only": check_switch_claude_complete_target_cleanup_only,
     "switch-codex-archive": check_switch_codex_to_claude_archive_scope,

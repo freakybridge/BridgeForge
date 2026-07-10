@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.31.0] - 2026-07-10
+
+### Changed
+- [product] Codex 成本路由调整为默认主对话 `gpt-5.5 + medium`、轻量检索 `gpt-5.5 + low`、明确开发/跨文件判断 `gpt-5.6-terra + high`、高风险实现与独立审查 `gpt-5.6-sol + high`；`xhigh` 继续只由用户当次选择。新增 `user_config_write_guard.py` 并接入 PreToolUse，禁止骨架写入用户级 `~/.codex/config.toml`；模型策略机检与 fixture 同步覆盖绝对、环境变量与波浪路径保护。
+
 ## [0.30.1] - 2026-07-10
 
 ### Changed

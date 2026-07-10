@@ -17,6 +17,11 @@
 
 ---
 
+## [0.60.0] - 2026-07-10
+
+### Changed
+- `[product][repo][meta]` **Codex 按任务成本路由并保护用户级模型配置**：默认主对话与轻量检索改为 `gpt-5.5 + medium/low`，明确开发/跨文件判断为 `gpt-5.6-terra + high`，高风险实现与独立审查保留 `gpt-5.6-sol + high`，`xhigh` 仍只由用户当次选择。新增 `user_config_write_guard.py`，接入 Bash、PowerShell 与文件编辑的 PreToolUse，禁止骨架写入 `~/.codex/config.toml`；模型策略机检与下游 fixture 同步覆盖绝对、环境变量与波浪路径边界。Codex 模板版本升至 `0.31.0`，根版本与两套入口升至 `0.60.0`。
+
 ## [0.59.2] - 2026-07-10
 
 ### Changed

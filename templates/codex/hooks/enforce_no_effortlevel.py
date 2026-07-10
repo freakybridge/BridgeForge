@@ -2,8 +2,8 @@
 """SessionStart hook: 从项目 .codex/settings.json 强制剔除 effortLevel。
 
 为什么是 hook 而非 rule：项目级 effortLevel 合并优先级高于用户级全局（Project > User），
-一旦下游项目流入它，就会顶掉"顺手的 /config slider / /effort"全局调节入口、把全套
-"全局统一管 effort + SessionEnd 自动还原"机制架空。散文 rule 拦不住"流入"（sync/clone/手加），
+一旦下游项目流入它，就会顶掉"顺手的 /config slider / /effort"用户级调节入口。骨架不负责
+写回或复位用户级配置；散文 rule 拦不住"流入"（sync/clone/手加），
 必须机检强制——这是本骨架的特征：能机检的红线一律 hook 化，不留主观空间。
 （覆盖关系与决策全图见 memory effort-config-layering。）
 
