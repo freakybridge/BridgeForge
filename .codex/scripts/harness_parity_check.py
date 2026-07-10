@@ -44,7 +44,7 @@ CODEX_ONLY_EXPECTED = {
 }
 
 SKILL_SLASH_TO_DOLLAR = (
-    "feature-dev",
+    "delivery-flow",
     "archive-scan",
     "todo",
     "find-doc",

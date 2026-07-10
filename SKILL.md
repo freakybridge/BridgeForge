@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.59.1
+version: 0.59.2
 user_invocable: true
 user-invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
@@ -246,7 +246,7 @@ fi
 
 | Skill | 触发 | 用途 |
 |------|------|------|
-| `feature-dev` | Claude `/feature-dev`；Codex `$feature-dev` | 大需求交付流水线：澄清需求、落盘文档、自动开发、独立验证、用户试用反馈闭环 |
+| `delivery-flow` | Claude `/delivery-flow`；Codex `$delivery-flow` | 大需求交付流水线：澄清需求、落盘文档、自动开发、独立验证、用户试用反馈闭环 |
 | `plan` | Claude `/plan`；Codex `$plan` | 只读分析，列任务/风险/文件，等用户确认后再实施 |
 | `collab` | Claude `/collab`；Codex `$collab` | 分治协作，拆分子任务并行执行 |
 | `debate` | Claude `/debate`；Codex `$debate` | 双 Agent 辩论，多轮讨论达成共识 |
@@ -780,4 +780,4 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 | `VERSION` | 单一事实源 | 初始 `0.1.0`；若项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml`）则**跳过复制**避免双 SoT |
 | `CHANGELOG.md` | 通用骨架 | Keep a Changelog 格式 + 引用 `rules/workflow.md §9` 语义；含 `[0.1.0] - {{TODAY}}` 初始 entry，所有项目都复制 |
 | `$PROJECT_AGENT_DIR/.bridgeforge_version` | 生成（非模板文件）| init 末尾写 = 安装时 bridgeforge 版本；重跑 `$ENTRY_COMMAND` 据此进**更新模式**（拉上游 `[product]` 增量）而非全新铺设 |
-| `skills/*/SKILL.md` | **通用** | 协作 skill 集（feature-dev / plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / find-memory / summary / sync-docs / harvest / spinoff / focus）。Step 0 自检补齐到 `$USER_SKILLS_DIR/` 平级；Step 0.5 清掉项目里的重复副本（单一源）。find-doc / sync-docs 的项目专属字典外置 `$PROJECT_AGENT_DIR/*.map.md`（不进 skill 本体）。 |
+| `skills/*/SKILL.md` | **通用** | 协作 skill 集（delivery-flow / plan / collab / debate / escalate / snapshot / resume / git-sync / archive-scan / todo / find-doc / find-memory / summary / sync-docs / harvest / spinoff / focus）。Step 0 自检补齐到 `$USER_SKILLS_DIR/` 平级；Step 0.5 清掉项目里的重复副本（单一源）。find-doc / sync-docs 的项目专属字典外置 `$PROJECT_AGENT_DIR/*.map.md`（不进 skill 本体）。 |

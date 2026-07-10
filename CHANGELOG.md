@@ -17,6 +17,11 @@
 
 ---
 
+## [0.59.2] - 2026-07-10
+
+### Changed
+- `[product][meta]` **大需求交付 skill 更名为 `delivery-flow`**：将 `skills/feature-dev/` 重命名为 `skills/delivery-flow/`，同步 Claude `/delivery-flow` 与 Codex `$delivery-flow` 触发指针、通用 skill 分发清单和 harness parity 校验，避免名称只表达开发阶段而遗漏需求澄清、验证与试用反馈闭环；模板版本升至 Claude `0.22.1`、Codex `0.30.2`，根版本与两套 BridgeForge 薄入口升至 `0.59.2`。
+
 ## [0.59.1] - 2026-07-10
 
 ### Changed
