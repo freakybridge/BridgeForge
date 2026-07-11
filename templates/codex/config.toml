@@ -4,7 +4,7 @@
 # responsible for hooks / permissions in this skeleton; Codex model defaults use
 # config.toml.
 
-model = "gpt-5.5"
+model = "gpt-5.6-terra"
 model_reasoning_effort = "medium"
 
 [agents]

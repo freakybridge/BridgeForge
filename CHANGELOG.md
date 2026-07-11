@@ -17,6 +17,11 @@
 
 ---
 
+## [0.60.2] - 2026-07-11
+
+### Changed
+- `[product][repo][meta]` **Codex 模型选择范围收窄到 GPT-5.6 家族**：保留按任务成本分层的 effort 策略，但将默认主对话从 `gpt-5.5 + medium` 改为 `gpt-5.6-terra + medium`，轻量探索从 `gpt-5.5 + low` 改为 `gpt-5.6-luna + low`；实现 worker 继续 `gpt-5.6-terra + high`，复核与 xhigh 继续 `gpt-5.6-sol + high/xhigh`。同步更新 Codex template、dogfood 配置、模型策略机检、入口说明、portability rule、project memory 和成本路由需求包；Codex 模板版本升至 `0.31.2`，根版本与两套 BridgeForge 薄入口升至 `0.60.2`。
+
 ## [0.60.1] - 2026-07-11
 
 ### Changed

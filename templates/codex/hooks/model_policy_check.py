@@ -26,14 +26,14 @@ except Exception:
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 EXPECTED_CONFIG = {
-    "model": "gpt-5.5",
+    "model": "gpt-5.6-terra",
     "model_reasoning_effort": "medium",
 }
 
 EXPECTED_AGENTS = {
     "light-explorer.toml": {
         "name": "light-explorer",
-        "model": "gpt-5.5",
+        "model": "gpt-5.6-luna",
         "model_reasoning_effort": "low",
     },
     "implementation-worker.toml": {

@@ -7,10 +7,10 @@
 
 当前 Codex 骨架把主对话固定为 `gpt-5.6-terra + medium`，并将实现和审计都设为 `gpt-5.6-sol + high`。这使轻量咨询、检索和状态查询也从中档主对话开始，无法有效控制日常消耗。
 
-本轮将项目级默认与 custom agent 路由改为：
+本轮将项目级默认与 custom agent 路由改为“成本分层 + GPT-5.6 家族内选择”：
 
-- 默认主对话：`gpt-5.5 + medium`。
-- 纯检索、状态查询：`gpt-5.5 + low`。
+- 默认主对话：`gpt-5.6-terra + medium`。
+- 纯检索、状态查询：`gpt-5.6-luna + low`。
 - 明确开发或跨文件判断：`gpt-5.6-terra + high`。
 - 高风险实现与独立审查：`gpt-5.6-sol + high`。
 - `xhigh` 只由用户当次自行选择，骨架不自动提升。
@@ -26,7 +26,7 @@
 
 ## 用户可见行为
 
-- 新安装或同步 Codex 骨架后，项目 `.codex/config.toml` 默认使用 `gpt-5.5 + medium`。
+- 新安装或同步 Codex 骨架后，项目 `.codex/config.toml` 默认使用 `gpt-5.6-terra + medium`。
 - 只读检索使用轻量 agent；明确开发/跨文件判断使用 `terra + high`；高风险实现和独立审查使用 `sol + high`。
 - 模型策略 hook 会检测产品层与 dogfood 层的路由是否漂移，并在提交前阻断。
 - 任何骨架生命周期流程均不改用户级模型配置。
@@ -40,8 +40,8 @@
 
 ## 验收清单
 
-- [x] `templates/codex/config.toml` 与 `.codex/config.toml` 为 `gpt-5.5 + medium`。
-- [x] `light-explorer = gpt-5.5 + low`，`implementation-worker = terra + high`，`review-auditor = sol + high`，`xhigh-auditor = sol + xhigh`。
+- [x] `templates/codex/config.toml` 与 `.codex/config.toml` 为 `gpt-5.6-terra + medium`。
+- [x] `light-explorer = gpt-5.6-luna + low`，`implementation-worker = terra + high`，`review-auditor = sol + high`，`xhigh-auditor = sol + xhigh`。
 - [x] AGENTS、portability rule 和模型策略检查同步新的角色映射。
 - [x] 新增用户级模型配置写入保护，并在 template / dogfood settings 中注册。
 - [x] 下游 fixture 覆盖正常路由、xhigh 确认门槛和用户级配置保护正反例。
@@ -67,9 +67,17 @@
 - 2026-07-10：用户确认混合 5.5 / 5.6 路由：默认主对话为 `gpt-5.5 + medium`，轻量检索为 `gpt-5.5 + low`，实现 worker 为 `gpt-5.6-terra + high`，复核为 `gpt-5.6-sol + high`，`xhigh` 仅由用户当次选择。
 - 2026-07-10：新增 `user_config_write_guard.py` 并接入 Bash、PowerShell、Write/Edit/MultiEdit 的 PreToolUse；模型策略检查同步验证 guard 正文与三类 settings 注册。独立复核发现绝对路径解析可被 `$HOME` / `$env:USERPROFILE` / `~` 绕过，以及 parity 未登记；已扩展路径模式、fixture 负例和 parity 分类后复验。
 - 2026-07-10：同步 template 与 dogfood 镜像、AGENTS / portability 说明、版本和 CHANGELOG；清理 Codex 设置中关于 `terra + medium` 与不存在 SessionEnd 自动复位的过期说明。
+- 2026-07-11：用户要求模型选择范围限制在 GPT-5.6 内；保留成本分层和 effort 档位，将默认主对话切回 `gpt-5.6-terra + medium`，轻量探索切到 `gpt-5.6-luna + low`，实现 / 复核 / xhigh 继续使用 GPT-5.6 Terra/Sol。
 
 ## 验证记录
 
+- 2026-07-11 补充收窄到 GPT-5.6 家族后：
+  - `$env:PYTHONPYCACHEPREFIX = "$env:TEMP\bridgeforge_pycache"; python -m py_compile .codex\hooks\model_policy_check.py templates\codex\hooks\model_policy_check.py`：exit 0；验证两份模型策略 hook 语法正确，且不写受保护的 `.codex/hooks/__pycache__`。
+  - `python .codex/hooks/model_policy_check.py --pre-commit`：exit 0；验证 dogfood 与 template 均满足 `gpt-5.6-terra/luna/sol` 策略。
+  - `python tests/harness/run_downstream_fixture.py --case model-policy`：PASS；验证下游 fixture 正常路由、xhigh 确认门槛和 guard 注册仍通过。
+  - `python -m json.tool .codex/settings.json` 与 `python -m json.tool templates/codex/settings.json`：exit 0；验证 settings JSON 仍合法。
+  - `python .codex/scripts/harness_parity_check.py --no-write` 与 `python templates/codex/scripts/harness_parity_check.py --no-write`：exit 0；报告状态均为 `OK`。
+  - `git diff --check`：exit 0；仅有 LF/CRLF 工作区提示，无 whitespace error。
 - `python -m py_compile .codex/hooks/model_policy_check.py .codex/hooks/user_config_write_guard.py templates/codex/hooks/model_policy_check.py templates/codex/hooks/user_config_write_guard.py tests/harness/run_downstream_fixture.py`：exit 0。
 - `python .codex/hooks/model_policy_check.py --pre-commit`：exit 0。
 - `python tests/harness/run_downstream_fixture.py --case model-policy`：PASS；正常路由通过，xhigh description 与 developer_instructions 的缺确认语句负例均被阻断。
@@ -84,4 +92,4 @@
 
 ## 用户试用反馈
 
-请在新的 BridgeForge Codex 对话中试用：普通咨询应以 `gpt-5.5 + medium` 开始；纯检索应分流到 `gpt-5.5 + low`；明确开发/跨文件判断应分流到 `gpt-5.6-terra + high`。若桌面端没有按项目配置生效，请提供 `/status` 或界面状态截图作为反馈证据。
+请在新的 BridgeForge Codex 对话中试用：普通咨询应以 `gpt-5.6-terra + medium` 开始；纯检索应分流到 `gpt-5.6-luna + low`；明确开发/跨文件判断应分流到 `gpt-5.6-terra + high`。若桌面端没有按项目配置生效，请提供 `/status` 或界面状态截图作为反馈证据。

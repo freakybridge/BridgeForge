@@ -52,12 +52,12 @@ memory 纳入项目 git（`.codex/memory/`），但 Codex 读写走系统路径 
 | 文件 | 说明 | 处理方式 |
 |------|------|---------|
 | `.codex/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
-| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写；项目内 BridgeForge 骨架用 `.codex/config.toml` 明确默认主对话 `gpt-5.5 + medium` |
+| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写；项目内 BridgeForge 骨架用 `.codex/config.toml` 明确默认主对话 `gpt-5.6-terra + medium` |
 | 用户级 `~/.codex/settings.json` | 旧式 / 本机设置 | 不放项目策略；项目级 `effortLevel` 由 `enforce_no_effortlevel` 剔除 |
 
 ### 3.1 Codex 模型 / effort 策略（机检）
 
-**项目 `.codex/config.toml` 必须保留默认主对话 `model = "gpt-5.5"` 与 `model_reasoning_effort = "medium"`；`.codex/agents/*.toml` 必须保留四档子 agent；`xhigh` agent 必须明示需要用户确认。**
+**项目 `.codex/config.toml` 必须保留默认主对话 `model = "gpt-5.6-terra"` 与 `model_reasoning_effort = "medium"`；`.codex/agents/*.toml` 必须保留四档子 agent，且模型选择限定在 GPT-5.6 家族；`xhigh` agent 必须明示需要用户确认。**
 
 策略漂移由 `.codex/hooks/model_policy_check.py` 负责：
 

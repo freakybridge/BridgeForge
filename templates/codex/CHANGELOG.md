@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.31.2] - 2026-07-11
+
+### Changed
+- [product] Codex 模型选择范围收窄到 GPT-5.6 家族：默认主对话改为 `gpt-5.6-terra + medium`，轻量探索改为 `gpt-5.6-luna + low`，实现 / 复核 / xhigh 继续使用 GPT-5.6 Terra/Sol 分层；模型策略机检和说明同步更新。
+
 ## [0.31.1] - 2026-07-11
 
 ### Changed

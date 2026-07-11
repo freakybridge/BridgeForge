@@ -67,8 +67,8 @@
 
 | 场景 | Agent / 配置 | 模型 | Effort |
 |------|--------------|------|--------|
-| 默认主对话 | `.codex/config.toml` | `gpt-5.5` | `medium` |
-| 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.5` | `low` |
+| 默认主对话 | `.codex/config.toml` | `gpt-5.6-terra` | `medium` |
+| 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.6-luna` | `low` |
 | 明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-terra` | `high` |
 | 独立复核 / 验收审计 | `review-auditor` | `gpt-5.6-sol` | `high` |
 | 超强审计 / 专家会诊 | `xhigh-auditor` | `gpt-5.6-sol` | `xhigh` |
