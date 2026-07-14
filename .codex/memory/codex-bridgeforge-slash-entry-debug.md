@@ -19,3 +19,8 @@ description: Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、
 - `C:\Users\bridg\.agents\skills\bridgeforge` 和 `C:\Users\bridg\.claude\skills\bridgeforge` 都应是普通目录，只放对应 wrapper；不能是指向完整仓库的 junction。
 - 旧完整工厂入口 `C:\Users\bridg\.agents\bridgeforge-home` 应不存在。
 - 如果误把 wrapper 写进完整仓库根 `SKILL.md`，先用 `git diff` / blob hash 确认并恢复根 skill，再处理旧 junction；不要把完整仓库 clone/junction 留在 agent 的 skill 货架里。
+
+2026-07-14 版本一致性补充：
+
+- 薄入口虽然会拉取并读取完整 `~/.bridgeforge/SKILL.md`，功能实际跟随根版本，但其 frontmatter `version:` 仍决定菜单 / 入口显示。
+- 每次根 `VERSION` 升级时，同时核对根 `SKILL.md`、`scripts/codex_bridgeforge_entry.SKILL.md`、`scripts/claude_bridgeforge_entry.SKILL.md` 的版本；再复制两份 wrapper 到用户级入口并做内容哈希校验。

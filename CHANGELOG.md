@@ -17,6 +17,11 @@
 
 ---
 
+## [0.61.1] - 2026-07-14
+
+### Fixed
+- `[product]` **同步 Claude / Codex BridgeForge 薄入口版本显示**：两份入口 wrapper 已始终读取完整 `~/.bridgeforge/SKILL.md`，功能实际跟随根版本；本次补齐其遗留的 `0.60.2` frontmatter，使菜单显示与根 `VERSION` / 完整 skill 一致为 `0.61.1`。
+
 ## [0.61.0] - 2026-07-14
 
 ### Added
