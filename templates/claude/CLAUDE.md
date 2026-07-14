@@ -47,7 +47,7 @@
 
 技能目录：`.claude/skills/<name>/SKILL.md`（项目内）和 `~/.claude/skills/<name>/SKILL.md`（用户级）。
 
-常见通用 skill：`/develop`（大需求交付流水线）/ `/plan` / `/collab` / `/debate` / `/summary` / `/todo` / `/find-doc` / `/archive-scan` / `/escalate` / `/snapshot` / `/resume` / `/git-sync`。
+常见通用 skill：`/confirm`（统一需求确认）/ `/develop`（大需求交付流水线）/ `/plan` / `/collab` / `/debate` / `/summary` / `/todo` / `/find-doc` / `/archive-scan` / `/escalate` / `/snapshot` / `/resume` / `/git-sync`。
 
 ---
 

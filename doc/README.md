@@ -15,6 +15,7 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
 | `1_plan/codex-model-routing-56/requirements_2026-07-10_codex-model-routing-56.md` | trial | Upgrade Codex model / reasoning-effort routing defaults from GPT-5.5 to GPT-5.6. |
 | `1_plan/codex-cost-routing/requirements_2026-07-10_codex-cost-routing.md` | implementing | Route Codex models by task cost while keeping user-level model configuration read-only to the skeleton. |
+| `1_plan/confirm-workflow/requirements_2026-07-14_confirm-workflow.md` | trial | Add the shared confirm skill and require develop, debate, and collab to consume its confirmed requirement card. |
 | `1_plan/cross-project-write-guard/requirements_2026-07-10_cross-project-write-guard.md` | implementing | Add Claude/Codex hook protection against accidental cross-project writes and dangerous external git operations. |
 | `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
 | `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
@@ -27,6 +28,8 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `2_pending/2026-07-09_switch_codex_left_claude_live_dir_report.md` | pending | Investigation report for leftover Claude live directory behavior after switching to Codex. |
 | `2_pending/2026-07-10_non_ascii_shell_pipe_hook_proposal.md` | pending | Proposal for Claude/Codex hook protection against non-ASCII shell transit corruption. |
 | `2_pending/2026-07-10_cross_project_write_guard_proposal.md` | pending | Proposal for Claude/Codex hook protection against accidental cross-project writes. |
+| `2_pending/2026-07-14_develop-demand-discovery-gap-report.md` | pending | 调查 `develop` 在既有业务载体重构需求中确认过早的缺口，并提出事实核验与需求发现闸门。 |
+| `2_pending/debates_2026-07-14_develop-single-question-interview.md` | pending | 审查 `develop` 的单题选择式需求访谈是否符合预期，并记录双 Agent 辩论。 |
 
 ### Design And Playbooks
 

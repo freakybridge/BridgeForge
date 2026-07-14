@@ -57,7 +57,7 @@
 
 技能目录：`.agents/skills/<name>/SKILL.md`（项目内，仅项目专属）和 `~/.agents/skills/<name>/SKILL.md`（用户级通用；Codex 规范路径）。
 
-常见通用 skill：`$develop`（大需求交付流水线）/ `$plan` / `$collab` / `$debate` / `$summary` / `$todo` / `$find-doc` / `$archive-scan` / `$escalate` / `$snapshot` / `$resume` / `$git-sync`。
+常见通用 skill：`$confirm`（统一需求确认）/ `$develop`（大需求交付流水线）/ `$plan` / `$collab` / `$debate` / `$summary` / `$todo` / `$find-doc` / `$archive-scan` / `$escalate` / `$snapshot` / `$resume` / `$git-sync`。
 
 ---
 
