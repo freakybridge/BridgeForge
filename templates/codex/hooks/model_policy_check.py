@@ -51,6 +51,33 @@ EXPECTED_AGENTS = {
         "model": "gpt-5.6-sol",
         "model_reasoning_effort": "xhigh",
     },
+    "mechanical-sync-worker.toml": {
+        "name": "mechanical-sync-worker",
+        "model": "gpt-5.6-luna",
+        "model_reasoning_effort": "low",
+    },
+}
+
+ROUTE_AGENT_MODES = {
+    "main": {"main"},
+    "light-explorer": {"read-only"},
+    "implementation-worker": {"implementation"},
+    "review-auditor": {"audit"},
+    "mechanical-sync-worker": {"controlled-write"},
+}
+ROUTING_MANIFEST = "skill-routing.json"
+REQUIRED_ROUTE_AGENTS = {
+    ("archive-scan", "scan-and-candidate-table"): "light-explorer",
+    ("collab", "independent-implementation"): "implementation-worker",
+    ("collab", "independent-review"): "review-auditor",
+    ("debate", "adversarial-review"): "review-auditor",
+    ("develop", "implementation"): "implementation-worker",
+    ("develop", "delivery-review"): "review-auditor",
+    ("escalate", "external-blind-spot-review"): "review-auditor",
+    ("find-doc", "search-and-candidate-summary"): "light-explorer",
+    ("find-memory", "search-and-candidate-summary"): "light-explorer",
+    ("git-sync", "safe-mechanical-sync"): "mechanical-sync-worker",
+    ("harvest", "product-change-review"): "review-auditor",
 }
 
 USER_CONFIG_GUARD_MARKERS = (
@@ -184,6 +211,7 @@ def _check_target(root: Path, label: str) -> list[str]:
     issues = _check_config(root, label)
     for filename, expected in EXPECTED_AGENTS.items():
         issues.extend(_check_agent(root, label, filename, expected))
+    issues.extend(_check_routing_manifest(root, label))
     return issues
 
 
@@ -221,6 +249,100 @@ def _check_user_config_guard(root: Path, label: str) -> list[str]:
     return issues
 
 
+def _load_routing_manifest(path: Path) -> tuple[dict[str, object], str | None]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {}, f"cannot read valid JSON: {exc}"
+    if not isinstance(data, dict):
+        return {}, "must contain a JSON object"
+    return data, None
+
+
+def _source_skill_names() -> set[str] | None:
+    skills = REPO_ROOT / "skills"
+    if not skills.is_dir():
+        return None
+    return {path.parent.name for path in skills.glob("*/SKILL.md") if path.is_file()}
+
+
+def _check_routing_manifest(root: Path, label: str) -> list[str]:
+    path = root / ROUTING_MANIFEST
+    if not path.is_file():
+        return [f"{label}/{ROUTING_MANIFEST} missing"]
+    data, err = _load_routing_manifest(path)
+    if err:
+        return [f"{label}/{ROUTING_MANIFEST} {err}"]
+
+    issues: list[str] = []
+    if data.get("schema_version") != 1:
+        issues.append(f"{label}/{ROUTING_MANIFEST} schema_version must be 1")
+    if not isinstance(data.get("dispatch_contract"), str) or not data["dispatch_contract"].strip():
+        issues.append(f"{label}/{ROUTING_MANIFEST} dispatch_contract must be non-empty")
+    entries = data.get("skills")
+    if not isinstance(entries, list):
+        return [*issues, f"{label}/{ROUTING_MANIFEST} skills must be a list"]
+
+    skill_names: set[str] = set()
+    seen_routes: set[tuple[str, str]] = set()
+    for index, entry in enumerate(entries):
+        prefix = f"{label}/{ROUTING_MANIFEST} skills[{index}]"
+        if not isinstance(entry, dict):
+            issues.append(f"{prefix} must be an object")
+            continue
+        skill = entry.get("skill")
+        stage = entry.get("stage")
+        agent = entry.get("agent")
+        mode = entry.get("mode")
+        root_must_do = entry.get("root_must_do")
+        if not all(isinstance(value, str) and value.strip() for value in (skill, stage, agent, mode, root_must_do)):
+            issues.append(f"{prefix} requires non-empty skill, stage, agent, mode and root_must_do")
+            continue
+        skill_names.add(skill)
+        route_key = (skill, stage)
+        if route_key in seen_routes:
+            issues.append(f"{prefix} duplicates route {skill}/{stage}")
+        seen_routes.add(route_key)
+        allowed_modes = ROUTE_AGENT_MODES.get(agent)
+        if allowed_modes is None:
+            issues.append(f"{prefix} agent {agent!r} is not allowed")
+        elif mode not in allowed_modes:
+            issues.append(f"{prefix} agent {agent!r} requires mode in {sorted(allowed_modes)!r}, got {mode!r}")
+        if agent == "xhigh-auditor":
+            issues.append(f"{prefix} must not auto-route to xhigh-auditor")
+
+    source_names = _source_skill_names()
+    if source_names is not None and skill_names != source_names:
+        issues.append(
+            f"{label}/{ROUTING_MANIFEST} skill coverage must match skills/ exactly: "
+            f"missing={sorted(source_names - skill_names)!r}, extra={sorted(skill_names - source_names)!r}"
+        )
+    elif source_names is None and len(skill_names) != 18:
+        issues.append(f"{label}/{ROUTING_MANIFEST} must cover 18 product skills, got {len(skill_names)}")
+
+    git_sync = [entry for entry in entries if isinstance(entry, dict) and entry.get("skill") == "git-sync"]
+    if len(git_sync) != 1 or git_sync[0].get("agent") != "mechanical-sync-worker":
+        issues.append(f"{label}/{ROUTING_MANIFEST} git-sync must have one mechanical-sync-worker route")
+    routes = {
+        (entry.get("skill"), entry.get("stage")): entry.get("agent")
+        for entry in entries
+        if isinstance(entry, dict)
+    }
+    for route, expected_agent in REQUIRED_ROUTE_AGENTS.items():
+        if routes.get(route) != expected_agent:
+            issues.append(f"{label}/{ROUTING_MANIFEST} {route[0]}/{route[1]} must use {expected_agent}")
+
+    global_entries = data.get("global_entries")
+    if not isinstance(global_entries, list):
+        return [*issues, f"{label}/{ROUTING_MANIFEST} global_entries must be a list"]
+    bridgeforge = [entry for entry in global_entries if isinstance(entry, dict) and entry.get("skill") == "bridgeforge"]
+    if len(bridgeforge) != 1 or bridgeforge[0].get("agent") != "main" or bridgeforge[0].get("mode") != "main":
+        issues.append(f"{label}/{ROUTING_MANIFEST} bridgeforge must remain a main/main global entry")
+    if any(isinstance(entry, dict) and entry.get("agent") == "xhigh-auditor" for entry in global_entries):
+        issues.append(f"{label}/{ROUTING_MANIFEST} global_entries must not auto-route to xhigh-auditor")
+    return issues
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pre-commit", action="store_true", help="exit 2 on policy drift")
@@ -236,6 +358,12 @@ def main() -> int:
         issues.extend(_check_target(root, label))
         if root.exists():
             issues.extend(_check_user_config_guard(root, label))
+
+    dogfood_manifest, dogfood_error = _load_routing_manifest(REPO_ROOT / ".codex" / ROUTING_MANIFEST)
+    template_manifest, template_error = _load_routing_manifest(REPO_ROOT / "templates" / "codex" / ROUTING_MANIFEST)
+    if dogfood_error is None and template_error is None:
+        if json.dumps(dogfood_manifest, ensure_ascii=False, sort_keys=True) != json.dumps(template_manifest, ensure_ascii=False, sort_keys=True):
+            issues.append(".codex and templates/codex skill-routing.json must be structurally identical")
 
     if not issues:
         return 0

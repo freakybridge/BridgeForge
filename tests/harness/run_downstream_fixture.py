@@ -118,6 +118,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
+    shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
     _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
 
     _copytree(CODEX_TEMPLATE / ".githooks", CODEX_FIXTURE / ".githooks")
@@ -1085,25 +1086,67 @@ def check_model_policy() -> CheckResult:
     settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     bad_registration = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
 
+    fixture = build_codex_fixture()
+    routing_path = fixture / ".codex" / "skill-routing.json"
+    routing = json.loads(routing_path.read_text(encoding="utf-8"))
+    routing["skills"] = [entry for entry in routing["skills"] if entry["skill"] != "find-doc"]
+    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    bad_missing_find_doc = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
+    fixture = build_codex_fixture()
+    routing_path = fixture / ".codex" / "skill-routing.json"
+    routing = json.loads(routing_path.read_text(encoding="utf-8"))
+    review_route = next(
+        entry
+        for entry in routing["skills"]
+        if entry["skill"] == "develop" and entry["stage"] == "delivery-review"
+    )
+    review_route["agent"] = "light-explorer"
+    review_route["mode"] = "read-only"
+    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    bad_review_luna = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
+    fixture = build_codex_fixture()
+    routing_path = fixture / ".codex" / "skill-routing.json"
+    routing = json.loads(routing_path.read_text(encoding="utf-8"))
+    routing["skills"].append(
+        {
+            "skill": "find-doc",
+            "stage": "forbidden-xhigh",
+            "agent": "xhigh-auditor",
+            "mode": "audit",
+            "root_must_do": "none",
+        }
+    )
+    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    bad_auto_xhigh = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
+
     ok = (
         good.returncode == 0
         and bad_description.returncode == 2
         and bad_instructions.returncode == 2
         and bad_registration.returncode == 2
+        and bad_missing_find_doc.returncode == 2
+        and bad_review_luna.returncode == 2
+        and bad_auto_xhigh.returncode == 2
         and "description must state" in (bad_description.stdout + bad_description.stderr)
         and "developer_instructions must state" in (bad_instructions.stdout + bad_instructions.stderr)
         and "must register user_config_write_guard.py for Bash" in (bad_registration.stdout + bad_registration.stderr)
+        and "find-doc/search-and-candidate-summary must use light-explorer" in (bad_missing_find_doc.stdout + bad_missing_find_doc.stderr)
+        and "develop/delivery-review must use review-auditor" in (bad_review_luna.stdout + bad_review_luna.stderr)
+        and "must not auto-route to xhigh-auditor" in (bad_auto_xhigh.stdout + bad_auto_xhigh.stderr)
     )
     return CheckResult(
         "model_policy_health",
         ok,
-        "model policy hook passes source/good fixture and separately blocks xhigh confirmation drift and missing guard registration"
+        "model policy hook passes source/good fixture and blocks xhigh confirmation, guard registration, missing Luna routing, downgraded review, and automatic xhigh routing"
         if ok
         else (
-            f"expected good exit 0 and two bad exit 2 cases, got good={good.returncode}, "
+            f"expected good exit 0 and policy bad exit 2 cases, got good={good.returncode}, "
             f"bad_description={bad_description.returncode}, bad_instructions={bad_instructions.returncode}, "
-            f"bad_registration={bad_registration.returncode}: "
-            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr + bad_registration.stdout + bad_registration.stderr).strip()}"
+            f"bad_registration={bad_registration.returncode}, bad_missing_find_doc={bad_missing_find_doc.returncode}, "
+            f"bad_review_luna={bad_review_luna.returncode}, bad_auto_xhigh={bad_auto_xhigh.returncode}: "
+            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr + bad_registration.stdout + bad_registration.stderr + bad_missing_find_doc.stdout + bad_missing_find_doc.stderr + bad_review_luna.stdout + bad_review_luna.stderr + bad_auto_xhigh.stdout + bad_auto_xhigh.stderr).strip()}"
         ),
     )
 

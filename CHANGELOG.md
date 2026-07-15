@@ -17,6 +17,11 @@
 
 ---
 
+## [0.61.2] - 2026-07-15
+
+### Added
+- `[product][meta]` **新增 Codex skill 分段路由契约**：以 `.codex/skill-routing.json` 覆盖 18 个下游通用 skill 的只读、实现、审计和主控阶段；入口要求显式分派 named custom agent，静态策略检查与 downstream fixture 同步阻断漏路由、审计降档和自动 xhigh。新增 `mechanical-sync-worker`（Luna / low）专门承接用户显式 `$git-sync` 的受控同步脚本；全局 `$bridgeforge` 入口保持 Terra 主控。该契约不能替代运行时 smoke test，也不承诺总 token 必然下降。Codex 模板版本升至 `0.32.1`，根版本与两套 BridgeForge 薄入口升至 `0.61.2`。
+
 ## [0.61.1] - 2026-07-14
 
 ### Fixed

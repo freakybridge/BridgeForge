@@ -113,3 +113,12 @@
 | `[find-doc]` | 定位文档优先 `/find-doc <topic>`；已知精确路径 / 代码搜索 → 忽略 |
 
 > 完整契约（下游版全文）→ `templates/codex/AGENTS.md` §9.5-§10.5。
+
+## §6 Codex skill 路由 dogfood（always-on）
+
+本仓库 `.codex/skill-routing.json` 与 `templates/codex/skill-routing.json` 必须结构一致。调用其中登记的通用 skill 时，按阶段显式分派 manifest 指定的 named custom agent；主对话保留用户确认、决策和 `root_must_do`。
+
+- `light-explorer` 仅做只读阶段；`implementation-worker` 仅做实现；`review-auditor` 仅做独立审计。
+- `$git-sync` 的确定性同步阶段只允许 `mechanical-sync-worker` 运行 `.codex/scripts/codex_git_sync.py`；任何分叉、冲突或失败交回主对话。
+- `$bridgeforge` 是用户级全局入口，保持主对话编排，不属于下游 18-skill 清单。
+- 不得自动分派 `xhigh-auditor`；运行时分派须另留 smoke-test 收据，静态 hook 不能伪称验证了实际调用。

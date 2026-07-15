@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "dispatch_contract": "For every non-main stage, the root agent must explicitly spawn the named custom agent, wait for its bounded evidence summary, and keep decisions, user questions, and cross-stage integration in the root thread. This is an instruction contract, not a runtime router.",
+  "skills": [
+    {"skill": "archive-scan", "stage": "scan-and-candidate-table", "agent": "light-explorer", "mode": "read-only", "root_must_do": "present candidates, ask user, decide archive, move files, update README"},
+    {"skill": "archive-scan", "stage": "decision-and-archive", "agent": "main", "mode": "main", "root_must_do": "all user interaction and writes"},
+    {"skill": "collab", "stage": "read-only-research", "agent": "light-explorer", "mode": "read-only", "root_must_do": "plan and interface decisions"},
+    {"skill": "collab", "stage": "planning-and-integration", "agent": "main", "mode": "main", "root_must_do": "confirm, split, integrate and test"},
+    {"skill": "collab", "stage": "independent-implementation", "agent": "implementation-worker", "mode": "implementation", "root_must_do": "supply file boundaries and integrate"},
+    {"skill": "collab", "stage": "independent-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "decide repairs and report"},
+    {"skill": "confirm", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "conduct user interview and write confirmed card"},
+    {"skill": "debate", "stage": "read-only-research", "agent": "light-explorer", "mode": "read-only", "root_must_do": "record facts and coordinate rounds"},
+    {"skill": "debate", "stage": "proposal", "agent": "implementation-worker", "mode": "implementation", "root_must_do": "present final choice to user"},
+    {"skill": "debate", "stage": "adversarial-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "record consensus and wait for approval"},
+    {"skill": "develop", "stage": "read-only-discovery", "agent": "light-explorer", "mode": "read-only", "root_must_do": "confirm scope and plan"},
+    {"skill": "develop", "stage": "implementation", "agent": "implementation-worker", "mode": "implementation", "root_must_do": "coordinate delivery and user feedback"},
+    {"skill": "develop", "stage": "delivery-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "make delivery decision"},
+    {"skill": "escalate", "stage": "self-assessment-and-choice", "agent": "main", "mode": "main", "root_must_do": "state evidence and wait for user"},
+    {"skill": "escalate", "stage": "external-blind-spot-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "select and present paths"},
+    {"skill": "find-doc", "stage": "search-and-candidate-summary", "agent": "light-explorer", "mode": "read-only", "root_must_do": "make follow-up decisions"},
+    {"skill": "find-memory", "stage": "search-and-candidate-summary", "agent": "light-explorer", "mode": "read-only", "root_must_do": "make follow-up decisions"},
+    {"skill": "focus", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "read, set, clear and interpret anchor"},
+    {"skill": "git-sync", "stage": "safe-mechanical-sync", "agent": "mechanical-sync-worker", "mode": "controlled-write", "root_must_do": "handle divergence, conflicts and final report"},
+    {"skill": "harvest", "stage": "candidate-and-target-discovery", "agent": "light-explorer", "mode": "read-only", "root_must_do": "classify and approve product change"},
+    {"skill": "harvest", "stage": "sanitized-product-change", "agent": "implementation-worker", "mode": "implementation", "root_must_do": "review scope and user-facing result"},
+    {"skill": "harvest", "stage": "product-change-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "accept or repair findings"},
+    {"skill": "plan", "stage": "read-only-fact-gathering", "agent": "light-explorer", "mode": "read-only", "root_must_do": "prioritize risks and ask for approval"},
+    {"skill": "plan", "stage": "plan-and-risk-decision", "agent": "main", "mode": "main", "root_must_do": "author plan"},
+    {"skill": "resume", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "align snapshot, git and memory"},
+    {"skill": "snapshot", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "write subjective handoff"},
+    {"skill": "spinoff", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "judge blocking dependency and create return path"},
+    {"skill": "summary", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "classify durable knowledge and writes"},
+    {"skill": "sync-docs", "stage": "diff-to-document-location", "agent": "light-explorer", "mode": "read-only", "root_must_do": "write factual documentation"},
+    {"skill": "sync-docs", "stage": "documentation-update", "agent": "main", "mode": "main", "root_must_do": "edit documentation"},
+    {"skill": "todo", "stage": "related-record-lookup", "agent": "light-explorer", "mode": "read-only", "root_must_do": "classify and record issue"},
+    {"skill": "todo", "stage": "classification-and-recording", "agent": "main", "mode": "main", "root_must_do": "write TODO and references"}
+  ],
+  "global_entries": [
+    {"skill": "bridgeforge", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "orchestrate pull, init, update, adopt, switch, conflicts and user confirmations"}
+  ]
+}

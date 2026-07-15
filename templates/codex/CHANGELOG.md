@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.32.1] - 2026-07-15
+
+### Added
+- [product] 新增 `skill-routing.json`：覆盖 18 个下游通用 skill 的分段 named-agent 路由，强制只读阶段使用 `light-explorer`，实现 / 独立审计保持对应高强度 agent，且禁止自动 xhigh。新增 `mechanical-sync-worker`（Luna / low）仅运行用户显式 `$git-sync` 的受控同步脚本；`bridgeforge` 作为全局入口保持主对话编排。策略检查与 fixture 会阻断漏路由、审计降到 Luna 和自动 xhigh；运行时分派与总 token 节省仍须另行 smoke test / 遥测验证。
+
 ## [0.31.2] - 2026-07-11
 
 ### Changed

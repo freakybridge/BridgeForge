@@ -69,6 +69,7 @@
 |------|--------------|------|--------|
 | 默认主对话 | `.codex/config.toml` | `gpt-5.6-terra` | `medium` |
 | 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.6-luna` | `low` |
+| 已授权的确定性 Git 同步 | `mechanical-sync-worker` | `gpt-5.6-luna` | `low` |
 | 明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-terra` | `high` |
 | 独立复核 / 验收审计 | `review-auditor` | `gpt-5.6-sol` | `high` |
 | 超强审计 / 专家会诊 | `xhigh-auditor` | `gpt-5.6-sol` | `xhigh` |
@@ -76,6 +77,17 @@
 - 已运行的主对话不自动中途换模型；需要升档时按任务分流到对应 custom agent。`xhigh` 只由用户当次自行选择，骨架不得自动提升。
 - 禁止因为“任务大但机械”就用 `xhigh`；只有疑难根因、高风险决策、或 high 复核仍判断不清时才申请。
 - Codex 的 `SKILL.md` frontmatter `model:` 不作为本骨架的自动切换依据；Codex 模型路由以 `config.toml` 和 `.codex/agents/*.toml` 为准。
+
+### 4.6 Skill 分段路由（强制）
+
+`.codex/skill-routing.json` 是 18 个下游通用 skill 的路由单一事实源；`bridgeforge` 是用户级全局入口，只在该文件的 `global_entries` 中单列，不属于这 18 个项目 skill。
+
+- 调用已登记 skill 时，先读 manifest 命中的阶段；非 `main` 阶段**必须显式 spawn**该行的 named custom agent，等待其有限证据摘要，主对话不得自行重做该阶段。
+- 子 agent prompt 必须包含：agent 名称、阶段目标、文件 / 工具边界、只读或写入约束和回传格式。用户提问、审批、跨阶段整合与 manifest 的 `root_must_do` 始终留在主对话。
+- `light-explorer` 只能执行 `read-only` 行；`implementation-worker` 只能执行 `implementation` 行；`review-auditor` 只能执行 `audit` 行。不得把写入、用户确认或独立审计降到 Luna。
+- `mechanical-sync-worker` 只在用户显式 `$git-sync` 时执行 `controlled-write` 行，且只允许运行 `.codex/scripts/codex_git_sync.py`；分叉、冲突、失败和任何决策必须立即交回主对话。
+- manifest 不得自动路由到 `xhigh-auditor`。`xhigh` 仍须本次请求中用户明确确认。
+- 这是工作流指令契约，不是 Codex 平台级 runtime router：`model_policy_check.py` 只校验配置与规则；实际 named-agent 分派须通过运行时 smoke test 留证。
 
 白话类比：主对话是总控台默认中火，子 agent 是预设工具箱；hook 是巡检员，发现档位被拧错就报警或在提交前拦住。
 
