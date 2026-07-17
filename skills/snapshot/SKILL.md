@@ -1,67 +1,62 @@
 ---
 name: snapshot
-description: 手动存档当前 session 的工作状态到 .runtime/session_state/ — 与自动 hook 互补，能写入当前 agent 主观的"本轮做了啥 / 下一步打算"。
+description: 将当前 session 的客观状态和短交接摘要保存到 .runtime/session_state/；任务暂停、即将换会话、完成重要子任务或长对话需要低 token 接续时使用。
 user_invocable: true
 argument: 可选——本次 snapshot 的补充说明
 model: sonnet
 ---
 
-# /snapshot / $snapshot — 主动存档当前工作状态
+# 保存短交接 snapshot
 
-**定位**：在 Hook D（PostCompact + Stop 节流）的自动快照基础上，提供**手动触发 + 主观内容补全**。
+## 定位与边界
 
-## 与相关机制的区别
+保存可在新会话中直接接续的短期状态，不写长期 memory。自动 hook 保存客观状态；本 skill 补充 agent 掌握的关键决定和下一步。
 
-| 机制 | 触发 | 内容 | 何时用 |
-|------|------|------|--------|
-| **Hook D（post-compact）** | compact 自动 | 客观状态 | 自动跑 |
-| **Hook D（stop 节流 5min）** | 每轮 Stop ≥5min | 客观状态 | 自动跑（Word-style 自动保存）|
-| **`/snapshot`（Claude）/ `$snapshot`（Codex，本 skill）** | 用户显式 call | 客观 + **主观** | 觉得"这轮有重要进展"要保 |
-| **`/summary`（Claude）/ `$summary`（Codex）** | 用户显式 call | 决策沉淀到 memory（长期） | 决策值得**永久**记 |
+## 输入
 
-`/snapshot` / `$snapshot` = 短期工作状态（session state）；`/summary` / `$summary` = 长期知识（memory）。
+使用当前会话状态，并把 `$ARGUMENTS` 作为补充说明。交接卡总长度目标不超过约 1,200 tokens。
 
-## 执行步骤
+## 核心流程
 
-1. **跑 hook 脚本抓客观状态 + 落盘**：
+1. 运行当前 agent 的快照脚本：
+
    ```bash
    # Claude
    .venv/Scripts/python.exe .claude/hooks/session_snapshot.py manual
    # Codex
    .venv/Scripts/python.exe .codex/hooks/session_snapshot.py manual
    ```
-   会在 `.runtime/session_state/<ts>.md` 写客观快照。
 
-2. **读取刚写的 snapshot 文件**（拿到完整路径 + 当前客观状态）。
-
-3. **追加主观内容**到同一文件末尾：
+2. 定位并读取刚生成的 `.runtime/session_state/<ts>.md`，确认路径和脚本写入的客观状态。
+3. 在同一文件末尾追加以下短交接内容：
 
    ```markdown
-   ## 本轮做了什么（agent 填）
-   - ...（本轮关键动作，简练 3-5 条）
-
-   ## 当前假设 / 未验证
-   - ...（正在假设但还没验的事）
-
-   ## 下一步打算
-   - ...（user 或 claude 推进的方向）
+   ## 交接摘要（agent 填）
+   ### 已完成
+   - <关键结果，最多 5 条>
+   ### 关键决定 / 当前假设
+   - <只写会影响后续工作的内容，并标出未验证项>
+   ### 改动文件
+   - <路径 + 一句话状态>
+   ### 下一步
+   - <按顺序列出可直接执行的动作>
    ```
 
-4. **回复用户**一行摘要：
-   ```
-   ✓ snapshot → <相对路径>
-   含本轮 X 件事 + Y 个未验假设 + Z 条下一步
-   ```
+4. 压缩重复背景；若接近预算，优先保留未验证风险、改动文件和下一步。
+5. 重新读取文件，确认交接段已落盘且内容可独立理解。
 
-## 何时主动建议
+## 输出与验证
 
-- 用户说"先停一下" / "暂告一段落" / "明天再继续"
-- 完成一个完整子任务（修完一个 bug、写完一个 skill、走完一个 milestone）
-- 即将切 session / 切 role
-- 对话已经长且有重要决策（防丢）
+回复：`✓ snapshot → <相对路径>`，并报告已完成项、未验证项和下一步的数量。若无法确认文件写入成功，必须标记失败。
 
-## 禁止
+## 停止条件
 
-- 不要调 `/summary` / `$summary`（那是长期 memory）
-- 不要把主观内容放磁盘以外的地方
-- 不要删旧 snapshot（脚本自己 cap 20 份会清理）
+- 脚本失败或无法确定最新文件：停止追加，回报命令和错误。
+- 快照中的 Git/文件状态明显异常：保留客观收据并标为未验证，不猜测修正。
+
+## 禁止事项
+
+- 禁止复制历史对话、完整日志、完整 diff、测试长输出或大段代码。
+- 禁止调用 `summary` 代替 snapshot，或把短期状态写入长期 memory。
+- 禁止删除旧 snapshot；数量上限由脚本管理。
+- 禁止只在聊天中给摘要而不落盘。

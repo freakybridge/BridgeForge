@@ -21,6 +21,8 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
 | `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
 | `1_plan/non-ascii-shell-guard/requirements_2026-07-10_non-ascii-shell-guard.md` | trial | Add Claude/Codex hook protection against non-ASCII shell transit corruption and scan existing skeleton text. |
+| `1_plan/token-context-optimization/requirements_2026-07-15_token-context-optimization.md` | implementing | Reduce Codex startup and long-thread token cost, and standardize all 19 BridgeForge product skills. |
+| `1_plan/token-context-optimization/collabs_2026-07-15_implementation.md` | implementing | Track parallel skill standardization and shared token/memory integration work. |
 
 ### Pending
 
@@ -32,6 +34,7 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `2_pending/debates_2026-07-15_codex-skill-routing-dispatch.md` | pending | Debate on binding Codex skill stages to named custom agents without eroding quality. |
 | `2_pending/2026-07-14_develop-demand-discovery-gap-report.md` | pending | 调查 `develop` 在既有业务载体重构需求中确认过早的缺口，并提出事实核验与需求发现闸门。 |
 | `2_pending/debates_2026-07-14_develop-single-question-interview.md` | pending | 审查 `develop` 的单题选择式需求访谈是否符合预期，并记录双 Agent 辩论。 |
+| `2_pending/2026-07-17_git-sync-sandbox-permission-report.md` | pending | 下游实机验证 git-sync 的 `.git/FETCH_HEAD` 沙箱权限失败，并提出骨架恢复规则。 |
 
 ### Design And Playbooks
 

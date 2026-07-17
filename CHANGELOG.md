@@ -17,6 +17,16 @@
 
 ---
 
+## [0.62.0] - 2026-07-15
+
+### Added
+- `[product][repo][meta]` **降低 Codex 启动与长对话成本**：`context_warning.py` 改读当前 JSONL token 事件并优先采用日志窗口，新增 8 万经济线、14 万交接线、20 万危险线和缓存失效提示；新增只输出规模、不泄露正文的 `context_cost_report.py`；memory 热索引增加 6000 字符预算和单条摘要截断。
+
+### Changed
+- `[product][meta]` **标准化全部 19 个 BridgeForge skill**：入口只保留发现、硬闸和主流程，低频步骤下沉到一层 `references/`；根 skill 从 784 行缩至 205 行，统一 metadata、输出收据和停止条件，不增加 `agents/openai.yaml`，不改变既有高风险确认边界。
+- `[product]` **补齐 `git-sync` 沙箱权限恢复契约**：首次在 `git fetch` / `.git/FETCH_HEAD` 权限阶段失败时，保留原命令并申请受限的沙箱外重试；禁止改走手工 Git、修改 ACL 或把网络/分叉/凭据问题误报为恢复成功。
+- `[product][repo]` **把上下文预算写进机检**：skill 单文件上限 500 行、单条 description 上限 500 字、目录总 description 上限 4000 字，并检查一层 reference 死链；Codex 自身配置与下游模板同步 dogfood。
+
 ## [0.61.2] - 2026-07-15
 
 ### Added

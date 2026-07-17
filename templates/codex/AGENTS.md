@@ -168,17 +168,18 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ---
 
-## 10. 上下文预算 — `[ctx-budget]`
+## 10. 上下文成本与预算 — `[ctx-budget]`
 
 | 级别 | 响应 |
 |------|------|
-| MEDIUM | 继续执行，完成后建议 `$snapshot` |
-| HIGH | 开头告知用量 + 建议 `$snapshot`；复杂多文件改动建议拆小或换会话，用户坚持则说明风险后继续 |
-| CRITICAL | 开头告知用量 + 强烈建议先 `$snapshot` 再新会话 `$resume`；用户坚持可继续，但提示状态可能被 compact 吞 |
+| ECONOMY（默认 80k） | 完成当前子任务后准备短交接，避免继续膨胀 |
+| HANDOFF（默认 140k） | 不在本任务开启新的大型子任务；建议 `$snapshot` 后开新任务 `$resume latest` |
+| CRITICAL（默认 200k 或窗口 75%） | 开头告知用量并强烈建议立即交接；用户坚持可继续，但必须说明风险 |
+| CACHE_MISS（可叠加） | 明确说明缓存命中偏低，旧长任务可能已发生整段重算 |
 
-边界附近以信号为准；软化的是“拒不拒活”，不是“报不报用量”。`$snapshot` / `$resume` / `$git-sync` 等保命操作放行。细节见 `rules/anti_drift_hooks.md` §3。
+边界附近以信号为准。信号只提醒、不阻断明确要求；`$snapshot` / `$resume` / `/compact` 自身静默放行，`$git-sync` 仍可执行但不再跳过成本提示。细节见 `rules/anti_drift_hooks.md` §3。
 
-Codex 的有效 compact 窗口不得照抄 Claude 1M 假设；`context_warning.py` 默认按保守窗口计算，并在信号里打印 `surface=codex` / `window_source`，实测确认后再调参。
+Codex 的有效窗口优先读取日志 `model_context_window`，环境变量仅作显式覆盖，最后才使用保守默认值。禁止把 `cached_input_tokens` 再加到已包含缓存的 `input_tokens` 上。
 
 ---
 

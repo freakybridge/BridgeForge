@@ -1,116 +1,56 @@
 ---
 name: resume
-description: 读取 .runtime/session_state/ 下的 snapshot 文件，把工作状态带入当前 session。不带参数时让当前 agent 列出候选让用户选，或带 `latest` 直接读最新一份。
+description: 从 .runtime/session_state/ 读取一份 snapshot，在核对当前 Git 状态后接续工作；新会话要继续上次任务时使用，支持 latest 直取最新快照或无参数选择候选。
 user_invocable: true
 argument: 可选——latest 或指定 snapshot 文件名
 model: sonnet
 ---
 
-# /resume / $resume — 从 snapshot 接续上下文
+# 从 snapshot 接续
 
-**定位**：配合 `/snapshot`（Claude）/ `$snapshot`（Codex）和 Hook D（自动）生成的 session state 档案使用。打开新 agent session 时想"接着之前的活"就 call。
+## 定位与边界
 
-## 用法
+只读取一张短交接卡，不继承旧 transcript，也不把 snapshot 写入长期 memory。Git 状态一致时直接接续；只有不一致或用户未指定候选时才停下来询问。
 
-```
-Claude: /resume
-Codex:  $resume
+## 输入
 
-/resume 或 $resume                # 列出所有候选让用户选
-/resume latest 或 $resume latest  # 直接读最新一份（跳过列表）
-```
+| 输入 | 选择方式 |
+|------|----------|
+| `latest` | 直接选择最新一份 snapshot |
+| 指定文件名 | 选择该文件 |
+| 无参数 | 列出最近 10 份候选，让用户选一份 |
 
-## 执行步骤
+## 核心流程
 
-### 模式 A：`/resume latest` / `$resume latest` 直接读最新
+1. 选择 snapshot：
+   - `latest`：按修改时间取 `.runtime/session_state/*.md` 最新一份，不展示候选列表。
+   - 指定文件名：只接受 `.runtime/session_state/` 内存在的文件。
+   - 无参数：列出最近 10 份的时间和主题摘要，使用结构化提问让用户选择，然后结束本轮。
+2. 完整读取选定的一份 snapshot；禁止同时读取其他候选。
+3. 运行 `git status`，对比 snapshot 记录的 branch 与未提交文件集合：
+   - 一致：不要再问“是否继续”，直接进入下一步。
+   - 不一致：列出差异并停下，询问用户要以当前状态继续、另存现场，还是放弃接续；不得自动 stash、覆盖或还原。
+4. 从 branch、任务主题和 P0 TODO 提取 2–4 个关键词：
+   - 先查当前 agent 的 `memory/MEMORY.md`。
+   - 热区无匹配且历史决策会影响当前任务时，再调用 `find-memory`，只读最相关的 1–2 个文件。
+5. 汇总上次状态、已完成、关键决定、未验证项、改动文件和下一步，并从第一条可执行动作继续工作。
+6. 从“已完成 / 下一步”提取 3–12 字的“动词 + 对象”主题，建议用户把当前任务改成该名称；用户拒绝后不再追问。
 
-读 `.runtime/session_state/*.md` 最新一份，跳到 Step 3。
+## 输出与验证
 
-```bash
-ls -1t .runtime/session_state/*.md | head -1
-```
+输出必须包含：snapshot 文件名、当前 branch、Git 对齐结果、未验证项和即将执行的下一步。只有实际对比过 `git status` 才能写“状态一致”。
 
-### 模式 B：`/resume` / `$resume` 无参数
+## 停止条件
 
-1. **列出最近候选**：
+- 没有 snapshot 或指定文件不存在：报告事实并停止。
+- 无参数尚未选定候选：列出候选后停止。
+- Git 状态不一致：展示差异并等待用户决定。
+- snapshot 损坏或缺少足以对齐的状态：标记缺口，不猜测接续。
 
-   ```bash
-   ls -1t .runtime/session_state/*.md | head -10
-   ```
+## 禁止事项
 
-2. **呈现给用户**：
-
-   ```
-   ## 可接续的 session（按时间倒序）
-
-   | # | 存档时间   | 主题摘要                          |
-   |---|-----------|----------------------------------|
-   | 1 | 1 小时前   | 修 EVENT_ACCOUNT 订阅 bug         |
-   | 2 | 40 分钟前  | 重构 Cache pending_orders          |
-   | 3 | 25 分钟前  | post-compact 自动存档（仅客观）    |
-
-   要接续哪个？输入编号（1/2/3）或 "都不要"。
-   ```
-
-3. 等用户回应后跳 Step 3。
-
-### Step 3：呈现 + 对齐
-
-读取选定的 snapshot 文件完整内容，向用户呈现：
-
-```
-## 接续 snapshot：<文件名>
-
-**上次状态**：
-- Branch: <branch>
-- 版本: v<x.y.z>
-- Uncommitted: <N 个文件>
-- 存档事件: <event>
-
-**上次做了什么**（从 snapshot 主观 section 抽，若有）：
-- ...
-
-**下一步打算**（snapshot 记的）：
-- ...
-
-准备从这里继续吗？
-```
-
-### Step 4：git 状态对齐
-
-跑 `git status` 对比当前实际状态 vs snapshot 里的 uncommitted。
-
-- 一致 → 直接接续
-- **不一致**（用户这期间改了别的）→ 提示："当前 git 状态和 snapshot 不一致，你期间可能动了别的事，要先 git stash 还是直接覆盖式接续？"
-
-### Step 5：memory 对齐
-
-从 snapshot 内容提取 2-4 个关键词（branch 名 + P0 TODO 关键词 + 任务主题词）。
-
-**先查热区**：扫 MEMORY.md，判断热区是否已有与当前任务相关的条目。
-
-- **有匹配** → 无需额外操作，热区已覆盖，继续 Step 6。
-- **无匹配** → 调用 `/find-memory <关键词>`（Claude）/ `$find-memory <关键词>`（Codex），读取命中的最相关 1-2 个文件。
-
-> 这一步的目的是确保接续任务前，相关 memory 已被召回，不会因冷却而遗漏历史决策。
-
-### Step 6：建议对话框重命名（必做）
-
-用户在 Step 3 回 yes 后，**主动**提议把当前对话框从默认的 "resume" 改成描述性名（多个 "resume" session 无法区分、历史列表难定位）。
-
-**抽主题**（agent 自己想，不问用户）：从 snapshot"本轮做了什么 / 下一步"抽 动词+对象 3-12 字；主观段空则从 uncommitted 改动 + branch 名推断（`feature/oms-refactor` → 「OMS 重构」）。呈现可与 Step 4 合并：`💡 建议重命名为「<主题>」`。
-
-- **agent 无 API 改 session title（截至 2026-05）**，只能提示用户在 UI 手改（点 session 名 → 编辑）——别谎称已改。
-- **禁止**：空泛名（"继续工作" / "新任务"，须含动作语义）；强制重命名（回"不用"就闭嘴不追问）；Step 3 前提（还没确认接续就提命名是冗余）。
-
-## 何时主动建议
-
-- 用户在新 session 开场说"继续" / "接着昨天" / "我刚才做到哪了"
-- 用户迷失方向 / 不记得上次在哪
-- 看到 SessionStart hook 输出的 `[snapshot]` 提示
-
-## 禁止
-
-- 不要盲信 snapshot 是当前状态 — 必须 `git status` 对齐
-- 不要把 snapshot 内容写入 memory（snapshot 是短期可过时的）
-- 不要一次读多份 snapshot（只读用户选定的那一份）
+- 禁止在 Git 状态一致时额外询问一次“准备继续吗”。
+- 禁止盲信 snapshot、一次读取多份 snapshot，或读取旧 transcript。
+- 禁止自动 stash、覆盖、还原用户当前改动。
+- 禁止把短期 snapshot 内容写入长期 memory。
+- 禁止使用“继续工作”“新任务”等无动作语义的建议名称。

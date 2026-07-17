@@ -1,26 +1,17 @@
-"""上下文预算预警 — UserPromptSubmit hook
+"""Codex 上下文成本预警（UserPromptSubmit hook）。
 
-机制:
-1. 读 transcript_path JSONL, 从末尾倒查最近一条 assistant 消息的 usage 字段
-2. 真实 context 占用 = input_tokens + cache_creation + cache_read + output_tokens
-   (与 Codex /context 一致, 精确到个位 token)
-3. 跨阈值时输出 [ctx-budget] 信号到 stdout, Codex 包装成 system-reminder
-4. Codex 读到信号后按 instruction 决定行为 (软化后: 建议不强拦, 决定权交用户):
-   - CRITICAL (>= 95%): 强烈建议先 $snapshot 换会话, 用户坚持可继续 (提示状态可能被 compact 吞)
-   - HIGH (>= 85%): 复杂多文件改动建议拆小或换会话, 用户坚持则说明风险后继续
-   - MEDIUM (>= 75%): 允许执行, 完成后建议 $snapshot
+优先读取当前 Codex JSONL 的 ``event_msg.token_count``；兼容旧版
+``assistant.usage``。两种真实 usage 都不存在时，才退化为文件大小估算。
 
-command / skill 调用（以 / 或 $ 开头）跳过预警 — 否则 $snapshot 自身也被拦, 死锁。
-
-若 transcript 缺 usage 字段 (旧 session / 损坏), fallback 到 char/4 估算。
-
-详见 AGENTS.md "ctx-budget 信号约定"。调参(WINDOW / 阈值)见下方常量注释。
+成本档位：80k ECONOMY / 140k HANDOFF / 200k CRITICAL；上下文 >= 80k
+且缓存命中率 < 50% 时追加 CACHE_MISS。信号只提醒、不拦截。
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -29,73 +20,165 @@ try:
 except Exception:
     pass
 
-# Codex Desktop 的有效 compact 窗口按当前 /status 实测校准。Claude 侧可硬编码
-# 1_000_000；Codex 侧单独校准，避免照抄 Claude 口径导致预警静默失效。
-# 需要按机器/版本校准时设置 BRIDGEFORGE_CODEX_CTX_WINDOW，例如 1000000。
 DEFAULT_CODEX_WINDOW = 353_000
 WINDOW_ENV = "BRIDGEFORGE_CODEX_CTX_WINDOW"
-
-# 三个阶梯阈值
-THR_MEDIUM = 75
-THR_HIGH = 85
-THR_CRITICAL = 95
-
-# 倒查 transcript 末尾的字节数 (单条 assistant 消息通常 < 50KB, 256KB 足够覆盖最后几轮)
+ECONOMY_ENV = "BRIDGEFORGE_CTX_ECONOMY_TOKENS"
+HANDOFF_ENV = "BRIDGEFORGE_CTX_HANDOFF_TOKENS"
+CRITICAL_ENV = "BRIDGEFORGE_CTX_CRITICAL_TOKENS"
+DEFAULT_ECONOMY = 80_000
+DEFAULT_HANDOFF = 140_000
+DEFAULT_CRITICAL = 200_000
+SAFETY_CRITICAL_PCT = 75
+CACHE_MISS_MIN_TOKENS = 80_000
+CACHE_MISS_RATIO_PCT = 50
 TAIL_BYTES = 256 * 1024
 
 
-def effective_window() -> tuple[int, str]:
-    raw = os.environ.get(WINDOW_ENV, "").strip()
-    if not raw:
-        return DEFAULT_CODEX_WINDOW, "default"
+@dataclass(frozen=True)
+class UsageSnapshot:
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    model_context_window: int | None
+    source: str
+
+    @property
+    def cache_ratio_pct(self) -> int:
+        if self.input_tokens <= 0:
+            return 0
+        return min(100, self.cached_input_tokens * 100 // self.input_tokens)
+
+
+def _as_int(value: object, default: int = 0) -> int:
     try:
-        value = int(raw.replace("_", ""))
-    except ValueError:
-        return DEFAULT_CODEX_WINDOW, f"invalid-env:{WINDOW_ENV}"
-    if value <= 0:
-        return DEFAULT_CODEX_WINDOW, f"invalid-env:{WINDOW_ENV}"
-    return value, f"env:{WINDOW_ENV}"
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
-def read_last_usage(path: Path) -> int | None:
-    """从 transcript JSONL 末尾倒查最近一条 assistant.usage, 返回真实 context token 数。
-
-    返回 None 表示没找到 usage (旧 session 或文件损坏), 调用方走 fallback。
-    """
+def _read_tail(path: Path) -> list[bytes]:
     try:
         size = path.stat().st_size
         with path.open("rb") as f:
             if size > TAIL_BYTES:
                 f.seek(size - TAIL_BYTES)
-                f.readline()  # 丢弃可能被切断的半行
-            chunk = f.read()
+                f.readline()
+            return f.read().splitlines()
     except Exception:
-        return None
+        return []
 
-    lines = chunk.splitlines()
-    for raw in reversed(lines):
+
+def _codex_usage(row: dict) -> UsageSnapshot | None:
+    if row.get("type") != "event_msg":
+        return None
+    payload = row.get("payload") or {}
+    if payload.get("type") != "token_count":
+        return None
+    info = payload.get("info") or {}
+    usage = info.get("last_token_usage") or {}
+    if not usage:
+        return None
+    input_tokens = _as_int(usage.get("input_tokens"))
+    output_tokens = _as_int(usage.get("output_tokens"))
+    return UsageSnapshot(
+        input_tokens=input_tokens,
+        cached_input_tokens=_as_int(usage.get("cached_input_tokens")),
+        output_tokens=output_tokens,
+        total_tokens=_as_int(usage.get("total_tokens"), input_tokens + output_tokens),
+        model_context_window=_as_int(info.get("model_context_window")) or None,
+        source="codex-token-count",
+    )
+
+
+def _legacy_usage(row: dict) -> UsageSnapshot | None:
+    message = row.get("message") or {}
+    if not message and row.get("type") == "response_item":
+        payload = row.get("payload") or {}
+        if payload.get("type") == "message":
+            message = payload
+    if message.get("role") != "assistant":
+        return None
+    usage = message.get("usage") or {}
+    if not usage:
+        return None
+    plain_input = _as_int(usage.get("input_tokens"))
+    cache_create = _as_int(usage.get("cache_creation_input_tokens"))
+    cache_read = _as_int(usage.get("cache_read_input_tokens"))
+    output = _as_int(usage.get("output_tokens"))
+    combined_input = plain_input + cache_create + cache_read
+    return UsageSnapshot(
+        input_tokens=combined_input,
+        cached_input_tokens=cache_read,
+        output_tokens=output,
+        total_tokens=combined_input + output,
+        model_context_window=None,
+        source="legacy-assistant-usage",
+    )
+
+
+def read_last_usage(path: Path) -> UsageSnapshot | None:
+    """倒查最近一条真实 usage，优先当前 Codex token_count。"""
+    rows: list[dict] = []
+    for raw in _read_tail(path):
         if not raw.strip():
             continue
         try:
-            d = json.loads(raw)
+            row = json.loads(raw)
         except Exception:
             continue
-        msg = d.get("message") or {}
-        if msg.get("role") != "assistant":
-            continue
-        usage = msg.get("usage")
-        if not usage:
-            continue
-        try:
-            return (
-                int(usage.get("input_tokens", 0))
-                + int(usage.get("cache_creation_input_tokens", 0))
-                + int(usage.get("cache_read_input_tokens", 0))
-                + int(usage.get("output_tokens", 0))
-            )
-        except Exception:
-            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    for row in reversed(rows):
+        current = _codex_usage(row)
+        if current is not None:
+            return current
+    for row in reversed(rows):
+        legacy = _legacy_usage(row)
+        if legacy is not None:
+            return legacy
     return None
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip().replace("_", "")
+    if not raw:
+        return default
+    value = _as_int(raw, default)
+    return value if value > 0 else default
+
+
+def effective_window(observed: int | None) -> tuple[int, str]:
+    raw = os.environ.get(WINDOW_ENV, "").strip().replace("_", "")
+    if raw:
+        value = _as_int(raw)
+        if value > 0:
+            return value, f"env:{WINDOW_ENV}"
+    if observed and observed > 0:
+        return observed, "token-count"
+    return DEFAULT_CODEX_WINDOW, "default"
+
+
+def classify(usage: UsageSnapshot, window: int) -> tuple[str | None, bool, int]:
+    pct = usage.total_tokens * 100 // max(1, window)
+    if usage.total_tokens >= _env_positive_int(CRITICAL_ENV, DEFAULT_CRITICAL) or pct >= SAFETY_CRITICAL_PCT:
+        level = "CRITICAL"
+    elif usage.total_tokens >= _env_positive_int(HANDOFF_ENV, DEFAULT_HANDOFF):
+        level = "HANDOFF"
+    elif usage.total_tokens >= _env_positive_int(ECONOMY_ENV, DEFAULT_ECONOMY):
+        level = "ECONOMY"
+    else:
+        level = None
+    cache_miss = (
+        usage.input_tokens >= CACHE_MISS_MIN_TOKENS
+        and usage.cache_ratio_pct < CACHE_MISS_RATIO_PCT
+    )
+    return level, cache_miss, pct
+
+
+def _is_handoff_command(prompt: str) -> bool:
+    first = prompt.lstrip().split(maxsplit=1)[0].lower() if prompt.strip() else ""
+    return first in {"$snapshot", "/snapshot", "$resume", "/resume", "/compact"}
 
 
 def main() -> None:
@@ -104,11 +187,9 @@ def main() -> None:
     except Exception:
         return
 
-    # command / skill 调用跳过 (放行 $snapshot, $resume 等关键操作)
     prompt = data.get("prompt", "") or ""
-    if prompt.lstrip().startswith(("/", "$")):
+    if _is_handoff_command(prompt):
         return
-
     transcript_path = data.get("transcript_path", "")
     if not transcript_path:
         return
@@ -116,48 +197,37 @@ def main() -> None:
     if not p.exists():
         return
 
-    tokens = read_last_usage(p)
-    token_source = "usage"
-    if tokens is None:
-        # Fallback: char/4 启发 (旧 session 缺 usage 字段时)
+    usage = read_last_usage(p)
+    if usage is None:
         try:
-            tokens = p.stat().st_size // 4
-            token_source = "estimate"
+            estimate = p.stat().st_size // 4
         except Exception:
             return
+        usage = UsageSnapshot(estimate, 0, 0, estimate, None, "estimate:file-size")
 
-    window, window_source = effective_window()
-    pct = tokens * 100 // window
-    if pct < THR_MEDIUM:
-        return  # 充裕, 不打扰
+    window, window_source = effective_window(usage.model_context_window)
+    level, cache_miss, pct = classify(usage, window)
+    if level is None and not cache_miss:
+        return
 
-    if pct >= THR_CRITICAL:
-        level = "CRITICAL"
-        instruction = (
-            "上下文几乎满。**响应开头主动告知**用户当前用量, "
-            "**强烈建议**先 $snapshot 然后关闭对话框开新会话 $resume 接续。"
-            "**决定权交用户**——用户坚持可继续, 但提示继续做事可能很快被自动 compact 吞掉关键状态。"
-        )
-    elif pct >= THR_HIGH:
-        level = "HIGH"
-        instruction = (
-            "上下文用量偏高。**响应开头主动告知**用户当前用量百分比, "
-            "建议先 $snapshot 然后开新会话再 $resume 接续。"
-            "复杂多文件改动**建议先拆小或换会话**, 用户坚持则说明风险后继续。"
-        )
+    labels = "+".join(filter(None, [level, "CACHE_MISS" if cache_miss else None]))
+    if level == "CRITICAL":
+        instruction = "上下文成本已很高；强烈建议先 $snapshot，再开新任务用 $resume latest 接续。"
+    elif level == "HANDOFF":
+        instruction = "完成当前小步骤后交接；不要在本任务继续开启新的大型子任务。"
     else:
-        level = "MEDIUM"
-        instruction = (
-            "上下文用量已过 75%。可以继续执行当前任务, "
-            "但完成后主动建议用户考虑 $snapshot 锁定状态, 为后续做准备。"
-        )
+        instruction = "当前子任务完成后准备短交接，避免上下文继续膨胀。"
+    if cache_miss:
+        instruction += " 本轮缓存命中偏低，旧长任务可能已发生整段重算。"
 
-    msg = (
-        f"[ctx-budget] surface=codex 上下文用量 {tokens // 1000}k / {window // 1000}k = {pct}% "
-        f"({level}, token_source={token_source}, window_source={window_source})\n"
-        f"[ctx-budget] {instruction}"
+    print(
+        f"[ctx-budget] surface=codex level={labels} "
+        f"tokens={usage.total_tokens} input={usage.input_tokens} "
+        f"cached={usage.cached_input_tokens} cache_ratio={usage.cache_ratio_pct}% "
+        f"window={window} pct={pct}% token_source={usage.source} "
+        f"window_source={window_source}\n"
+        f"[ctx-budget] {instruction} 信号仅提醒，不阻断用户明确要求。"
     )
-    print(msg)
 
 
 if __name__ == "__main__":

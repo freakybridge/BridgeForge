@@ -23,6 +23,8 @@ from pathlib import Path
 
 ACTIVE_N = 40
 MAX_PINNED = 5
+ACTIVE_CHAR_BUDGET = 6_000
+DESCRIPTION_MAX_CHARS = 180
 SKIP_NAMES = {"MEMORY.md", "MEMORY_COLD.md"}
 DEFAULT_TITLE = "Memory Index"
 
@@ -64,7 +66,10 @@ def get_description(memory_dir: Path, filename: str) -> str:
             f.read_text(encoding="utf-8", errors="ignore"),
             re.MULTILINE,
         )
-        return m.group(1).strip().strip('"').strip("'") if m else ""
+        description = m.group(1).strip().strip('"').strip("'") if m else ""
+        if len(description) > DESCRIPTION_MAX_CHARS:
+            return description[: DESCRIPTION_MAX_CHARS - 1].rstrip() + "…"
+        return description
     except Exception:
         return ""
 
@@ -93,7 +98,7 @@ def main() -> None:
             stats = {}
     files_stats: dict = stats.setdefault("files", {})
     config: dict = stats.get("config", {})
-    title: str = config.get("title", DEFAULT_TITLE)
+    title: str = str(config.get("title", DEFAULT_TITLE))[:120]
     pinned: list = [p for p in config.get("pinned", [])[:MAX_PINNED]]
 
     # 扫描所有 memory 文件，新文件登记 created_at（一次性，固定不变）
@@ -125,17 +130,30 @@ def main() -> None:
         key=lambda n: files_stats.get(n, {}).get("created_at", today), reverse=True
     )  # 主：created_at 降序
 
-    active = non_pinned[:ACTIVE_N]
-    cold = non_pinned[ACTIVE_N:]
-
     pinned_present = [p for p in pinned if p in present]
+
+    # 6000 是整个 MEMORY.md 的启动预算；先预留标题、注释、章节和 Cold 指针空间，
+    # 再扣除 pinned 行，剩余额度才给普通 Active。固定外壳实测低于 800 字符。
+    active = []
+    active_chars = 800
+    for name in pinned_present:
+        description = get_description(memory_dir, name)
+        active_chars += len(f"- [{name[:-3]}]({name}){f' — {description}' if description else ''}") + 1
+    for name in non_pinned:
+        description = get_description(memory_dir, name)
+        line = f"- [{name[:-3]}]({name}){f' — {description}' if description else ''}"
+        if len(active) >= ACTIVE_N or active_chars + len(line) + 1 > ACTIVE_CHAR_BUDGET:
+            break
+        active.append(name)
+        active_chars += len(line) + 1
+    cold = non_pinned[len(active):]
 
     # ── 生成 MEMORY.md（整文件，确定性）──────────────────────
     lines = [
         f"# {title}",
         "",
         "<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，"
-        "本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。满 40 条自动滚入冷区，用 $find-memory 搜。 -->",
+        "本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 $find-memory 搜。 -->",
         "",
         f"> Active: {len(pinned_present) + len(active)} | Cold: {len(cold)}",
         "",
@@ -148,7 +166,7 @@ def main() -> None:
             lines.append(f"- [{p[:-3]}]({p}){f' — {d}' if d else ''}")
         lines.append("")
 
-    lines.append(f"## Active（按新增时间，新在前；满 {ACTIVE_N} 自动滚入 Cold）")
+    lines.append(f"## Active（按新增时间，新在前；主索引上限 {ACTIVE_CHAR_BUDGET} 字符）")
     for n in active:
         d = get_description(memory_dir, n)
         lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")

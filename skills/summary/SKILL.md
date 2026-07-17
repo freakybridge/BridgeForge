@@ -1,53 +1,54 @@
 ---
 name: summary
-description: 总结本次对话中的重要决策和经验，写入 memory/rules/docs。
+description: 总结当前对话的关键决策、经验、完成项与遗留问题，并按价值写入 memory、rules 或 docs；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
 user_invocable: true
 argument: 可选的本次总结重点提示
 model: sonnet
 ---
 
-# 对话总结
+# summary — 沉淀对话成果
 
-把本次对话值得跨对话保留的内容同步进 memory / rules / docs。
+## 定位与边界
 
-> **步骤 3b·5 是低频条件触发**——多数收尾用不到。命中时**先 Read `references/deep-steps.md` 对应节**，按其 SOP 执行。详细流程刻意移出本文件，让每次 `/summary`（Claude）/ `$summary`（Codex）注入 context 的文本更短（避免顶爆触发 compact）。
+只保留值得跨对话复用的内容，并同步对应索引。低频的 rule-memory 对账与已解决事项清理按需读取 [`references/deep-steps.md`](references/deep-steps.md)，不要预加载整份参考。
 
-## 步骤
+## 输入
 
-### 1. 回顾本次对话
-架构决策（为什么）/ 踩过的坑（根因）/ 已完成功能 / 遗留问题。
+- 当前对话中的架构决策及原因、已验证根因、已完成事项和遗留问题。
+- `$ARGUMENTS`：用户指定的总结重点。
+- 当前 agent 的 memory、rules、文档索引和 Git 实际状态。
 
-### 2. 更新 memory
-跨对话有价值的内容 → 对应类型：架构=`project`、踩坑=`feedback`、外部资源=`reference`。
-写入当前 agent memory 目录（Claude `.claude/memory/`，Codex `.codex/memory/`；junction 透明指向系统路径），**同步更新 `MEMORY.md` 索引**。先查重，再决定新建 or 更新。
+## 核心流程
 
-### 3. 检查 rules（先过反膨胀闸，默认倾向"不加"）
-- **分流**：只有"必须 X / 禁止 Y"硬约束进 rule；踩坑案例 → memory（rule 最多留一行结论 + 链接）；>20 行示例/教程 → doc。
-- **去重**：与已有条目重叠 → 合并进原条目，不新开一段；同一约束只一处正文，余处放 pointer。
-- **查体量**：被改 rule 超 ~500 行 / 50KB → 提示拆 path-specific 子文件；frontmatter `paths` 触发器越窄越好。
-写入位置参见当前 agent 入口文件规则索引（Claude `CLAUDE.md`，Codex `AGENTS.md`）。**若本步真新增/改写了 rule → 触发步骤 3b。**
+1. 回顾本轮，区分已确认事实、推断、已完成和未验证项。
+2. 写入当前 agent memory：架构归 `project`，踩坑归 `feedback`，外部资料归 `reference`；先查重，再新建或更新，并同步 `MEMORY.md`。
+3. 检查 rules：只有“必须 / 禁止”的稳定红线才进入 rule；案例进入 memory，长示例进入 doc。与既有约束重叠时合并，保持单一正文和窄 `paths` 触发。
+4. 若本轮修改了 rule，只读取 `references/deep-steps.md` 的“对账”节执行局部 memory 对账。删除候选必须用单题选择式用户确认结束当前回合；未确认前禁止删除。
+5. 按项目 `rules/workflow.md` 的同步映射更新相关设计文档；需要独立流程时调用 `sync-docs`。
+6. 仅当代码已合并且用户明确确认解决时，读取参考文件的“清理”节列出 TODO / pending 文档候选。必须以用户确认结束当前回合；未确认前禁止删条目或归档。
+7. 发现跨项目也成立的经验时，先向用户确认，再把一行候选追加到当前 agent 的 `harvest-inbox.md`；这里只捕捉，不反哺上游。
 
-### 3b.（仅当步骤 3 改了 rule）连带 memory 对账
-rule 与 memory **互补不替代**，"内容上升成 rule"≠"删对应 memory"，不可机械删。
-**先 Read `references/deep-steps.md` §对账**，按其三类判定 + "删 memory = 4 处同步"清单执行。> ⛔ **硬契约**：删除候选必须用 **AskUserQuestion**（multiSelect 列候选）**结束当前回合**；用户未勾选前**禁止**删任何 memory。
+## 输出与收据
 
-### 4. 检查相关文档是否需要同步
-对照 `rules/workflow.md` §1 文档同步表；涉及架构红线 / 接口契约 / 新增数据对象 → 执行 `/sync-docs`（Claude）/ `$sync-docs`（Codex）或直接更新对应文档。
+列出：
 
-### 5.（条件触发）清理已解决的 TODO / 归档 current 文档
-仅当某条目**同时**满足：① 代码本次对话已合并 ② 用户**显式确认**解决（实操验证 / 看过 diff / 说"OK"）。
-命中 → **先 Read `references/deep-steps.md` §清理**，按其流程列候选。> ⛔ **硬契约**：候选必须用 **AskUserQuestion** 确认并**结束当前回合**，未确认前**禁止**删条目 / `git mv`（归档只用 `git mv` 不 `rm`）。无满足项（常见）→ 跳过并说明，不凑数。
+- 新增或更新的 memory 类型、路径和一句话内容。
+- 修改的 rules、同步的 docs 与索引。
+- 经用户确认后清理的 memory / TODO / pending 文档。
+- 写入的 harvest 候选。
+- 尚未验证或留待处理的问题。
 
-### 6.（命中才做）反哺候选捕捉
-本次 memory/rules 里有没有**换个项目也成立**的通用经验（协作流 / 调试法 / 可移植性坑 / agent 行为约定，非业务专属）？
-有 → 向用户确认后，追加一行到当前 agent 的 `harvest-inbox.md`（Claude `.claude/harvest-inbox.md`，Codex `.codex/harvest-inbox.md`）：
-`- [ ] <学到啥> | 来源 <file:line 或 本轮对话> | 通用性 <为啥跨项目成立> | <日期>`
-只**捕捉不推送**（推送由 `/harvest`（Claude）/ `$harvest`（Codex）另行做：读收件箱 → 脱敏 → 写上游 templates）。
+## 停止条件
 
-### 7. 输出摘要
-向用户列出：写了哪些 memory（类型 + 一句话）/ 改了哪些 rules / 连带清理了哪些 memory（文件 + 索引行 + 计数）/ 同步了哪些文档 / 清理归档了哪些 TODO·current doc / 记了哪些反哺候选 / 遗留问题。
+- 发现任何删除候选时，呈现候选并等待用户选择，当前回合立即结束。
+- 没有满足“已合并 + 用户确认”的清理项时跳过清理，不凑数。
+- 缺少写入依据或真实状态无法核验时，标为未验证并停止对应写入。
 
-## 规则
-- rules / docs 的检查以"是否影响其他模块开发者做决策"为判断标准（跨对话价值 / 先查重已在步骤 1-2）
+## 禁止事项
+
+- 禁止把推断写成已确认事实。
+- 禁止因内容上升为 rule 就机械删除支撑它的 memory。
+- 禁止未确认删除 memory、TODO 或 pending 文档；归档必须使用 `git mv`。
+- 禁止重复写入同一规则、案例或索引条目。
 
 $ARGUMENTS

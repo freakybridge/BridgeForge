@@ -53,14 +53,14 @@ paths:
 
 ## 3. `[ctx-budget]` 信号 — 上下文预算（AGENTS.md §10）
 
-**机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）在每次用户提交 prompt 时读取 transcript usage，超阈值时输出 `[ctx-budget]` system reminder（MEDIUM / HIGH / CRITICAL 三级）。缺 usage 时才 fallback 到 char/4 启发式。
+**机制**：`UserPromptSubmit` hook（`.codex/hooks/context_warning.py`）优先读取当前 Codex `event_msg.token_count`，兼容旧 `assistant.usage`；两者都不存在时才 fallback 到 char/4。成本档位为 ECONOMY / HANDOFF / CRITICAL，缓存命中偏低时叠加 CACHE_MISS。
 
-**Codex 窗口口径**：Claude 侧 1M 窗口可硬编码；Codex Desktop 当前 `/status` 实测显示约 `353K` 背景信息上限，默认按 `353_000` 计算，避免照抄 1M 导致预警静默失效。需要按机器 / 版本校准时设置环境变量 `BRIDGEFORGE_CODEX_CTX_WINDOW`，hook 输出会带 `surface=codex`、`token_source`、`window_source` 方便核对。
+**Codex 窗口口径**：优先使用 token_count 中的 `model_context_window`；`BRIDGEFORGE_CODEX_CTX_WINDOW` 可显式覆盖；日志缺值时才退回默认 `353_000`。当前 Codex 的 `input_tokens` 已包含 cached 部分，禁止再次累加 `cached_input_tokens`。
 
-**command / skill 豁免**：`$snapshot` / `$resume` / `$git-sync` 等以 `$` 开头的 skill 调用不触发预警（`/` 开头的 Codex 内置命令也放行）— 否则用户连保命操作都被拦，死锁。所以响应 CRITICAL 时建议用户做的 `$snapshot` 不会自相矛盾。
+**交接命令豁免**：仅 `$snapshot` / `$resume` / `/compact` 静默放行，避免交接动作被重复提示；其他 skill（含 `$git-sync`）仍可执行，但不会隐藏高成本信号。
 
 **配置**：
 
 - Hook 入口：`.codex/hooks/context_warning.py`（项目内）
 - 注册位置：`.codex/settings.json` → `hooks.UserPromptSubmit`
-- 调参：在 hook 文件开头改 `DEFAULT_CODEX_WINDOW` 或设置 `BRIDGEFORGE_CODEX_CTX_WINDOW`；阈值仍由 `THR_MEDIUM/HIGH/CRITICAL` 控制（默认 75/85/95）
+- 调参：窗口用 `BRIDGEFORGE_CODEX_CTX_WINDOW`；成本档位用 `BRIDGEFORGE_CTX_ECONOMY_TOKENS` / `BRIDGEFORGE_CTX_HANDOFF_TOKENS` / `BRIDGEFORGE_CTX_CRITICAL_TOKENS`（默认 80k / 140k / 200k）

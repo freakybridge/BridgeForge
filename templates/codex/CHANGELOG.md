@@ -21,6 +21,15 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.33.0] - 2026-07-15
+
+### Added
+- [product] 上下文预算改用当前 Codex JSONL token 事件，优先采用日志返回的上下文窗口；增加 8 万经济线、14 万交接线、20 万危险线和缓存失效提示。新增 `context_cost_report.py`，只汇报规模与首轮 token，不输出 prompt 正文。
+
+### Changed
+- [product] memory 热索引同时受 40 条和 6000 字符预算约束，单条 description 最长 180 字；skill metadata 机检新增 500 行入口、description 单条与目录总量、一层 reference 死链约束。
+- [product] `git-sync` 首次在 `git fetch` / `.git/FETCH_HEAD` 权限阶段失败时，必须以原 repo-local 脚本命令申请受限的沙箱外重试；禁止改走手工 Git、修改 ACL 或误报网络、分叉、凭据问题为权限恢复成功。
+
 ## [0.32.1] - 2026-07-15
 
 ### Added

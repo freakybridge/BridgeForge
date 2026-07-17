@@ -1,87 +1,63 @@
 ---
 name: archive-scan
-description: 扫描 doc/2_pending/ 下可归档的完成文档，列出候选让用户 review，确认后批量 git mv 到 doc/4_archive/ 并同步 doc/README.md 索引。
+description: 扫描 doc/2_pending/ 中疑似已完成的文档，给出归档候选，经用户逐项确认后使用 git mv 移至 doc/4_archive/ 并同步 doc/README.md；清理已完成 pending 文档时使用。
 user_invocable: true
 argument: 无
 model: haiku
 ---
 
-# /archive-scan / $archive-scan — 扫描 doc/2_pending/ 可归档候选
+# 扫描并归档完成文档
 
-**定位**：半自动归档。脚本只负责打分找候选，**移动与否由用户拍板**——防止误归档活跃文档。
+## 定位与边界
 
-> **路径说明**（2026-05-08 后）：TODO-INDEX 已迁至 `doc/0_architecture/TODO-INDEX.md`，扫描时它**不**作为归档候选（脚本已硬编码排除）。被扫描的目录仍是 `doc/2_pending/`。
+脚本只负责候选打分；用户决定是否移动。扫描范围是 `doc/2_pending/`，`doc/0_architecture/TODO-INDEX.md` 不是候选。
 
-## 执行步骤
+## 输入
 
-### Step 1：跑扫描脚本
+无需参数。任何移动都必须以本轮用户明确选择的候选为准。
 
-```bash
-# Claude
-.venv/Scripts/python.exe .claude/scripts/archive_scan.py --json
-# Codex
-.venv/Scripts/python.exe .codex/scripts/archive_scan.py --json
-```
+## 核心流程
 
-脚本输出 JSON 数组，每个候选带：`file` / `score` / `reasons` / `refs_in_todo` / `last_modified_days`。
+1. 运行当前 agent 的扫描脚本：
 
-### Step 2：呈现候选清单给用户
+   ```bash
+   # Claude
+   .venv/Scripts/python.exe .claude/scripts/archive_scan.py --json
+   # Codex
+   .venv/Scripts/python.exe .codex/scripts/archive_scan.py --json
+   ```
 
-格式化成易读表格：
+2. 解析 JSON 中的 `file / score / reasons / refs_in_todo / last_modified_days`，输出候选表。
+3. 复核候选信号：
+   - 仅子任务完成、仍属活跃验收/里程碑、仍被其他文档引用：说明依据并建议保留。
+   - 用户已明确完成，或 TODO 删除后来源文档成为孤立项：可补充为归档候选。
+4. 使用当前平台的结构化多选提问，提供“全部归档”“选择归档”“都不移”“再看某个”的操作；列出候选后立即停止本轮。
+5. 用户要求“再看”时只读指定文件，说明判断后再次结构化询问；仍不得移动。
+6. 用户明确批准后先运行 `git status`：
+   - 工作区不干净：列出已有改动并停止，等待用户决定。
+   - 工作区干净：对批准文件逐个执行：
 
-```
-## doc/2_pending/ 归档候选（N 个）
+     ```bash
+     git mv doc/2_pending/<file> doc/4_archive/<file>
+     ```
 
-| 文件 | score | 理由 | TODO 引用 | 最后修改 |
-|------|-------|------|----------|---------|
-| xxx.md | 5 | 含'已完成' + TODO 未引用 | 0 | 12 天前 |
-```
+7. 同步 `doc/README.md`：从 current 表格删除对应行，按时间倒序加入 archive 表格；“最近归档批次”注释可选。
+8. 再次检查 Git 状态，确认移动文件与索引修改和用户选择一致。
 
-> ⛔ **硬契约**：呈现清单后必须用 **AskUserQuestion**（multiSelect 列出候选 + 「都不移」+「再看看某个」选项）**结束当前回合**；用户未选前**禁止**执行任何 `git mv`——禁止同一回合里"列完清单就动手"。用户可选：
-- "全部归档" → 全移
-- "只移 #1 #3" → 选择性移
-- "都不移" → 退出
-- "再看看 xxx.md" → 你 Read 那个文件给用户看内容，再问（再问仍走 AskUserQuestion）
+## 输出与验证
 
-### Step 3：执行归档（按用户选择）
+回报实际移动数量、每个源/目标路径和 `doc/README.md` 更新结果。只有 `git mv` 与索引均成功才写“归档完成”。
 
-对每个批准的文件：
+## 停止条件
 
-```bash
-git mv doc/2_pending/<file> doc/4_archive/<file>
-```
+- 扫描脚本失败或 JSON 无法解析：报告错误并停止。
+- 没有候选：报告“无可归档候选”并停止。
+- 用户尚未选择或选择“都不移”：停止，不修改文件。
+- 批量操作前工作区不干净：停止并展示现状。
 
-### Step 4：同步 doc/README.md
+## 禁止事项
 
-1. 从 `current/` 表格删除对应行
-2. 加到 `archive/` 表格（按时间倒序插入）
-3. 简要说明加到末尾的"最近归档批次"注释（可选）
-
-### Step 5：回报用户
-
-```
-✓ 归档 N 个文件：
-  - xxx.md → doc/4_archive/
-  - yyy.md → doc/4_archive/
-✓ doc/README.md 已同步
-```
-
-## 常见判断
-
-**推翻脚本、建议保留（keep 信号）**：① 含"已完成"但只是某子任务完成、整体还活着；② 验收清单 / 里程碑类，用户想长期留参考；③ 仍被别处引用（先 `grep doc/` 交叉确认再决定）。命中则向用户说明理由建议保留。
-
-**主动建议归档（archive 信号，即使脚本没建议）**：① 用户明说"xxx 做完了"；② 某 TODO 完成删除后，其唯一"来源"文档成孤立。
-
-## 禁止
-
-- ❌ 不经用户确认就 `git mv`
-- ❌ 移动后不更新 `doc/README.md`
-- ❌ 批量改动前不先 `git status` 确认干净（防止混入别的 uncommitted 改动）
-
-## 与 `/todo` / `$todo`、`/summary` / `$summary` 的区别
-
-| skill | 动作 |
-|-------|------|
-| `/todo` / `$todo` | 往 `doc/0_architecture/TODO-INDEX.md` 加新条目或关联现有 memory |
-| `/summary` / `$summary` | 从对话抽决策写入 `memory/` |
-| **`/archive-scan` / `$archive-scan`** | **扫 `doc/2_pending/` 找已完成文档，移到 `archive/`** |
+- 禁止未经用户确认执行 `git mv`，或在列完候选的同一回合移动。
+- 禁止移动后漏改 `doc/README.md`。
+- 禁止把 TODO 新增、长期 memory 总结或普通文档新建混入归档流程。
+- 禁止把脚本分数当最终判断，忽略活跃引用和用户意见。

@@ -1,44 +1,48 @@
 ---
 name: find-memory
-description: 按关键词搜索当前 agent 项目的 memory 目录（Claude `.claude/memory/`，Codex `.codex/memory/`）下所有文件，按需召回热区未覆盖的 memory。当 MEMORY.md 找不到所需知识时使用。
+description: 按关键词检索当前 agent 项目的完整 memory 目录，并按需读取最相关记录；MEMORY.md 热区未命中、用户询问历史决策或实现前需要召回旧经验时使用。
 user_invocable: true
 argument: 搜索关键词
 model: sonnet
 ---
 
-# /find-memory / $find-memory — 按需搜索 memory 冷区
+# 按需检索 memory
 
-## 触发时机
+## 定位与边界
 
-- MEMORY.md 热区没有相关条目，但感觉历史上有过决策/踩坑记录
-- 用户问"有没有关于 X 的记录"
-- 需要在开始实现前先确认是否有历史经验
+检索当前 agent 的 memory 热区与冷区，不修改索引或原始 memory。`MEMORY.md` 已足够回答时无需调用。
 
-## 执行步骤
+## 输入
 
-### Step 1：提取关键词
-从用户查询或当前上下文提取 2-4 个核心关键词（英文技术词优先）。
+从 `$ARGUMENTS` 或当前任务提取 2–4 个核心关键词，优先保留英文技术词和稳定标识符。
 
-### Step 2：搜索
-```bash
-# Claude
-python .claude/scripts/memory_search.py <关键词>
-# Codex
-python .codex/scripts/memory_search.py <关键词>
-```
+## 核心流程
 
-### Step 3：展示结果
-列出前5个匹配文件名 + description 摘要。
+1. 判断当前 agent 目录：Claude 使用 `.claude/`，Codex 使用 `.codex/`。
+2. 运行对应搜索脚本：
 
-### Step 4：按需读取
-用 Read 工具读最相关的 1-2 个文件。
+   ```bash
+   # Claude
+   python .claude/scripts/memory_search.py <关键词>
+   # Codex
+   python .codex/scripts/memory_search.py <关键词>
+   ```
 
-> 注：MEMORY.md 索引由 `memory_rebuild_index.py` 确定性重建（编辑 memory 文件时经 PostToolUse 触发 + SessionStart 兜底），**无访问热度机制**——读冷区文件不会让它"升回热区"；需要常驻热区就在 frontmatter 标 pinned。
+3. 列出相关度最高的 5 个文件名及 description 摘要。
+4. 只读取最相关的 1–2 个文件，并用命中内容回答当前问题。
+5. 首次无结果时换一组关键词再试；仍无结果则明确说明没有找到记录。
 
-## 注意
+## 输出与验证
 
-- 搜索覆盖当前 agent memory 目录（`.claude/memory/` 或 `.codex/memory/`）下所有 `.md`（含热区和冷区），不只是 MEMORY_COLD.md
-- 结果全无相关 → 换关键词再试，或确认该知识尚未记录过
-- 禁止自己反复 grep memory 目录逐文件翻找——直接调本 skill，省 5-10× token
+输出命中的文件、相关摘要和实际采用的结论；区分“memory 有记录”和“根据记录推断”。搜索覆盖当前 agent memory 目录下全部 `.md`，不只覆盖热区。
 
-$ARGUMENTS
+## 停止条件
+
+- 两组关键词均无结果：停止搜索，说明该知识可能尚未记录。
+- 搜索结果互相冲突：呈现冲突及文件来源，不自行合并成确定结论。
+
+## 禁止事项
+
+- 禁止逐文件反复 grep memory 目录绕过搜索脚本。
+- 禁止因读取冷区文件就声称它会自动升回热区；热区由 `memory_rebuild_index.py` 确定性重建，常驻项需在 frontmatter 标记 `pinned`。
+- 禁止一次读取超过 2 个候选文件，除非用户扩大范围。

@@ -1,10 +1,10 @@
 # Memory Index
 
-<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。满 40 条自动滚入冷区，用 /find-memory 搜。 -->
+<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
 
 > Active: 9 | Cold: 0
 
-## Active（按新增时间，新在前；满 40 自动滚入 Cold）
+## Active（按新增时间，新在前；主索引上限 6000 字符）
 - [confirm-workflow](confirm-workflow.md)
 - [codex-ctx-budget-window](codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 353K 校准，hook 用 transcript usage 计算比例。
 - [bom-free-encoding-gate](bom-free-encoding-gate.md) — BridgeForge 全 repo 文本统一 UTF-8 without BOM，并用编辑后 / pre-commit / shell 中转 hook 防编码污染。
