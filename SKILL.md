@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.62.0
+version: 0.62.1
 user_invocable: true
 argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
 model: sonnet
@@ -156,6 +156,33 @@ REFRESHED
 
 禁止在同一轮把 init、adopt、update 混着执行。模式执行中若新证据改变判定，先停止并重新报告判场依据；不得凭惯性继续原分支。
 
+## Step 4.5：Codex 项目订阅档位（仅 init / adopt / update）
+
+Claude 跳过本节。Codex 主对话检查项目 `.codex/subscription-tier.toml`：
+
+- 标记存在且 `tier` 为 `high` 或 `conservative`：沿用，不重复询问。
+- 标记缺失：必须由主对话询问一次。用户明确声明套餐为 200 美元及以上才选 `high`；100 美元及以下、100–200 美元之间或无法判定都选 `conservative`。
+- 标记存在但格式或 `tier` 非法：停止并展示诊断，由用户明确选择两档之一后修复；禁止自行猜测。
+- 标记存在时，只有用户主动要求切换档位才允许改写。
+
+两档含义：
+
+| 档位 | 主对话 | implementation-worker |
+|---|---|---|
+| `high` | `gpt-5.6-terra + high` | `gpt-5.6-sol + high` |
+| `conservative` | `gpt-5.6-terra + medium` | `gpt-5.6-terra + high` |
+
+取得选择后执行项目级写入：
+
+```bash
+python "$BRIDGEFORGE_HOME/templates/codex/scripts/subscription_routing.py" \
+  --tier <high|conservative> \
+  --project-root "$PWD" \
+  --template-root "$BRIDGEFORGE_HOME/templates/codex"
+```
+
+脚本只允许写目标项目 `.codex/subscription-tier.toml`、`.codex/config.toml` 与 `.codex/agents/implementation-worker.toml`；禁止读取或写入用户级 `~/.codex/config.toml`。脚本失败则停止，不得继续写版本戳。运行中的会话不会即时换模，配置从后续会话生效。
+
 ## Step 5：公共维护后执行唯一模式
 
 init、update、adopt 都先完整执行 [用户级 skill 与重复副本维护](references/user-skill-maintenance.md)，再只读取本轮模式手册：
@@ -190,6 +217,7 @@ BridgeForge 下沉时按业务专属性分层：
 - 禁止自动 `git commit` / `git push`；真实 switch 同样只改工作区。
 - 禁止在未解决冲突、未完成验证时写新版本戳。
 - 禁止把 Claude 与 Codex 的用户级目录、memory 机制或 settings 混用。
+- 禁止从账户、账单或用户级 Codex 配置推断订阅档位；只接受用户在 `/bridgeforge` 主对话中的明确声明。
 
 ## 验证与输出
 
@@ -202,5 +230,6 @@ BridgeForge 下沉时按业务专属性分层：
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
 | update | 版本区间与 `[product]`；A-E 分类；hook smoke test；新版本戳；git diff |
 | 公共 skill 维护 | 新装/一致/定制/退役/重复/shadow 的逐项结果；是否需重启 agent |
+| Codex 订阅档位 | marker 的 `tier`；脚本退出码；config/implementation 实际模型与 effort；用户级配置未触碰 |
 
 最终输出遵循“已做什么 / 验证了什么 / 还剩什么风险”。任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成。

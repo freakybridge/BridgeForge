@@ -8,10 +8,10 @@ description: Codex 成本路由权威落点：主对话用 config.toml，子 age
 
 确认后的 Codex 方案：
 
-- 主对话默认落 `.codex/config.toml`：`model = "gpt-5.6-terra"`，`model_reasoning_effort = "medium"`。
+- 主对话默认落 `.codex/config.toml`：`model = "gpt-5.6-terra"`，`model_reasoning_effort = "high"`。
 - 子 agent 档位落 `.codex/agents/*.toml`：
   - `light-explorer`: `gpt-5.6-luna + low`
-  - `implementation-worker`: `gpt-5.6-terra + high`，用于明确开发或跨文件判断
+  - `implementation-worker`: `gpt-5.6-sol + high`，用于明确开发或跨文件判断
   - `review-auditor`: `gpt-5.6-sol + high`
   - `xhigh-auditor`: `gpt-5.6-sol + xhigh`
 - `xhigh` 只由用户当次自行选择；骨架不得静默启用。

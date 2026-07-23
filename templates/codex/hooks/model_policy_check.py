@@ -25,9 +25,30 @@ except Exception:
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-EXPECTED_CONFIG = {
-    "model": "gpt-5.6-terra",
-    "model_reasoning_effort": "medium",
+TIER_MARKER = "subscription-tier.toml"
+TIER_POLICIES = {
+    "high": {
+        "config": {
+            "model": "gpt-5.6-terra",
+            "model_reasoning_effort": "high",
+        },
+        "implementation": {
+            "name": "implementation-worker",
+            "model": "gpt-5.6-sol",
+            "model_reasoning_effort": "high",
+        },
+    },
+    "conservative": {
+        "config": {
+            "model": "gpt-5.6-terra",
+            "model_reasoning_effort": "medium",
+        },
+        "implementation": {
+            "name": "implementation-worker",
+            "model": "gpt-5.6-terra",
+            "model_reasoning_effort": "high",
+        },
+    },
 }
 
 EXPECTED_AGENTS = {
@@ -35,11 +56,6 @@ EXPECTED_AGENTS = {
         "name": "light-explorer",
         "model": "gpt-5.6-luna",
         "model_reasoning_effort": "low",
-    },
-    "implementation-worker.toml": {
-        "name": "implementation-worker",
-        "model": "gpt-5.6-terra",
-        "model_reasoning_effort": "high",
     },
     "review-auditor.toml": {
         "name": "review-auditor",
@@ -156,7 +172,7 @@ def _get_string(data: dict[str, object], key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _check_config(root: Path, label: str) -> list[str]:
+def _check_config(root: Path, label: str, expected_config: dict[str, str]) -> list[str]:
     path = root / "config.toml"
     if not path.is_file():
         return [f"{label}/config.toml missing"]
@@ -166,7 +182,7 @@ def _check_config(root: Path, label: str) -> list[str]:
         return [f"{label}/config.toml {err}"]
 
     issues: list[str] = []
-    for key, expected in EXPECTED_CONFIG.items():
+    for key, expected in expected_config.items():
         actual = _get_string(data, key)
         if actual != expected:
             issues.append(f"{label}/config.toml {key} must be {expected!r}, got {actual!r}")
@@ -204,11 +220,42 @@ def _check_agent(root: Path, label: str, filename: str, expected: dict[str, str]
     return issues
 
 
+def _load_tier(root: Path, label: str) -> tuple[str | None, list[str]]:
+    marker = root / TIER_MARKER
+    if not marker.is_file():
+        return None, [
+            f"{label}/{TIER_MARKER} missing; run /bridgeforge and choose a Codex subscription tier"
+        ]
+
+    data, err = _load_toml(marker)
+    if err:
+        return None, [f"{label}/{TIER_MARKER} {err}"]
+    if _get_string(data, "schema_version") != "1":
+        return None, [f"{label}/{TIER_MARKER} schema_version must be '1'"]
+    tier = _get_string(data, "tier")
+    if tier not in TIER_POLICIES:
+        return None, [
+            f"{label}/{TIER_MARKER} tier must be one of {sorted(TIER_POLICIES)!r}, got {tier!r}"
+        ]
+    return tier, []
+
+
 def _check_target(root: Path, label: str) -> list[str]:
     if not root.exists():
         return []
 
-    issues = _check_config(root, label)
+    tier, issues = _load_tier(root, label)
+    if tier is not None:
+        policy = TIER_POLICIES[tier]
+        issues.extend(_check_config(root, label, policy["config"]))
+        issues.extend(
+            _check_agent(
+                root,
+                label,
+                "implementation-worker.toml",
+                policy["implementation"],
+            )
+        )
     for filename, expected in EXPECTED_AGENTS.items():
         issues.extend(_check_agent(root, label, filename, expected))
     issues.extend(_check_routing_manifest(root, label))
@@ -374,8 +421,8 @@ def main() -> int:
     for issue in issues:
         print(f"[model-policy]   {issue}", file=stream)
     print(
-        "[model-policy] FIX: restore config.toml defaults and .codex/agents/*.toml roles, "
-        "or update the policy hook and CHANGELOG in the same product change.",
+        "[model-policy] FIX: run /bridgeforge to choose/apply the project tier, or update "
+        "the policy hook and CHANGELOG in the same product change.",
         file=stream,
     )
     return 2 if args.pre_commit else 0

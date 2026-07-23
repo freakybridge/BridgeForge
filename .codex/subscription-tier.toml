@@ -1,0 +1,5 @@
+# Project-local Codex routing tier selected explicitly through /bridgeforge.
+# BridgeForge must never infer this value from account or billing data.
+schema_version = "1"
+tier = "high"
+selection_source = "user-declared-via-bridgeforge"

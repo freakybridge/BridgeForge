@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架；用户输入 /bridgeforge、bridgeforge、switch claude/codex 时使用。
-version: 0.62.0
+version: 0.62.1
 user_invocable: true
 user-invocable: true
 argument: 可选：switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]；不带参数则维护当前 agent 骨架，发现另一套骨架时先确认再 switch

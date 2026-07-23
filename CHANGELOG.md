@@ -17,6 +17,11 @@
 
 ---
 
+## [0.62.1] - 2026-07-23
+
+### Changed
+- [product][repo][meta] Codex `/bridgeforge` 在 init/update/adopt 首次遇到无 marker 项目时询问并保存项目级订阅档位：明确 200 美元及以上使用高档（Terra+high / implementation Sol+high），其余或不明使用保守档（Terra+medium / implementation Terra+high）。新增项目级路由脚本、动态策略机检、用户级 `~/.codex/config.toml` 读写保护测试和 dogfood 高档 marker；已有 marker 不重复询问，仅按用户主动要求切换。Claude 不变。
+
 ## [0.62.0] - 2026-07-15
 
 ### Added

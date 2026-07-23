@@ -67,12 +67,16 @@
 
 | 场景 | Agent / 配置 | 模型 | Effort |
 |------|--------------|------|--------|
-| 默认主对话 | `.codex/config.toml` | `gpt-5.6-terra` | `medium` |
+| 高档主对话（marker=`high`） | `.codex/config.toml` | `gpt-5.6-terra` | `high` |
+| 保守档主对话（marker=`conservative`） | `.codex/config.toml` | `gpt-5.6-terra` | `medium` |
 | 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.6-luna` | `low` |
 | 已授权的确定性 Git 同步 | `mechanical-sync-worker` | `gpt-5.6-luna` | `low` |
-| 明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-terra` | `high` |
+| 高档明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-sol` | `high` |
+| 保守档明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-terra` | `high` |
 | 独立复核 / 验收审计 | `review-auditor` | `gpt-5.6-sol` | `high` |
 | 超强审计 / 专家会诊 | `xhigh-auditor` | `gpt-5.6-sol` | `xhigh` |
+
+项目档位必须由 `/bridgeforge` 根据用户明确声明写入 `.codex/subscription-tier.toml`；marker 存在时禁止重复询问或静默改档，只有用户主动要求切换才可改写。禁止读取账户、账单或用户级 `~/.codex/config.toml` 推断档位。
 
 - 已运行的主对话不自动中途换模型；需要升档时按任务分流到对应 custom agent。`xhigh` 只由用户当次自行选择，骨架不得自动提升。
 - 禁止因为“任务大但机械”就用 `xhigh`；只有疑难根因、高风险决策、或 high 复核仍判断不清时才申请。

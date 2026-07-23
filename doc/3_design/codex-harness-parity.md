@@ -6,7 +6,7 @@
 
 - 状态：`REVIEW`
 - Claude 有但 Codex 缺失：0
-- 未登记的 Codex-only 文件：1
+- 未登记的 Codex-only 文件：2
 - 归一化后仍有差异的同名文件：26（未分类：2）
 - skills 内容检查问题：0
 
@@ -16,7 +16,7 @@
 |---|---:|---:|---|---|
 | `hooks` | 29 | 31 | - | `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
-| `scripts` | 5 | 8 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py` |
+| `scripts` | 5 | 9 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `subscription_routing.py` |
 | `memory` | 2 | 2 | - | - |
 | `skills` | 18 | 18 | - | 共享单一源 |
 
@@ -50,7 +50,7 @@
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
-| `rules/portability.md` | 6 | -10 / +28 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
+| `rules/portability.md` | 6 | -10 / +33 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
 | `scripts/memory_rebuild_index.py` | 7 | -7 / +25 | `needs-review` | new or unclassified semantic difference |
 
 ## Shared Skills Checks

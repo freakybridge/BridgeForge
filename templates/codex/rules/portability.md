@@ -30,6 +30,7 @@ paths:
 | 项目专属 Skill | `.agents/skills/` | 直接 git 管理。**仅项目独有、bridgeforge 不出品的 skill**（如某项目的 restart-ui） |
 | 通用 skill 的项目数据 | `.codex/find-doc.map.md` / `.codex/sync-docs.map.md` 等 | 通用 skill 本体在 bridgeforge，但其**项目专属映射表**留项目内，直接 git 管理 |
 | Codex 配置 | `.codex/config.toml` | 模型默认值、reasoning effort、custom agent 全局参数 |
+| Codex 订阅档位 | `.codex/subscription-tier.toml` | `/bridgeforge` 用户声明的项目级路由档位 |
 | Custom agents | `.codex/agents/*.toml` | 轻量探索 / 开发 / 复核 / xhigh 审计档位 |
 | 项目设置 | `.codex/settings.json` | hooks、defaultMode、项目级权限（legacy 骨架承载面） |
 
@@ -52,12 +53,16 @@ memory 纳入项目 git（`.codex/memory/`），但 Codex 读写走系统路径 
 | 文件 | 说明 | 处理方式 |
 |------|------|---------|
 | `.codex/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
-| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写；项目内 BridgeForge 骨架用 `.codex/config.toml` 明确默认主对话 `gpt-5.6-terra + medium` |
+| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写；项目模型路由只由 `.codex/subscription-tier.toml` 和项目配置决定 |
 | 用户级 `~/.codex/settings.json` | 旧式 / 本机设置 | 不放项目策略；项目级 `effortLevel` 由 `enforce_no_effortlevel` 剔除 |
 
 ### 3.1 Codex 模型 / effort 策略（机检）
 
-**项目 `.codex/config.toml` 必须保留默认主对话 `model = "gpt-5.6-terra"` 与 `model_reasoning_effort = "medium"`；`.codex/agents/*.toml` 必须保留四档子 agent，且模型选择限定在 GPT-5.6 家族；`xhigh` agent 必须明示需要用户确认。**
+**项目必须有 `.codex/subscription-tier.toml`；`high` 必须对应主对话 `gpt-5.6-terra + high`、implementation `gpt-5.6-sol + high`，`conservative` 必须对应主对话 `gpt-5.6-terra + medium`、implementation `gpt-5.6-terra + high`。**
+
+**禁止读取或写入用户级 `~/.codex/config.toml` 推断或应用项目档位；禁止在 marker 存在时重复询问或静默改档。**
+
+**`.codex/agents/*.toml` 必须保留四类公共子 agent；`xhigh` agent 必须明示需要用户确认。**
 
 策略漂移由 `.codex/hooks/model_policy_check.py` 负责：
 

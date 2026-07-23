@@ -346,7 +346,7 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/model_policy_check.py",
-            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：检查 .codex/config.toml 默认 gpt-5.6-terra+medium、.codex/agents 四档齐全且限定在 GPT-5.6 家族、用户级 config 写保护和 xhigh 用户选择门槛；SessionStart 只提示，pre-commit 模式硬拦漂移。"
+            "comment": "Codex 模型/effort 路由体检（只读，不自动修）：按 .codex/subscription-tier.toml 检查 high/conservative 对应的主对话与 implementation 配置、公共 agents、用户级 config 写保护和 xhigh 用户选择门槛；无 marker 时提示通过 /bridgeforge 选择；SessionStart 只提示，pre-commit 模式硬拦漂移。"
           },
           {
             "type": "command",

@@ -6,6 +6,8 @@
 
 收编只登记同步基线，绝不覆盖已有文件。典型对象是 v0.14.0 以前的无版本戳安装，或手动复制过 BridgeForge 模板的项目。
 
+Codex 例外仅限根入口 Step 4.5：无订阅档位 marker 时，先由用户选择，再由订阅路由脚本只写 marker、`config.toml` 的主模型字段和 `implementation-worker.toml` 的模型字段。这是独立的用户授权配置，不等于允许 adopt 覆盖其他既有内容；已有 marker 时不重复询问或改写。
+
 ## 默认流程
 
 1. 列出实际命中的指纹项。
@@ -32,6 +34,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - 禁止覆盖任何入口文件、rules 或 settings，即使先备份也不行。
 - 禁止改 memory 或 `doc/`。
 - 禁止未经用户确认写版本戳。
+- 禁止在 Codex 无有效订阅档位 marker 时完成收编。
 - 禁止把“像 BridgeForge”当成“允许 fresh init 覆盖”。
 
 结束时报告命中的指纹、用户是否确认、写入的基线版本，以及是否跳过历史增量。

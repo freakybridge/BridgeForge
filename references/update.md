@@ -17,8 +17,8 @@
 
 | 类 | 文件 | 策略 |
 |---|---|---|
-| A | hooks、scripts、用户级 skills；Codex `agents/*.toml`、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查 |
-| B | settings.json；Codex `config.toml`；`.githooks/pre-commit` | merge 不覆盖；加入上游通用 hooks / 配置 / 检查段，保留下游 permissions、additionalDirectories、模型覆盖和自定义注册 |
+| A | hooks、scripts、用户级 skills；Codex `agents/*.toml`（`implementation-worker` 的模型字段除外）、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查 |
+| B | settings.json；Codex `subscription-tier.toml` / `config.toml` / `implementation-worker.toml` 的模型字段；`.githooks/pre-commit` | merge 不覆盖；订阅 marker 是项目状态，禁止用模板高档 marker 覆盖；加入上游通用 hooks / 配置 / 检查段，保留下游 permissions、additionalDirectories 和自定义注册；主对话与 implementation 的模型/effort 字段以 marker 对应档位为准 |
 | C | rules、入口文件 | 只 diff；按通用增量/业务补充/上游脱敏减弱三类让用户逐段决定 |
 | D | memory、`doc/` | 绝对不碰 |
 | E | `.gitignore` | 按 init 手册的 BridgeForge 机制块幂等补缺，不删项目项 |
@@ -44,10 +44,11 @@ python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
 ```
 
 2. settings / routing 有变更时验证 JSON 可解析，`config.toml` / agents TOML 可解析，routing 引用的 named agent 全部存在，且下游自定义字段仍存在。
-3. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
-4. 将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `VERSION`。
-5. 输出 `git status` 与 `git diff` 供用户 review。
-6. 不自动 commit / push。
+3. Codex 验证 `.codex/subscription-tier.toml` 存在，`model_policy_check.py --pre-commit` 按 marker 对应档位通过；无 marker 时必须先回根入口 Step 4.5 询问并写入，禁止静默套用模板高档。
+4. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
+5. 将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `VERSION`。
+6. 输出 `git status` 与 `git diff` 供用户 review。
+7. 不自动 commit / push。
 
 结束时给出收据：版本区间、命中的 `[product]` 条目、A-E 各类实际处理、测试命令与退出码、新版本戳。
 

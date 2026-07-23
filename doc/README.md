@@ -15,6 +15,7 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 | `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
 | `1_plan/codex-model-routing-56/requirements_2026-07-10_codex-model-routing-56.md` | trial | Upgrade Codex model / reasoning-effort routing defaults from GPT-5.5 to GPT-5.6. |
 | `1_plan/codex-cost-routing/requirements_2026-07-10_codex-cost-routing.md` | implementing | Route Codex models by task cost while keeping user-level model configuration read-only to the skeleton. |
+| `1_plan/codex-subscription-routing/requirements_2026-07-23_codex-subscription-routing.md` | confirmed | Ask once during `/bridgeforge` and persist a Codex model-routing tier selected from the user's subscription. |
 | `1_plan/codex-skill-routing-dispatch/requirements_2026-07-15_codex-skill-routing-dispatch.md` | trial | Bind all 18 common skills' stages to Codex custom agents, with explicit quality and token-efficiency evidence. |
 | `1_plan/confirm-workflow/requirements_2026-07-14_confirm-workflow.md` | trial | Add the shared confirm skill and require develop, debate, and collab to consume its confirmed requirement card. |
 | `1_plan/cross-project-write-guard/requirements_2026-07-10_cross-project-write-guard.md` | implementing | Add Claude/Codex hook protection against accidental cross-project writes and dangerous external git operations. |

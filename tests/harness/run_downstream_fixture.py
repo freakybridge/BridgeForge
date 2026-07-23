@@ -118,6 +118,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
+    shutil.copy2(CODEX_TEMPLATE / "subscription-tier.toml", codex_dir / "subscription-tier.toml")
     shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
     _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
 
@@ -1151,6 +1152,132 @@ def check_model_policy() -> CheckResult:
     )
 
 
+def check_subscription_routing() -> CheckResult:
+    script = CODEX_TEMPLATE / "scripts" / "subscription_routing.py"
+    command = [
+        sys.executable,
+        str(script),
+        "--project-root",
+        str(CODEX_FIXTURE),
+        "--template-root",
+        str(CODEX_TEMPLATE),
+    ]
+
+    fixture = build_codex_fixture()
+    high = run([*command, "--tier", "high"], fixture)
+    high_policy = run(
+        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
+        fixture,
+    )
+    high_config = (fixture / ".codex" / "config.toml").read_text(encoding="utf-8")
+    high_agent = (
+        fixture / ".codex" / "agents" / "implementation-worker.toml"
+    ).read_text(encoding="utf-8")
+
+    fixture = build_codex_fixture()
+    conservative = run([*command, "--tier", "conservative"], fixture)
+    conservative_policy = run(
+        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
+        fixture,
+    )
+    conservative_marker = (fixture / ".codex" / "subscription-tier.toml").read_text(
+        encoding="utf-8"
+    )
+    conservative_config = (fixture / ".codex" / "config.toml").read_text(encoding="utf-8")
+    conservative_agent = (
+        fixture / ".codex" / "agents" / "implementation-worker.toml"
+    ).read_text(encoding="utf-8")
+
+    fixture = build_codex_fixture()
+    marker = fixture / ".codex" / "subscription-tier.toml"
+    marker.unlink()
+    missing_marker = run(
+        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
+        fixture,
+    )
+
+    fixture = build_codex_fixture()
+    protected_files = [
+        fixture / ".codex" / "subscription-tier.toml",
+        fixture / ".codex" / "config.toml",
+        fixture / ".codex" / "agents" / "implementation-worker.toml",
+    ]
+    before_invalid = [path.read_bytes() for path in protected_files]
+    invalid = run([*command, "--tier", "enterprise"], fixture)
+    after_invalid = [path.read_bytes() for path in protected_files]
+
+    user_config = Path.home() / ".codex" / "config.toml"
+    user_before = user_config.read_bytes() if user_config.exists() else None
+    user_project_block = run(
+        [
+            sys.executable,
+            str(script),
+            "--tier",
+            "high",
+            "--project-root",
+            str(Path.home()),
+            "--template-root",
+            str(CODEX_TEMPLATE),
+        ],
+        fixture,
+    )
+    user_template_block = run(
+        [
+            sys.executable,
+            str(script),
+            "--tier",
+            "high",
+            "--project-root",
+            str(fixture),
+            "--template-root",
+            str(Path.home() / ".codex"),
+        ],
+        fixture,
+    )
+    user_after = user_config.read_bytes() if user_config.exists() else None
+
+    missing_output = missing_marker.stdout + missing_marker.stderr
+    protected_output = (
+        user_project_block.stdout
+        + user_project_block.stderr
+        + user_template_block.stdout
+        + user_template_block.stderr
+    )
+    ok = (
+        high.returncode == 0
+        and high_policy.returncode == 0
+        and 'model_reasoning_effort = "high"' in high_config
+        and 'model = "gpt-5.6-sol"' in high_agent
+        and conservative.returncode == 0
+        and conservative_policy.returncode == 0
+        and 'tier = "conservative"' in conservative_marker
+        and 'model_reasoning_effort = "medium"' in conservative_config
+        and 'model = "gpt-5.6-terra"' in conservative_agent
+        and missing_marker.returncode == 2
+        and "run /bridgeforge and choose a Codex subscription tier" in missing_output
+        and invalid.returncode == 2
+        and before_invalid == after_invalid
+        and user_project_block.returncode == 2
+        and user_template_block.returncode == 2
+        and "refusing user-level Codex path" in protected_output
+        and user_before == user_after
+    )
+    return CheckResult(
+        "subscription_routing",
+        ok,
+        "high/conservative tiers apply and pass policy; missing marker, invalid tier, and user-level read/write paths are blocked"
+        if ok
+        else (
+            f"high={high.returncode}/{high_policy.returncode} "
+            f"conservative={conservative.returncode}/{conservative_policy.returncode} "
+            f"missing={missing_marker.returncode} invalid={invalid.returncode} "
+            f"user_project={user_project_block.returncode} "
+            f"user_template={user_template_block.returncode} unchanged={user_before == user_after}: "
+            f"{(high.stdout + high.stderr + high_policy.stdout + high_policy.stderr + conservative.stdout + conservative.stderr + conservative_policy.stdout + conservative_policy.stderr + missing_output + invalid.stdout + invalid.stderr + protected_output).strip()}"
+        ),
+    )
+
+
 def check_user_config_write_guard() -> CheckResult:
     fixture = build_codex_fixture()
     guard = fixture / ".codex" / "hooks" / "user_config_write_guard.py"
@@ -1304,6 +1431,7 @@ CHECKS = {
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
+    "subscription-routing": check_subscription_routing,
     "user-config-write-guard": check_user_config_write_guard,
     "switch-archive": check_switch_archive_restore,
     "switch-claude-cleanup-only": check_switch_claude_complete_target_cleanup_only,

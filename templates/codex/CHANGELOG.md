@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.33.1] - 2026-07-23
+
+### Changed
+- [product] 新增 `.codex/subscription-tier.toml` 项目档位和订阅路由脚本：高档为主 Terra+high / implementation Sol+high，保守档为主 Terra+medium / implementation Terra+high；策略钩子按 marker 机检，无 marker 明确提示通过 `/bridgeforge` 选择，且脚本拒绝用户级 `~/.codex` 读写路径。
+
 ## [0.33.0] - 2026-07-15
 
 ### Added
