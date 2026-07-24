@@ -17,6 +17,7 @@
     {"skill": "develop", "stage": "delivery-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "make delivery decision"},
     {"skill": "escalate", "stage": "self-assessment-and-choice", "agent": "main", "mode": "main", "root_must_do": "state evidence and wait for user"},
     {"skill": "escalate", "stage": "external-blind-spot-review", "agent": "review-auditor", "mode": "audit", "root_must_do": "select and present paths"},
+    {"skill": "explain", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "explain supplied context without implementation or redesign"},
     {"skill": "find-doc", "stage": "search-and-candidate-summary", "agent": "light-explorer", "mode": "read-only", "root_must_do": "make follow-up decisions"},
     {"skill": "find-memory", "stage": "search-and-candidate-summary", "agent": "light-explorer", "mode": "read-only", "root_must_do": "make follow-up decisions"},
     {"skill": "focus", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "read, set, clear and interpret anchor"},

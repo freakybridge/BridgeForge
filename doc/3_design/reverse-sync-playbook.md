@@ -214,6 +214,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 | 日期 | 源项目 | 目标文件 | 反哺内容（一句话） | 操作人 |
 |------|--------|----------|--------------------|--------|
+| 2026-07-24 | StratusAgent | skills/explain/SKILL.md | 将下游已验证的白话解释流程写成通用 skill；目标行为按已确认上游规格重写，不伪称复制未定位的下游原文，并排除项目名、路径和量化业务术语 | bridgexue |
 | 2026-07-08 | StratusAgent | templates/claude/hooks/git_add_all_guard.py + settings.json | 新 hook：bulk git add 安全护栏；脱敏项目文案后阻断凭证类文件和 `.runtime/` 临时产物被全量 add | bridgexue |
 | 2026-07-08 | StratusAgent | templates/claude/hooks/memory_dup_check.py + settings.json | 新 hook：新建 memory 前按文件名主题词提示同主题碎片化；脱敏本地 debate/memory 来源记录 | bridgexue |
 | 2026-07-08 | StratusAgent | templates/claude/hooks/cargo_default_run_check.py + settings.json | 新 hook：多 `[[bin]]` Cargo.toml 缺少 default-run 时软提醒；脱敏本地启动脚本与 memory 来源 | bridgexue |

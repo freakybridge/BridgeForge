@@ -12,6 +12,7 @@ exercise the parts that are easy to miss in the source repo:
 * Codex model / reasoning-effort routing policy.
 * User-level Codex model configuration must remain read-only to skeleton hooks.
 * high-confidence `skills/**/SKILL.md` metadata and local reference health.
+* User-skill maintenance contract plus executable missing/divergent no-write checks.
 
 Generated fixture directories are disposable and are never product source.
 """
@@ -35,6 +36,7 @@ CLAUDE_TEMPLATE = REPO_ROOT / "templates" / "claude"
 CODEX_FIXTURE = RUNTIME_ROOT / "downstream-codex"
 SWITCH_FIXTURE = RUNTIME_ROOT / "downstream-switch"
 SKILL_METADATA_FIXTURE = RUNTIME_ROOT / "skill-metadata"
+USER_SKILL_FIXTURE = RUNTIME_ROOT / "user-skill-distribution"
 CODEX_GIT_SYNC_REMOTE = RUNTIME_ROOT / "codex-git-sync-remote.git"
 
 
@@ -74,7 +76,12 @@ def _copytree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
 
-def run(cmd: list[str], cwd: Path, timeout: int = 20) -> subprocess.CompletedProcess[str]:
+def run(
+    cmd: list[str],
+    cwd: Path,
+    timeout: int = 20,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -83,6 +90,7 @@ def run(cmd: list[str], cwd: Path, timeout: int = 20) -> subprocess.CompletedPro
         encoding="utf-8",
         errors="replace",
         timeout=timeout,
+        env={**os.environ, **(env or {})},
     )
 
 
@@ -1038,6 +1046,106 @@ def check_skill_metadata() -> CheckResult:
     )
 
 
+def check_user_skill_distribution() -> CheckResult:
+    """Check the documented maintenance path and its executable detector honestly.
+
+    BridgeForge installs user skills through instructions in SKILL.md and
+    references/user-skill-maintenance.md; there is no production installer
+    function for this fixture to call.  The executable skill_sync_check hooks
+    only detect drift and must never be represented as performing installation.
+    """
+    _safe_reset_dir(USER_SKILL_FIXTURE)
+    fake_home = USER_SKILL_FIXTURE / "home"
+    upstream = fake_home / ".bridgeforge" / "skills" / "explain"
+    # Stage the factory source only. This is not a simulated user-shelf install.
+    _copytree(REPO_ROOT / "skills" / "explain", upstream)
+    fixture_env = {
+        "HOME": str(fake_home),
+        "USERPROFILE": str(fake_home),
+    }
+
+    failures: list[str] = []
+    root_skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
+    maintenance = (REPO_ROOT / "references" / "user-skill-maintenance.md").read_text(
+        encoding="utf-8"
+    )
+    contract_markers = (
+        "[references/user-skill-maintenance.md](references/user-skill-maintenance.md)",
+        "init、update、adopt 都先完整执行",
+        "Claude Code 用户级目录是 `~/.claude/skills/`",
+        "Codex 是 `~/.agents/skills/`",
+        "两者都只扫描 `<name>/SKILL.md` 顶层",
+        'if [ ! -d "$SKILLS_DST/$s" ]; then',
+        'cp -r "$SKILLS_SRC/$s" "$SKILLS_DST/$s"',
+        'echo "⚠ 已存在但与上游不一致: $s"',
+        "禁止静默覆盖",
+        "若含定制，默认保留",
+    )
+    combined_contract = root_skill + "\n" + maintenance
+    missing_markers = [marker for marker in contract_markers if marker not in combined_contract]
+    if missing_markers:
+        failures.append(f"maintenance contract missing markers: {missing_markers!r}")
+
+    sync_block = maintenance.split("```bash", 1)[-1].split("```", 1)[0]
+    divergent_marker = 'echo "⚠ 已存在但与上游不一致: $s"'
+    if divergent_marker in sync_block:
+        divergent_branch = sync_block[sync_block.index(divergent_marker) :]
+        if 'cp -r "$SKILLS_SRC/$s" "$SKILLS_DST/$s"' in divergent_branch:
+            failures.append("maintenance contract copies over the divergent branch")
+
+    surfaces = (
+        ("claude", fake_home / ".claude" / "skills"),
+        ("codex", fake_home / ".agents" / "skills"),
+    )
+    for agent, shelf in surfaces:
+        shelf.mkdir(parents=True)
+        hook = REPO_ROOT / "templates" / agent / "hooks" / "skill_sync_check.py"
+
+        before_missing = sorted(path.relative_to(shelf).as_posix() for path in shelf.rglob("*"))
+        missing = run([sys.executable, str(hook)], USER_SKILL_FIXTURE, env=fixture_env)
+        missing_output = missing.stdout + missing.stderr
+        after_missing = sorted(path.relative_to(shelf).as_posix() for path in shelf.rglob("*"))
+        if (
+            missing.returncode != 0
+            or "缺失（explain）" not in missing_output
+            or after_missing != before_missing
+        ):
+            failures.append(
+                f"{agent}: detector did not report missing explain without writes: "
+                f"exit={missing.returncode} output={missing_output.strip()!r} "
+                f"before={before_missing!r} after={after_missing!r}"
+            )
+            continue
+
+        custom_file = shelf / "explain" / "SKILL.md"
+        custom_file.parent.mkdir()
+        custom_file.write_text(
+            "---\nname: explain\ndescription: local customization\n---\n",
+            encoding="utf-8",
+        )
+        before = custom_file.read_bytes()
+        divergent = run([sys.executable, str(hook)], USER_SKILL_FIXTURE, env=fixture_env)
+        divergent_output = divergent.stdout + divergent.stderr
+        if (
+            divergent.returncode != 0
+            or "内容不一致（explain）" not in divergent_output
+            or custom_file.read_bytes() != before
+        ):
+            failures.append(
+                f"{agent}: customization was not reported and preserved: "
+                f"exit={divergent.returncode} output={divergent_output.strip()!r}"
+            )
+
+    ok = not failures
+    return CheckResult(
+        "user_skill_distribution",
+        ok,
+        "natural-language maintenance contract targets both user shelves; executable hooks report missing/divergent explain without writes (installer execution and agent runtime discovery remain unautomated)"
+        if ok
+        else "\n".join(failures),
+    )
+
+
 def check_model_policy() -> CheckResult:
     source = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], REPO_ROOT)
     if source.returncode != 0:
@@ -1431,6 +1539,7 @@ CHECKS = {
     "root-precommit": check_root_precommit_dual_agent_gates,
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
+    "user-skill-distribution": check_user_skill_distribution,
     "subscription-routing": check_subscription_routing,
     "user-config-write-guard": check_user_config_write_guard,
     "switch-archive": check_switch_archive_restore,

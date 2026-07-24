@@ -364,8 +364,8 @@ def _check_routing_manifest(root: Path, label: str) -> list[str]:
             f"{label}/{ROUTING_MANIFEST} skill coverage must match skills/ exactly: "
             f"missing={sorted(source_names - skill_names)!r}, extra={sorted(skill_names - source_names)!r}"
         )
-    elif source_names is None and len(skill_names) != 18:
-        issues.append(f"{label}/{ROUTING_MANIFEST} must cover 18 product skills, got {len(skill_names)}")
+    elif source_names is None and len(skill_names) != 19:
+        issues.append(f"{label}/{ROUTING_MANIFEST} must cover 19 product skills, got {len(skill_names)}")
 
     git_sync = [entry for entry in entries if isinstance(entry, dict) and entry.get("skill") == "git-sync"]
     if len(git_sync) != 1 or git_sync[0].get("agent") != "mechanical-sync-worker":

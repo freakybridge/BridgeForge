@@ -84,7 +84,7 @@
 
 ### 4.6 Skill 分段路由（强制）
 
-`.codex/skill-routing.json` 是 18 个下游通用 skill 的路由单一事实源；`bridgeforge` 是用户级全局入口，只在该文件的 `global_entries` 中单列，不属于这 18 个项目 skill。
+`.codex/skill-routing.json` 是 19 个下游通用 skill 的路由单一事实源；`bridgeforge` 是用户级全局入口，只在该文件的 `global_entries` 中单列，不属于这 19 个项目 skill。
 
 - 调用已登记 skill 时，先读 manifest 命中的阶段；非 `main` 阶段**必须显式 spawn**该行的 named custom agent，等待其有限证据摘要，主对话不得自行重做该阶段。
 - 子 agent prompt 必须包含：agent 名称、阶段目标、文件 / 工具边界、只读或写入约束和回传格式。用户提问、审批、跨阶段整合与 manifest 的 `root_must_do` 始终留在主对话。
