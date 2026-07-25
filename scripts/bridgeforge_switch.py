@@ -1507,7 +1507,7 @@ def looks_like_bridgeforge_source(root: Path) -> bool:
     return (
         (root / "templates" / "claude").is_dir()
         and (root / "templates" / "codex").is_dir()
-        and (root / "SKILL.md").is_file()
+        and (root / "skills" / "bridgeforge" / "SKILL.md").is_file()
     )
 
 

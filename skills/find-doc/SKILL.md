@@ -23,8 +23,8 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 | 意图 | 典型问题 | 执行路径 |
 |------|----------|----------|
 | 找东西（默认） | 找、在哪、涉及、查、搜、设计、计划 | A + B + D + E |
-| 看 TODO | 未解决、没修、bug、todo、进展、现状 | C + D |
-| 看远期功能 | 远期、以后、backlog、未来计划 | C 的远期索引 + A 的无日期计划 |
+| 看待处理事项 | 未解决、没修、bug、todo、进展、现状 | C + D |
+| 看交付计划 | Milestone、M1、验收、需求、开发计划 | A + C + D |
 
 边界含混时按“找东西”执行。
 
@@ -34,10 +34,10 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
 
 - **Path A—文件名**：每个 token 执行 Glob `doc/**/*<token>*.md`。
 - **Path B—README 入口**：在 `doc/**/README.md` 中大小写不敏感 Grep topic regex，返回内容，最多 30 条；命中后再判断是否读取目标文件。
-- **Path C—TODO + Pending**：
-  - Grep `doc/0_architecture/TODO-INDEX.md` 全文；
-  - Grep `doc/2_pending/*.md`，只返回命中文件，最多 20 个；
-  - 远期意图再 Glob `doc/1_plan/**/<topic>*.md`，定位无日期 backlog 文件。
+- **Path C—Delivery + Bugs**：
+  - 读取 `doc/README.md` 的 `delivery_layout`；
+  - Glob `doc/1_delivery/**/<topic>*/**/*.md`，并匹配 `requirements_*.md`、`plan.md`、`acceptance.md`、`debates/*.md`；
+  - Grep `doc/2_bugs/**/<topic>*.md`，只返回命中文件，最多 20 个。
 - **Path D—Memory 索引**：判断 Claude `.claude` 或 Codex `.codex`，只 Grep其 `memory/MEMORY.md`，最多 25 条；不扫描具体 memory 文件。
 - **Path E—多词共现**：仅多 token 时，在 `doc/**/*.md` 中按正反顺序做 multiline 共现 Grep，只返回文件，最多 15 个。
 

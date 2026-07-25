@@ -55,7 +55,7 @@ B. 有一项不准确，继续逐项确认
 C. 暂不写入，只保留讨论结论
 ```
 
-3. 只有用户明确选择 A 或给出唯一、无条件对应 A 的回答，才写入 `doc/1_plan/<topic>/requirements_YYYY-MM-DD_<slug>.md`，状态设为 `confirmed`；同步 `doc/README.md`。
+3. 只有用户明确选择 A 或给出唯一、无条件对应 A 的回答，才按 `doc/README.md` 的 `delivery_layout` 写入：`flat` 为 `doc/1_delivery/<topic>/requirements_YYYY-MM-DD_<slug>.md`，`milestone` 为 `doc/1_delivery/<M>/<topic>/requirements_YYYY-MM-DD_<slug>.md`。无有效声明时停止要求用户选择；同步 `doc/README.md`。
 4. 需求卡必须包含上述确认内容、原始需求摘要、调用来源、后续交接目标以及实施 / 验证记录占位。
 
 ### 4. 交接

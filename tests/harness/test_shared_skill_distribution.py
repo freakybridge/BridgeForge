@@ -188,8 +188,17 @@ class SharedSkillDistributionTests(unittest.TestCase):
         self.assertEqual(manifest["canonical_remote"], CANONICAL_REMOTE)
         self.assertEqual(manifest["branch"], "main")
 
-        expected_bundle = {"SKILL.md", "VERSION", "CHANGELOG.md"}
-        for folder in ("doc/0_playbook", "templates"):
+        expected_bundle = {
+            "VERSION",
+            "CHANGELOG.md",
+            "skills/bridgeforge/SKILL.md",
+            "skills/bridgeforge/references/adopt.md",
+            "skills/bridgeforge/references/init.md",
+            "skills/bridgeforge/references/switch.md",
+            "skills/bridgeforge/references/update.md",
+            "skills/bridgeforge/references/user-skill-maintenance.md",
+        }
+        for folder in ("templates",):
             expected_bundle.update(
                 path.relative_to(ROOT).as_posix()
                 for path in (ROOT / folder).rglob("*")
@@ -219,10 +228,15 @@ class SharedSkillDistributionTests(unittest.TestCase):
             }
             self.assertEqual(set(bridgeforge_files), expected_bundle)
             for source, item in bridgeforge_files.items():
-                self.assertEqual(item["target"], source)
+                expected_target = source.removeprefix("skills/bridgeforge/")
+                self.assertEqual(item["target"], expected_target)
                 self.assertEqual(item["sha256"], f"sha256:{sha256(ROOT / source)}")
 
-            expected_skill_names = {path.name for path in (ROOT / "skills").iterdir() if path.is_dir()}
+            expected_skill_names = {
+                path.name
+                for path in (ROOT / "skills").iterdir()
+                if path.is_dir() and path.name != "bridgeforge"
+            }
             self.assertEqual(set(skills) - {"bridgeforge"}, expected_skill_names)
             for name in expected_skill_names:
                 skill_root = ROOT / "skills" / name

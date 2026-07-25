@@ -26,7 +26,7 @@ argument: 大型改动的目标、模块、约束和验收线索
 ### 2. 研读与规划
 
 1. 把 read-only research 显式分派给 `light-explorer`；只在必要事实缺失时索取一项材料。确认卡与实际任务不匹配时返回 `confirm`。
-2. 创建 `collabs_YYYY-MM-DD_<topic>.md`：单 feature 放 `doc/1_plan/<feature>/`；跨 feature 放对应主题的 `multi-feature/`；底层重构放 `doc/1_plan/refactor/`。找不到目录时建立清晰主题目录并说明原因。
+2. 在确认卡所在的 delivery topic 创建 `collabs_YYYY-MM-DD_<topic>.md`；跨 topic 的工作先确认其唯一的交付容器，不得新建全局 plan/refactor 目录。找不到容器时返回 `confirm`。
 3. 记录确认卡路径、目标、范围、约束、验收、拆分表和接口约定。
 4. 若无法拆成文件不重叠、无依赖的并行任务，停止并报告原因，不硬凑并行组。
 

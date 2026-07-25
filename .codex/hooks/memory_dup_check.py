@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PreToolUse hook: warn before creating duplicate Codex memory shards.
 
-When a new `.codex/memory/*.md` file is created with the Write tool, compare its
+When a new `.codex/memory/**/*.md` file is created with the Write tool, compare its
 filename topic tokens with existing memory filenames. If several existing files
 look like the same topic, print a soft warning recommending appending to an
 existing memory file first.
@@ -115,11 +115,11 @@ def main() -> int:
         return 0
 
     hits: list[str] = []
-    for path in memory_dir.glob("*.md"):
+    for path in memory_dir.rglob("*.md"):
         if path.name in ("MEMORY.md", "MEMORY_COLD.md", name):
             continue
         if len(new_tokens & topic_tokens(path.name[:-3])) >= 2:
-            hits.append(path.name)
+            hits.append(path.relative_to(memory_dir).as_posix())
 
     if len(hits) < 2:
         return 0

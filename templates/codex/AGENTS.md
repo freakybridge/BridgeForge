@@ -101,7 +101,9 @@
 
 memory 纳入项目 git（`.codex/memory/`），系统路径 `~/.codex/projects/<hash>/memory/` 用 junction 透明转发；`memory_junction_check.py` 每次 SessionStart 自动维护。禁止硬删可能含数据的目录，迁移失败用 `.bak`。
 
-检索顺序：先查 MEMORY.md 主索引；无匹配再用 `$find-memory <关键词>` 搜冷区；禁止跳过主索引直接 grep 全量 memory。MEMORY.md 是派生索引，勿手改。
+检索顺序：先查 MEMORY.md 主索引；任务锚或确认卡能唯一定位 delivery topic 时，再读 `memory/topics/<topic>/`；无匹配再用 `$find-memory <关键词>` 搜冷区与主题目录；禁止跳过主索引直接 grep 全量 memory。MEMORY.md 是派生索引，勿手改。
+
+memory 初始只含 `MEMORY.md`。主题目录按首次写入创建：`architecture/`、`engineering/`、`domain/`、`operations/`、`_inbox/` 与 `topics/<topic>/`；离开 `_inbox/` 的记录必须有 `category`。完成 topic 仅从自动加载范围冷却，仍保留在 `topics/<topic>/`，禁止创建 `memory/_archive/` 或物理搬迁。
 
 ---
 
@@ -195,10 +197,11 @@ Codex 的有效窗口优先读取日志 `model_context_window`，环境变量仅
 
 ## 11. 文档管理（红线）
 
-本项目必须用 `doc/` 六层结构：`0_architecture` / `1_plan` / `2_pending` / `3_design` / `4_archive` / `9_reference`。
+本项目必须用 `doc/` 五层结构：`0_architecture` / `1_delivery` / `2_bugs` / `3_reference` / `4_archive`。
 
-- 禁止文档散落根目录或源码目录；设计文档放 `doc/3_design/`。
-- 禁止删层、跳层、改名、合并、新增同级目录。
+- `doc/README.md` 的 `delivery_layout` 是交付路径单一事实源：`flat` 用 `1_delivery/<topic>/`；`milestone` 用 `1_delivery/<M>/<topic>/`。禁止混用或靠目录猜测。
+- 禁止文档散落根目录或源码目录；系统架构与 ADR 放 `doc/0_architecture/`；外部资料放 `doc/3_reference/`。
+- 禁止删层、跳层、改名、合并、新增同级目录；已有项目的布局迁移必须先展示 `git mv` 清单并取得用户确认。
 - `doc/README.md` 是唯一索引；任何 `doc/**.md` 新增 / 删除 / 移动 / 重命名都要同步。
 - 不接受 doc/ 强制，就不应使用 bridgeforge。
 

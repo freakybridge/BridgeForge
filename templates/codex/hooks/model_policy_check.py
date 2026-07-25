@@ -310,7 +310,11 @@ def _source_skill_names() -> set[str] | None:
     skills = REPO_ROOT / "skills"
     if not skills.is_dir():
         return None
-    return {path.parent.name for path in skills.glob("*/SKILL.md") if path.is_file()}
+    return {
+        path.parent.name
+        for path in skills.glob("*/SKILL.md")
+        if path.is_file() and path.parent.name != "bridgeforge"
+    }
 
 
 def _check_routing_manifest(root: Path, label: str) -> list[str]:

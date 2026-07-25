@@ -25,7 +25,7 @@ argument: 需要讨论的问题、现象、模块和已尝试方案
 
 ### 2. 研读与建档
 
-1. 在 `doc/2_pending/` 创建 `debates_YYYY-MM-DD_<topic>.md`，记录确认卡路径、目标、边界、约束和问题。
+1. 根据确认卡所在的 delivery topic，在同目录 `debates/YYYY-MM-DD_<issue>.md` 创建讨论记录，记录确认卡路径、目标、边界、约束和问题；禁止把已归属需求的 debate 放入全局目录。
 2. 把 read-only research 显式分派给 `light-explorer`，研读真实代码和证据；只在必要事实缺失时索取一项材料。发现确认卡不匹配就返回 `confirm`。
 
 ### 3. 进行 2-3 轮辩论

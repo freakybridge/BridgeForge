@@ -20,8 +20,7 @@ paths:
 | 模块组织 / 新增模块流程 | `.claude/rules/modules.md` |
 | 调试规范变更 | `.claude/rules/debugging.md` |
 | 可移植性 / 依赖管理 | `.claude/rules/portability.md` |
-| 新增数据对象或核心枚举 | `doc/0_architecture/` 下对应文件 |
-| 接口契约变更 | `doc/3_design/` 下对应文件 |
+| 新增数据对象、核心枚举或接口契约 | `doc/0_architecture/` 下对应文件 |
 
 <!-- TODO: 按本项目实际有的 rule / 设计文档补充 -->
 
@@ -86,8 +85,8 @@ paths:
 
 **Why（为什么是红线）**：文档分层是 bridgeforge 的核心范式之一，与 rules / memory 深度耦合：
 
-- 多个协作 skill（如 `/develop` `/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 六层结构 — 缺层会让 skill 静默装死
-- `workflow.md §6-§7` + `meta_rule_design.md` 的"案例下沉"范式都假设 `doc/3_design/` 和 `doc/2_pending/` 存在
+- 多个协作 skill（如 `/develop` `/archive-scan` `/todo` `/find-doc` `/sync-docs`）依赖 doc/ 五层结构 — 缺层会让 skill 静默装死
+- `workflow.md §6-§7` + `meta_rule_design.md` 的"案例下沉"范式都假设 `doc/0_architecture/`、`doc/1_delivery/` 与 `doc/2_bugs/` 存在
 - 长期可维护性：散落各处的文档随项目演进必然失控；强制集中是经验教训
 
 **How to apply**：
@@ -102,12 +101,11 @@ paths:
 
 | 目录 | 放什么 | **禁止**放什么 |
 |------|--------|--------------|
-| `doc/0_architecture/` | 架构级红线（PRD、需求、约束、roadmap）+ **acceptance.md（正在做的验收）** + **TODO-INDEX.md（暂时没空做的短期 todo + 远期 backlog 索引）** | 阶段性总结、临时计划 |
-| `doc/3_design/` | 模块实现的最终形态（项目自产的模块设计） | 第三方 API 文档、协议参考、外部截图 |
-| `doc/1_plan/` | 按主题归集的活跃推进 + 协作记录 + `sprints/` Sprint 级日程 | 已完成归档项 |
-| `doc/2_pending/` | 未决问题备忘 + 未决讨论（短期没精力解决，有上下文要展开的）| 已完成 / 已废弃的文档；**TODO-INDEX.md 不放此处**（在 `0_architecture/`）|
-| `doc/4_archive/` | 已完成归档 | 仍在推进中的文档 |
-| `doc/9_reference/` | 外部/第三方参考资料（协议文档、竞品截图、AI prompt） | 项目自产的设计或规范 |
+| `doc/0_architecture/` | 系统架构、数据流、接口契约和 ADR | 需求过程、外部原文、临时讨论 |
+| `doc/1_delivery/` | 每个需求的确认卡、计划、验收与正式 debate；路径由 `doc/README.md:delivery_layout` 决定 | 其他 topic 的材料、已归档项 |
+| `doc/2_bugs/` | 未关闭 Bug 的发现、复现、根因、修复和验证 | 普通需求计划、外部资料 |
+| `doc/3_reference/` | 外部/第三方资料（协议文档、竞品截图、AI prompt） | 项目自产的设计或规范 |
+| `doc/4_archive/` | 已完成 delivery 包和已解决 Bug | 仍在推进中的文档 |
 
 **判断标准**：如果文档内容不是你（项目团队）写的，而是来自外部库 / 工具 / 协议，就放 `reference/`，不放 `design/`。
 
@@ -118,8 +116,9 @@ paths:
 | 内容类型 | 权威位置 | 说明 |
 |---------|---------|------|
 | 架构约束（禁止/必须） | `.claude/rules/` | 唯一维护点，改这里 |
-| 设计文档（背景、方案、迁移指南） | `doc/3_design/` | 设计说明，较少改动 |
-| 产品需求、Roadmap | `doc/0_architecture/` | 阶段性更新 |
+| 系统架构、接口和 ADR | `doc/0_architecture/` | 描述当前系统与重大决策 |
+| 需求确认、计划和验收 | `doc/1_delivery/` | 一个 topic 一套完整交付包 |
+| Bug 修复记录 | `doc/2_bugs/` | 发现到验证的闭环 |
 | 踩坑经验 | `.claude/memory/` | 按需积累 |
 
 ---

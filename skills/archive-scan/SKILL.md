@@ -1,6 +1,6 @@
 ---
 name: archive-scan
-description: 扫描 doc/2_pending/ 中疑似已完成的文档，给出归档候选，经用户逐项确认后使用 git mv 移至 doc/4_archive/ 并同步 doc/README.md；清理已完成 pending 文档时使用。
+description: 扫描已验收的 delivery topic 与已解决 Bug，给出归档候选，经用户逐项确认后使用 git mv 移至 doc/4_archive/ 并同步 doc/README.md；清理完成事项时使用。
 user_invocable: true
 argument: 无
 model: haiku
@@ -10,7 +10,7 @@ model: haiku
 
 ## 定位与边界
 
-脚本只负责候选打分；用户决定是否移动。扫描范围是 `doc/2_pending/`，`doc/0_architecture/TODO-INDEX.md` 不是候选。
+脚本只负责候选打分；用户决定是否移动。扫描范围是 `doc/1_delivery/` 中包含完成验收标记的 topic 与 `doc/2_bugs/` 中状态已解决的 Bug；系统架构和外部资料不是候选。
 
 ## 输入
 
@@ -27,10 +27,10 @@ model: haiku
    .venv/Scripts/python.exe .codex/scripts/archive_scan.py --json
    ```
 
-2. 解析 JSON 中的 `file / score / reasons / refs_in_todo / last_modified_days`，输出候选表。
+2. 解析 JSON 中的 `source / target / kind / score / reasons / last_modified_days`，输出候选表。
 3. 复核候选信号：
    - 仅子任务完成、仍属活跃验收/里程碑、仍被其他文档引用：说明依据并建议保留。
-   - 用户已明确完成，或 TODO 删除后来源文档成为孤立项：可补充为归档候选。
+   - 用户已明确验收或确认 Bug 已解决：可补充为归档候选。
 4. 使用当前平台的结构化多选提问，提供“全部归档”“选择归档”“都不移”“再看某个”的操作；列出候选后立即停止本轮。
 5. 用户要求“再看”时只读指定文件，说明判断后再次结构化询问；仍不得移动。
 6. 用户明确批准后先运行 `git status`：
@@ -38,7 +38,7 @@ model: haiku
    - 工作区干净：对批准文件逐个执行：
 
      ```bash
-     git mv doc/2_pending/<file> doc/4_archive/<file>
+     git mv <source> <target>
      ```
 
 7. 同步 `doc/README.md`：从 current 表格删除对应行，按时间倒序加入 archive 表格；“最近归档批次”注释可选。
@@ -59,5 +59,5 @@ model: haiku
 
 - 禁止未经用户确认执行 `git mv`，或在列完候选的同一回合移动。
 - 禁止移动后漏改 `doc/README.md`。
-- 禁止把 TODO 新增、长期 memory 总结或普通文档新建混入归档流程。
+- 禁止把长期 memory 总结、系统架构或普通文档新建混入归档流程。
 - 禁止把脚本分数当最终判断，忽略活跃引用和用户意见。

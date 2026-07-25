@@ -1,6 +1,6 @@
 ---
 name: summary
-description: 总结当前对话的关键决策、经验、完成项与遗留问题，并按价值写入 memory、rules 或 docs；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
+description: 总结当前对话的关键决策、经验、完成项与遗留问题，并首次归类写入通用 memory 或 delivery topic memory，再按价值同步 rules 或 docs；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
 user_invocable: true
 argument: 可选的本次总结重点提示
 model: sonnet
@@ -10,7 +10,9 @@ model: sonnet
 
 ## 定位与边界
 
-只保留值得跨对话复用的内容，并同步对应索引。低频的 rule-memory 对账与已解决事项清理按需读取 [`references/deep-steps.md`](references/deep-steps.md)，不要预加载整份参考。
+只保留值得跨对话复用的内容，并同步对应索引。会话默认只把 `MEMORY.md`
+作为热区；topic memory 与其他正文按需读取。低频的 rule-memory 对账与已解决事项
+清理按需读取 [`references/deep-steps.md`](references/deep-steps.md)，不要预加载整份参考。
 
 ## 输入
 
@@ -21,18 +23,32 @@ model: sonnet
 ## 核心流程
 
 1. 回顾本轮，区分已确认事实、推断、已完成和未验证项。
-2. 写入当前 agent memory：架构归 `project`，踩坑归 `feedback`，外部资料归 `reference`；先查重，再新建或更新，并同步 `MEMORY.md`。
-3. 检查 rules：只有“必须 / 禁止”的稳定红线才进入 rule；案例进入 memory，长示例进入 doc。与既有约束重叠时合并，保持单一正文和窄 `paths` 触发。
-4. 若本轮修改了 rule，只读取 `references/deep-steps.md` 的“对账”节执行局部 memory 对账。删除候选必须用单题选择式用户确认结束当前回合；未确认前禁止删除。
-5. 按项目 `rules/workflow.md` 的同步映射更新相关设计文档；需要独立流程时调用 `sync-docs`。
-6. 仅当代码已合并且用户明确确认解决时，读取参考文件的“清理”节列出 TODO / pending 文档候选。必须以用户确认结束当前回合；未确认前禁止删条目或归档。
-7. 发现跨项目也成立的经验时，先向用户确认，再把一行候选追加到当前 agent 的 `harvest-inbox.md`；这里只捕捉，不反哺上游。
+2. 先查重，再给每条待写 memory 做首次归类：
+   - 通用长期知识的 `category` 只能是 `architecture`、`engineering`、
+     `domain`、`operations`，目标为 `memory/<category>/`。
+   - delivery topic 的 `category` 写 `topic`，同时写
+     `topic: <exact-slug>`，目标为 `memory/topics/<exact-slug>/`。
+   - `status` 只能是 `active`、`completed`、`superseded`，缺省按
+     `active`；`description` 必填，`kind`、`tags`、`related_paths`
+     按需填写。
+   - 首次实际写入时才创建目标目录；禁止预建空分类目录或空 topic 目录。
+3. 分类置信度不足时，只展示候选 `category`；候选含 `topic` 时同时展示
+   `topic` slug。用一个单题选择请求用户决定并结束当前回合；确认前禁止写入
+   frontmatter、创建目录或移动文件。已有 `_inbox/` 条目离开收件箱也遵循同一规则。
+4. 把确认后的内容写入当前 agent memory，并运行项目的确定性索引重建脚本。
+   `completed` / `superseded` topic 仍保留在原 `memory/topics/<topic>/`；
+   只由索引降温，禁止移动到不存在的 `memory/_archive/`。
+5. 检查 rules：只有“必须 / 禁止”的稳定红线才进入 rule；案例进入 memory，长示例进入 doc。与既有约束重叠时合并，保持单一正文和窄 `paths` 触发。
+6. 若本轮修改了 rule，只读取 `references/deep-steps.md` 的“对账”节执行局部 memory 对账。删除候选必须用单题选择式用户确认结束当前回合；未确认前禁止删除。
+7. 按项目 `rules/workflow.md` 的同步映射更新相关设计文档；需要独立流程时调用 `sync-docs`。
+8. 仅当代码已合并且用户明确确认解决时，读取参考文件的“清理”节列出 TODO / pending 文档候选。必须以用户确认结束当前回合；未确认前禁止删条目或归档。
+9. 发现跨项目也成立的经验时，先向用户确认，再把一行候选追加到当前 agent 的 `harvest-inbox.md`；这里只捕捉，不反哺上游。
 
 ## 输出与收据
 
 列出：
 
-- 新增或更新的 memory 类型、路径和一句话内容。
+- 新增或更新的 memory 路径、`category` / `topic` / `status` 和一句话内容。
 - 修改的 rules、同步的 docs 与索引。
 - 经用户确认后清理的 memory / TODO / pending 文档。
 - 写入的 harvest 候选。
@@ -41,6 +57,7 @@ model: sonnet
 ## 停止条件
 
 - 发现任何删除候选时，呈现候选并等待用户选择，当前回合立即结束。
+- memory 分类置信度不足时，呈现候选并等待用户选择，当前回合立即结束。
 - 没有满足“已合并 + 用户确认”的清理项时跳过清理，不凑数。
 - 缺少写入依据或真实状态无法核验时，标为未验证并停止对应写入。
 
@@ -50,5 +67,7 @@ model: sonnet
 - 禁止因内容上升为 rule 就机械删除支撑它的 memory。
 - 禁止未确认删除 memory、TODO 或 pending 文档；归档必须使用 `git mv`。
 - 禁止重复写入同一规则、案例或索引条目。
+- 禁止预建空 memory 分类目录，或为完成的 topic 创建 / 移入
+  `memory/_archive/`。
 
 $ARGUMENTS

@@ -316,11 +316,11 @@ def check_encoding_no_bom() -> CheckResult:
         )
 
     fixture = build_codex_fixture()
-    target = fixture / ".codex" / "memory" / "_stats.json"
+    target = fixture / ".codex" / "memory" / "MEMORY.md"
     target.write_bytes(b"\xef\xbb\xbf" + target.read_bytes())
     bad = run([sys.executable, ".codex/hooks/encoding_check.py", "--pre-commit"], fixture)
 
-    ok = bad.returncode == 2 and ".codex/memory/_stats.json" in (bad.stdout + bad.stderr)
+    ok = bad.returncode == 2 and ".codex/memory/MEMORY.md" in (bad.stdout + bad.stderr)
     return CheckResult(
         "encoding_no_bom",
         ok,
@@ -1525,6 +1525,9 @@ def _candidate_existing_paths(token: str, skill_dir: Path) -> list[Path]:
     if _looks_generated_or_project_specific(norm):
         return []
 
+    if norm == "SKILL.md":
+        return [skill_dir / norm]
+
     if norm.startswith(".claude/"):
         rest = norm[len(".claude/") :]
         return [REPO_ROOT / "templates" / "claude" / rest]
@@ -1539,7 +1542,6 @@ def _candidate_existing_paths(token: str, skill_dir: Path) -> list[Path]:
         "README.md",
         "CHANGELOG.md",
         "VERSION",
-        "SKILL.md",
     }:
         return [REPO_ROOT / norm]
     return []
@@ -1653,12 +1655,12 @@ def check_user_skill_distribution() -> CheckResult:
     }
 
     failures: list[str] = []
-    root_skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
-    maintenance = (REPO_ROOT / "doc" / "0_playbook" / "user-skill-maintenance.md").read_text(
+    root_skill = (REPO_ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
+    maintenance = (REPO_ROOT / "skills" / "bridgeforge" / "references" / "user-skill-maintenance.md").read_text(
         encoding="utf-8"
     )
     contract_markers = (
-        "[doc/0_playbook/user-skill-maintenance.md](doc/0_playbook/user-skill-maintenance.md)",
+        "[references/user-skill-maintenance.md](references/user-skill-maintenance.md)",
         "~/.codex/skills/",
         "~/.claude/skills/",
         "bridgeforge-managed.json",

@@ -17,6 +17,24 @@
 
 ---
 
+## [0.69.0] - 2026-07-25
+
+### Added
+- `[product][meta]` 下游 memory 改为按需创建的 `architecture/`、`engineering/`、`domain/`、`operations/`、`_inbox/` 与 `topics/<topic>/` 分类体系：新项目仅含 `MEMORY.md`；递归索引、检索与重复检测支持主题目录；`completed` / `superseded` topic 只从热区冷却，不物理归档。`summary`、`harvest`、`find-memory` 与 `$bridgeforge` init/update 同步采用该契约；旧项目更新先展示分类迁移计划，未经用户确认不移动 memory。topic rule 仍维持 debate 待决，未实现 `rules/topics/`。
+
+### Changed
+- `[meta]` 重写根 `README.md`：移除旧根 skill、六层文档、薄入口安装和归档式 switch 说明，改为当前 shared-skill 安装器、双宿主直接同步、五层文档与按需 memory 的产品入口。
+
+## [0.68.0] - 2026-07-25
+
+### Changed
+- `[product][meta]` `$bridgeforge` 从根目录与 `doc/0_architecture/` 收拢到 `skills/bridgeforge/`；入口正文位于 `skills/bridgeforge/SKILL.md`，运行手册位于 `skills/bridgeforge/references/`。用户级安装路径保持 `bridgeforge/SKILL.md` 与 `bridgeforge/references/` 不变，`0_architecture/` 仅保留架构与设计资料。
+
+## [0.67.0] - 2026-07-25
+
+### Changed
+- `[product][meta]` 下游文档体系改为 `0_architecture / 1_delivery / 2_bugs / 3_reference / 4_archive`：需求以确认卡、计划、验收和正式 debate 组成单 topic 交付包；`doc/README.md` 以 `delivery_layout: flat|milestone` 决定 `1_delivery/<topic>` 或 `1_delivery/<M>/<topic>`。确认卡取代独立 decision 文档，Bug 有独立闭环，完成事项仅经用户确认后归档。init 新增布局选择，update 对旧目录只提出迁移清单，禁止静默移动；BridgeForge 自身文档、归档扫描器与共享 command bundle 同步迁入该路径。Codex 模板升至 `0.38.0`，Claude 模板升至 `0.28.0`。
+
 ## [0.66.0] - 2026-07-25
 
 ### Changed

@@ -67,19 +67,12 @@ def _version() -> str:
     return "?"
 
 
-def _todo_active() -> str:
-    p = REPO_ROOT / "doc" / "0_architecture" / "TODO-INDEX.md"
-    if not p.exists():
-        return "(TODO-INDEX.md 不存在)"
-    try:
-        text = p.read_text(encoding="utf-8")
-        out = []
-        for ln in text.splitlines():
-            if ln.startswith("| #") or "| P0 |" in ln:
-                out.append(ln.strip())
-        return "\n".join(out) if out else "(无 P0 活跃条目)"
-    except Exception as e:
-        return f"(读取失败: {e})"
+def _active_work() -> str:
+    delivery = REPO_ROOT / "doc" / "1_delivery"
+    bugs = REPO_ROOT / "doc" / "2_bugs"
+    topics = list(delivery.rglob("requirements_*.md")) if delivery.exists() else []
+    bug_records = list(bugs.rglob("BUG-*.md")) if bugs.exists() else []
+    return f"delivery 确认卡: {len(topics)}；未归档 Bug: {len(bug_records)}"
 
 
 def _should_throttle() -> bool:
@@ -126,7 +119,7 @@ def main() -> int:
     ahead_behind = _run(["git", "rev-list", "--left-right", "--count", "HEAD...@{u}"])
     status = _run(["git", "status", "--short"])
     version = _version()
-    todo = _todo_active()
+    active_work = _active_work()
 
     content = f"""# Session State Snapshot
 
@@ -142,10 +135,10 @@ def main() -> int:
 {status or "(clean)"}
 ```
 
-## TODO-INDEX P0 条目（唤起记忆）
+## 活跃交付与 Bug（唤起记忆）
 
 ```
-{todo}
+{active_work}
 ```
 
 ---

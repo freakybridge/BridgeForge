@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-关键词搜索 .claude/memory/*.md 文件。
+递归关键词搜索 .claude/memory/**/*.md 文件。
 
 用法：python .claude/scripts/memory_search.py <关键词>
 输出：按匹配频率排名的前10个文件（含 description 和摘录）
@@ -30,7 +30,7 @@ def main() -> None:
     skip_names = {"MEMORY.md", "MEMORY_COLD.md"}
 
     results: list[tuple[int, str, str, list[str]]] = []
-    for f in sorted(memory_dir.glob("*.md")):
+    for f in sorted(memory_dir.rglob("*.md")):
         if f.name.startswith("_") or f.name in skip_names:
             continue
         try:
@@ -59,9 +59,10 @@ def main() -> None:
             if len(excerpts) >= 2:
                 break
 
-        results.append((score, f.name, desc, excerpts))
+        relative = f.relative_to(memory_dir).as_posix()
+        results.append((score, relative, desc, excerpts))
 
-    results.sort(key=lambda x: x[0], reverse=True)
+    results.sort(key=lambda x: (-x[0], x[1]))
 
     if not results:
         print(f"未找到匹配：{query}")

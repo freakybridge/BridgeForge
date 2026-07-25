@@ -20,7 +20,7 @@ model: sonnet
 %USERPROFILE%\.claude\skills\bridgeforge
 ```
 
-4. 确认该目录同时包含 `SKILL.md`、`doc/0_playbook/`、`templates/` 与 `scripts/bridgeforge_shared_update.ps1`，然后读取其中的 `SKILL.md`，按其说明继续。无参数调用原样转交；`switch claude` 转交时必须把当前宿主固定声明为 `claude`，并保证底层调用包含 `--current-host claude`。当前宿主不得取自用户输入，也不得省略。
+4. 确认该目录同时包含 `SKILL.md`、`references/`、`templates/` 与 `scripts/bridgeforge_shared_update.ps1`，然后读取其中的 `SKILL.md`，按其说明继续。无参数调用原样转交；`switch claude` 转交时必须把当前宿主固定声明为 `claude`，并保证底层调用包含 `--current-host claude`。当前宿主不得取自用户输入，也不得省略。
 
 任一文件缺失都停止，并要求重新运行 Windows 首次安装脚本。
 

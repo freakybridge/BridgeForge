@@ -45,9 +45,9 @@ Hooks (代码驱动，必定执行)  >  Rules (建议，Codex 概率遵守)  >  
 | 内容类型 | 该放哪 | 在 rule 里出现就是退化 |
 |---------|--------|---------------------|
 | 完整事故案例（YYYY-MM-DD 那次踩坑） | `memory/` | ❌ |
-| 长 code 示例（> 20 行） | `doc/3_design/` 或子文件 | ❌ |
-| 决策过程 / 方案对比 | `doc/3_design/` 或 `doc/2_pending/debates_*` | ❌ |
-| 教程 / 入门指南 | `doc/9_reference/` 或 `doc/4_archive/` | ❌ |
+| 长 code 示例（> 20 行） | `doc/0_architecture/` 或所属 delivery topic | ❌ |
+| 决策过程 / 方案对比 | delivery topic 的 `debates/`；重大结论升格 `doc/0_architecture/adr/` | ❌ |
+| 教程 / 入门指南 | `doc/3_reference/` 或 `doc/4_archive/` | ❌ |
 | 临时偏好 / 一次性约定 | prompt | ❌ |
 
 **判定问句**：写完一段问自己 —
@@ -70,7 +70,7 @@ Hooks (代码驱动，必定执行)  >  Rules (建议，Codex 概率遵守)  >  
 
 **How to apply**: <什么场景该想起这条；edge case 怎么处理>
 
-详见 [memory/feedback_xxx.md](...) / [doc/3_design/yyy.md](...)
+详见 [memory/feedback_xxx.md](...) / [doc/0_architecture/yyy.md](...)
 ```
 
 **最小骨架范例**（normative，≤10 行）：
@@ -169,7 +169,7 @@ AGENTS.md 是项目入口，**只放索引 + 必要红线**，正文细节放对
 
 - [ ] 这条约束真的需要 rule 吗？（不是 prompt 一次性？不是 hook 能强制？）
 - [ ] 内容里有没有完整事故案例？（有 → 抽 memory）
-- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/3_design）【pre-commit 硬拦】
+- [ ] 内容里有没有 > 20 行的 code 示例？（有 → 抽 doc/0_architecture 或所属 delivery topic）【pre-commit 硬拦】
 - [ ] 内容里有没有版本号 > 5 处 / 日期 > 8 处？（有 → 信号：案例越界；阈值以 `rule_size_check.py` 为准）【pre-commit 硬拦】
 - [ ] 触发器 path 是否单段目录通配（`a/**`）或裸 `**`？（是 → 伪常驻，收紧到 ≥2 段前缀）【pre-commit 硬拦；横切框架规则在 `rule_size_check.py` 白名单豁免】
 - [ ] 跟现有哪条 rule 有重叠？（有 → 合并 / pointer）

@@ -110,7 +110,7 @@ paths:
 5. **如果你不知道，我建议走 debate** —— 给用户一个 fallback 选项
 
 **Step 4 — 启动 debate 的前提（选 B 时）**：
-- 先写好 `doc/2_pending/debates_YYYY-MM-DD_<topic>.md` 的 problem statement，列出已确认事实和分歧点
+- 在确认卡所属 topic 的 `debates/YYYY-MM-DD_<issue>.md` 写好 problem statement，列出已确认事实和分歧点
 - 调用 `/debate` skill（如果项目装了），带上这个文档的路径和核心疑问
 - **Round 1 的 reviewer 必须真正动手跑验证命令**（不能只做纸面推导）
 - 辩论达成共识**前**禁止写任何生产代码

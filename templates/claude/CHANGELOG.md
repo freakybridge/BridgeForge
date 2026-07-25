@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.29.0] - 2026-07-25
+
+### Added
+- [product] memory 支持按需创建的分类目录与 `topics/<topic>/`：递归索引、检索、重复检测和显式整理均支持嵌套记录；`completed` / `superseded` topic 自动冷却而不搬入 archive。新项目仅创建 `memory/MEMORY.md`，旧项目迁移必须先展示计划并等待用户确认。
+
+## [0.28.0] - 2026-07-25
+
+### Changed
+- [product] 下游文档体系改为 architecture / delivery / bugs / reference / archive；`doc/README.md` 的 `delivery_layout` 显式选择 flat 或 milestone 交付路径，确认卡、正式 debate、归档扫描与会话摘要均按新生命周期处理。旧项目升级只提出经用户确认的迁移。
+
 ## [0.27.0] - 2026-07-25
 
 ### Changed

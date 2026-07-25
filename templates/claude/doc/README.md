@@ -1,5 +1,9 @@
 # {{PROJECT_NAME}} 文档索引
 
+---
+delivery_layout: flat # flat | milestone；初始化时确认，已有项目不得静默切换
+---
+
 > 唯一索引 — 任何 `doc/*.md` 文件的新增 / 删除 / 重命名都要同步本文件。
 
 ---
@@ -8,12 +12,11 @@
 
 | 目录 | 放什么 | 状态 |
 |------|--------|------|
-| [`0_architecture/`](0_architecture/) | 架构红线（PRD、需求、约束、roadmap） | 长期，慎改 |
-| [`1_plan/`](1_plan/) | 按主题归集的活跃推进 + 协作记录 | 活跃 |
-| [`2_pending/`](2_pending/) | 未决问题备忘 + 未决讨论 | 短期 |
-| [`3_design/`](3_design/) | 模块实现的最终形态（项目自产） | 较稳定 |
+| [`0_architecture/`](0_architecture/) | 系统当前架构、关键接口、数据流与 ADR | 长期，慎改 |
+| [`1_delivery/`](1_delivery/) | 需求从确认、计划到验收的完整交付包 | 活跃 |
+| [`2_bugs/`](2_bugs/) | 尚未归档的 Bug：现象、根因、修复和验证 | 活跃 |
+| [`3_reference/`](3_reference/) | 外部 / 第三方资料及可复核摘录 | 只读 |
 | [`4_archive/`](4_archive/) | 已完成归档 | 只读 |
-| [`9_reference/`](9_reference/) | 外部 / 第三方参考资料 | 只读 |
 
 完整边界规则见 `.claude/rules/workflow.md` §6。
 
@@ -24,50 +27,40 @@
 <!-- TODO: 列入 PRD / Roadmap / 核心需求文档
 | 文件 | 说明 |
 |------|------|
-| `1_PRD.md` | 产品需求 |
-| `2_约束与红线.md` | 不可变约束 |
-| `3_数据结构与常量.md` | 核心数据对象 |
-| `acceptance.md` | **正在做的验收清单**（全项目 Milestone 验收单一勾选位置）|
-| `TODO-INDEX.md` | **暂时没空做的短期 TODO + 远期 backlog 索引**（与 acceptance 形成"做 vs 暂缓"二分）|
+| `system-overview.md` | 系统边界、核心模块与运行方式 |
+| `data-flow.md` | 关键数据流 / 控制流 |
+| `interfaces.md` | 关键接口与数据契约 |
+| `adr/ADR-*.md` | 跨模块、替代成本高的架构决策 |
 -->
 
-## 1_plan/
+## 1_delivery/
 
-<!-- TODO: 按 topic 子目录归集，例：
+<!-- TODO: 每个 topic 是完整交付包。布局由本文件 frontmatter 决定：
 | 文件 / 子目录 | 说明 |
 |------|------|
-| [`feature_x/`](1_plan/feature_x/) | 特性 X 的设计 + 验收 + collab 记录 |
-| [`sprints/`](1_plan/sprints/) | **正在做的 Sprint / Task 级日程**（per Milestone 一份）|
+| [`feature_x/`](1_delivery/feature_x/) | flat：中小项目的需求包 |
+| [`M1/feature_x/`](1_delivery/M1/feature_x/) | milestone：按里程碑组织的需求包 |
+
+每个需求包至少包含确认卡 `requirements_*.md`、`plan.md`、`acceptance.md`；正式 debate 放入 `debates/`。`M1/README.md` 只汇总状态和链接，不维护第二套验收勾选。
 -->
 
-## 2_pending/
+## 2_bugs/
 
-<!-- TODO: 未决问题备忘（已识别但有上下文要展开的），例：
+<!-- TODO: 每个 Bug 记录发现、复现、根因、修复、验证和回归，例：
 | 文件 | 说明 |
 |------|------|
-| `YYYY-MM-DD_<topic>.md` | 单个未决问题的展开备忘 |
-| `debates_YYYY-MM-DD_<topic>.md` | 多 agent 辩论记录 |
-
-注：TODO-INDEX.md 不放此处，已迁至 0_architecture/。
+| `BUG-001_<topic>.md` | 轻量 Bug 记录 |
+| `BUG-002_<topic>/` | 需要正式 debate 或附加证据的 Bug 包 |
 -->
 
-## 3_design/
+## 3_reference/
 
-<!-- TODO: 模块设计，例：
+<!-- TODO: 外部资料必须记录来源、获取日期和适用范围，例：
 | 文件 / 子目录 | 说明 |
 |------|------|
-| [`module_a/`](3_design/module_a/) | 模块 A 的实现设计 |
+| [`external_api/`](3_reference/external_api/) | 外部 API / 协议资料 |
 -->
 
 ## 4_archive/
 
-<!-- TODO: 已归档文档，按时间倒序 -->
-
-## 9_reference/
-
-<!-- TODO: 外部参考资料，例：
-| 文件 / 子目录 | 说明 |
-|------|------|
-| `external_api/` | 外部 API 协议文档 |
-| `competitor_screenshots/` | 竞品截图 |
--->
+<!-- TODO: 已完成的 delivery 保持原 milestone/topic 层级归档；已解决 Bug 归档至 bugs/。 -->

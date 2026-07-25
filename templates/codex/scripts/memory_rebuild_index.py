@@ -2,7 +2,7 @@
 """
 确定性重建 MEMORY.md（主索引）+ MEMORY_COLD.md（冷区索引）。
 
-设计（2026-06-27 改版，见 doc/3_design/memory-scoring-design.md）：
+设计（2026-06-27 改版，见 doc/0_architecture/design/memory-scoring-design.md）：
   - 纯确定性：索引内容 = f(memory 文件集, created_at, pinned)，**不含当天日期 / 访问热度**。
     → 不碰 memory 时，重建产出逐字不变；git 只比对内容，故工作区永不"自发变脏"。
   - 事件驱动：由 PostToolUse(Write/Edit memory 文件) 触发（--from-hook），不再每轮 Stop 跑。
@@ -31,6 +31,30 @@ DEFAULT_TITLE = "Memory Index"
 
 def is_memory_file(name: str) -> bool:
     return name.endswith(".md") and name not in SKIP_NAMES and not name.startswith("_")
+
+
+def read_metadata(memory_dir: Path, filename: str) -> dict[str, str]:
+    try:
+        raw = (memory_dir / filename).read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return {}
+    match = re.match(r"\A---\s*\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", raw, re.DOTALL)
+    if not match:
+        return {}
+    metadata: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        item = re.match(r"^([A-Za-z_][\w-]*):\s*(.*?)\s*$", line)
+        if item:
+            metadata[item.group(1).lower()] = item.group(2).strip().strip("\"'")
+    return metadata
+
+
+def is_cold_topic(memory_dir: Path, filename: str) -> bool:
+    metadata = read_metadata(memory_dir, filename)
+    return (
+        metadata.get("category", "").lower() == "topic"
+        and metadata.get("status", "").lower() in {"completed", "superseded"}
+    )
 
 
 def hook_should_run() -> str:
@@ -104,12 +128,13 @@ def main() -> None:
     # 扫描所有 memory 文件，新文件登记 created_at（一次性，固定不变）
     stats_dirty = False
     present = []
-    for f in sorted(memory_dir.glob("*.md")):
+    for f in sorted(memory_dir.rglob("*.md")):
         if not is_memory_file(f.name):
             continue
-        present.append(f.name)
-        if f.name not in files_stats:
-            files_stats[f.name] = {"created_at": today}
+        relative = f.relative_to(memory_dir).as_posix()
+        present.append(relative)
+        if relative not in files_stats:
+            files_stats[relative] = {"created_at": today}
             stats_dirty = True
 
     # 清理 stats 里已不存在的文件记录（保持单一事实源）
@@ -124,13 +149,20 @@ def main() -> None:
 
     # 排序：非 pinned 按 created_at 降序（新增的在前），并列按文件名升序。
     # 利用 Python 稳定排序：先排次级键（文件名升序），再排主键（created_at 降序）。
-    non_pinned = [n for n in present if n not in pinned]
+    forced_cold = {
+        name for name in present if is_cold_topic(memory_dir, name)
+    }
+    non_pinned = [
+        n for n in present if n not in pinned and n not in forced_cold
+    ]
     non_pinned.sort()  # 次级：文件名升序
     non_pinned.sort(
         key=lambda n: files_stats.get(n, {}).get("created_at", today), reverse=True
     )  # 主：created_at 降序
 
-    pinned_present = [p for p in pinned if p in present]
+    pinned_present = [
+        p for p in pinned if p in present and p not in forced_cold
+    ]
 
     # 6000 是整个 MEMORY.md 的启动预算；先预留标题、注释、章节和 Cold 指针空间，
     # 再扣除 pinned 行，剩余额度才给普通 Active。固定外壳实测低于 800 字符。
@@ -146,7 +178,12 @@ def main() -> None:
             break
         active.append(name)
         active_chars += len(line) + 1
-    cold = non_pinned[len(active):]
+    forced_cold_sorted = sorted(forced_cold)
+    forced_cold_sorted.sort(
+        key=lambda n: files_stats.get(n, {}).get("created_at", today),
+        reverse=True,
+    )
+    cold = forced_cold_sorted + non_pinned[len(active):]
 
     # ── 生成 MEMORY.md（整文件，确定性）──────────────────────
     lines = [

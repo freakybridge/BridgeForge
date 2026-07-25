@@ -7,7 +7,7 @@
 ## 📌 Pinned
 - [project-rename-bridgeforge](project-rename-bridgeforge.md) — v0.29.0 起项目/skill 由 setup_agent 更名为 bridgeforge；历史流水账故意保留旧名
 
-## Active（按新增时间，新在前；满 40 自动滚入 Cold）
+## Active（按新增时间，新在前；主索引上限 6000 字符）
 - [feedback-hook-input-channel-bugclass](feedback-hook-input-channel-bugclass.md) — 修一个 hook 的 stdin/env-var 输入通道 bug 后要主动排查所有结构同胞，不能只信任单点 CHANGELOG 记录已解决
 - [harness-preferences](harness-preferences.md) — 用户对 bridgeforge 自身 harness 工程的偏好访谈记录（19 问完整版）+ 设计/施工序产出脉络；实施已于 v0.39.0 完成，见 [[project-v039-state]]
 - [harness-trim-2026-07-01-deferred](harness-trim-2026-07-01-deferred.md) — 2026-07-01 全 harness 精简会搁置账：已于 v0.40.0（2026-07-02 全仓库体检）全部收口清零——E-1/E-2 KEEP、E-3/E-6 随 v0.39.0 解决、E-4/E-5/git-sync Why 已修、行为变更1 被 §3 吸收、B-6 不采纳

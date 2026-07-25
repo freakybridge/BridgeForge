@@ -13,7 +13,8 @@
 
 rule 与 memory 是**互补不是替代**：meta_rule 范式要求 rule 把案例下沉到 memory、自己只留一行结论 + 链接。所以"内容上升成 rule"≠"删对应 memory"，必须分类判定，不可机械删。
 
-**只对本次 rule 直接相关的 memory 对账**——不全量扫所有 memory（全局膨胀治理交给自动评分系统：`memory_rebuild` Stop hook 按热度自动冷区化、封顶活跃条数，summary 只做局部对账）。三类判定：
+**只对本次 rule 直接相关的 memory 对账**——不全量扫所有 memory（全局冷热区由
+确定性索引重建脚本维护，summary 只做局部对账）。三类判定：
 
 | memory 现状 | 处理 |
 |---|---|
@@ -23,19 +24,19 @@ rule 与 memory 是**互补不是替代**：meta_rule 范式要求 rule 把案�
 
 **禁止自动删**：列候选给用户、逐条 y/n 或整体显式确认后再动手。
 
-**删一条 memory = 4 处同步**（缺一处即残留 / 悬空链接）：
-1. 删 memory 文件本身（Claude `.claude/memory/xxx.md`，Codex `.codex/memory/xxx.md`）
-2. 删 `MEMORY.md` 索引行（Pinned / Active 区那条 `- [...](...)`）
-3. 更新 `MEMORY.md` 顶部统计计数（`Active: N` / `Cold: N`）
-4. **反向链接检查**：grep 其他 memory 的 `[[被删 name]]` + rules / doc 里指向它的链接 → 悬空的要处理
+**删一条 memory = 3 处同步**（缺一处即残留 / 悬空链接）：
+1. 删分类目录或 topic 目录内的原文件。
+2. 运行当前 agent 的 `memory_rebuild_index.py`，由脚本重建 `MEMORY.md`；
+   禁止手改自动索引和计数。
+3. **反向链接检查**：搜索其他 memory 的 `[[被删 name]]` + rules / doc 里指向它的链接 → 悬空的要处理。
 
-> 第 4 步兼做**误删安全网**：删前若发现某条 rule 仍在链接这条 memory，恰证明它属上表第 2 类（案例支撑），**不该删**——回到判定，留下。
+> 第 3 步兼做**误删安全网**：删前若发现某条 rule 仍在链接这条 memory，恰证明它属上表第 2 类（案例支撑），**不该删**——回到判定，留下。
 
 ---
 
 ## §清理 — 清理已解决的 TODO 和 current 文档（防止无限膨胀）
 
-扫描 `doc/0_architecture/TODO-INDEX.md` 和 `doc/2_pending/` 下的活跃 .md，找出本次对话真正解决的条目。
+扫描本轮关联的 `doc/1_delivery/` topic 与 `doc/2_bugs/` 记录，找出本次真正完成并经用户确认的条目。
 
 **判定标准（严格，必须同时满足）**：
 1. 代码已合并（本次对话中实际 edit 了文件并 build 通过）
@@ -45,24 +46,23 @@ rule 与 memory 是**互补不是替代**：meta_rule 范式要求 rule 把案�
 
 **执行流程（禁止自动批量删）**：
 
+已完成或被取代的 topic memory 只把 `status` 改为 `completed` 或
+`superseded`，并由索引降温；文件继续留在原 `memory/topics/<topic>/`。
+禁止创建或使用 `memory/_archive/`。delivery 原始证据的归档不改变这条规则。
+
 1. **列候选清单**给用户，分两类展示：
 
    ```
-   候选清理（TODO-INDEX 删行）:
-   - [ ] #XX 一句话摘要 — 本次做了什么
-   - [ ] #YY ...
-
-   候选归档（current/ → archive/）:
-   - [ ] doc/2_pending/2026-XX-XX_foo.md — 对应的已完成工作
+   候选归档（delivery / bugs → archive）:
+   - [ ] doc/1_delivery/M1/foo/ — 已验收的需求包
+   - [ ] doc/2_bugs/BUG-XX_foo.md — 已验证修复的 Bug
    ```
 
 2. **等用户逐条 y/n 或整体确认**。用户说"都清"也行，但必须显式。
 
 3. **执行清理**（按用户勾选）：
-   - **TODO-INDEX 条目** → 直接 `Edit` 删整行，不保留 strikethrough
-   - **doc/2_pending/*.md** → `git mv doc/2_pending/XXX.md doc/4_archive/XXX.md` 保留决策 trail，禁止 `rm`
+   - **delivery topic** → `git mv doc/1_delivery/... doc/4_archive/delivery/...`，保留完整确认、计划、验收与 debate trail
+   - **Bug** → `git mv doc/2_bugs/XXX doc/4_archive/bugs/XXX`，禁止 `rm`
    - **doc/README.md** 索引 → 从 `## current/` 表格里删对应行，如归档则在 `## archive/` 表格加新行
-
-4. **更新 TODO-INDEX 短期 TODO 条目数**（顶部 `> 短期 TODO 条目：N`）。
 
 **兜底**：若本次对话**没有**任何条目满足判定标准（常见情况），跳过本步，向用户说明"本次未达清理标准的条目"即可，不强行凑数。

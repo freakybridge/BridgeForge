@@ -122,7 +122,7 @@ def check_rule(content: str, name: str) -> list[str]:
     long_blocks = [b for b in code_blocks if b.count("\n") > LONG_CODE_BLOCK_LINES]
     if len(long_blocks) > MAX_LONG_CODE_BLOCKS:
         violations.append(
-            f"长 code 块 (>{LONG_CODE_BLOCK_LINES} 行) {len(long_blocks)} 个 > {MAX_LONG_CODE_BLOCKS} — 示例移 doc/3_design/"
+            f"长 code 块 (>{LONG_CODE_BLOCK_LINES} 行) {len(long_blocks)} 个 > {MAX_LONG_CODE_BLOCKS} — 示例移 doc/0_architecture/ 或所属 delivery topic"
         )
 
     # 触发器宽度：单段目录通配 / 裸 ** = 伪常驻（meta_rule §4.2）。横切规则白名单豁免。

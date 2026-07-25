@@ -1,96 +1,48 @@
+---
+delivery_layout: flat
+---
+
 # BridgeForge Documents
 
-This `doc/` tree is the only documentation system for BridgeForge. It tracks active feature work, long-lived design and playbook material, pending investigations, archived records, and reference examples.
+本仓库采用 BridgeForge 五层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
 
-## Index
+## 索引
 
-### 0 Playbooks
+| 目录 | 作用 | 当前内容 |
+|---|---|---|
+| `0_architecture/` | 架构与设计依据 | `design/` |
+| `1_delivery/` | 需求确认、计划、验收、协作与专题讨论 | 见下方 topic 索引 |
+| `2_bugs/` | 已知故障及其修复记录 | 2 条历史故障记录 |
+| `3_reference/` | 外部资料与可复用参考实现 | `examples/antifab-deny-hook.py` |
+| `4_archive/` | 已完成或已失效的历史材料 | 既有历史档案；后续按 `delivery/`、`bugs/` 分类归档 |
 
-These files are the only `doc/` content included in the installed `bridgeforge` command bundle.
+## 架构
 
-| Path | Purpose |
-|------|---------|
-| `0_playbook/init.md` | Initialize a new or existing project. |
-| `0_playbook/adopt.md` | Adopt a BridgeForge-derived project without a version marker. |
-| `0_playbook/update.md` | Update a project with `.bridgeforge_version`. |
-| `0_playbook/switch.md` | Switch Claude/Codex through reviewed semantic migration. |
-| `0_playbook/user-skill-maintenance.md` | Maintain user-level shared skills and legacy layout. |
+- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 `design-rationale.md`、同步/反哺 playbook、harness、memory 与文档体系设计。
+- `$bridgeforge` 的运行手册属于产品源码，位于 [`skills/bridgeforge/references/`](../skills/bridgeforge/references/)，不纳入 `doc/`。
 
-### Active Plans
+## Delivery topic
 
-| Path | Status | Purpose |
-|------|--------|---------|
-| `1_plan/bridgeforge-command-clarity/requirements_2026-07-08_bridgeforge-command-clarity.md` | trial | Clarify BridgeForge's user-facing command model around `bridgeforge` and `bridgeforge switch <agent>`. |
-| `1_plan/bridgeforge-home-layout/requirements_2026-07-08_bridgeforge-home-layout.md` | trial | Move the user-level BridgeForge factory home from `.agents/bridgeforge-home` to neutral `.bridgeforge`. |
-| `1_plan/codex-harness-parity/requirements_2026-07-08_codex-harness-parity.md` | trial | Align Codex harness with Claude harness, fix migration residue, and add a parity report before git-sync. |
-| `1_plan/codex-harness-parity/compatibility_closure_2026-07-08.md` | review | Closed-loop compatibility audit for Claude-to-Codex hooks, rules, scripts, skills, and memory migration. |
-| `1_plan/codex-model-routing/requirements_2026-07-08_codex-model-routing.md` | trial | Add Codex model / reasoning-effort routing with config defaults, custom agents, and hook drift checks. |
-| `1_plan/codex-model-routing-56/requirements_2026-07-10_codex-model-routing-56.md` | trial | Upgrade Codex model / reasoning-effort routing defaults from GPT-5.5 to GPT-5.6. |
-| `1_plan/codex-cost-routing/requirements_2026-07-10_codex-cost-routing.md` | implementing | Route Codex models by task cost while keeping user-level model configuration read-only to the skeleton. |
-| `1_plan/codex-subscription-routing/requirements_2026-07-23_codex-subscription-routing.md` | confirmed | Ask once during `/bridgeforge` and persist a Codex model-routing tier selected from the user's subscription. |
-| `1_plan/codex-skill-routing-dispatch/requirements_2026-07-15_codex-skill-routing-dispatch.md` | trial | Bind all 18 common skills' stages to Codex custom agents, with explicit quality and token-efficiency evidence. |
-| `1_plan/confirm-workflow/requirements_2026-07-14_confirm-workflow.md` | trial | Add the shared confirm skill and require develop, debate, and collab to consume its confirmed requirement card. |
-| `1_plan/explain-skill/requirements_2026-07-24_explain-skill.md` | confirmed | Add a shared explain skill for Claude and Codex downstream projects without silently overwriting local customizations. |
-| `1_plan/shared-skill-distribution/requirements_2026-07-25_shared-skill-distribution.md` | confirmed | Use GitHub main as the single source for platform-manifest shared skills; retire `.agents` and the `~/.bridgeforge` junction runtime layout. |
-| `1_plan/bridgeforge-switch-semantic-migration/requirements_2026-07-25_bridgeforge-switch-semantic-migration.md` | confirmed | Preserve project-level hard constraints during Claude/Codex switch through reviewed, target-native semantic migration. |
-| `1_plan/bridgeforge-switch-direct-sync/requirements_2026-07-25_bridgeforge-switch-direct-sync.md` | implemented | Keep both project skeletons and synchronize them directly through target-local semantic mapping tables. |
-| `1_plan/cross-project-write-guard/requirements_2026-07-10_cross-project-write-guard.md` | implementing | Add Claude/Codex hook protection against accidental cross-project writes and dangerous external git operations. |
-| `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
-| `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |
-| `1_plan/non-ascii-shell-guard/requirements_2026-07-10_non-ascii-shell-guard.md` | trial | Add Claude/Codex hook protection against non-ASCII shell transit corruption and scan existing skeleton text. |
-| `1_plan/token-context-optimization/requirements_2026-07-15_token-context-optimization.md` | implementing | Reduce Codex startup and long-thread token cost, and standardize all 19 BridgeForge product skills. |
-| `1_plan/token-context-optimization/collabs_2026-07-15_implementation.md` | implementing | Track parallel skill standardization and shared token/memory integration work. |
+| Topic | 主要记录 |
+|---|---|
+| `bridgeforge-command-clarity`、`bridgeforge-home-layout` | 入口与用户级目录演进 |
+| `bridgeforge-switch-direct-sync`、`bridgeforge-switch-semantic-migration` | 双宿主切换；各含 `debates/` |
+| `codex-harness-parity`、`codex-model-routing`、`codex-model-routing-56`、`codex-cost-routing`、`codex-subscription-routing` | Codex harness 与模型路由 |
+| `codex-skill-routing-dispatch` | skill routing 设计与 `debates/` |
+| `confirm-workflow`、`develop-demand-discovery`、`explain-skill` | 需求确认与通用 skill 演进；后两者含 `research/` |
+| `cross-project-write-guard`、`non-ascii-shell-guard` | 安全防护；各含 `research/` |
+| `ctx-management`、`token-context-optimization` | 上下文与 token 治理 |
+| `doc-unification`、`document-lifecycle` | 文档体系演进 |
+| `memory-rule-organization` | 下游 memory / rule 分类、topic memory 与渐进加载 |
+| `shared-skill-distribution` | 用户级 shared skill 分发 |
 
-### Pending
+每个 topic 内以 `requirements_*.md` 保存确认卡；实现计划、验收方案、协作记录和正式讨论分别与该确认卡同域保存。仅 topic 内路径可作为该事项的工作上下文。
 
-| Path | Status | Purpose |
-|------|--------|---------|
-| `2_pending/2026-07-09_switch_codex_left_claude_live_dir_report.md` | pending | Investigation report for leftover Claude live directory behavior after switching to Codex. |
-| `2_pending/2026-07-10_non_ascii_shell_pipe_hook_proposal.md` | pending | Proposal for Claude/Codex hook protection against non-ASCII shell transit corruption. |
-| `2_pending/2026-07-10_cross_project_write_guard_proposal.md` | pending | Proposal for Claude/Codex hook protection against accidental cross-project writes. |
-| `2_pending/debates_2026-07-15_codex-skill-routing-dispatch.md` | pending | Debate on binding Codex skill stages to named custom agents without eroding quality. |
-| `2_pending/2026-07-14_develop-demand-discovery-gap-report.md` | pending | 调查 `develop` 在既有业务载体重构需求中确认过早的缺口，并提出事实核验与需求发现闸门。 |
-| `2_pending/debates_2026-07-14_develop-single-question-interview.md` | pending | 审查 `develop` 的单题选择式需求访谈是否符合预期，并记录双 Agent 辩论。 |
-| `2_pending/2026-07-17_git-sync-sandbox-permission-report.md` | pending | 下游实机验证 git-sync 的 `.git/FETCH_HEAD` 沙箱权限失败，并提出骨架恢复规则。 |
-| `2_pending/2026-07-24_explain-skill-harvest-report.md` | pending | 记录 StratusAgent 的通用中文 `explain` skill 回灌候选、落点和后续发布检查。 |
+## Bug records
 
-### Design And Playbooks
+- [`BUG-switch-codex-left-claude-live-dir.md`](2_bugs/BUG-switch-codex-left-claude-live-dir.md)
+- [`BUG-git-sync-sandbox-permission.md`](2_bugs/BUG-git-sync-sandbox-permission.md)
 
-| Path | Purpose |
-|------|---------|
-| `3_design/antifabrication-framework.md` | Anti-fabrication framework and reference hook design. |
-| `3_design/codex-harness-parity.md` | Generated Claude/Codex harness parity report. |
-| `3_design/design-rationale.md` | BridgeForge architecture and design rationale. |
-| `3_design/harness-engineering-design.md` | Harness engineering design. |
-| `3_design/harness-impl-plan.md` | Harness implementation plan. |
-| `3_design/memory-scoring-design.md` | Memory scoring and deterministic indexing design. |
-| `3_design/reverse-sync-playbook.md` | Downstream-to-upstream harvest playbook. |
-| `3_design/skill-distribution-gaps.md` | Skill distribution and drift design notes. |
-| `3_design/sync-from-upstream-playbook.md` | Upstream-to-downstream sync playbook. |
+## 归档与参考
 
-### Archive
-
-| Path | Purpose |
-|------|---------|
-| `4_archive/audit_handoff_2026-06-27_debate-collab-rewrite.md` | Historical audit handoff for debate/collab rewrite. |
-| `4_archive/codex_agents_dir_cleanup_investigation_2026-07-06.md` | Historical investigation for Codex `.agents` cleanup behavior. |
-| `4_archive/debates_2026-06-25_encoding-fix-scope.md` | Historical debate on encoding fix scope. |
-| `4_archive/debates_2026-06-25_harness-drift.md` | Historical debate on harness drift. |
-| `4_archive/debates_2026-06-25_redline-placement.md` | Historical debate on redline placement. |
-| `4_archive/debates_2026-06-27_memory-untrack.md` | Historical debate on memory tracking and deterministic indexing. |
-| `4_archive/handoff_2026-06-30_antifabrication-playbook.md` | Historical anti-fabrication playbook handoff. |
-| `4_archive/handoff_2026-06-30_antifabrication-playbook_addendum.md` | Historical anti-fabrication playbook addendum. |
-| `4_archive/handoff_2026-06-30_antifabrication-playbook_consensus.md` | Historical anti-fabrication playbook consensus. |
-| `4_archive/handoff_2026-06-30_stall-vs-fabrication.md` | Historical stall-versus-fabrication handoff. |
-| `4_archive/调查报告_AB对话_空转与幻觉_2026-07-01.md` | Historical investigation report for idle-loop and fabrication behavior. |
-| `4_archive/调查报告_BOM-no-BOM统一策略与模板污染修复_2026-07-08.md` | Historical investigation report for BOM/no-BOM policy and template contamination. |
-| `4_archive/调查报告_bridgeforge-switch-codex-强保护无交互确认_2026-07-07.md` | Historical investigation report for switch-codex strong protection without interactive confirmation. |
-| `4_archive/调查报告_codex-bridgeforge-slash入口不可见_2026-07-07.md` | Historical investigation report for invisible Codex slash entry. |
-| `4_archive/调查报告_codex-pre-commit-BOM导致spawn失败_2026-07-07.md` | Historical investigation report for Codex pre-commit BOM spawn failure. |
-| `4_archive/调查报告_rule-index-check-HTML注释误判_2026-07-02.md` | Historical investigation report for rule-index HTML comment false positive. |
-
-### Reference
-
-| Path | Purpose |
-|------|---------|
-| `9_reference/examples/antifab-deny-hook.py` | Reference implementation for the anti-fabrication deny hook. |
+`4_archive/` 内现有文件为迁移前历史档案，继续保持可追溯性；新归档按 `4_archive/delivery/<topic>/` 或 `4_archive/bugs/` 落位。外部资料与仅供参考的实现放入 `3_reference/`，不作为运行时资产。
