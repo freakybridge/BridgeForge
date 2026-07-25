@@ -189,7 +189,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         self.assertEqual(manifest["branch"], "main")
 
         expected_bundle = {"SKILL.md", "VERSION", "CHANGELOG.md"}
-        for folder in ("references", "templates"):
+        for folder in ("doc/runtime", "templates"):
             expected_bundle.update(
                 path.relative_to(ROOT).as_posix()
                 for path in (ROOT / folder).rglob("*")

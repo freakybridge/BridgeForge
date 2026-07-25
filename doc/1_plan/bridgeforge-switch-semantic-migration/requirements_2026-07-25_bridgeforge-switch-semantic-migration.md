@@ -30,7 +30,7 @@
 ## 拟修改范围
 
 - `scripts/bridgeforge_switch.py` 与 Claude / Codex 模板镜像；
-- 根 `SKILL.md`、`references/switch.md`；
+- 根 `SKILL.md`、`doc/runtime/switch.md`；
 - switch harness 与迁移验证；
 - 版本、CHANGELOG、需求卡与文档索引。
 

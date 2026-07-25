@@ -4,6 +4,18 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 
 ## Index
 
+### Runtime Manuals
+
+These files are the only `doc/` content included in the installed `bridgeforge` command bundle.
+
+| Path | Purpose |
+|------|---------|
+| `runtime/init.md` | Initialize a new or existing project. |
+| `runtime/adopt.md` | Adopt a BridgeForge-derived project without a version marker. |
+| `runtime/update.md` | Update a project with `.bridgeforge_version`. |
+| `runtime/switch.md` | Switch Claude/Codex through reviewed semantic migration. |
+| `runtime/user-skill-maintenance.md` | Maintain user-level shared skills and legacy layout. |
+
 ### Active Plans
 
 | Path | Status | Purpose |

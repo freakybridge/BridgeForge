@@ -2,9 +2,10 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 10 | Cold: 0
+> Active: 11 | Cold: 0
 
 ## Active（按新增时间，新在前；主索引上限 6000 字符）
+- [bridgeforge-doc-runtime-packaging](bridgeforge-doc-runtime-packaging.md) — BridgeForge 的运行手册统一位于 doc/runtime；只有该子树随 bridgeforge command bundle 分发，其余 doc 只留在工厂仓库。
 - [bridgeforge-switch-semantic-migration](bridgeforge-switch-semantic-migration.md) — BridgeForge 跨 Claude/Codex 切换采用语义迁移 manifest 与可回滚事务；可执行约束在无可信沙箱时必须 fail-closed。
 - [confirm-workflow](confirm-workflow.md)
 - [codex-ctx-budget-window](codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 353K 校准，hook 用 transcript usage 计算比例。

@@ -17,6 +17,11 @@
 
 ---
 
+## [0.65.1] - 2026-07-25
+
+### Changed
+- `[product][meta]` 将 BridgeForge command bundle 的五份运行手册从根 `references/` 合并至 `doc/runtime/`；分发清单只携带该子树，需求卡、设计记录、pending 与 archive 继续留在仓库。下游同步后 `/bridgeforge` 与 `/bridgeforge switch <agent>` 的用户入口不变。
+
 ## [0.65.0] - 2026-07-25
 
 ### Added

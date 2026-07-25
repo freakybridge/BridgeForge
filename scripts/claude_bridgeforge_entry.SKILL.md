@@ -20,7 +20,7 @@ model: sonnet
 %USERPROFILE%\.claude\skills\bridgeforge
 ```
 
-4. 确认该目录同时包含 `SKILL.md`、`references/`、`templates/` 与 `scripts/bridgeforge_shared_update.ps1`，然后读取其中的 `SKILL.md`，按其说明继续，并原样传递合法参数。
+4. 确认该目录同时包含 `SKILL.md`、`doc/runtime/`、`templates/` 与 `scripts/bridgeforge_shared_update.ps1`，然后读取其中的 `SKILL.md`，按其说明继续，并原样传递合法参数。
 
 任一文件缺失都停止，并要求重新运行 Windows 首次安装脚本。
 

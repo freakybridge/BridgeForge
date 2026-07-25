@@ -2528,11 +2528,11 @@ def check_user_skill_distribution() -> CheckResult:
 
     failures: list[str] = []
     root_skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
-    maintenance = (REPO_ROOT / "references" / "user-skill-maintenance.md").read_text(
+    maintenance = (REPO_ROOT / "doc" / "runtime" / "user-skill-maintenance.md").read_text(
         encoding="utf-8"
     )
     contract_markers = (
-        "[references/user-skill-maintenance.md](references/user-skill-maintenance.md)",
+        "[doc/runtime/user-skill-maintenance.md](doc/runtime/user-skill-maintenance.md)",
         "~/.codex/skills/",
         "~/.claude/skills/",
         "bridgeforge-managed.json",

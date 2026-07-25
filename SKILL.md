@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在 Windows 项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并从 GitHub main 强制同步受管用户级 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.65.0
+version: 0.65.1
 user_invocable: true
 argument: 仅支持无参数，或 switch claude|codex
 model: sonnet
@@ -28,13 +28,13 @@ model: sonnet
 
 | 命中条件 | 必须读取 |
 |---|---|
-| 显式 `switch`，或用户确认隐式 switch | [references/switch.md](references/switch.md) |
-| 无参数更新收据，或当前项目存在遗留 `.agents/` | [references/user-skill-maintenance.md](references/user-skill-maintenance.md) |
-| 全新项目或既有项目首次接入 | [references/init.md](references/init.md) |
-| BridgeForge 衍生项目缺版本戳 | [references/adopt.md](references/adopt.md) |
-| 已有 `.bridgeforge_version` | [references/update.md](references/update.md) |
+| 显式 `switch`，或用户确认隐式 switch | [doc/runtime/switch.md](doc/runtime/switch.md) |
+| 无参数更新收据，或当前项目存在遗留 `.agents/` | [doc/runtime/user-skill-maintenance.md](doc/runtime/user-skill-maintenance.md) |
+| 全新项目或既有项目首次接入 | [doc/runtime/init.md](doc/runtime/init.md) |
+| BridgeForge 衍生项目缺版本戳 | [doc/runtime/adopt.md](doc/runtime/adopt.md) |
+| 已有 `.bridgeforge_version` | [doc/runtime/update.md](doc/runtime/update.md) |
 
-`references/` 只允许这一层；所有操作手册都由本入口直接链接。不要沿引用链加载无关手册。
+`doc/runtime/` 只允许这一层；所有操作手册都由本入口直接链接。不要沿引用链加载无关手册。
 
 ## Step 0：平台、命令面与安装包路径硬闸
 
@@ -73,7 +73,7 @@ $PROJECT_SKILLS_DIR = ".codex\skills"
 $TEMPLATE_AGENT = "codex"
 ```
 
-`BRIDGEFORGE_HOME` 必须包含本 `SKILL.md`、`references/`、`templates/` 和所需 `scripts/`。任一缺失都停止并要求重新运行 Windows 首次安装脚本；禁止回退到 `~/.bridgeforge`、`~/.agents`、其他本机 clone 或当前工作副本。
+`BRIDGEFORGE_HOME` 必须包含本 `SKILL.md`、`doc/runtime/`、`templates/` 和所需 `scripts/`。任一缺失都停止并要求重新运行 Windows 首次安装脚本；禁止回退到 `~/.bridgeforge`、`~/.agents`、其他本机 clone 或当前工作副本。
 
 ## Step 1：无参数时更新用户级受管 skill
 
@@ -83,7 +83,7 @@ $TEMPLATE_AGENT = "codex"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_shared_update.ps1")
 ```
 
-- exit `0`：重新读取同一路径下更新后的 `SKILL.md`，再读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md) 的分发边界与收据章节；本轮直接从 Step 2 继续，不重复执行 updater。
+- exit `0`：重新读取同一路径下更新后的 `SKILL.md`，再读取 [用户级 skill 分发收据与当前项目遗留布局](doc/runtime/user-skill-maintenance.md) 的分发边界与收据章节；本轮直接从 Step 2 继续，不重复执行 updater。
 - 非 `0`：报告 updater 输出并停止，不维护当前项目。
 - updater 只允许修改 manifest 管理的用户级 skill 与托管账本；不得修改当前项目或其他项目。
 - 禁止用 `git pull`、`git clone`、junction、`~/.agents` 或任何本地工作副本代替 updater。
@@ -100,17 +100,17 @@ if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
 }
 ```
 
-命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑根 `SKILL.md`、`references/`、`templates/` 或 `skills/`。
+命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑根 `SKILL.md`、`doc/runtime/`、`templates/` 或 `skills/`。
 
 ## Step 2.5：当前项目遗留 `.agents/` 硬闸
 
-工厂自检未命中后，只检查当前工作目录根部是否存在 `.agents/`。若存在，先读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md)，运行专用迁移脚本的 `--dry-run` 并展示完整计划；只有用户确认后才允许 `--apply`。
+工厂自检未命中后，只检查当前工作目录根部是否存在 `.agents/`。若存在，先读取 [用户级 skill 分发收据与当前项目遗留布局](doc/runtime/user-skill-maintenance.md)，运行专用迁移脚本的 `--dry-run` 并展示完整计划；只有用户确认后才允许 `--apply`。
 
 未知文件、链接或无法归类内容必须阻断。禁止调用 switch 脚本代替迁移，禁止枚举或修改其他项目。迁移未成功完成前，不得进入 switch、init、adopt 或 update。
 
 ## Step 3：显式 switch 优先
 
-若参数以 `switch` 开头，先读取 [switch 手册](references/switch.md)，再按其中的完整性判定和脚本契约执行。
+若参数以 `switch` 开头，先读取 [switch 手册](doc/runtime/switch.md)，再按其中的完整性判定和脚本契约执行。
 
 目标 agent 已完整且旧 agent 不存在时，不调用脚本，回到 Step 4 按普通维护判场。目标 surface 已部分或完整存在且旧 agent 仍 live 时阻断，禁止覆盖；其他 switch 分支不得继续走 init/update/adopt。
 
@@ -206,9 +206,9 @@ python (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\subscription_routin
 
 只读取本轮模式手册：
 
-- init / 既有项目首次接入：`references/init.md`
-- adopt：`references/adopt.md`
-- update：`references/update.md`
+- init / 既有项目首次接入：`doc/runtime/init.md`
+- adopt：`doc/runtime/adopt.md`
+- update：`doc/runtime/update.md`
 
 显式/隐式 switch 不执行这三条路线；完成 switch 后，若脚本报告“already target”，才回 Step 4 重新判定普通维护模式。
 

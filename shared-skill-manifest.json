@@ -1,4 +1,4 @@
-﻿{
+{
     "schema_version":  1,
     "canonical_remote":  "https://github.com/freakybridge/BridgeForge.git",
     "branch":  "main",
@@ -12,41 +12,41 @@
                                                                      {
                                                                          "source":  "SKILL.md",
                                                                          "target":  "SKILL.md",
-                                                                         "sha256":  "sha256:db1031762b2669adc15862c8357382eafda910204fccc5110d80d5ac9f6655e2"
+                                                                         "sha256":  "sha256:2c4b199efc2def70e64ba533b40d9cff9b7b4c484825872894b7bffe9f872cf3"
                                                                      },
                                                                      {
                                                                          "source":  "VERSION",
                                                                          "target":  "VERSION",
-                                                                         "sha256":  "sha256:59d38f48e2981a04da830e8a7f0751ef36d5ed04a17fe789115650c1285f481b"
+                                                                         "sha256":  "sha256:8e43f92f804e5cc8aced5b131a69d83a96097f6b0f01de513445c74bf7408d5d"
                                                                      },
                                                                      {
                                                                          "source":  "CHANGELOG.md",
                                                                          "target":  "CHANGELOG.md",
-                                                                         "sha256":  "sha256:664ce328597d56b5f73c2c87bb6b6aea84d20806e27d24c4afabeaadf9866a77"
+                                                                         "sha256":  "sha256:96138b86b1fc754840568882077536746e1efe580330041c04e7dfef2b988811"
                                                                      },
                                                                      {
-                                                                         "source":  "references/adopt.md",
-                                                                         "target":  "references/adopt.md",
-                                                                         "sha256":  "sha256:d56224d1ce5dc77405e251896baca9abf9f2618eb5e793a8a65e25e63aceba1e"
+                                                                         "source":  "doc/runtime/adopt.md",
+                                                                         "target":  "doc/runtime/adopt.md",
+                                                                         "sha256":  "sha256:9fbfef44d6ca9d1c87ff6db720543669093a374d18063ba1cc5c33ed048fc988"
                                                                      },
                                                                      {
-                                                                         "source":  "references/init.md",
-                                                                         "target":  "references/init.md",
+                                                                         "source":  "doc/runtime/init.md",
+                                                                         "target":  "doc/runtime/init.md",
                                                                          "sha256":  "sha256:3592e354dc7203d3e8c9fca9f7fa8af99df06a3aaf90cec05de40d93a06cf1f6"
                                                                      },
                                                                      {
-                                                                         "source":  "references/switch.md",
-                                                                         "target":  "references/switch.md",
+                                                                         "source":  "doc/runtime/switch.md",
+                                                                         "target":  "doc/runtime/switch.md",
                                                                          "sha256":  "sha256:bec8cf70be9342269e40a36043077ea3094182b63ec0e38fb4a954fad8bed689"
                                                                      },
                                                                      {
-                                                                         "source":  "references/update.md",
-                                                                         "target":  "references/update.md",
+                                                                         "source":  "doc/runtime/update.md",
+                                                                         "target":  "doc/runtime/update.md",
                                                                          "sha256":  "sha256:04845deac7a836384bb6c2fc11869fa0a88f617f0cc715d1a82208215de3029f"
                                                                      },
                                                                      {
-                                                                         "source":  "references/user-skill-maintenance.md",
-                                                                         "target":  "references/user-skill-maintenance.md",
+                                                                         "source":  "doc/runtime/user-skill-maintenance.md",
+                                                                         "target":  "doc/runtime/user-skill-maintenance.md",
                                                                          "sha256":  "sha256:a55ac731d87b7c5adef670960939a9d2ee5e46dc3f0ac766873a5e155b23028b"
                                                                      },
                                                                      {
@@ -852,41 +852,41 @@
                                                                       {
                                                                           "source":  "SKILL.md",
                                                                           "target":  "SKILL.md",
-                                                                          "sha256":  "sha256:db1031762b2669adc15862c8357382eafda910204fccc5110d80d5ac9f6655e2"
+                                                                          "sha256":  "sha256:2c4b199efc2def70e64ba533b40d9cff9b7b4c484825872894b7bffe9f872cf3"
                                                                       },
                                                                       {
                                                                           "source":  "VERSION",
                                                                           "target":  "VERSION",
-                                                                          "sha256":  "sha256:59d38f48e2981a04da830e8a7f0751ef36d5ed04a17fe789115650c1285f481b"
+                                                                          "sha256":  "sha256:8e43f92f804e5cc8aced5b131a69d83a96097f6b0f01de513445c74bf7408d5d"
                                                                       },
                                                                       {
                                                                           "source":  "CHANGELOG.md",
                                                                           "target":  "CHANGELOG.md",
-                                                                          "sha256":  "sha256:664ce328597d56b5f73c2c87bb6b6aea84d20806e27d24c4afabeaadf9866a77"
+                                                                          "sha256":  "sha256:96138b86b1fc754840568882077536746e1efe580330041c04e7dfef2b988811"
                                                                       },
                                                                       {
-                                                                          "source":  "references/adopt.md",
-                                                                          "target":  "references/adopt.md",
-                                                                          "sha256":  "sha256:d56224d1ce5dc77405e251896baca9abf9f2618eb5e793a8a65e25e63aceba1e"
+                                                                          "source":  "doc/runtime/adopt.md",
+                                                                          "target":  "doc/runtime/adopt.md",
+                                                                          "sha256":  "sha256:9fbfef44d6ca9d1c87ff6db720543669093a374d18063ba1cc5c33ed048fc988"
                                                                       },
                                                                       {
-                                                                          "source":  "references/init.md",
-                                                                          "target":  "references/init.md",
+                                                                          "source":  "doc/runtime/init.md",
+                                                                          "target":  "doc/runtime/init.md",
                                                                           "sha256":  "sha256:3592e354dc7203d3e8c9fca9f7fa8af99df06a3aaf90cec05de40d93a06cf1f6"
                                                                       },
                                                                       {
-                                                                          "source":  "references/switch.md",
-                                                                          "target":  "references/switch.md",
+                                                                          "source":  "doc/runtime/switch.md",
+                                                                          "target":  "doc/runtime/switch.md",
                                                                           "sha256":  "sha256:bec8cf70be9342269e40a36043077ea3094182b63ec0e38fb4a954fad8bed689"
                                                                       },
                                                                       {
-                                                                          "source":  "references/update.md",
-                                                                          "target":  "references/update.md",
+                                                                          "source":  "doc/runtime/update.md",
+                                                                          "target":  "doc/runtime/update.md",
                                                                           "sha256":  "sha256:04845deac7a836384bb6c2fc11869fa0a88f617f0cc715d1a82208215de3029f"
                                                                       },
                                                                       {
-                                                                          "source":  "references/user-skill-maintenance.md",
-                                                                          "target":  "references/user-skill-maintenance.md",
+                                                                          "source":  "doc/runtime/user-skill-maintenance.md",
+                                                                          "target":  "doc/runtime/user-skill-maintenance.md",
                                                                           "sha256":  "sha256:a55ac731d87b7c5adef670960939a9d2ee5e46dc3f0ac766873a5e155b23028b"
                                                                       },
                                                                       {
