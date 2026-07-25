@@ -7,7 +7,7 @@
 - 状态：`REVIEW`
 - Claude 有但 Codex 缺失：0
 - 未登记的 Codex-only 文件：2
-- 归一化后仍有差异的同名文件：26（未分类：2）
+- 归一化后仍有差异的同名文件：25（未分类：2）
 - skills 内容检查问题：0
 
 ## Inventory
@@ -44,13 +44,12 @@
 | `hooks/rule_size_check.py` | 2 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/show_state.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex startup hints use $ skills and .codex scripts |
 | `hooks/skill_metadata_check.py` | 12 | -10 / +70 | `needs-review` | new or unclassified semantic difference |
-| `hooks/skill_sync_check.py` | 4 | -4 / +4 | `codex-path-adapter` | Codex user skill shelf is ~/.agents/skills |
 | `hooks/test_receipt.py` | 3 | -3 / +4 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/version_check.py` | 3 | -4 / +4 | `expected-codex-adapter` | Codex command payload fallback differs |
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
-| `rules/portability.md` | 6 | -10 / +33 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
+| `rules/portability.md` | 5 | -7 / +30 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
 | `scripts/memory_rebuild_index.py` | 7 | -7 / +25 | `needs-review` | new or unclassified semantic difference |
 
 ## Shared Skills Checks

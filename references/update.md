@@ -1,8 +1,8 @@
 # Update 更新模式操作手册
 
-仅当根 `SKILL.md` 检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version` 时读取。执行前必须完成刷新、工厂自检、agent 分流和公共用户级 skill 维护。
+仅当根 `SKILL.md` 检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version` 时读取。执行前必须完成 Windows 平台硬闸、无参数共享 updater、工厂自检、agent 分流和当前项目遗留 `.agents/` 检查。
 
-机械半场（拉取、diff、分类、呈现）由本 skill 执行；判断半场（入口/rules 选择性吸收）必须交给用户。详细边界依据是 `doc/3_design/sync-from-upstream-playbook.md`。
+机械半场（从已安装 command bundle 读取模板、diff、分类、呈现）由本 skill 执行；判断半场（入口/rules 选择性吸收）必须交给用户。详细边界依据是 `doc/3_design/sync-from-upstream-playbook.md`。禁止在本模式执行 `git pull` / `git clone`，也禁止从 `~/.bridgeforge`、`~/.agents` 或本地工作副本加载模板。
 
 ## U1. 计算产品增量
 
@@ -17,7 +17,7 @@
 
 | 类 | 文件 | 策略 |
 |---|---|---|
-| A | hooks、scripts、用户级 skills；Codex `agents/*.toml`（`implementation-worker` 的模型字段除外）、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查 |
+| A | hooks、scripts；Codex `agents/*.toml`（`implementation-worker` 的模型字段除外）、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
 | B | settings.json；Codex `subscription-tier.toml` / `config.toml` / `implementation-worker.toml` 的模型字段；`.githooks/pre-commit` | merge 不覆盖；订阅 marker 是项目状态，禁止用模板高档 marker 覆盖；加入上游通用 hooks / 配置 / 检查段，保留下游 permissions、additionalDirectories 和自定义注册；主对话与 implementation 的模型/effort 字段以 marker 对应档位为准 |
 | C | rules、入口文件 | 只 diff；按通用增量/业务补充/上游脱敏减弱三类让用户逐段决定 |
 | D | memory、`doc/` | 绝对不碰 |
@@ -49,6 +49,7 @@ python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
 5. 将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `VERSION`。
 6. 输出 `git status` 与 `git diff` 供用户 review。
 7. 不自动 commit / push。
+8. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。
 
 结束时给出收据：版本区间、命中的 `[product]` 条目、A-E 各类实际处理、测试命令与退出码、新版本戳。
 

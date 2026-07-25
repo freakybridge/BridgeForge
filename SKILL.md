@@ -1,9 +1,9 @@
 ---
 name: bridgeforge
-description: 在新项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并自检补齐用户级通用 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.63.0
+description: 在 Windows 项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并从 GitHub main 强制同步受管用户级 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
+version: 0.65.0
 user_invocable: true
-argument: 可选——switch claude|codex [--dry-run|--interactive] [--skip-settings-migration] [--migrate-setting KEY] [--memory-conflict REL=ACTION]，不带参数则维护当前 agent 骨架；若检测到另一套 agent 骨架，先确认再转 switch
+argument: 仅支持无参数，或 switch claude|codex
 model: sonnet
 ---
 
@@ -13,96 +13,108 @@ model: sonnet
 
 给新项目安装或维护 Claude Code / Codex 协作骨架：入口文件、rules、memory、hooks、settings、doc 分层和用户级通用 skills。
 
-`bridgeforge` 是用户级全局入口，必须由主对话完成刷新、判场、用户确认和模式编排；不按下游 18-skill manifest 分派 named custom agent。
+`bridgeforge` 是用户级全局入口，必须由主对话完成共享更新、判场、用户确认和模式编排；不按下游 18-skill manifest 分派 named custom agent。
 
 用户只需记住：
 
-- `/bridgeforge`：维护当前正在运行的 agent 骨架；自动判定 init、既有项目首次接入、adopt 或 update。
+- `/bridgeforge`：先从 GitHub `main` 强制同步受管用户级 skill，再维护当前正在运行的 agent 骨架；自动判定 init、既有项目首次接入、adopt 或 update。
 - `/bridgeforge switch <claude|codex>`：显式切换当前项目的 agent 骨架。
 
-本文件只保留刷新、判场、分流、硬红线和验证入口。命中具体模式后，只读取对应 reference；禁止为方便一次性加载全部 references。
+其他参数一律停止并展示以上两种公开用法；禁止公开或接受 `/bridgeforge update`、迁移参数或脚本内部参数。
+
+本文件只保留共享更新、判场、分流、硬红线和验证入口。命中具体模式后，只读取对应 reference；禁止为方便一次性加载全部 references。
 
 ## 渐进读取路由
 
 | 命中条件 | 必须读取 |
 |---|---|
 | 显式 `switch`，或用户确认隐式 switch | [references/switch.md](references/switch.md) |
-| init / update / adopt 的公共用户级 skill 维护 | [references/user-skill-maintenance.md](references/user-skill-maintenance.md) |
+| 无参数更新收据，或当前项目存在遗留 `.agents/` | [references/user-skill-maintenance.md](references/user-skill-maintenance.md) |
 | 全新项目或既有项目首次接入 | [references/init.md](references/init.md) |
 | BridgeForge 衍生项目缺版本戳 | [references/adopt.md](references/adopt.md) |
 | 已有 `.bridgeforge_version` | [references/update.md](references/update.md) |
 
 `references/` 只允许这一层；所有操作手册都由本入口直接链接。不要沿引用链加载无关手册。
 
-## Step 0：确定 agent 与路径
+## Step 0：平台、命令面与安装包路径硬闸
 
-完整工厂统一放在 `$HOME/.bridgeforge`。用户级 `bridgeforge` 入口必须是只含 `SKILL.md` 的薄 wrapper。
+本 skill 仅支持 Windows。若当前平台不是 Windows，立即停止；禁止下载、创建临时目录、写入用户级目录或尝试 symlink 兼容。
+
+只接受无参数或 `switch claude|codex`。然后按当前 agent 将 `BRIDGEFORGE_HOME` 固定为已安装的完整 command bundle：
 
 | Agent | 用户级 skill 目录 | 项目配置 | 入口 | 项目专属 skill |
 |---|---|---|---|---|
 | Claude Code | `~/.claude/skills` | `.claude/` | `CLAUDE.md` | `.claude/skills/` |
-| Codex | `~/.agents/skills` | `.codex/` | `AGENTS.md` | `.agents/skills/` |
-
-设置以下逻辑变量：
-
-```bash
-ENTRY_COMMAND="/bridgeforge"
-BRIDGEFORGE_HOME="$HOME/.bridgeforge"
-```
+| Codex | `~/.codex/skills` | `.codex/` | `AGENTS.md` | `.codex/skills/` |
 
 Claude：
 
-```bash
-USER_SKILLS_DIR="$HOME/.claude/skills"
-BRIDGEFORGE_COMMAND_DIR="$USER_SKILLS_DIR/bridgeforge"
-PROJECT_AGENT_DIR=".claude"
-PROJECT_ENTRY_FILE="CLAUDE.md"
-PROJECT_SKILLS_DIR=".claude/skills"
-TEMPLATE_AGENT="claude"
+```powershell
+$ENTRY_COMMAND = "/bridgeforge"
+$USER_SKILLS_DIR = Join-Path $env:USERPROFILE ".claude\skills"
+$BRIDGEFORGE_COMMAND_DIR = Join-Path $USER_SKILLS_DIR "bridgeforge"
+$BRIDGEFORGE_HOME = $BRIDGEFORGE_COMMAND_DIR
+$PROJECT_AGENT_DIR = ".claude"
+$PROJECT_ENTRY_FILE = "CLAUDE.md"
+$PROJECT_SKILLS_DIR = ".claude\skills"
+$TEMPLATE_AGENT = "claude"
 ```
 
 Codex：
 
-```bash
-USER_SKILLS_DIR="$HOME/.agents/skills"
-BRIDGEFORGE_COMMAND_DIR="$USER_SKILLS_DIR/bridgeforge"
-PROJECT_AGENT_DIR=".codex"
-PROJECT_ENTRY_FILE="AGENTS.md"
-PROJECT_SKILLS_DIR=".agents/skills"
-TEMPLATE_AGENT="codex"
+```powershell
+$ENTRY_COMMAND = "/bridgeforge"
+$USER_SKILLS_DIR = Join-Path $env:USERPROFILE ".codex\skills"
+$BRIDGEFORGE_COMMAND_DIR = Join-Path $USER_SKILLS_DIR "bridgeforge"
+$BRIDGEFORGE_HOME = $BRIDGEFORGE_COMMAND_DIR
+$PROJECT_AGENT_DIR = ".codex"
+$PROJECT_ENTRY_FILE = "AGENTS.md"
+$PROJECT_SKILLS_DIR = ".codex\skills"
+$TEMPLATE_AGENT = "codex"
 ```
 
-Codex 的 `~/.codex/` 只承载 Codex 配置/memory，不是用户级 skill 货架。
+`BRIDGEFORGE_HOME` 必须包含本 `SKILL.md`、`references/`、`templates/` 和所需 `scripts/`。任一缺失都停止并要求重新运行 Windows 首次安装脚本；禁止回退到 `~/.bridgeforge`、`~/.agents`、其他本机 clone 或当前工作副本。
 
-若新位置缺少 `SKILL.md`，但旧位置存在（Codex `~/.agents/bridgeforge-home/SKILL.md`；Claude `~/.claude/skills/bridgeforge/templates/`），本轮可临时把旧路径作为 `BRIDGEFORGE_HOME`，但必须提示按 `INSTALL.md` 迁移。禁止静默删除旧目录。
+## Step 1：无参数时更新用户级受管 skill
 
-## Step 1：刷新用户级骨架库（所有分支前）
+仅无参数 `/bridgeforge` 执行本步；`switch` 不联网更新。显式运行 command bundle 内的 updater：
 
-薄 wrapper 应已刷新；本入口仍必须兜底：
-
-```bash
-git -C "$BRIDGEFORGE_HOME" pull --ff-only
+```powershell
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_shared_update.ps1")
 ```
 
-- 成功：只读取刷新后的文件继续。
-- 冲突、网络或权限失败：报告并停止；禁止拿旧模板继续执行。
-- 不是 Git 仓库：可继续，但提示改用 `git clone` 到 `~/.bridgeforge` 才能自动更新。
+- exit `0`：重新读取同一路径下更新后的 `SKILL.md`，再读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md) 的分发边界与收据章节；本轮直接从 Step 2 继续，不重复执行 updater。
+- 非 `0`：报告 updater 输出并停止，不维护当前项目。
+- updater 只允许修改 manifest 管理的用户级 skill 与托管账本；不得修改当前项目或其他项目。
+- 禁止用 `git pull`、`git clone`、junction、`~/.agents` 或任何本地工作副本代替 updater。
 
 ## Step 2：工厂自检（硬闸）
 
 同时满足以下条件才是 BridgeForge 源头仓库自己：
 
-```bash
-test -f "templates/$TEMPLATE_AGENT/$PROJECT_ENTRY_FILE" && grep -q "项目协作骨架初始化" SKILL.md && echo FACTORY_SELF
+```powershell
+$factoryEntry = Join-Path "templates\$TEMPLATE_AGENT" $PROJECT_ENTRY_FILE
+if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
+    (Select-String -LiteralPath "SKILL.md" -SimpleMatch "项目协作骨架初始化" -Quiet)) {
+    "FACTORY_SELF"
+}
 ```
 
 命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑根 `SKILL.md`、`references/`、`templates/` 或 `skills/`。
+
+## Step 2.5：当前项目遗留 `.agents/` 硬闸
+
+工厂自检未命中后，只检查当前工作目录根部是否存在 `.agents/`。若存在，先读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md)，运行专用迁移脚本的 `--dry-run` 并展示完整计划；只有用户确认后才允许 `--apply`。
+
+未知文件、链接或无法归类内容必须阻断。禁止调用 switch 脚本代替迁移，禁止枚举或修改其他项目。迁移未成功完成前，不得进入 switch、init、adopt 或 update。
 
 ## Step 3：显式 switch 优先
 
 若参数以 `switch` 开头，先读取 [switch 手册](references/switch.md)，再按其中的完整性判定和脚本契约执行。
 
-目标 agent 已完整且旧 agent 不存在时，不调用脚本，回到 Step 4 按普通维护判场。其他 switch 分支不得继续走 init/update/adopt。
+目标 agent 已完整且旧 agent 不存在时，不调用脚本，回到 Step 4 按普通维护判场。目标 surface 已部分或完整存在且旧 agent 仍 live 时阻断，禁止覆盖；其他 switch 分支不得继续走 init/update/adopt。
+
+语义迁移 manifest 是 `switch` 过程中由主对话生成、展示并取得用户逐项确认的审核产物，不是新的用户命令。主对话必须先运行底层脚本取得 `BEGIN_BRIDGEFORGE_MIGRATION_MANIFEST` / `END_BRIDGEFORGE_MIGRATION_MANIFEST` 提案；脚本此时 exit `2` 且零写入。只有 schema v2 的所有 hard constraint 都有目标原生实现、明确确认和足级证据后，主对话才可把已确认 manifest 通过脚本内部 `--manifest` 受控执行；旧 schema receipt 不得作为 archive provenance。当前没有 trusted sandbox runner，任何 `evidence.command` 都禁止执行并阻断，要求 `contract-smoke` / `native-host` 的可执行约束以 `sandbox-unavailable` fail-closed；本版本只能完成纯文本约束迁移。禁止要求用户直接填写或调用底层参数。
 
 ## Step 4：识别 live 骨架与模式
 
@@ -110,23 +122,27 @@ test -f "templates/$TEMPLATE_AGENT/$PROJECT_ENTRY_FILE" && grep -q "项目协作
 
 | 当前 agent | 当前 live | 另一套 live |
 |---|---|---|
-| Claude | `CLAUDE.md` 或 `.claude/` | `AGENTS.md` 或 `.codex/` 或 `.agents/skills/` |
-| Codex | `AGENTS.md` 或 `.codex/` 或 `.agents/skills/` | `CLAUDE.md` 或 `.claude/` |
+| Claude | `CLAUDE.md` 或 `.claude/` | `AGENTS.md` 或 `.codex/` |
+| Codex | `AGENTS.md` 或 `.codex/` | `CLAUDE.md` 或 `.claude/` |
 
 先检查当前版本戳：
 
-```bash
-test -f "$PROJECT_AGENT_DIR/.bridgeforge_version" && cat "$PROJECT_AGENT_DIR/.bridgeforge_version"
+```powershell
+$versionFile = Join-Path $PROJECT_AGENT_DIR ".bridgeforge_version"
+if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
+    Get-Content -LiteralPath $versionFile
+}
 ```
 
 无版本戳时检查 BridgeForge 衍生指纹；至少命中 2 项才算衍生：
 
-```bash
-grep -q "鬼打墙" "$PROJECT_ENTRY_FILE" 2>/dev/null
-grep -q "ctx-budget" "$PROJECT_ENTRY_FILE" 2>/dev/null
-grep -rq "OPTIONAL_BEGIN" "$PROJECT_AGENT_DIR/rules/" 2>/dev/null
-test -f "$PROJECT_AGENT_DIR/rules/meta_rule_design.md"
-test -f "$PROJECT_AGENT_DIR/rules/workflow.md"
+```powershell
+Select-String -LiteralPath $PROJECT_ENTRY_FILE -SimpleMatch "鬼打墙" -Quiet
+Select-String -LiteralPath $PROJECT_ENTRY_FILE -SimpleMatch "ctx-budget" -Quiet
+Get-ChildItem -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules") -File -Recurse |
+    Select-String -SimpleMatch "OPTIONAL_BEGIN" -Quiet
+Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\meta_rule_design.md") -PathType Leaf
+Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\workflow.md") -PathType Leaf
 ```
 
 按顺序判定，首个命中即停止继续判场：
@@ -134,12 +150,12 @@ test -f "$PROJECT_AGENT_DIR/rules/workflow.md"
 | 场景 | 判据 | 路由 |
 |---|---|---|
 | 双 live 冲突 | 当前和另一套同时存在 | 停止，让用户选：只维护当前 / 先清理另一套 / 退出 |
-| update | 当前有 `.bridgeforge_version` | 公共 skill 维护后读 `update.md` |
-| adopt | 无戳，当前指纹 ≥2 | 公共 skill 维护后读 `adopt.md` |
-| 当前文件冲突 | 无戳，当前入口/rules 存在但指纹不足 | 公共 skill 维护后读 `init.md`，必须先问保留补缺/备份覆盖/退出 |
+| update | 当前有 `.bridgeforge_version` | 遗留布局硬闸后读 `update.md` |
+| adopt | 无戳，当前指纹 ≥2 | 遗留布局硬闸后读 `adopt.md` |
+| 当前文件冲突 | 无戳，当前入口/rules 存在但指纹不足 | 遗留布局硬闸后读 `init.md`，必须先问保留补缺/备份覆盖/退出 |
 | 隐式 switch | 当前不存在，另一套存在 | 告知将 switch 到当前 agent；用户确认后读 `switch.md`，不确认则退出 |
-| 全新 init | 两套都不存在，cwd 基本为空 | 公共 skill 维护后读 `init.md` |
-| 既有项目首次接入 | 两套都不存在，但有业务文件/Git/配置 | 说明保留已有内容；公共 skill 维护后读 `init.md`，冲突逐项问 |
+| 全新 init | 两套都不存在，cwd 基本为空 | 遗留布局硬闸后读 `init.md` |
+| 既有项目首次接入 | 两套都不存在，但有业务文件/Git/配置 | 说明保留已有内容；遗留布局硬闸后读 `init.md`，冲突逐项问 |
 
 普通 `/bridgeforge` 只维护当前 agent。发现另一套时，禁止静默多铺一套。
 
@@ -148,10 +164,11 @@ test -f "$PROJECT_AGENT_DIR/rules/workflow.md"
 ```text
 REFRESHED
   ├─ FACTORY_SELF -> STOP
+  ├─ LEGACY .agents -> dry-run -> 用户确认 -> apply 或 STOP
   ├─ SWITCH -> switch 手册 -> DONE 或回到普通判场
-  ├─ UPDATE -> 公共维护 -> update 手册
-  ├─ ADOPT -> 公共维护 -> adopt 手册
-  └─ INIT / EXISTING-ONBOARD -> 公共维护 -> init 手册
+  ├─ UPDATE -> update 手册
+  ├─ ADOPT -> adopt 手册
+  └─ INIT / EXISTING-ONBOARD -> init 手册
 ```
 
 禁止在同一轮把 init、adopt、update 混着执行。模式执行中若新证据改变判定，先停止并重新报告判场依据；不得凭惯性继续原分支。
@@ -174,18 +191,20 @@ Claude 跳过本节。Codex 主对话检查项目 `.codex/subscription-tier.toml
 
 取得选择后执行项目级写入：
 
-```bash
-python "$BRIDGEFORGE_HOME/templates/codex/scripts/subscription_routing.py" \
-  --tier <high|conservative> \
-  --project-root "$PWD" \
-  --template-root "$BRIDGEFORGE_HOME/templates/codex"
+```powershell
+python (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\subscription_routing.py") `
+  --tier <high|conservative> `
+  --project-root "$PWD" `
+  --template-root (Join-Path $BRIDGEFORGE_HOME "templates\codex")
 ```
 
 脚本只允许写目标项目 `.codex/subscription-tier.toml`、`.codex/config.toml` 与 `.codex/agents/implementation-worker.toml`；禁止读取或写入用户级 `~/.codex/config.toml`。脚本失败则停止，不得继续写版本戳。运行中的会话不会即时换模，配置从后续会话生效。
 
-## Step 5：公共维护后执行唯一模式
+## Step 5：执行唯一模式
 
-init、update、adopt 都先完整执行 [用户级 skill 与重复副本维护](references/user-skill-maintenance.md)，再只读取本轮模式手册：
+用户级 skill 已由 Step 1 的 updater 处理，当前项目遗留 `.agents/` 已由 Step 2.5 阻断或迁移。本步不得再次复制、覆盖或删除用户级 skill。
+
+只读取本轮模式手册：
 
 - init / 既有项目首次接入：`references/init.md`
 - adopt：`references/adopt.md`
@@ -199,13 +218,14 @@ BridgeForge 下沉时按业务专属性分层：
 
 | 内容 | 允许动作 |
 |---|---|
-| 上游 hooks/scripts、未定制的用户级 skill | 比对后覆盖；存在差异先展示并确认 |
+| 上游项目 hooks/scripts | 比对后覆盖；存在差异先展示并确认 |
+| manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings | merge，不覆盖；保留项目 permissions/env/additionalDirectories/自定义 hooks |
 | rules、入口文件 | 只 diff，用户逐段决定 |
 | memory、`doc/` | 绝对不动 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
 
-通用改进的源必须是 `$BRIDGEFORGE_HOME/templates/` 或 `skills/`；下游副本只是消费者。一次只维护当前 cwd，禁止 AI 自动跨多个项目同步。
+项目骨架通用改进的运行时来源必须是 `$BRIDGEFORGE_HOME/templates/`；用户级 skill 的上游来源必须是 updater 校验的 GitHub `main` manifest。下游副本只是消费者。一次只维护当前 cwd，禁止 AI 自动跨多个项目同步。
 
 ## 通用危险红线
 
@@ -225,11 +245,12 @@ BridgeForge 下沉时按业务专属性分层：
 
 | 模式 | 最低收据 |
 |---|---|
-| switch | 脚本退出码；目标三件套存在；旧 live 消失；归档/memory/settings 结果 |
+| switch | 提案或执行的脚本退出码；schema v2 manifest 逐项确认；含 `.bridgeforge_version` 的目标完整安装面；旧 live 消失；archive 排他 claim / receipt 路径；external-command 拒绝 / `sandbox-unavailable`、source/detached/stage/live exact-tree 与回滚 ownership |
 | init | 复制/merge 清单；OPTIONAL 残留检查；snapshot smoke test；memory junction；版本戳 |
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
 | update | 版本区间与 `[product]`；A-E 分类；hook smoke test；新版本戳；git diff |
-| 公共 skill 维护 | 新装/一致/定制/退役/重复/shadow 的逐项结果；是否需重启 agent |
+| 用户级 skill 更新 | updater 退出码；目标 commit；Codex/Claude 托管账本结果；第三方 skill 未触碰 |
+| `.agents` 迁移 | 当前项目 dry-run 清单；用户确认；apply 退出码；未知内容阻断结果 |
 | Codex 订阅档位 | marker 的 `tier`；脚本退出码；config/implementation 实际模型与 effort；用户级配置未触碰 |
 
 最终输出遵循“已做什么 / 验证了什么 / 还剩什么风险”。任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成。

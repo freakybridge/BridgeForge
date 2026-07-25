@@ -15,11 +15,16 @@ argument: 可选的单条经验描述；有参走快车道，无参批量处理�
 
 - 无参：当前项目 `.claude/harvest-inbox.md` 或 `.codex/harvest-inbox.md` 的未处理项。
 - 有参：`$ARGUMENTS` 指定的单条经验。
-- 上游 `doc/3_design/reverse-sync-playbook.md` 与 `design-rationale.md`。
+- 用户明确提供或确认的 BridgeForge 上游 Git clone 路径，以及其中的
+  `doc/3_design/reverse-sync-playbook.md` 与 `design-rationale.md`。
 
 ## 核心流程
 
-1. 定位通常位于 `~/.bridgeforge/` 的上游 Git 仓库；找不到时停止。
+1. 只接受用户明确提供或确认的可写 BridgeForge 上游 Git clone；核验其
+   `origin` 规范化后为 `https://github.com/freakybridge/BridgeForge.git`。
+   禁止从 `~/.bridgeforge`、`~/.agents` 或已安装 command bundle 推断上游。
+   当前工作目录本身是已核验的 canonical clone 时可直接使用；否则先询问用户，
+   未获得路径前停止。
 2. 把 candidate-and-target discovery 显式分派给 `light-explorer`：无参时只读当前项目收件箱全部未处理项，有参时只研究该条，并提出上游候选落点。
 3. 主 agent 按 reverse-sync playbook 将每条候选判为：通用增量、可抽象后通用、业务专属。业务专属项不反哺。
 4. 对可反哺内容逐项检查并移除项目名、内部包名、凭证、内部 URL、提交哈希、绝对路径和业务术语；任一项拿不准就询问用户。
@@ -38,7 +43,8 @@ argument: 可选的单条经验描述；有参走快车道，无参批量处理�
 
 ## 停止条件
 
-- 找不到上游 clone 时，提示用户先准备仓库并停止。
+- 用户未明确提供或确认 canonical 上游 clone，或 clone 的 `origin` 校验失败时，
+  提示用户从 GitHub clone/确认正确仓库并停止。
 - 脱敏结果、落点或通用性不确定时，暂停该条并等待用户决定。
 - 写入、版本更新或敏感词扫描失败时，不回收对应收件箱条目。
 
@@ -48,5 +54,6 @@ argument: 可选的单条经验描述；有参走快车道，无参批量处理�
 - 禁止把业务专属内容写入产品层。
 - 禁止一次处理多个下游来源。
 - 禁止自动 `git add`、commit 或 push 上游。
+- 禁止把已安装 command bundle 当成可写上游。
 
 $ARGUMENTS

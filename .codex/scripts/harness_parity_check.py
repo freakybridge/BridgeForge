@@ -89,7 +89,6 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/rule_index_check.py": ("cleanup-only", "behavior OK; local variable naming still carries claude_md"),
     "hooks/rule_size_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/show_state.py": ("expected-codex-adapter", "Codex startup hints use $ skills and .codex scripts"),
-    "hooks/skill_sync_check.py": ("codex-path-adapter", "Codex user skill shelf is ~/.agents/skills"),
     "hooks/test_receipt.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/enforce_no_effortlevel.py": ("expected-codex-adapter", "Codex removes only the legacy project effortLevel while leaving user config read-only"),
     "hooks/version_check.py": ("expected-codex-adapter", "Codex command payload fallback differs"),

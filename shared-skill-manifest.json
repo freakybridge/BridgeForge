@@ -1,0 +1,1687 @@
+﻿{
+    "schema_version":  1,
+    "canonical_remote":  "https://github.com/freakybridge/BridgeForge.git",
+    "branch":  "main",
+    "platforms":  {
+                      "codex":  {
+                                    "target":  "~/.codex/skills",
+                                    "skills":  [
+                                                   {
+                                                       "name":  "bridgeforge",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:db1031762b2669adc15862c8357382eafda910204fccc5110d80d5ac9f6655e2"
+                                                                     },
+                                                                     {
+                                                                         "source":  "VERSION",
+                                                                         "target":  "VERSION",
+                                                                         "sha256":  "sha256:59d38f48e2981a04da830e8a7f0751ef36d5ed04a17fe789115650c1285f481b"
+                                                                     },
+                                                                     {
+                                                                         "source":  "CHANGELOG.md",
+                                                                         "target":  "CHANGELOG.md",
+                                                                         "sha256":  "sha256:664ce328597d56b5f73c2c87bb6b6aea84d20806e27d24c4afabeaadf9866a77"
+                                                                     },
+                                                                     {
+                                                                         "source":  "references/adopt.md",
+                                                                         "target":  "references/adopt.md",
+                                                                         "sha256":  "sha256:d56224d1ce5dc77405e251896baca9abf9f2618eb5e793a8a65e25e63aceba1e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "references/init.md",
+                                                                         "target":  "references/init.md",
+                                                                         "sha256":  "sha256:3592e354dc7203d3e8c9fca9f7fa8af99df06a3aaf90cec05de40d93a06cf1f6"
+                                                                     },
+                                                                     {
+                                                                         "source":  "references/switch.md",
+                                                                         "target":  "references/switch.md",
+                                                                         "sha256":  "sha256:bec8cf70be9342269e40a36043077ea3094182b63ec0e38fb4a954fad8bed689"
+                                                                     },
+                                                                     {
+                                                                         "source":  "references/update.md",
+                                                                         "target":  "references/update.md",
+                                                                         "sha256":  "sha256:04845deac7a836384bb6c2fc11869fa0a88f617f0cc715d1a82208215de3029f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "references/user-skill-maintenance.md",
+                                                                         "target":  "references/user-skill-maintenance.md",
+                                                                         "sha256":  "sha256:a55ac731d87b7c5adef670960939a9d2ee5e46dc3f0ac766873a5e155b23028b"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/.githooks/pre-commit",
+                                                                         "target":  "templates/claude/.githooks/pre-commit",
+                                                                         "sha256":  "sha256:de37d4653dc09c7ac54e9e457cba016b2b0c1556c0b4245f5a2fa93d322d9e1e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/CHANGELOG.md",
+                                                                         "target":  "templates/claude/CHANGELOG.md",
+                                                                         "sha256":  "sha256:3d35a0e78a675dec1ef6e865d60ffa1210604b3c676ef70779191f83dbf326c1"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/CLAUDE.md",
+                                                                         "target":  "templates/claude/CLAUDE.md",
+                                                                         "sha256":  "sha256:ba0dddb1c943a3e74167911ce6d1454d45b7ba8454e14bd6da5dd22da1f3c50f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/doc/README.md",
+                                                                         "target":  "templates/claude/doc/README.md",
+                                                                         "sha256":  "sha256:00ccc4e2db06985a94442285da2938a25fecb972aa0ea2c911733056de02160d"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/allow_memory_write.py",
+                                                                         "target":  "templates/claude/hooks/allow_memory_write.py",
+                                                                         "sha256":  "sha256:15f172609c487c79e2c75ff1bbc0beb5b8750bff3a7cb402409a7448431ad6bf"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/cargo_default_run_check.py",
+                                                                         "target":  "templates/claude/hooks/cargo_default_run_check.py",
+                                                                         "sha256":  "sha256:1728979fb3f579d633189a03dbfb94c99d09428bd418197f3962ebff80f88c04"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/clarify_reminder.py",
+                                                                         "target":  "templates/claude/hooks/clarify_reminder.py",
+                                                                         "sha256":  "sha256:23eb48e08c2e389c4b705c8dd2ff7e16ea593b703b577d6bd8b7d077a8dc415e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/config_health_check.py",
+                                                                         "target":  "templates/claude/hooks/config_health_check.py",
+                                                                         "sha256":  "sha256:b392eb254882b97e4d8c17b367c223c02228863271b42b1a186448d2bb75c97c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/context_warning.py",
+                                                                         "target":  "templates/claude/hooks/context_warning.py",
+                                                                         "sha256":  "sha256:b85f68d8efa983a069ed174dc5883e6d3018b08ca117d8fcccc8696a90e3930f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/cross_project_write_guard.py",
+                                                                         "target":  "templates/claude/hooks/cross_project_write_guard.py",
+                                                                         "sha256":  "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/encoding_check.py",
+                                                                         "target":  "templates/claude/hooks/encoding_check.py",
+                                                                         "sha256":  "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/enforce_no_effortlevel.py",
+                                                                         "target":  "templates/claude/hooks/enforce_no_effortlevel.py",
+                                                                         "sha256":  "sha256:8760da31af44a65f431b13c996d91895b1946a1f32dd423983cd87c37477dbe9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/fallback_smell_check.py",
+                                                                         "target":  "templates/claude/hooks/fallback_smell_check.py",
+                                                                         "sha256":  "sha256:4d205dffe58f77d0a2674f7f254d50fc2d6518d24a7b804d9fba9cb81a356ce2"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/find_doc_reminder.py",
+                                                                         "target":  "templates/claude/hooks/find_doc_reminder.py",
+                                                                         "sha256":  "sha256:b0a1a9c37f01c99c047307fda4ec0abbe2f7a23c8dd26f4e8b5e5e2bc3e97115"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/focus_reminder.py",
+                                                                         "target":  "templates/claude/hooks/focus_reminder.py",
+                                                                         "sha256":  "sha256:c90b1b62f5943635348ae15ef37c9ccae7e014f469bf737de2a58a659ef0a6ab"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/git_add_all_guard.py",
+                                                                         "target":  "templates/claude/hooks/git_add_all_guard.py",
+                                                                         "sha256":  "sha256:8bad8f1d61cf40c176d36823abf0b9c285b62e61b07c2204059010a9af808942"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/githooks_path_check.py",
+                                                                         "target":  "templates/claude/hooks/githooks_path_check.py",
+                                                                         "sha256":  "sha256:0be8388fb9e8d6acd3ab04be78f731e6aa56c2ea1b6e795f67bed1315d7b3224"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/memory_dup_check.py",
+                                                                         "target":  "templates/claude/hooks/memory_dup_check.py",
+                                                                         "sha256":  "sha256:f4b17ca27ceb4ddebb580b4f37437799c6a1ad55aa866ace17fb7e4802512912"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/memory_junction_check.py",
+                                                                         "target":  "templates/claude/hooks/memory_junction_check.py",
+                                                                         "sha256":  "sha256:c23053d3c51e6a6b0d0c60db4204e339b4eee64edcf7e0029e5de51b3be441d5"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/memory_lint.py",
+                                                                         "target":  "templates/claude/hooks/memory_lint.py",
+                                                                         "sha256":  "sha256:b6976782211339b5ed9355f99de041f7ab17131086061c50bfa752227b7a537d"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/mirror_drift_check.py",
+                                                                         "target":  "templates/claude/hooks/mirror_drift_check.py",
+                                                                         "sha256":  "sha256:1bfd623b2f3083f7d562347d0af3855b39df0eb006afe2092c409c1f185b2a1f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/non_ascii_shell_guard.py",
+                                                                         "target":  "templates/claude/hooks/non_ascii_shell_guard.py",
+                                                                         "sha256":  "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/requirements_check.py",
+                                                                         "target":  "templates/claude/hooks/requirements_check.py",
+                                                                         "sha256":  "sha256:ecf07972c98b445e8178c70f954e2c62a64210d4f924f0cfaf9c3fc6d395c2c2"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/rule_index_check.py",
+                                                                         "target":  "templates/claude/hooks/rule_index_check.py",
+                                                                         "sha256":  "sha256:24565dfbb76812409fad2503558dc4807eafa8cfea7bf19824859868a051e08c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/rule_size_check.py",
+                                                                         "target":  "templates/claude/hooks/rule_size_check.py",
+                                                                         "sha256":  "sha256:e3bb19dd96d99eb1ea125b975ca7a86a4172da3d7efa6a81f26b317df95b2ecd"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/session_snapshot.py",
+                                                                         "target":  "templates/claude/hooks/session_snapshot.py",
+                                                                         "sha256":  "sha256:1c5f88e0d91b0ea4ac228702d4d4a79501b6dfd2f14b6ae2b2c01b4430c9ecee"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/show_state.py",
+                                                                         "target":  "templates/claude/hooks/show_state.py",
+                                                                         "sha256":  "sha256:356f2b71a347c0aef7437c8dea2588ec878f1482d780bbb6a31015836e8c3705"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/skill_metadata_check.py",
+                                                                         "target":  "templates/claude/hooks/skill_metadata_check.py",
+                                                                         "sha256":  "sha256:fc7fc06b381541e44538bcc895b8aa057c91b49f53d9082ccde07c5b210638d0"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/skill_sync_check.py",
+                                                                         "target":  "templates/claude/hooks/skill_sync_check.py",
+                                                                         "sha256":  "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/stall_warning.py",
+                                                                         "target":  "templates/claude/hooks/stall_warning.py",
+                                                                         "sha256":  "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/target_cleanup.py",
+                                                                         "target":  "templates/claude/hooks/target_cleanup.py",
+                                                                         "sha256":  "sha256:3be9291707cc88437fbdd0ad4147b9b9b97792a6358ddfb133a9d9cfa24eecd9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/test_receipt.py",
+                                                                         "target":  "templates/claude/hooks/test_receipt.py",
+                                                                         "sha256":  "sha256:f5859d484b5197709c13feaa836142cc041d8640464c8999fea58ebd87ff9414"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/hooks/version_check.py",
+                                                                         "target":  "templates/claude/hooks/version_check.py",
+                                                                         "sha256":  "sha256:2c3597e01f117ad295fd5e7020baa15da318e2a4f6ad2b4052e0eb8e5dea3a23"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/memory/_stats.json",
+                                                                         "target":  "templates/claude/memory/_stats.json",
+                                                                         "sha256":  "sha256:36740b76478ea1f22fbb5b65a65d61a9f7e503894e09585b2e18ca97c6d99cac"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/memory/MEMORY.md",
+                                                                         "target":  "templates/claude/memory/MEMORY.md",
+                                                                         "sha256":  "sha256:c966c533ce7c6cb1f3718cdcedd9138f6cde2e8eefe76dd6c843322c1ac685fb"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/anti_drift_hooks.md",
+                                                                         "target":  "templates/claude/rules/anti_drift_hooks.md",
+                                                                         "sha256":  "sha256:2ae210501c870f9cb1987298b23db8cafa3d3c53a2743ff2df5293d57d448244"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/anti_fabrication.md",
+                                                                         "target":  "templates/claude/rules/anti_fabrication.md",
+                                                                         "sha256":  "sha256:3fbace86578b4c65fff6f8b86c74e70c6141b19f62ea1721fe6657398114a259"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/architecture.md",
+                                                                         "target":  "templates/claude/rules/architecture.md",
+                                                                         "sha256":  "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/debugging.md",
+                                                                         "target":  "templates/claude/rules/debugging.md",
+                                                                         "sha256":  "sha256:ecfb5258275b8282f54b11d3feabd5197c95c10e86029c2efede28bbba15f37e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/meta_rule_design.md",
+                                                                         "target":  "templates/claude/rules/meta_rule_design.md",
+                                                                         "sha256":  "sha256:5cd363c9f8b5ebb7c22ad272a0a7de0a09b847c64968725c59dfa512355d24d8"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/modules.md",
+                                                                         "target":  "templates/claude/rules/modules.md",
+                                                                         "sha256":  "sha256:988813d95e43f54e5bab02b82ad44e744a4a6c5d0f8e33193ca751310b28f95f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/portability.md",
+                                                                         "target":  "templates/claude/rules/portability.md",
+                                                                         "sha256":  "sha256:14f4d41ba6e9ad55b8caf27e3a1763c6370cdc930fef3507b12851e3627f7542"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/rules/workflow.md",
+                                                                         "target":  "templates/claude/rules/workflow.md",
+                                                                         "sha256":  "sha256:c8a3a7627e7cff1e8ddbaf416002c688165c736c479336dfef71bb1097941705"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/scripts/archive_scan.py",
+                                                                         "target":  "templates/claude/scripts/archive_scan.py",
+                                                                         "sha256":  "sha256:b2ade4fccdfc99061c19e9d38dd218ac657cc2ea88b129741596a9b229d74547"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/scripts/audit_user_allow.py",
+                                                                         "target":  "templates/claude/scripts/audit_user_allow.py",
+                                                                         "sha256":  "sha256:5e5d2ab7bf2050ce3a2de3a0d954cf892ce789f95a6327c932d05717460f24b5"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/scripts/bridgeforge_switch.py",
+                                                                         "target":  "templates/claude/scripts/bridgeforge_switch.py",
+                                                                         "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/scripts/memory_rebuild_index.py",
+                                                                         "target":  "templates/claude/scripts/memory_rebuild_index.py",
+                                                                         "sha256":  "sha256:ac365687d9079318a377c2e69715566554c0882388a324550dad83ba2b7b4beb"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/scripts/memory_search.py",
+                                                                         "target":  "templates/claude/scripts/memory_search.py",
+                                                                         "sha256":  "sha256:f089755dbac8c985388ffa0cb8e589caf798e07f1b28037395c494cc58c985cf"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/settings.json",
+                                                                         "target":  "templates/claude/settings.json",
+                                                                         "sha256":  "sha256:ac9cc1fbdfa8c5a96f78098a27e3c8eaaa80aaea46cdd9fe78d5ab048493c0a9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/claude/VERSION",
+                                                                         "target":  "templates/claude/VERSION",
+                                                                         "sha256":  "sha256:8cbb8cbe0eca7be97a239a2dd808c0b06f9f7b9bf40b38291bdd78eced81164b"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/.githooks/pre-commit",
+                                                                         "target":  "templates/codex/.githooks/pre-commit",
+                                                                         "sha256":  "sha256:6a17ab05c26eba87734c892d61ea425e61c241e4f9a040c386fbfc05d86f96e2"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/AGENTS.md",
+                                                                         "target":  "templates/codex/AGENTS.md",
+                                                                         "sha256":  "sha256:495dacb5536282a9b302b88ab737b0def095ff55960bb4787bc74256de5c3425"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/agents/implementation-worker.toml",
+                                                                         "target":  "templates/codex/agents/implementation-worker.toml",
+                                                                         "sha256":  "sha256:782b7f3ffdf3f0b6f5acc9e5686cc534d94fe13f51bd50ec67e5042af8f89861"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/agents/light-explorer.toml",
+                                                                         "target":  "templates/codex/agents/light-explorer.toml",
+                                                                         "sha256":  "sha256:a2ba35a03731aa030985ccf07a8d2d3454357d83e31b750ad82ae6c361e74ff0"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/agents/mechanical-sync-worker.toml",
+                                                                         "target":  "templates/codex/agents/mechanical-sync-worker.toml",
+                                                                         "sha256":  "sha256:918b573468ba44e68a2e47b277b422165e4750cb30c2c6e4f13eab429ece5cab"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/agents/review-auditor.toml",
+                                                                         "target":  "templates/codex/agents/review-auditor.toml",
+                                                                         "sha256":  "sha256:186ad17625f7be26d3aa3249716c1f811ef82cde8fdf49d5116a8b5da8427586"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/agents/xhigh-auditor.toml",
+                                                                         "target":  "templates/codex/agents/xhigh-auditor.toml",
+                                                                         "sha256":  "sha256:b1812dc428ef9cc30847f26e8b465fa73cae325413a8c92812625798073d41f1"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/CHANGELOG.md",
+                                                                         "target":  "templates/codex/CHANGELOG.md",
+                                                                         "sha256":  "sha256:f0af9579526de8517af4d749a8d4128f50d039038820aefb0b85c02756f42eaa"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/config.toml",
+                                                                         "target":  "templates/codex/config.toml",
+                                                                         "sha256":  "sha256:5860f15bd4a3915294af5778157bb4f4dc84e72c76facde58bd5fb17ef4e83c4"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/doc/README.md",
+                                                                         "target":  "templates/codex/doc/README.md",
+                                                                         "sha256":  "sha256:c52e5ceb5cf39aadfa4b1858f5a41f58519e35a4e22419cfdfef64f54f027f30"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/allow_memory_write.py",
+                                                                         "target":  "templates/codex/hooks/allow_memory_write.py",
+                                                                         "sha256":  "sha256:2c7fa6457f090e7c50897d42956a820b856f214ea8350c276ac50936c9c66ee4"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/cargo_default_run_check.py",
+                                                                         "target":  "templates/codex/hooks/cargo_default_run_check.py",
+                                                                         "sha256":  "sha256:9bc9a86045ff606e30cdc35c4efe4d0ef47319516b80f7377bd27e9cc93bae32"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/clarify_reminder.py",
+                                                                         "target":  "templates/codex/hooks/clarify_reminder.py",
+                                                                         "sha256":  "sha256:e5a6e55494e8a66dcb47d367caad9b4723c207ecca2da8c49ff075a5398f621f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/config_health_check.py",
+                                                                         "target":  "templates/codex/hooks/config_health_check.py",
+                                                                         "sha256":  "sha256:4b3326ce40934e1a15d3ea0220c641911f64920ccf02fac5ec2bfc028a9436ab"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/context_warning.py",
+                                                                         "target":  "templates/codex/hooks/context_warning.py",
+                                                                         "sha256":  "sha256:b23d39923b9785043dae9371a41578d923d8a7b96299ab397ea2089f9e6ecbad"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/cross_project_write_guard.py",
+                                                                         "target":  "templates/codex/hooks/cross_project_write_guard.py",
+                                                                         "sha256":  "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/encoding_check.py",
+                                                                         "target":  "templates/codex/hooks/encoding_check.py",
+                                                                         "sha256":  "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/enforce_no_effortlevel.py",
+                                                                         "target":  "templates/codex/hooks/enforce_no_effortlevel.py",
+                                                                         "sha256":  "sha256:26d3d14a66f37ed0572a8f9c82387540552c4febb90aae1fb8c6cef471b6f2f9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/fallback_smell_check.py",
+                                                                         "target":  "templates/codex/hooks/fallback_smell_check.py",
+                                                                         "sha256":  "sha256:fc8bf4396796858a1a3e9398e75028a421441ed2851e8fc4bc324fa298337cc3"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/find_doc_reminder.py",
+                                                                         "target":  "templates/codex/hooks/find_doc_reminder.py",
+                                                                         "sha256":  "sha256:c658bc88d57010eea101784aedc78c8ef55ef50358568419532dac657cdbedae"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/focus_reminder.py",
+                                                                         "target":  "templates/codex/hooks/focus_reminder.py",
+                                                                         "sha256":  "sha256:51b4d6bf1917818afbb3c5b208be45708a59e29be9ebc102929114f47caa4eac"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/git_add_all_guard.py",
+                                                                         "target":  "templates/codex/hooks/git_add_all_guard.py",
+                                                                         "sha256":  "sha256:3ac4f8f5bfcfa3365246e48303a2311b21f7becb152176039502c0743ddbbb71"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/githooks_path_check.py",
+                                                                         "target":  "templates/codex/hooks/githooks_path_check.py",
+                                                                         "sha256":  "sha256:4490bd332a8c4d110b1dad3e19f7d8df231c75ed13f9bee31a734d0f4a111187"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/memory_dup_check.py",
+                                                                         "target":  "templates/codex/hooks/memory_dup_check.py",
+                                                                         "sha256":  "sha256:464e33b73f19048e60abde2dc32dd8799523c05874d2d33d584794aa5ac02f06"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/memory_junction_check.py",
+                                                                         "target":  "templates/codex/hooks/memory_junction_check.py",
+                                                                         "sha256":  "sha256:a02c0a0724b913ff47e371072d8ff01b315aa723ceb113a07287d00340fdcb49"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/memory_lint.py",
+                                                                         "target":  "templates/codex/hooks/memory_lint.py",
+                                                                         "sha256":  "sha256:c785f8dc6e1eb8d8fd0c1ca6419334fd44ccb992e8fc072647bd3d5113720391"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/mirror_drift_check.py",
+                                                                         "target":  "templates/codex/hooks/mirror_drift_check.py",
+                                                                         "sha256":  "sha256:35328812b545946c19ad4152759cd5e6795755876c1921042a45aee52ef11ace"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/model_policy_check.py",
+                                                                         "target":  "templates/codex/hooks/model_policy_check.py",
+                                                                         "sha256":  "sha256:250b799fefb251dedf98e9337473a7054c1f701b9840f5d9441691c6707df17d"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/non_ascii_shell_guard.py",
+                                                                         "target":  "templates/codex/hooks/non_ascii_shell_guard.py",
+                                                                         "sha256":  "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/requirements_check.py",
+                                                                         "target":  "templates/codex/hooks/requirements_check.py",
+                                                                         "sha256":  "sha256:9f6f74628b71202bf5619c0d6242bec7b9af6ab36ea5b72e71fd54297a613909"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/rule_index_check.py",
+                                                                         "target":  "templates/codex/hooks/rule_index_check.py",
+                                                                         "sha256":  "sha256:795a7b6708afd46444b2282420dae0f8fa537680de4b334c8e60cd1f82ba5fc8"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/rule_size_check.py",
+                                                                         "target":  "templates/codex/hooks/rule_size_check.py",
+                                                                         "sha256":  "sha256:8f2395c21e339d50c8578b3c33c82cdf9e0e58834aacf057ebfb535965ae8651"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/session_snapshot.py",
+                                                                         "target":  "templates/codex/hooks/session_snapshot.py",
+                                                                         "sha256":  "sha256:80fd7bbd05b341dbfee586897e4e5cd8ab2f83fc012879f6c192b5c8fb0fbcc0"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/show_state.py",
+                                                                         "target":  "templates/codex/hooks/show_state.py",
+                                                                         "sha256":  "sha256:3da953b8674ff3c56f5c2bf5b8b5fb392444c254b1678fe01f125ca31f7efd9a"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/skill_metadata_check.py",
+                                                                         "target":  "templates/codex/hooks/skill_metadata_check.py",
+                                                                         "sha256":  "sha256:68771ef2967f156094b5e72ff9aad9dbbe9d4b80630fbb4c7f1b25b21b1d6677"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/skill_sync_check.py",
+                                                                         "target":  "templates/codex/hooks/skill_sync_check.py",
+                                                                         "sha256":  "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/stall_warning.py",
+                                                                         "target":  "templates/codex/hooks/stall_warning.py",
+                                                                         "sha256":  "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/target_cleanup.py",
+                                                                         "target":  "templates/codex/hooks/target_cleanup.py",
+                                                                         "sha256":  "sha256:b9135ed87e9224145a84735f021bf32c9e755ab408728792bedaf56e8a5f1737"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/test_receipt.py",
+                                                                         "target":  "templates/codex/hooks/test_receipt.py",
+                                                                         "sha256":  "sha256:93cb56ec468bd0566bbeed10b3f0a61e45cced17f1dfd44add8faa0afd845ae9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/user_config_write_guard.py",
+                                                                         "target":  "templates/codex/hooks/user_config_write_guard.py",
+                                                                         "sha256":  "sha256:348f7c97f74329c4975f4573200028ead35bb912de1acdfd40ed36b5dc46d034"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/hooks/version_check.py",
+                                                                         "target":  "templates/codex/hooks/version_check.py",
+                                                                         "sha256":  "sha256:84081a855bfb49de904b0b95cc783fe9322140ab6fe0849b0f709d2d750e9a15"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/memory/_stats.json",
+                                                                         "target":  "templates/codex/memory/_stats.json",
+                                                                         "sha256":  "sha256:36740b76478ea1f22fbb5b65a65d61a9f7e503894e09585b2e18ca97c6d99cac"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/memory/MEMORY.md",
+                                                                         "target":  "templates/codex/memory/MEMORY.md",
+                                                                         "sha256":  "sha256:9c1b5119f89e4114997a905f62049855175fca4938093f4db1726b543c3309be"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/anti_drift_hooks.md",
+                                                                         "target":  "templates/codex/rules/anti_drift_hooks.md",
+                                                                         "sha256":  "sha256:a8411fa274d0a7699637d965995ef5d6d68b05457e32d2d018e5b52271fda64b"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/anti_fabrication.md",
+                                                                         "target":  "templates/codex/rules/anti_fabrication.md",
+                                                                         "sha256":  "sha256:3fbace86578b4c65fff6f8b86c74e70c6141b19f62ea1721fe6657398114a259"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/architecture.md",
+                                                                         "target":  "templates/codex/rules/architecture.md",
+                                                                         "sha256":  "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/debugging.md",
+                                                                         "target":  "templates/codex/rules/debugging.md",
+                                                                         "sha256":  "sha256:8bf3977390635b098f3c04fca4a28fb89a6236b3402c33f7cd4f10f94567ba95"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/meta_rule_design.md",
+                                                                         "target":  "templates/codex/rules/meta_rule_design.md",
+                                                                         "sha256":  "sha256:ca7a34e302d31c240bbfe3ae9c167c22c5a37410f89db5eec913f9596ac22950"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/modules.md",
+                                                                         "target":  "templates/codex/rules/modules.md",
+                                                                         "sha256":  "sha256:d7c5c6da6a6e8c00636eb873d71146250ca74d5236e24844ff51b30c5d3284dc"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/portability.md",
+                                                                         "target":  "templates/codex/rules/portability.md",
+                                                                         "sha256":  "sha256:f4eb0d9280c14647ff515ad51c3cc719575af67ceb92a802aabe68853aa94272"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/rules/workflow.md",
+                                                                         "target":  "templates/codex/rules/workflow.md",
+                                                                         "sha256":  "sha256:c151cef00513701683e31241bd2f1572dacb052b1816a1bf185072df36bb9924"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/archive_scan.py",
+                                                                         "target":  "templates/codex/scripts/archive_scan.py",
+                                                                         "sha256":  "sha256:9ce8f4097cbeaeb0ca5fb6b5d4343b7ab49e973fc816bb40613a7ab05575cd70"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/audit_user_allow.py",
+                                                                         "target":  "templates/codex/scripts/audit_user_allow.py",
+                                                                         "sha256":  "sha256:7d8d1bbb62065e4fa199f232e83d25a486db648ba1a6ebe9face0d90836d4bcc"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/bridgeforge_switch.py",
+                                                                         "target":  "templates/codex/scripts/bridgeforge_switch.py",
+                                                                         "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/codex_git_sync.py",
+                                                                         "target":  "templates/codex/scripts/codex_git_sync.py",
+                                                                         "sha256":  "sha256:38522ec1636e2c78ab9a1edb2a365568f329bb9283b29f9f6079c97d1fa9c06e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/context_cost_report.py",
+                                                                         "target":  "templates/codex/scripts/context_cost_report.py",
+                                                                         "sha256":  "sha256:29c7426c621560b753b7e412762f60d0deac86b37f9b0566b40f20deea99b321"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/harness_parity_check.py",
+                                                                         "target":  "templates/codex/scripts/harness_parity_check.py",
+                                                                         "sha256":  "sha256:939578c95571c3d558e4a14096ebab9ffc32bc5a17314e67b4f24f267121bae3"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/memory_rebuild_index.py",
+                                                                         "target":  "templates/codex/scripts/memory_rebuild_index.py",
+                                                                         "sha256":  "sha256:2055eade845875d9db5e7ed6f8c5f0863a4fdb98a1cba39289009524eded2c76"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/memory_search.py",
+                                                                         "target":  "templates/codex/scripts/memory_search.py",
+                                                                         "sha256":  "sha256:e32725111368453df47c505cd17fb20c364465d7d05f4fc4f12a87e0aaef48ad"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/scripts/subscription_routing.py",
+                                                                         "target":  "templates/codex/scripts/subscription_routing.py",
+                                                                         "sha256":  "sha256:c7d86b71dd64aa8f407a7ea811b6e139931629b3dd62982d50c46b441fa15a5f"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/settings.json",
+                                                                         "target":  "templates/codex/settings.json",
+                                                                         "sha256":  "sha256:35f4405b199abb64759f654ec17af9362716563866bdd7b907687ba6c4fd73b4"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/skill-routing.json",
+                                                                         "target":  "templates/codex/skill-routing.json",
+                                                                         "sha256":  "sha256:02d12269110b1f7b8f69389cccc45e49d8ecf0fa680d97b76d33ce2f388f6579"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/subscription-tier.toml",
+                                                                         "target":  "templates/codex/subscription-tier.toml",
+                                                                         "sha256":  "sha256:b5ba59f3634ed916d0b8ef2c8fa41a7cad3855a345c8ce57325306dd1aa1878b"
+                                                                     },
+                                                                     {
+                                                                         "source":  "templates/codex/VERSION",
+                                                                         "target":  "templates/codex/VERSION",
+                                                                         "sha256":  "sha256:867a70774294546ebe3cac14fa311d8d27922466625e3fd9a42e9a26682a86e7"
+                                                                     },
+                                                                     {
+                                                                         "source":  "scripts/bridgeforge_switch.py",
+                                                                         "target":  "scripts/bridgeforge_switch.py",
+                                                                         "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "scripts/bridgeforge_migrate_layout.py",
+                                                                         "target":  "scripts/bridgeforge_migrate_layout.py",
+                                                                         "sha256":  "sha256:07bd90feaeca33cadf4b176814fe4e85c0f1d7f674a7ac6566b138613743520e"
+                                                                     },
+                                                                     {
+                                                                         "source":  "scripts/bridgeforge_shared_update.ps1",
+                                                                         "target":  "scripts/bridgeforge_shared_update.ps1",
+                                                                         "sha256":  "sha256:436576b9bd7e832fea31364e5f0356ea8f721fd5ea1fb6a948af458229fbea3b"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "archive-scan",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/archive-scan/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:140f6669fb7f67c4ce1bfd5658c9ec1454554770f31a3536ab16162a36caa148"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "collab",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/collab/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:daca3269b97d1ce352bdb887fd05d63a06590ea2bffbe503c534885d3bfc3e8a"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "confirm",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/confirm/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:e41f3fda65693073e101fc0f7cfe755b9e5b24e3a710d998b6cf35e7db3a127d"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "debate",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/debate/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:65a966dd5cdf32f25a4723865a55b9be18f10909116ffd5ad12cb33e5eb8ff42"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "develop",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/develop/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:2b0eff0da3a04b067df3cc40ab0c19994bc4890020068ef5b482af500180ebee"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "escalate",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/escalate/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:1f9ac8ab1a0b9bdcce84efb4f575eb44eba541414f49cc9f301d838ec747868f"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "explain",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/explain/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:eb33dded7a48f0663205c2cf6ff8f90d5ba9b0ecd1f2fefe9c3f221038ac8960"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "find-doc",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/find-doc/references/map-reminder-sop.md",
+                                                                         "target":  "references/map-reminder-sop.md",
+                                                                         "sha256":  "sha256:6e0baf4962aadaf4ca6cbf238717dde37a7891db740a096af2598f13dc323ee9"
+                                                                     },
+                                                                     {
+                                                                         "source":  "skills/find-doc/references/output-format.md",
+                                                                         "target":  "references/output-format.md",
+                                                                         "sha256":  "sha256:038a1217139b9808922b1a64ca9d47559943d97c6daa1404333f9528cbdd765c"
+                                                                     },
+                                                                     {
+                                                                         "source":  "skills/find-doc/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:a38569b5f3e86fb5491263799eb7e87c7609b35dfc6a703ba8ebea339b6ab801"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "find-memory",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/find-memory/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:66a6fca18bd46a58ff205a4df68d8ca312c07147b657634f2a9b0ae3ef74cf2a"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "focus",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/focus/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:4e63a7883638ec35f8ac8b38f1624f79cb390387ab4819ed9e7173c9016d09f4"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "git-sync",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/git-sync/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:ceb216209c3b77a983442bf21e3f4e66d4daa2274c20ea5cfe4a975b581be8b8"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "harvest",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/harvest/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:84e248f8981805ed8c1218ec4328cc1567ee7d651e95168b5690f5462a3068a8"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "plan",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/plan/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:4c5e10b11a2c7227c8ba9665d3bd31b0a3f4b0ac213d370034e926ccf0872dbb"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "resume",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/resume/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:e0a8fd3b229b3051dbd3432b148e3e57db665472eeaa96420d92db2682089b73"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "snapshot",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/snapshot/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:5cc6879b3fbef584eb5dd7a75ef4ba09fd0e43157730f111f538c3fafd33a3f4"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "spinoff",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/spinoff/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:b6132ea1f1dcd00f57988c4e56ca221cf0047b0339186c39535739f3dd999d8f"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "summary",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/summary/references/deep-steps.md",
+                                                                         "target":  "references/deep-steps.md",
+                                                                         "sha256":  "sha256:a8028ea54e0658cf84fb9916522d41ec759ef9163e9d2de519e4116ae3462f31"
+                                                                     },
+                                                                     {
+                                                                         "source":  "skills/summary/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:c3e3c35697e1d251f08ab46413b482371ac0413e8d5614f1b497f82edd78d6f6"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "sync-docs",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/sync-docs/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:c651cb636b8cc764ece6e83f751ba57c560ad81409248a3d087e859858072440"
+                                                                     }
+                                                                 ]
+                                                   },
+                                                   {
+                                                       "name":  "todo",
+                                                       "files":  [
+                                                                     {
+                                                                         "source":  "skills/todo/SKILL.md",
+                                                                         "target":  "SKILL.md",
+                                                                         "sha256":  "sha256:f90d13fd319583051edaade56e40f619947cd8cd476e7df555c4eb0c39e1a198"
+                                                                     }
+                                                                 ]
+                                                   }
+                                               ]
+                                },
+                      "claude":  {
+                                     "target":  "~/.claude/skills",
+                                     "skills":  [
+                                                    {
+                                                        "name":  "bridgeforge",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:db1031762b2669adc15862c8357382eafda910204fccc5110d80d5ac9f6655e2"
+                                                                      },
+                                                                      {
+                                                                          "source":  "VERSION",
+                                                                          "target":  "VERSION",
+                                                                          "sha256":  "sha256:59d38f48e2981a04da830e8a7f0751ef36d5ed04a17fe789115650c1285f481b"
+                                                                      },
+                                                                      {
+                                                                          "source":  "CHANGELOG.md",
+                                                                          "target":  "CHANGELOG.md",
+                                                                          "sha256":  "sha256:664ce328597d56b5f73c2c87bb6b6aea84d20806e27d24c4afabeaadf9866a77"
+                                                                      },
+                                                                      {
+                                                                          "source":  "references/adopt.md",
+                                                                          "target":  "references/adopt.md",
+                                                                          "sha256":  "sha256:d56224d1ce5dc77405e251896baca9abf9f2618eb5e793a8a65e25e63aceba1e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "references/init.md",
+                                                                          "target":  "references/init.md",
+                                                                          "sha256":  "sha256:3592e354dc7203d3e8c9fca9f7fa8af99df06a3aaf90cec05de40d93a06cf1f6"
+                                                                      },
+                                                                      {
+                                                                          "source":  "references/switch.md",
+                                                                          "target":  "references/switch.md",
+                                                                          "sha256":  "sha256:bec8cf70be9342269e40a36043077ea3094182b63ec0e38fb4a954fad8bed689"
+                                                                      },
+                                                                      {
+                                                                          "source":  "references/update.md",
+                                                                          "target":  "references/update.md",
+                                                                          "sha256":  "sha256:04845deac7a836384bb6c2fc11869fa0a88f617f0cc715d1a82208215de3029f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "references/user-skill-maintenance.md",
+                                                                          "target":  "references/user-skill-maintenance.md",
+                                                                          "sha256":  "sha256:a55ac731d87b7c5adef670960939a9d2ee5e46dc3f0ac766873a5e155b23028b"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/.githooks/pre-commit",
+                                                                          "target":  "templates/claude/.githooks/pre-commit",
+                                                                          "sha256":  "sha256:de37d4653dc09c7ac54e9e457cba016b2b0c1556c0b4245f5a2fa93d322d9e1e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/CHANGELOG.md",
+                                                                          "target":  "templates/claude/CHANGELOG.md",
+                                                                          "sha256":  "sha256:3d35a0e78a675dec1ef6e865d60ffa1210604b3c676ef70779191f83dbf326c1"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/CLAUDE.md",
+                                                                          "target":  "templates/claude/CLAUDE.md",
+                                                                          "sha256":  "sha256:ba0dddb1c943a3e74167911ce6d1454d45b7ba8454e14bd6da5dd22da1f3c50f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/doc/README.md",
+                                                                          "target":  "templates/claude/doc/README.md",
+                                                                          "sha256":  "sha256:00ccc4e2db06985a94442285da2938a25fecb972aa0ea2c911733056de02160d"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/allow_memory_write.py",
+                                                                          "target":  "templates/claude/hooks/allow_memory_write.py",
+                                                                          "sha256":  "sha256:15f172609c487c79e2c75ff1bbc0beb5b8750bff3a7cb402409a7448431ad6bf"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/cargo_default_run_check.py",
+                                                                          "target":  "templates/claude/hooks/cargo_default_run_check.py",
+                                                                          "sha256":  "sha256:1728979fb3f579d633189a03dbfb94c99d09428bd418197f3962ebff80f88c04"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/clarify_reminder.py",
+                                                                          "target":  "templates/claude/hooks/clarify_reminder.py",
+                                                                          "sha256":  "sha256:23eb48e08c2e389c4b705c8dd2ff7e16ea593b703b577d6bd8b7d077a8dc415e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/config_health_check.py",
+                                                                          "target":  "templates/claude/hooks/config_health_check.py",
+                                                                          "sha256":  "sha256:b392eb254882b97e4d8c17b367c223c02228863271b42b1a186448d2bb75c97c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/context_warning.py",
+                                                                          "target":  "templates/claude/hooks/context_warning.py",
+                                                                          "sha256":  "sha256:b85f68d8efa983a069ed174dc5883e6d3018b08ca117d8fcccc8696a90e3930f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/cross_project_write_guard.py",
+                                                                          "target":  "templates/claude/hooks/cross_project_write_guard.py",
+                                                                          "sha256":  "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/encoding_check.py",
+                                                                          "target":  "templates/claude/hooks/encoding_check.py",
+                                                                          "sha256":  "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/enforce_no_effortlevel.py",
+                                                                          "target":  "templates/claude/hooks/enforce_no_effortlevel.py",
+                                                                          "sha256":  "sha256:8760da31af44a65f431b13c996d91895b1946a1f32dd423983cd87c37477dbe9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/fallback_smell_check.py",
+                                                                          "target":  "templates/claude/hooks/fallback_smell_check.py",
+                                                                          "sha256":  "sha256:4d205dffe58f77d0a2674f7f254d50fc2d6518d24a7b804d9fba9cb81a356ce2"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/find_doc_reminder.py",
+                                                                          "target":  "templates/claude/hooks/find_doc_reminder.py",
+                                                                          "sha256":  "sha256:b0a1a9c37f01c99c047307fda4ec0abbe2f7a23c8dd26f4e8b5e5e2bc3e97115"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/focus_reminder.py",
+                                                                          "target":  "templates/claude/hooks/focus_reminder.py",
+                                                                          "sha256":  "sha256:c90b1b62f5943635348ae15ef37c9ccae7e014f469bf737de2a58a659ef0a6ab"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/git_add_all_guard.py",
+                                                                          "target":  "templates/claude/hooks/git_add_all_guard.py",
+                                                                          "sha256":  "sha256:8bad8f1d61cf40c176d36823abf0b9c285b62e61b07c2204059010a9af808942"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/githooks_path_check.py",
+                                                                          "target":  "templates/claude/hooks/githooks_path_check.py",
+                                                                          "sha256":  "sha256:0be8388fb9e8d6acd3ab04be78f731e6aa56c2ea1b6e795f67bed1315d7b3224"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/memory_dup_check.py",
+                                                                          "target":  "templates/claude/hooks/memory_dup_check.py",
+                                                                          "sha256":  "sha256:f4b17ca27ceb4ddebb580b4f37437799c6a1ad55aa866ace17fb7e4802512912"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/memory_junction_check.py",
+                                                                          "target":  "templates/claude/hooks/memory_junction_check.py",
+                                                                          "sha256":  "sha256:c23053d3c51e6a6b0d0c60db4204e339b4eee64edcf7e0029e5de51b3be441d5"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/memory_lint.py",
+                                                                          "target":  "templates/claude/hooks/memory_lint.py",
+                                                                          "sha256":  "sha256:b6976782211339b5ed9355f99de041f7ab17131086061c50bfa752227b7a537d"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/mirror_drift_check.py",
+                                                                          "target":  "templates/claude/hooks/mirror_drift_check.py",
+                                                                          "sha256":  "sha256:1bfd623b2f3083f7d562347d0af3855b39df0eb006afe2092c409c1f185b2a1f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/non_ascii_shell_guard.py",
+                                                                          "target":  "templates/claude/hooks/non_ascii_shell_guard.py",
+                                                                          "sha256":  "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/requirements_check.py",
+                                                                          "target":  "templates/claude/hooks/requirements_check.py",
+                                                                          "sha256":  "sha256:ecf07972c98b445e8178c70f954e2c62a64210d4f924f0cfaf9c3fc6d395c2c2"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/rule_index_check.py",
+                                                                          "target":  "templates/claude/hooks/rule_index_check.py",
+                                                                          "sha256":  "sha256:24565dfbb76812409fad2503558dc4807eafa8cfea7bf19824859868a051e08c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/rule_size_check.py",
+                                                                          "target":  "templates/claude/hooks/rule_size_check.py",
+                                                                          "sha256":  "sha256:e3bb19dd96d99eb1ea125b975ca7a86a4172da3d7efa6a81f26b317df95b2ecd"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/session_snapshot.py",
+                                                                          "target":  "templates/claude/hooks/session_snapshot.py",
+                                                                          "sha256":  "sha256:1c5f88e0d91b0ea4ac228702d4d4a79501b6dfd2f14b6ae2b2c01b4430c9ecee"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/show_state.py",
+                                                                          "target":  "templates/claude/hooks/show_state.py",
+                                                                          "sha256":  "sha256:356f2b71a347c0aef7437c8dea2588ec878f1482d780bbb6a31015836e8c3705"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/skill_metadata_check.py",
+                                                                          "target":  "templates/claude/hooks/skill_metadata_check.py",
+                                                                          "sha256":  "sha256:fc7fc06b381541e44538bcc895b8aa057c91b49f53d9082ccde07c5b210638d0"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/skill_sync_check.py",
+                                                                          "target":  "templates/claude/hooks/skill_sync_check.py",
+                                                                          "sha256":  "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/stall_warning.py",
+                                                                          "target":  "templates/claude/hooks/stall_warning.py",
+                                                                          "sha256":  "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/target_cleanup.py",
+                                                                          "target":  "templates/claude/hooks/target_cleanup.py",
+                                                                          "sha256":  "sha256:3be9291707cc88437fbdd0ad4147b9b9b97792a6358ddfb133a9d9cfa24eecd9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/test_receipt.py",
+                                                                          "target":  "templates/claude/hooks/test_receipt.py",
+                                                                          "sha256":  "sha256:f5859d484b5197709c13feaa836142cc041d8640464c8999fea58ebd87ff9414"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/hooks/version_check.py",
+                                                                          "target":  "templates/claude/hooks/version_check.py",
+                                                                          "sha256":  "sha256:2c3597e01f117ad295fd5e7020baa15da318e2a4f6ad2b4052e0eb8e5dea3a23"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/memory/_stats.json",
+                                                                          "target":  "templates/claude/memory/_stats.json",
+                                                                          "sha256":  "sha256:36740b76478ea1f22fbb5b65a65d61a9f7e503894e09585b2e18ca97c6d99cac"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/memory/MEMORY.md",
+                                                                          "target":  "templates/claude/memory/MEMORY.md",
+                                                                          "sha256":  "sha256:c966c533ce7c6cb1f3718cdcedd9138f6cde2e8eefe76dd6c843322c1ac685fb"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/anti_drift_hooks.md",
+                                                                          "target":  "templates/claude/rules/anti_drift_hooks.md",
+                                                                          "sha256":  "sha256:2ae210501c870f9cb1987298b23db8cafa3d3c53a2743ff2df5293d57d448244"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/anti_fabrication.md",
+                                                                          "target":  "templates/claude/rules/anti_fabrication.md",
+                                                                          "sha256":  "sha256:3fbace86578b4c65fff6f8b86c74e70c6141b19f62ea1721fe6657398114a259"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/architecture.md",
+                                                                          "target":  "templates/claude/rules/architecture.md",
+                                                                          "sha256":  "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/debugging.md",
+                                                                          "target":  "templates/claude/rules/debugging.md",
+                                                                          "sha256":  "sha256:ecfb5258275b8282f54b11d3feabd5197c95c10e86029c2efede28bbba15f37e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/meta_rule_design.md",
+                                                                          "target":  "templates/claude/rules/meta_rule_design.md",
+                                                                          "sha256":  "sha256:5cd363c9f8b5ebb7c22ad272a0a7de0a09b847c64968725c59dfa512355d24d8"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/modules.md",
+                                                                          "target":  "templates/claude/rules/modules.md",
+                                                                          "sha256":  "sha256:988813d95e43f54e5bab02b82ad44e744a4a6c5d0f8e33193ca751310b28f95f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/portability.md",
+                                                                          "target":  "templates/claude/rules/portability.md",
+                                                                          "sha256":  "sha256:14f4d41ba6e9ad55b8caf27e3a1763c6370cdc930fef3507b12851e3627f7542"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/rules/workflow.md",
+                                                                          "target":  "templates/claude/rules/workflow.md",
+                                                                          "sha256":  "sha256:c8a3a7627e7cff1e8ddbaf416002c688165c736c479336dfef71bb1097941705"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/scripts/archive_scan.py",
+                                                                          "target":  "templates/claude/scripts/archive_scan.py",
+                                                                          "sha256":  "sha256:b2ade4fccdfc99061c19e9d38dd218ac657cc2ea88b129741596a9b229d74547"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/scripts/audit_user_allow.py",
+                                                                          "target":  "templates/claude/scripts/audit_user_allow.py",
+                                                                          "sha256":  "sha256:5e5d2ab7bf2050ce3a2de3a0d954cf892ce789f95a6327c932d05717460f24b5"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/scripts/bridgeforge_switch.py",
+                                                                          "target":  "templates/claude/scripts/bridgeforge_switch.py",
+                                                                          "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/scripts/memory_rebuild_index.py",
+                                                                          "target":  "templates/claude/scripts/memory_rebuild_index.py",
+                                                                          "sha256":  "sha256:ac365687d9079318a377c2e69715566554c0882388a324550dad83ba2b7b4beb"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/scripts/memory_search.py",
+                                                                          "target":  "templates/claude/scripts/memory_search.py",
+                                                                          "sha256":  "sha256:f089755dbac8c985388ffa0cb8e589caf798e07f1b28037395c494cc58c985cf"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/settings.json",
+                                                                          "target":  "templates/claude/settings.json",
+                                                                          "sha256":  "sha256:ac9cc1fbdfa8c5a96f78098a27e3c8eaaa80aaea46cdd9fe78d5ab048493c0a9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/claude/VERSION",
+                                                                          "target":  "templates/claude/VERSION",
+                                                                          "sha256":  "sha256:8cbb8cbe0eca7be97a239a2dd808c0b06f9f7b9bf40b38291bdd78eced81164b"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/.githooks/pre-commit",
+                                                                          "target":  "templates/codex/.githooks/pre-commit",
+                                                                          "sha256":  "sha256:6a17ab05c26eba87734c892d61ea425e61c241e4f9a040c386fbfc05d86f96e2"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/AGENTS.md",
+                                                                          "target":  "templates/codex/AGENTS.md",
+                                                                          "sha256":  "sha256:495dacb5536282a9b302b88ab737b0def095ff55960bb4787bc74256de5c3425"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/agents/implementation-worker.toml",
+                                                                          "target":  "templates/codex/agents/implementation-worker.toml",
+                                                                          "sha256":  "sha256:782b7f3ffdf3f0b6f5acc9e5686cc534d94fe13f51bd50ec67e5042af8f89861"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/agents/light-explorer.toml",
+                                                                          "target":  "templates/codex/agents/light-explorer.toml",
+                                                                          "sha256":  "sha256:a2ba35a03731aa030985ccf07a8d2d3454357d83e31b750ad82ae6c361e74ff0"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/agents/mechanical-sync-worker.toml",
+                                                                          "target":  "templates/codex/agents/mechanical-sync-worker.toml",
+                                                                          "sha256":  "sha256:918b573468ba44e68a2e47b277b422165e4750cb30c2c6e4f13eab429ece5cab"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/agents/review-auditor.toml",
+                                                                          "target":  "templates/codex/agents/review-auditor.toml",
+                                                                          "sha256":  "sha256:186ad17625f7be26d3aa3249716c1f811ef82cde8fdf49d5116a8b5da8427586"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/agents/xhigh-auditor.toml",
+                                                                          "target":  "templates/codex/agents/xhigh-auditor.toml",
+                                                                          "sha256":  "sha256:b1812dc428ef9cc30847f26e8b465fa73cae325413a8c92812625798073d41f1"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/CHANGELOG.md",
+                                                                          "target":  "templates/codex/CHANGELOG.md",
+                                                                          "sha256":  "sha256:f0af9579526de8517af4d749a8d4128f50d039038820aefb0b85c02756f42eaa"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/config.toml",
+                                                                          "target":  "templates/codex/config.toml",
+                                                                          "sha256":  "sha256:5860f15bd4a3915294af5778157bb4f4dc84e72c76facde58bd5fb17ef4e83c4"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/doc/README.md",
+                                                                          "target":  "templates/codex/doc/README.md",
+                                                                          "sha256":  "sha256:c52e5ceb5cf39aadfa4b1858f5a41f58519e35a4e22419cfdfef64f54f027f30"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/allow_memory_write.py",
+                                                                          "target":  "templates/codex/hooks/allow_memory_write.py",
+                                                                          "sha256":  "sha256:2c7fa6457f090e7c50897d42956a820b856f214ea8350c276ac50936c9c66ee4"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/cargo_default_run_check.py",
+                                                                          "target":  "templates/codex/hooks/cargo_default_run_check.py",
+                                                                          "sha256":  "sha256:9bc9a86045ff606e30cdc35c4efe4d0ef47319516b80f7377bd27e9cc93bae32"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/clarify_reminder.py",
+                                                                          "target":  "templates/codex/hooks/clarify_reminder.py",
+                                                                          "sha256":  "sha256:e5a6e55494e8a66dcb47d367caad9b4723c207ecca2da8c49ff075a5398f621f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/config_health_check.py",
+                                                                          "target":  "templates/codex/hooks/config_health_check.py",
+                                                                          "sha256":  "sha256:4b3326ce40934e1a15d3ea0220c641911f64920ccf02fac5ec2bfc028a9436ab"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/context_warning.py",
+                                                                          "target":  "templates/codex/hooks/context_warning.py",
+                                                                          "sha256":  "sha256:b23d39923b9785043dae9371a41578d923d8a7b96299ab397ea2089f9e6ecbad"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/cross_project_write_guard.py",
+                                                                          "target":  "templates/codex/hooks/cross_project_write_guard.py",
+                                                                          "sha256":  "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/encoding_check.py",
+                                                                          "target":  "templates/codex/hooks/encoding_check.py",
+                                                                          "sha256":  "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/enforce_no_effortlevel.py",
+                                                                          "target":  "templates/codex/hooks/enforce_no_effortlevel.py",
+                                                                          "sha256":  "sha256:26d3d14a66f37ed0572a8f9c82387540552c4febb90aae1fb8c6cef471b6f2f9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/fallback_smell_check.py",
+                                                                          "target":  "templates/codex/hooks/fallback_smell_check.py",
+                                                                          "sha256":  "sha256:fc8bf4396796858a1a3e9398e75028a421441ed2851e8fc4bc324fa298337cc3"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/find_doc_reminder.py",
+                                                                          "target":  "templates/codex/hooks/find_doc_reminder.py",
+                                                                          "sha256":  "sha256:c658bc88d57010eea101784aedc78c8ef55ef50358568419532dac657cdbedae"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/focus_reminder.py",
+                                                                          "target":  "templates/codex/hooks/focus_reminder.py",
+                                                                          "sha256":  "sha256:51b4d6bf1917818afbb3c5b208be45708a59e29be9ebc102929114f47caa4eac"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/git_add_all_guard.py",
+                                                                          "target":  "templates/codex/hooks/git_add_all_guard.py",
+                                                                          "sha256":  "sha256:3ac4f8f5bfcfa3365246e48303a2311b21f7becb152176039502c0743ddbbb71"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/githooks_path_check.py",
+                                                                          "target":  "templates/codex/hooks/githooks_path_check.py",
+                                                                          "sha256":  "sha256:4490bd332a8c4d110b1dad3e19f7d8df231c75ed13f9bee31a734d0f4a111187"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/memory_dup_check.py",
+                                                                          "target":  "templates/codex/hooks/memory_dup_check.py",
+                                                                          "sha256":  "sha256:464e33b73f19048e60abde2dc32dd8799523c05874d2d33d584794aa5ac02f06"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/memory_junction_check.py",
+                                                                          "target":  "templates/codex/hooks/memory_junction_check.py",
+                                                                          "sha256":  "sha256:a02c0a0724b913ff47e371072d8ff01b315aa723ceb113a07287d00340fdcb49"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/memory_lint.py",
+                                                                          "target":  "templates/codex/hooks/memory_lint.py",
+                                                                          "sha256":  "sha256:c785f8dc6e1eb8d8fd0c1ca6419334fd44ccb992e8fc072647bd3d5113720391"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/mirror_drift_check.py",
+                                                                          "target":  "templates/codex/hooks/mirror_drift_check.py",
+                                                                          "sha256":  "sha256:35328812b545946c19ad4152759cd5e6795755876c1921042a45aee52ef11ace"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/model_policy_check.py",
+                                                                          "target":  "templates/codex/hooks/model_policy_check.py",
+                                                                          "sha256":  "sha256:250b799fefb251dedf98e9337473a7054c1f701b9840f5d9441691c6707df17d"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/non_ascii_shell_guard.py",
+                                                                          "target":  "templates/codex/hooks/non_ascii_shell_guard.py",
+                                                                          "sha256":  "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/requirements_check.py",
+                                                                          "target":  "templates/codex/hooks/requirements_check.py",
+                                                                          "sha256":  "sha256:9f6f74628b71202bf5619c0d6242bec7b9af6ab36ea5b72e71fd54297a613909"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/rule_index_check.py",
+                                                                          "target":  "templates/codex/hooks/rule_index_check.py",
+                                                                          "sha256":  "sha256:795a7b6708afd46444b2282420dae0f8fa537680de4b334c8e60cd1f82ba5fc8"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/rule_size_check.py",
+                                                                          "target":  "templates/codex/hooks/rule_size_check.py",
+                                                                          "sha256":  "sha256:8f2395c21e339d50c8578b3c33c82cdf9e0e58834aacf057ebfb535965ae8651"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/session_snapshot.py",
+                                                                          "target":  "templates/codex/hooks/session_snapshot.py",
+                                                                          "sha256":  "sha256:80fd7bbd05b341dbfee586897e4e5cd8ab2f83fc012879f6c192b5c8fb0fbcc0"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/show_state.py",
+                                                                          "target":  "templates/codex/hooks/show_state.py",
+                                                                          "sha256":  "sha256:3da953b8674ff3c56f5c2bf5b8b5fb392444c254b1678fe01f125ca31f7efd9a"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/skill_metadata_check.py",
+                                                                          "target":  "templates/codex/hooks/skill_metadata_check.py",
+                                                                          "sha256":  "sha256:68771ef2967f156094b5e72ff9aad9dbbe9d4b80630fbb4c7f1b25b21b1d6677"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/skill_sync_check.py",
+                                                                          "target":  "templates/codex/hooks/skill_sync_check.py",
+                                                                          "sha256":  "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/stall_warning.py",
+                                                                          "target":  "templates/codex/hooks/stall_warning.py",
+                                                                          "sha256":  "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/target_cleanup.py",
+                                                                          "target":  "templates/codex/hooks/target_cleanup.py",
+                                                                          "sha256":  "sha256:b9135ed87e9224145a84735f021bf32c9e755ab408728792bedaf56e8a5f1737"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/test_receipt.py",
+                                                                          "target":  "templates/codex/hooks/test_receipt.py",
+                                                                          "sha256":  "sha256:93cb56ec468bd0566bbeed10b3f0a61e45cced17f1dfd44add8faa0afd845ae9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/user_config_write_guard.py",
+                                                                          "target":  "templates/codex/hooks/user_config_write_guard.py",
+                                                                          "sha256":  "sha256:348f7c97f74329c4975f4573200028ead35bb912de1acdfd40ed36b5dc46d034"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/hooks/version_check.py",
+                                                                          "target":  "templates/codex/hooks/version_check.py",
+                                                                          "sha256":  "sha256:84081a855bfb49de904b0b95cc783fe9322140ab6fe0849b0f709d2d750e9a15"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/memory/_stats.json",
+                                                                          "target":  "templates/codex/memory/_stats.json",
+                                                                          "sha256":  "sha256:36740b76478ea1f22fbb5b65a65d61a9f7e503894e09585b2e18ca97c6d99cac"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/memory/MEMORY.md",
+                                                                          "target":  "templates/codex/memory/MEMORY.md",
+                                                                          "sha256":  "sha256:9c1b5119f89e4114997a905f62049855175fca4938093f4db1726b543c3309be"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/anti_drift_hooks.md",
+                                                                          "target":  "templates/codex/rules/anti_drift_hooks.md",
+                                                                          "sha256":  "sha256:a8411fa274d0a7699637d965995ef5d6d68b05457e32d2d018e5b52271fda64b"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/anti_fabrication.md",
+                                                                          "target":  "templates/codex/rules/anti_fabrication.md",
+                                                                          "sha256":  "sha256:3fbace86578b4c65fff6f8b86c74e70c6141b19f62ea1721fe6657398114a259"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/architecture.md",
+                                                                          "target":  "templates/codex/rules/architecture.md",
+                                                                          "sha256":  "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/debugging.md",
+                                                                          "target":  "templates/codex/rules/debugging.md",
+                                                                          "sha256":  "sha256:8bf3977390635b098f3c04fca4a28fb89a6236b3402c33f7cd4f10f94567ba95"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/meta_rule_design.md",
+                                                                          "target":  "templates/codex/rules/meta_rule_design.md",
+                                                                          "sha256":  "sha256:ca7a34e302d31c240bbfe3ae9c167c22c5a37410f89db5eec913f9596ac22950"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/modules.md",
+                                                                          "target":  "templates/codex/rules/modules.md",
+                                                                          "sha256":  "sha256:d7c5c6da6a6e8c00636eb873d71146250ca74d5236e24844ff51b30c5d3284dc"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/portability.md",
+                                                                          "target":  "templates/codex/rules/portability.md",
+                                                                          "sha256":  "sha256:f4eb0d9280c14647ff515ad51c3cc719575af67ceb92a802aabe68853aa94272"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/rules/workflow.md",
+                                                                          "target":  "templates/codex/rules/workflow.md",
+                                                                          "sha256":  "sha256:c151cef00513701683e31241bd2f1572dacb052b1816a1bf185072df36bb9924"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/archive_scan.py",
+                                                                          "target":  "templates/codex/scripts/archive_scan.py",
+                                                                          "sha256":  "sha256:9ce8f4097cbeaeb0ca5fb6b5d4343b7ab49e973fc816bb40613a7ab05575cd70"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/audit_user_allow.py",
+                                                                          "target":  "templates/codex/scripts/audit_user_allow.py",
+                                                                          "sha256":  "sha256:7d8d1bbb62065e4fa199f232e83d25a486db648ba1a6ebe9face0d90836d4bcc"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/bridgeforge_switch.py",
+                                                                          "target":  "templates/codex/scripts/bridgeforge_switch.py",
+                                                                          "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/codex_git_sync.py",
+                                                                          "target":  "templates/codex/scripts/codex_git_sync.py",
+                                                                          "sha256":  "sha256:38522ec1636e2c78ab9a1edb2a365568f329bb9283b29f9f6079c97d1fa9c06e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/context_cost_report.py",
+                                                                          "target":  "templates/codex/scripts/context_cost_report.py",
+                                                                          "sha256":  "sha256:29c7426c621560b753b7e412762f60d0deac86b37f9b0566b40f20deea99b321"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/harness_parity_check.py",
+                                                                          "target":  "templates/codex/scripts/harness_parity_check.py",
+                                                                          "sha256":  "sha256:939578c95571c3d558e4a14096ebab9ffc32bc5a17314e67b4f24f267121bae3"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/memory_rebuild_index.py",
+                                                                          "target":  "templates/codex/scripts/memory_rebuild_index.py",
+                                                                          "sha256":  "sha256:2055eade845875d9db5e7ed6f8c5f0863a4fdb98a1cba39289009524eded2c76"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/memory_search.py",
+                                                                          "target":  "templates/codex/scripts/memory_search.py",
+                                                                          "sha256":  "sha256:e32725111368453df47c505cd17fb20c364465d7d05f4fc4f12a87e0aaef48ad"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/scripts/subscription_routing.py",
+                                                                          "target":  "templates/codex/scripts/subscription_routing.py",
+                                                                          "sha256":  "sha256:c7d86b71dd64aa8f407a7ea811b6e139931629b3dd62982d50c46b441fa15a5f"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/settings.json",
+                                                                          "target":  "templates/codex/settings.json",
+                                                                          "sha256":  "sha256:35f4405b199abb64759f654ec17af9362716563866bdd7b907687ba6c4fd73b4"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/skill-routing.json",
+                                                                          "target":  "templates/codex/skill-routing.json",
+                                                                          "sha256":  "sha256:02d12269110b1f7b8f69389cccc45e49d8ecf0fa680d97b76d33ce2f388f6579"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/subscription-tier.toml",
+                                                                          "target":  "templates/codex/subscription-tier.toml",
+                                                                          "sha256":  "sha256:b5ba59f3634ed916d0b8ef2c8fa41a7cad3855a345c8ce57325306dd1aa1878b"
+                                                                      },
+                                                                      {
+                                                                          "source":  "templates/codex/VERSION",
+                                                                          "target":  "templates/codex/VERSION",
+                                                                          "sha256":  "sha256:867a70774294546ebe3cac14fa311d8d27922466625e3fd9a42e9a26682a86e7"
+                                                                      },
+                                                                      {
+                                                                          "source":  "scripts/bridgeforge_switch.py",
+                                                                          "target":  "scripts/bridgeforge_switch.py",
+                                                                          "sha256":  "sha256:0b85bf32260db05bcd7c60448388c7b739c9b4c3edaa977c7e7e3a8285b77c2c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "scripts/bridgeforge_migrate_layout.py",
+                                                                          "target":  "scripts/bridgeforge_migrate_layout.py",
+                                                                          "sha256":  "sha256:07bd90feaeca33cadf4b176814fe4e85c0f1d7f674a7ac6566b138613743520e"
+                                                                      },
+                                                                      {
+                                                                          "source":  "scripts/bridgeforge_shared_update.ps1",
+                                                                          "target":  "scripts/bridgeforge_shared_update.ps1",
+                                                                          "sha256":  "sha256:436576b9bd7e832fea31364e5f0356ea8f721fd5ea1fb6a948af458229fbea3b"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "archive-scan",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/archive-scan/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:140f6669fb7f67c4ce1bfd5658c9ec1454554770f31a3536ab16162a36caa148"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "collab",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/collab/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:daca3269b97d1ce352bdb887fd05d63a06590ea2bffbe503c534885d3bfc3e8a"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "confirm",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/confirm/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:e41f3fda65693073e101fc0f7cfe755b9e5b24e3a710d998b6cf35e7db3a127d"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "debate",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/debate/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:65a966dd5cdf32f25a4723865a55b9be18f10909116ffd5ad12cb33e5eb8ff42"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "develop",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/develop/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:2b0eff0da3a04b067df3cc40ab0c19994bc4890020068ef5b482af500180ebee"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "escalate",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/escalate/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:1f9ac8ab1a0b9bdcce84efb4f575eb44eba541414f49cc9f301d838ec747868f"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "explain",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/explain/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:eb33dded7a48f0663205c2cf6ff8f90d5ba9b0ecd1f2fefe9c3f221038ac8960"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "find-doc",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/find-doc/references/map-reminder-sop.md",
+                                                                          "target":  "references/map-reminder-sop.md",
+                                                                          "sha256":  "sha256:6e0baf4962aadaf4ca6cbf238717dde37a7891db740a096af2598f13dc323ee9"
+                                                                      },
+                                                                      {
+                                                                          "source":  "skills/find-doc/references/output-format.md",
+                                                                          "target":  "references/output-format.md",
+                                                                          "sha256":  "sha256:038a1217139b9808922b1a64ca9d47559943d97c6daa1404333f9528cbdd765c"
+                                                                      },
+                                                                      {
+                                                                          "source":  "skills/find-doc/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:a38569b5f3e86fb5491263799eb7e87c7609b35dfc6a703ba8ebea339b6ab801"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "find-memory",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/find-memory/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:66a6fca18bd46a58ff205a4df68d8ca312c07147b657634f2a9b0ae3ef74cf2a"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "focus",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/focus/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:4e63a7883638ec35f8ac8b38f1624f79cb390387ab4819ed9e7173c9016d09f4"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "git-sync",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/git-sync/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:ceb216209c3b77a983442bf21e3f4e66d4daa2274c20ea5cfe4a975b581be8b8"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "harvest",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/harvest/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:84e248f8981805ed8c1218ec4328cc1567ee7d651e95168b5690f5462a3068a8"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "plan",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/plan/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:4c5e10b11a2c7227c8ba9665d3bd31b0a3f4b0ac213d370034e926ccf0872dbb"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "resume",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/resume/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:e0a8fd3b229b3051dbd3432b148e3e57db665472eeaa96420d92db2682089b73"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "snapshot",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/snapshot/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:5cc6879b3fbef584eb5dd7a75ef4ba09fd0e43157730f111f538c3fafd33a3f4"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "spinoff",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/spinoff/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:b6132ea1f1dcd00f57988c4e56ca221cf0047b0339186c39535739f3dd999d8f"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "summary",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/summary/references/deep-steps.md",
+                                                                          "target":  "references/deep-steps.md",
+                                                                          "sha256":  "sha256:a8028ea54e0658cf84fb9916522d41ec759ef9163e9d2de519e4116ae3462f31"
+                                                                      },
+                                                                      {
+                                                                          "source":  "skills/summary/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:c3e3c35697e1d251f08ab46413b482371ac0413e8d5614f1b497f82edd78d6f6"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "sync-docs",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/sync-docs/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:c651cb636b8cc764ece6e83f751ba57c560ad81409248a3d087e859858072440"
+                                                                      }
+                                                                  ]
+                                                    },
+                                                    {
+                                                        "name":  "todo",
+                                                        "files":  [
+                                                                      {
+                                                                          "source":  "skills/todo/SKILL.md",
+                                                                          "target":  "SKILL.md",
+                                                                          "sha256":  "sha256:f90d13fd319583051edaade56e40f619947cd8cd476e7df555c4eb0c39e1a198"
+                                                                      }
+                                                                  ]
+                                                    }
+                                                ]
+                                 }
+                  }
+}

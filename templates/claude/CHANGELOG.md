@@ -21,6 +21,25 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.26.0] - 2026-07-25
+
+### Added
+- [product] `/bridgeforge switch <claude|codex>` 新增逐项 schema v2 语义迁移 manifest：发现旧 live 或 target archive 时只生成提案并 exit `2`，用户逐项确认后才受控执行；成功 receipt 固定写入 `.bridgeforge/migrations/<migration_id>/receipt.json`。
+
+### Changed
+- [product] 目标基线固定为含 `.bridgeforge_version` 的当前模板；只有 schema v2 receipt 可作 provenance，archive 仅机械 replay proven `user-owned`，`constraint-generated` 无注册 adapter 时阻断。`source_owner` / `target_owner` 分离，旧 receipt、legacy archive、hard constraint 未满足、Windows 路径碰撞及 link/junction 均 fail-closed。
+- [product] 执行采用 approved source-state backup/restore、临时 stage、detached/stage/live/archive exact-tree、target move journal 和完整回滚；archive destination 排他 claim，rollback 只删除本事务 owned archive，并保留预建的空 archive agent 父目录。当前没有 trusted sandbox runner，任何 manifest `evidence.command` 都禁止执行；`contract-smoke` / `native-host` 以 `sandbox-unavailable` 阻断，因此本版本只支持完成纯文本约束迁移。
+- [product] schema v2 receipt 与 archive 按 canonical Windows 路径、双向 inventory 和逐文件 hash 完全对账；三跳 lineage duplicate 仅 stable constraint ID 相同者可跳过。不再使用旧 memory/settings 参数、cleanup-only 或整包 archive 恢复。
+- [product] 下游同步到 `0.26.0` 后继续使用原 `/bridgeforge switch <agent>`；manifest 是 agent 与用户审核产物，不是新的用户 CLI 或需用户直接调用的脚本参数。
+
+## [0.25.0] - 2026-07-25
+
+### Added
+- [product] 新增 Windows-only 共享 skill 分发契约：Claude 用户级目录继续使用 `~/.claude/skills/`，以平台托管账本、manifest 哈希和可恢复更新日志保证仅覆盖 BridgeForge 托管内容并保留第三方 skill。
+
+### Changed
+- [product] `/bridgeforge` 改为运行已安装 command bundle 的共享 updater；存量项目 `.agents/` 仅在当前项目 dry-run 与用户确认后迁移。
+
 ## [0.22.2] - 2026-07-11
 
 ### Changed

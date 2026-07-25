@@ -17,6 +17,28 @@
 
 ---
 
+## [0.65.0] - 2026-07-25
+
+### Added
+- `[product][meta]` **switch 项目级资产语义迁移**：`/bridgeforge switch <claude|codex>` 在检测到旧 live 或目标 archive 时先输出逐项 schema v2 migration manifest 提案并以 exit `2` 零写入停止；主对话逐项展示 source、目标原生 projection、diff、source / target ownership、approval 与 evidence，只有显式确认后才通过底层 `--manifest` 受控执行。成功收据固定写入 `.bridgeforge/migrations/<migration_id>/receipt.json`，持久保存 constraint lineage、hash、adapter 来源和验证证据。
+
+### Changed
+- `[product]` switch 的目标基线改为含 `.bridgeforge_version` 的当前目标模板完整安装面；只有 schema v2 receipt 的 ownership + hash 可作 provenance，旧 schema receipt 与 legacy archive 均 fail-closed。archive 仅允许 proven `user-owned` 机械 replay；`constraint-generated` 无注册 adapter 时阻断。`source_owner` / `target_owner` 分离，禁止 ownership 或 hard constraint 降级伪造。
+- `[product]` switch 执行改为 source backup → 临时 stage → 输入与 stage exact-tree 重检 → detached source exact-tree 复核 → target move journal 并启用 → live exact-tree 验证 → 归档 → receipt 的可恢复事务；backup copy / restore、detached tree 与 finalized archive 均和 approved source state 对账。archive destination 采用排他 claim，预存/竞态碰撞立即阻断；rollback 只删除本事务 owned archive，空的 `<archive>/<agent>` 父目录也仅在本事务创建时删除，绝不清理他人或既存路径。Windows 路径碰撞、symlink/junction/reparse point 和越界写入均 fail-closed。
+- `[product]` **诚实收紧 evidence 边界**：source/target 任一侧为可执行文件或 hook 时要求更高证据，但当前没有代码注册且可验证的 trusted sandbox runner；任何 manifest `evidence.command` 都禁止执行并立即阻断，`contract-smoke` / `native-host` 均返回 `sandbox-unavailable`。因此本版本只支持完成纯文本约束迁移，不以普通 subprocess 或文本确认冒充可执行约束验证。
+- `[product]` schema v2 receipt 与 archive 必须按 canonical Windows 路径、双向 inventory 和逐文件 hash 完全对账；三跳 lineage duplicate 仅 stable constraint ID 相同者可 `not-applicable`，禁止按路径或内容相似度跳过。
+- `[product]` 移除旧的 memory/settings 逐项参数、cleanup-only 和整包 archive 恢复语义，且不新增任何用户迁移 CLI。
+- `[product]` **下游动作**：同步 Codex `0.36.0` 或 Claude `0.26.0` 模板及新版 BridgeForge command bundle；继续使用原 `/bridgeforge switch <agent>` 入口，由 agent 完成 manifest 审核，不要直接调用脚本内部 `--manifest`。
+
+## [0.64.0] - 2026-07-25
+
+### Added
+- `[product][repo][meta]` **共享 Skill 双骨架分发**：新增 Windows-only 首次安装器、GitHub `main` manifest 分发与可恢复 updater；Codex/Claude 分别安装至 `~/.codex/skills/` 与 `~/.claude/skills/`，以平台账本识别受管 skill、强制覆盖受管内容、保留第三方同目录内容，并在异常时通过操作日志恢复双端一致状态。首次安装不再处理 `~/.agents/`，只删除已核验且目标为实体上游仓库的 `~/.bridgeforge` junction。
+
+### Changed
+- `[product]` `/bridgeforge` 改为从已安装 command bundle 运行，无参数时显式同步共享 skill；运行时不再读取、pull 或 fallback 到 `~/.bridgeforge`、`~/.agents` 或本地工作副本。存量项目的 `.agents/` 只在当前项目 dry-run 并取得确认后迁移；Codex 项目私有 skill 收敛至 `.codex/skills/`。
+- `[product]` Codex 模板版本升至 `0.35.0`，Claude 模板版本升至 `0.25.0`，根入口与两份 legacy wrapper 升至 `0.64.0`。
+
 ## [0.63.0] - 2026-07-24
 
 ### Added

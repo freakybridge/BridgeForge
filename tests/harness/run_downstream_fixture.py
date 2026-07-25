@@ -19,6 +19,9 @@ Generated fixture directories are disposable and are never product source.
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -37,6 +40,7 @@ CODEX_FIXTURE = RUNTIME_ROOT / "downstream-codex"
 SWITCH_FIXTURE = RUNTIME_ROOT / "downstream-switch"
 SKILL_METADATA_FIXTURE = RUNTIME_ROOT / "skill-metadata"
 USER_SKILL_FIXTURE = RUNTIME_ROOT / "user-skill-distribution"
+LAYOUT_MIGRATION_FIXTURE = RUNTIME_ROOT / "layout-migration"
 CODEX_GIT_SYNC_REMOTE = RUNTIME_ROOT / "codex-git-sync-remote.git"
 
 
@@ -125,6 +129,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    shutil.copy2(REPO_ROOT / "VERSION", codex_dir / ".bridgeforge_version")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
     shutil.copy2(CODEX_TEMPLATE / "subscription-tier.toml", codex_dir / "subscription-tier.toml")
     shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
@@ -426,6 +431,7 @@ def _build_switch_fixture() -> Path:
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CLAUDE_TEMPLATE / name, claude_dir / name)
     shutil.copy2(CLAUDE_TEMPLATE / "settings.json", claude_dir / "settings.json")
+    shutil.copy2(REPO_ROOT / "VERSION", claude_dir / ".bridgeforge_version")
 
     scripts_dir = fixture / "scripts"
     scripts_dir.mkdir(exist_ok=True)
@@ -442,6 +448,7 @@ def _add_codex_archive(fixture: Path, *, shared_memory: str | None = None) -> Pa
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    shutil.copy2(REPO_ROOT / "VERSION", codex_dir / ".bridgeforge_version")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
     _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
     if shared_memory is not None:
@@ -810,7 +817,7 @@ def check_switch_same_agent_noop() -> CheckResult:
 
 def check_switch_codex_to_claude_archive_scope() -> CheckResult:
     fixture = build_codex_fixture()
-    project_skill = fixture / ".agents" / "skills" / "project-only" / "SKILL.md"
+    project_skill = fixture / ".codex" / "skills" / "project-only" / "SKILL.md"
     project_skill.parent.mkdir(parents=True)
     project_skill.write_text("---\nname: project-only\n---\n", encoding="utf-8")
     scripts_dir = fixture / "scripts"
@@ -839,13 +846,13 @@ def check_switch_codex_to_claude_archive_scope() -> CheckResult:
         and len(codex_archives) == 1
         and (codex_archives[0] / "AGENTS.md").exists()
         and (codex_archives[0] / ".codex" / "settings.json").exists()
-        and (codex_archives[0] / ".agents" / "skills" / "project-only" / "SKILL.md").exists()
+        and (codex_archives[0] / ".codex" / "skills" / "project-only" / "SKILL.md").exists()
         and "Validation passed" in text
     )
     return CheckResult(
         "switch_codex_to_claude_archive_scope",
         ok,
-        "Codex to Claude archives AGENTS.md, .codex, and .agents/skills, then removes empty .agents"
+        "Codex to Claude archives AGENTS.md and .codex including project-private skills without creating .agents"
         if ok
         else f"expected Codex archive scope and cleanup, got exit {r.returncode}: {text.strip()}",
     )
@@ -881,6 +888,1470 @@ def check_switch_no_old_installs_target() -> CheckResult:
         "project without an old skeleton can enable the target agent from templates"
         if ok
         else f"expected template install without old archive, got exit {r.returncode}: {text.strip()}",
+    )
+
+
+def _switch_module():
+    module_path = REPO_ROOT / "scripts" / "bridgeforge_switch.py"
+    spec = importlib.util.spec_from_file_location("bridgeforge_switch_semantic_fixture", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not import semantic switch module")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _switch_live_digest(fixture: Path, agent: str) -> str:
+    entry = "CLAUDE.md" if agent == "claude" else "AGENTS.md"
+    config = ".claude" if agent == "claude" else ".codex"
+    digest = hashlib.sha256()
+    for path in [fixture / entry, *sorted((fixture / config).rglob("*"))]:
+        if not path.is_file():
+            continue
+        digest.update(path.relative_to(fixture).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _semantic_manifest(
+    fixture: Path,
+    target: str,
+    *,
+    migration_id: str,
+    evidence_level: str = "text-review",
+    evidence_command: list[str] | None = None,
+) -> tuple[object, dict[str, object]]:
+    module = _switch_module()
+    plan = module.build_plan(target, fixture.resolve(), REPO_ROOT.resolve())
+    manifest = module.build_proposal(plan, migration_id=migration_id)
+    projection_index = 0
+    for item in manifest["items"]:
+        if item["status"] != "blocked":
+            continue
+        if item["target"]["action"] == "replay-archive":
+            target_rel = item["target"]["path"]
+            content = plan.archive_files[item["source"]["path"]].read_bytes()
+        else:
+            projection_index += 1
+            config = ".codex" if target == "codex" else ".claude"
+            target_rel = f"{config}/rules/semantic-projection-{projection_index}.md"
+            content = (
+                f"# Migrated constraint {item['constraint_id']}\n\n"
+                f"Source: {item['source']['path']}\n"
+            ).encode("utf-8")
+            item["target"].update(
+                {
+                    "action": "write",
+                    "path": target_rel,
+                    "base_sha256": module._sha_bytes(
+                        module._target_template_bytes(plan, target_rel)
+                    ),
+                    "content": content.decode("utf-8"),
+                    "content_base64": None,
+                    "sha256": module._sha_bytes(content),
+                }
+            )
+        item["target"]["diff"] = module._expected_diff(plan, target_rel, content)
+        item["target_owner"] = (
+            "user-owned"
+            if item["target"]["action"] == "replay-archive"
+            else "constraint-generated"
+        )
+        item["constraint_level"] = "hard"
+        item["semantic"] = {
+            "classification": "translatable",
+            "summary": f"Fixture semantic contract for {item['source']['path']}",
+        }
+        item["adapter"] = {
+            "kind": "manual",
+            "source": "fixture user-reviewed semantic adapter",
+        }
+        item["approval"] = {
+            "status": "approved",
+            "approved_by": "fixture-user",
+        }
+        item["evidence"] = {
+            "required_level": evidence_level,
+            "level": evidence_level,
+            "status": "passed" if evidence_level in {"text-review", "static"} else "pending",
+            "details": "fixture review",
+        }
+        if evidence_level in {"contract-smoke", "native-host"}:
+            if evidence_command is not None:
+                item["evidence"]["command"] = evidence_command
+    return plan, manifest
+
+
+def _write_switch_manifest(fixture: Path, manifest: dict[str, object]) -> Path:
+    path = fixture / "approved-semantic-manifest.json"
+    path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _run_semantic_switch(
+    fixture: Path,
+    target: str,
+    manifest: Path | None = None,
+    *,
+    env: dict[str, str] | None = None,
+    dry_run: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    command = [
+        sys.executable,
+        "scripts/bridgeforge_switch.py",
+        target,
+        "--template-root",
+        str(REPO_ROOT),
+    ]
+    if manifest is not None:
+        command.extend(["--manifest", str(manifest)])
+    if dry_run:
+        command.append("--dry-run")
+    return run(command, fixture, env=env)
+
+
+def check_switch_archive_restore() -> CheckResult:
+    fixture = _build_switch_fixture()
+    custom = fixture / ".claude" / "memory" / "project-constraint.md"
+    custom.write_text("never bypass the project risk gate\n", encoding="utf-8")
+    before = _switch_live_digest(fixture, "claude")
+
+    proposal = _run_semantic_switch(fixture, "codex", dry_run=True)
+    proposal_text = proposal.stdout + proposal.stderr
+    if (
+        proposal.returncode != 2
+        or "BEGIN_BRIDGEFORGE_MIGRATION_MANIFEST" not in proposal_text
+        or _switch_live_digest(fixture, "claude") != before
+    ):
+        return CheckResult(
+            "switch_semantic_manifest_apply",
+            False,
+            f"unapproved proposal did not fail closed: {proposal_text.strip()}",
+        )
+
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-semantic-apply",
+    )
+    manifest_path = _write_switch_manifest(fixture, manifest)
+    applied = _run_semantic_switch(fixture, "codex", manifest_path)
+    text = applied.stdout + applied.stderr
+    receipts = list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+    required = [
+        fixture / ".codex" / "config.toml",
+        fixture / ".codex" / ".bridgeforge_version",
+        fixture / ".codex" / "subscription-tier.toml",
+        fixture / ".codex" / "skill-routing.json",
+        fixture / ".codex" / "agents" / "implementation-worker.toml",
+    ]
+    receipt = json.loads(receipts[0].read_text(encoding="utf-8")) if len(receipts) == 1 else {}
+    hard_receipt_items = [
+        item
+        for item in receipt.get("items", [])
+        if item.get("constraint_level") == "hard"
+    ]
+    ok = (
+        applied.returncode == 0
+        and all(path.is_file() for path in required)
+        and not (fixture / "CLAUDE.md").exists()
+        and not (fixture / ".claude").exists()
+        and len(receipts) == 1
+        and receipt.get("status") == "success"
+        and receipt.get("target_agent") == "codex"
+        and receipt.get("archive", {}).get("path")
+        and hard_receipt_items
+        and all(item.get("status") == "applied" for item in hard_receipt_items)
+        and all(item.get("evidence", {}).get("status") == "passed" for item in hard_receipt_items)
+        and "Validation passed" in text
+    )
+    return CheckResult(
+        "switch_semantic_manifest_apply",
+        ok,
+        "unapproved analysis is zero-write; approved manifest installs the complete Codex surface and writes one receipt"
+        if ok
+        else f"semantic apply failed: {text.strip()}",
+    )
+
+
+def check_switch_dry_run_full_plan() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "rules" / "project-hard.md").write_text(
+        "MUST preserve this hard rule\n",
+        encoding="utf-8",
+    )
+    before = _switch_live_digest(fixture, "claude")
+    result = _run_semantic_switch(fixture, "codex", dry_run=True)
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 2
+        and "constraint_id" in text
+        and '"constraint_level": "hard"' in text
+        and '"source_owner": "unknown-historical"' in text
+        and '"required_level": "text-review"' in text
+        and _switch_live_digest(fixture, "claude") == before
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_semantic_proposal",
+        ok,
+        "dry-run emits per-item semantic, ownership, hash, adapter, approval, and evidence fields without writes"
+        if ok
+        else f"semantic proposal contract failed: {text.strip()}",
+    )
+
+
+def check_switch_complete_target_cleanup_only() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / "AGENTS.md").write_text("preexisting target\n", encoding="utf-8")
+    (fixture / ".codex").mkdir()
+    before = _switch_live_digest(fixture, "claude")
+    result = _run_semantic_switch(fixture, "codex")
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 2
+        and "target live paths already exist" in text
+        and _switch_live_digest(fixture, "claude") == before
+        and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "preexisting target\n"
+    )
+    return CheckResult(
+        "switch_target_prestate_fail_closed",
+        ok,
+        "pre-existing target state blocks semantic switch and both live trees remain unchanged"
+        if ok
+        else f"target pre-state was not fail-closed: {text.strip()}",
+    )
+
+
+def check_switch_claude_complete_target_cleanup_only() -> CheckResult:
+    fixture = build_codex_fixture()
+    scripts_dir = fixture / "scripts"
+    scripts_dir.mkdir(exist_ok=True)
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", scripts_dir / "bridgeforge_switch.py")
+    (fixture / ".codex" / "memory" / "roundtrip.md").write_text(
+        "roundtrip constraint\n",
+        encoding="utf-8",
+    )
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "claude",
+        migration_id="fixture-codex-to-claude",
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "claude", path)
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 0
+        and (fixture / "CLAUDE.md").is_file()
+        and (fixture / ".claude" / "settings.json").is_file()
+        and not (fixture / "AGENTS.md").exists()
+        and not (fixture / ".codex").exists()
+        and "Validation passed" in text
+    )
+    return CheckResult(
+        "switch_bidirectional_semantic_apply",
+        ok,
+        "Codex-to-Claude uses the same approved semantic manifest path"
+        if ok
+        else f"Codex-to-Claude semantic apply failed: {text.strip()}",
+    )
+
+
+def check_switch_partial_target_conflict_stops() -> CheckResult:
+    _safe_reset_dir(SWITCH_FIXTURE)
+    fixture = SWITCH_FIXTURE
+    (fixture / "scripts").mkdir()
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", fixture / "scripts" / "bridgeforge_switch.py")
+    (fixture / "AGENTS.md").write_text("partial target\n", encoding="utf-8")
+    result = _run_semantic_switch(fixture, "codex")
+    ok = (
+        result.returncode == 2
+        and (fixture / "AGENTS.md").read_text(encoding="utf-8") == "partial target\n"
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_partial_target_conflict_stops",
+        ok,
+        "partial target entry blocks before any mutation"
+        if ok
+        else f"partial target did not block: {(result.stdout + result.stderr).strip()}",
+    )
+
+
+def check_switch_partial_target_dir_conflict_stops() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / ".codex").mkdir()
+    before = _switch_live_digest(fixture, "claude")
+    result = _run_semantic_switch(fixture, "codex")
+    ok = (
+        result.returncode == 2
+        and _switch_live_digest(fixture, "claude") == before
+        and (fixture / ".codex").is_dir()
+    )
+    return CheckResult(
+        "switch_partial_target_dir_conflict_stops",
+        ok,
+        "partial target config directory blocks with the old live tree unchanged"
+        if ok
+        else f"partial target directory did not block: {(result.stdout + result.stderr).strip()}",
+    )
+
+
+def check_switch_memory_conflict_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    custom = fixture / ".claude" / "hooks" / "project_hard_gate.py"
+    custom.write_text("raise SystemExit(0)\n", encoding="utf-8")
+    before = _switch_live_digest(fixture, "claude")
+    _plan, weak_manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-evidence-too-weak",
+        evidence_level="text-review",
+    )
+    weak_path = _write_switch_manifest(fixture, weak_manifest)
+    weak = _run_semantic_switch(fixture, "codex", weak_path, dry_run=True)
+    weak_text = weak.stdout + weak.stderr
+    if (
+        weak.returncode != 2
+        or "evidence level is below the minimum" not in weak_text
+        or _switch_live_digest(fixture, "claude") != before
+    ):
+        return CheckResult(
+            "switch_native_evidence_fail_closed",
+            False,
+            f"hard executable accepted text review evidence: {weak_text.strip()}",
+        )
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-native-evidence-failure",
+        evidence_level="native-host",
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path)
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 2
+        and "sandbox-unavailable" in text
+        and _switch_live_digest(fixture, "claude") == before
+        and not (fixture / ".codex").exists()
+        and not list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+    )
+    return CheckResult(
+        "switch_native_evidence_fail_closed",
+        ok,
+        "native-host evidence is sandbox-unavailable and blocks before live mutation or receipt"
+        if ok
+        else f"native evidence failure was not fail-closed: {text.strip()}",
+    )
+
+
+def check_switch_settings_decision() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "memory" / "hash-drift.md").write_text(
+        "original constraint\n",
+        encoding="utf-8",
+    )
+    before = _switch_live_digest(fixture, "claude")
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-hash-drift",
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    (fixture / ".claude" / "memory" / "hash-drift.md").write_text(
+        "changed after approval\n",
+        encoding="utf-8",
+    )
+    changed = _switch_live_digest(fixture, "claude")
+    result = _run_semantic_switch(fixture, "codex", path)
+    text = result.stdout + result.stderr
+    ok = (
+        before != changed
+        and result.returncode == 2
+        and ("snapshots are stale" in text or "exact live" in text)
+        and _switch_live_digest(fixture, "claude") == changed
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_hash_drift_blocked",
+        ok,
+        "source drift after approval invalidates the manifest before staging or live mutation"
+        if ok
+        else f"hash drift was not blocked: {text.strip()}",
+    )
+
+
+def check_switch_codex_to_claude_archive_scope() -> CheckResult:
+    failures: list[str] = []
+    for fault in (
+        "after-old-detach",
+        "after-target-entry-enable",
+        "after-target-enable",
+        "after-archive-finalize",
+        "after-receipt",
+    ):
+        fixture = _build_switch_fixture()
+        (fixture / ".claude" / "memory" / "rollback.md").write_text(
+            "rollback sentinel\n",
+            encoding="utf-8",
+        )
+        before = _switch_live_digest(fixture, "claude")
+        _plan, manifest = _semantic_manifest(
+            fixture,
+            "codex",
+            migration_id=f"fixture-rollback-{fault}",
+        )
+        path = _write_switch_manifest(fixture, manifest)
+        result = _run_semantic_switch(
+            fixture,
+            "codex",
+            path,
+            env={"BRIDGEFORGE_SWITCH_FAIL_AT": fault},
+        )
+        text = result.stdout + result.stderr
+        restored = (
+            result.returncode == 1
+            and "rolled back" in text
+            and _switch_live_digest(fixture, "claude") == before
+            and not (fixture / "AGENTS.md").exists()
+            and not (fixture / ".codex").exists()
+            and not list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+            and not (fixture / ".bridgeforge" / "archive" / "claude").exists()
+        )
+        if not restored:
+            failures.append(f"{fault}: exit={result.returncode} {text.strip()}")
+    ok = not failures
+    return CheckResult(
+        "switch_transaction_rollback",
+        ok,
+        "all commit mutation fault points restore old live, target/archive pre-state, and remove success receipts"
+        if ok
+        else "transaction rollback failed: " + "; ".join(failures),
+    )
+
+
+def check_switch_no_old_installs_target() -> CheckResult:
+    _safe_reset_dir(SWITCH_FIXTURE)
+    fixture = SWITCH_FIXTURE
+    (fixture / "scripts").mkdir()
+    shutil.copy2(CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py", fixture / "scripts" / "bridgeforge_switch.py")
+    result = _run_semantic_switch(fixture, "codex")
+    receipts = list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+    ok = (
+        result.returncode == 0
+        and (fixture / "AGENTS.md").is_file()
+        and (fixture / ".codex" / "config.toml").is_file()
+        and (fixture / ".codex" / ".bridgeforge_version").read_text(
+            encoding="utf-8"
+        ).strip() == (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        and (fixture / ".codex" / "subscription-tier.toml").is_file()
+        and (fixture / ".codex" / "skill-routing.json").is_file()
+        and (fixture / ".codex" / "agents" / "review-auditor.toml").is_file()
+        and len(receipts) == 1
+    )
+    return CheckResult(
+        "switch_no_old_installs_target",
+        ok,
+        "empty project installs the complete target surface and records the baseline receipt"
+        if ok
+        else f"complete target install failed: {(result.stdout + result.stderr).strip()}",
+    )
+
+
+def check_switch_legacy_archive_fail_closed() -> CheckResult:
+    fixture = _build_switch_fixture()
+    _add_codex_archive(fixture)
+    before = _switch_live_digest(fixture, "claude")
+    result = _run_semantic_switch(fixture, "codex", dry_run=True)
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 2
+        and "Legacy target archive provenance: missing" in text
+        and '"origin": "target-archive"' in text
+        and '"source_owner": "unknown-historical"' in text
+        and _switch_live_digest(fixture, "claude") == before
+        and not (fixture / ".codex").exists()
+    )
+    return CheckResult(
+        "switch_legacy_archive_fail_closed",
+        ok,
+        "legacy target archive without receipt provenance is inventoried item-by-item and blocked"
+        if ok
+        else f"legacy archive was not fail-closed: {text.strip()}",
+    )
+
+
+def check_switch_roundtrip_lineage() -> CheckResult:
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "memory" / "lineage.md").write_text(
+        "lineage sentinel\n",
+        encoding="utf-8",
+    )
+    _plan, first_manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-lineage-forward",
+    )
+    first_path = _write_switch_manifest(fixture, first_manifest)
+    first = _run_semantic_switch(fixture, "codex", first_path)
+    if first.returncode != 0:
+        return CheckResult(
+            "switch_roundtrip_lineage",
+            False,
+            f"forward migration failed: {(first.stdout + first.stderr).strip()}",
+        )
+
+    _plan, return_manifest = _semantic_manifest(
+        fixture,
+        "claude",
+        migration_id="fixture-lineage-return",
+    )
+    return_path = _write_switch_manifest(fixture, return_manifest)
+    returned = _run_semantic_switch(fixture, "claude", return_path)
+    receipts = sorted((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+    return_receipt_path = (
+        fixture
+        / ".bridgeforge"
+        / "migrations"
+        / "fixture-lineage-return"
+        / "receipt.json"
+    )
+    return_receipt = (
+        json.loads(return_receipt_path.read_text(encoding="utf-8"))
+        if return_receipt_path.exists()
+        else {}
+    )
+    generated = [
+        item
+        for item in return_receipt.get("target", {}).get("files", [])
+        if item.get("target_owner") == "constraint-generated"
+    ]
+    second_ok = (
+        returned.returncode == 0
+        and len(receipts) == 2
+        and "fixture-lineage-forward" in return_receipt.get("parent_migration_ids", [])
+        and len(generated) == 1
+        and not (fixture / ".claude" / "memory" / "lineage.md").exists()
+    )
+    if not second_ok:
+        return CheckResult(
+            "switch_roundtrip_lineage",
+            False,
+            f"second migration failed: {(returned.stdout + returned.stderr).strip()}",
+        )
+
+    _plan, third_manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-lineage-third",
+    )
+    third_path = _write_switch_manifest(fixture, third_manifest)
+    third = _run_semantic_switch(fixture, "codex", third_path)
+    third_receipt_path = (
+        fixture
+        / ".bridgeforge"
+        / "migrations"
+        / "fixture-lineage-third"
+        / "receipt.json"
+    )
+    third_receipt = (
+        json.loads(third_receipt_path.read_text(encoding="utf-8"))
+        if third_receipt_path.exists()
+        else {}
+    )
+    third_generated = [
+        item
+        for item in third_receipt.get("target", {}).get("files", [])
+        if item.get("target_owner") == "constraint-generated"
+    ]
+    ok = (
+        third.returncode == 0
+        and len(
+            list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+        ) == 3
+        and "fixture-lineage-return" in third_receipt.get("parent_migration_ids", [])
+        and len(third_generated) == 1
+        and not (fixture / ".codex" / "memory" / "lineage.md").exists()
+    )
+    return CheckResult(
+        "switch_roundtrip_lineage",
+        ok,
+        "three-hop roundtrip preserves stable lineage and suppresses generated archive duplicates"
+        if ok
+        else f"third migration failed: {(third.stdout + third.stderr).strip()}",
+    )
+
+
+def check_switch_evidence_attack_rollback() -> CheckResult:
+    failures: list[str] = []
+
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "hooks" / "project_gate.py"
+    source.write_text("raise SystemExit(0)\n", encoding="utf-8")
+    before = _switch_live_digest(fixture, "claude")
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-evidence-stage-tamper",
+        evidence_level="contract-smoke",
+        evidence_command=[
+            sys.executable,
+            "-c",
+            (
+                "from pathlib import Path; "
+                "Path('.codex/rules/semantic-projection-1.md').write_text("
+                "'tampered by evidence\\n', encoding='utf-8')"
+            ),
+        ],
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "manifest evidence.command is forbidden" in text
+        and _switch_live_digest(fixture, "claude") == before
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("stage tamper: " + text.strip())
+
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "hooks" / "project_gate.py"
+    original = b"raise SystemExit(0)\n"
+    source.write_bytes(original)
+    encoded_path = base64.b64encode(str(source.resolve()).encode("utf-8")).decode("ascii")
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-evidence-source-tamper",
+        evidence_level="contract-smoke",
+        evidence_command=[
+            sys.executable,
+            "-c",
+            (
+                "import base64; from pathlib import Path; "
+                f"Path(base64.b64decode({encoded_path!r}).decode()).write_text("
+                "'mutated old live\\n', encoding='utf-8')"
+            ),
+        ],
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "manifest evidence.command is forbidden" in text
+        and source.read_bytes() == original
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("source tamper: " + text.strip())
+
+    return CheckResult(
+        "switch_evidence_attack_rollback",
+        not failures,
+        "manifest evidence commands never execute; stage/live attack payloads leave old live byte-identical"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_switch_manifest_security_binding() -> CheckResult:
+    failures: list[str] = []
+    module = _switch_module()
+
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "memory" / "hard.md").write_text(
+        "hard constraint\n",
+        encoding="utf-8",
+    )
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-manifest-downgrade",
+    )
+    hard = next(item for item in manifest["items"] if item["target"]["action"] == "write")
+    hard["source_owner"] = "template-managed"
+    hard["constraint_level"] = "platform-detail"
+    hard["semantic"]["classification"] = "platform-detail"
+    hard["target"] = {
+        "action": "not-applicable",
+        "path": None,
+        "base_sha256": None,
+        "sha256": None,
+        "content": None,
+        "diff": "",
+    }
+    hard["target_owner"] = None
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and (
+            "source_owner does not match proven provenance" in text
+            or "constraint_level cannot be downgraded" in text
+        )
+        and (fixture / "CLAUDE.md").exists()
+    ):
+        failures.append("hard downgrade: " + text.strip())
+
+    fixture = _build_switch_fixture()
+    archive = _add_codex_archive(fixture)
+    plan = module.build_plan("codex", fixture.resolve(), REPO_ROOT.resolve())
+    manifest = module.build_proposal(plan, migration_id="fixture-archive-owner-forgery")
+    forged = next(
+        item
+        for item in manifest["items"]
+        if item["source"]["origin"] == "target-archive"
+    )
+    source_path = plan.archive_files[forged["source"]["path"]]
+    target_rel = forged["source"]["path"]
+    forged["source_owner"] = "user-owned"
+    forged["target_owner"] = "user-owned"
+    forged["semantic"] = {
+        "classification": "translatable",
+        "summary": "forged archive ownership",
+    }
+    forged["target"].update(
+        {
+            "action": "replay-archive",
+            "path": target_rel,
+            "base_sha256": module._sha_bytes(
+                module._target_template_bytes(plan, target_rel)
+            ),
+            "sha256": module._sha_file(source_path),
+            "diff": module._expected_diff(plan, target_rel, source_path.read_bytes()),
+        }
+    )
+    forged["adapter"] = {"kind": "manual", "source": "forged"}
+    forged["approval"] = {"status": "approved", "approved_by": "fixture-user"}
+    forged["evidence"] = {
+        "required_level": "text-review",
+        "level": "text-review",
+        "status": "passed",
+        "details": "forged",
+    }
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "source_owner does not match proven provenance" in text
+        and archive.exists()
+        and (fixture / "CLAUDE.md").exists()
+    ):
+        failures.append("archive owner forgery: " + text.strip())
+
+    return CheckResult(
+        "switch_manifest_security_binding",
+        not failures,
+        "manifest cannot downgrade hard/unknown inventory or forge archive ownership"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_switch_path_and_target_evidence_guards() -> CheckResult:
+    failures: list[str] = []
+    module = _switch_module()
+
+    fixture = _build_switch_fixture()
+    for name in ("one.md", "two.md"):
+        (fixture / ".claude" / "memory" / name).write_text(
+            name + "\n",
+            encoding="utf-8",
+        )
+    plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-windows-path-collision",
+    )
+    writes = [item for item in manifest["items"] if item["target"]["action"] == "write"]
+    second = writes[1]
+    collision_rel = writes[0]["target"]["path"].upper().replace(".CODEX", ".codex")
+    content = second["target"]["content"].encode("utf-8")
+    second["target"].update(
+        {
+            "path": collision_rel,
+            "base_sha256": module._sha_bytes(
+                module._target_template_bytes(plan, collision_rel)
+            ),
+            "sha256": module._sha_bytes(content),
+            "diff": module._expected_diff(plan, collision_rel, content),
+        }
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "Windows path collision" in text
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("Windows collision: " + text.strip())
+
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "memory" / "text-source.md").write_text(
+        "text source\n",
+        encoding="utf-8",
+    )
+    plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-target-executable-evidence",
+    )
+    item = next(item for item in manifest["items"] if item["target"]["action"] == "write")
+    target_rel = ".codex/Hooks/project_gate"
+    content = b"raise SystemExit(0)\n"
+    item["target"].update(
+        {
+            "path": target_rel,
+            "base_sha256": module._sha_bytes(
+                module._target_template_bytes(plan, target_rel)
+            ),
+            "content": content.decode("utf-8"),
+            "sha256": module._sha_bytes(content),
+            "diff": module._expected_diff(plan, target_rel, content),
+        }
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "evidence level is below the minimum" in text
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("target executable evidence: " + text.strip())
+
+    fixture = _build_switch_fixture()
+    (fixture / ".claude" / "memory" / "uppercase-suffix.md").write_text(
+        "text source\n",
+        encoding="utf-8",
+    )
+    plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-uppercase-executable-evidence",
+    )
+    item = next(item for item in manifest["items"] if item["target"]["action"] == "write")
+    target_rel = ".codex/rules/project_gate.PY"
+    content = b"raise SystemExit(0)\n"
+    item["target"].update(
+        {
+            "path": target_rel,
+            "base_sha256": module._sha_bytes(
+                module._target_template_bytes(plan, target_rel)
+            ),
+            "content": content.decode("utf-8"),
+            "sha256": module._sha_bytes(content),
+            "diff": module._expected_diff(plan, target_rel, content),
+        }
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 2
+        and "evidence level is below the minimum" in text
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("uppercase executable suffix: " + text.strip())
+
+    return CheckResult(
+        "switch_path_and_target_evidence_guards",
+        not failures,
+        "Windows-equivalent collisions and case-insensitive hook/executable evidence bypasses are blocked"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_switch_link_boundary() -> CheckResult:
+    fixture = _build_switch_fixture()
+    link = fixture / "AGENTS.md"
+    try:
+        os.symlink(fixture / "missing-target", link)
+    except OSError as exc:
+        source = (REPO_ROOT / "scripts" / "bridgeforge_switch.py").read_text(encoding="utf-8")
+        ok = "_assert_no_links" in source and "_assert_project_local" in source
+        return CheckResult(
+            "switch_link_boundary",
+            ok,
+            f"platform denied symlink creation; static fail-closed guards present ({exc})",
+        )
+    result = _run_semantic_switch(fixture, "codex")
+    text = result.stdout + result.stderr
+    ok = (
+        result.returncode == 2
+        and ("symlink or junction" in text or "target live paths already exist" in text)
+        and link.is_symlink()
+        and (fixture / "CLAUDE.md").exists()
+    )
+    return CheckResult(
+        "switch_link_boundary",
+        ok,
+        "broken target symlink/junction blocks before inventory or mutation"
+        if ok
+        else f"link boundary failed: {text.strip()}",
+    )
+
+
+def check_switch_constraint_archive_requires_adapter() -> CheckResult:
+    fixture = _build_switch_fixture()
+    archive = fixture / ".bridgeforge" / "archive" / "codex" / "20260707-153000"
+    archive.mkdir(parents=True)
+    shutil.copy2(CODEX_TEMPLATE / "AGENTS.md", archive / "AGENTS.md")
+    target = archive / "AGENTS.md"
+    receipt_dir = fixture / ".bridgeforge" / "migrations" / "fixture-prior-provenance"
+    receipt_dir.mkdir(parents=True)
+    receipt = {
+        "schema_version": 2,
+        "migration_id": "fixture-prior-provenance",
+        "status": "success",
+        "source_agent": "claude",
+        "target_agent": "codex",
+        "archive": {
+            "path": archive.relative_to(fixture).as_posix(),
+            "files": [
+                {
+                    "path": "AGENTS.md",
+                    "sha256": "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest(),
+                    "source_owner": "constraint-generated",
+                    "constraint_id": "bf-fixture-generated",
+                    "constraint_level": "hard",
+                    "semantic": {
+                        "classification": "translatable",
+                        "summary": "generated fixture constraint",
+                    },
+                    "adapter": {
+                        "kind": "manual",
+                        "source": "old adapter",
+                        "id": "fixture-adapter",
+                        "version": "1",
+                    },
+                }
+            ],
+        },
+        "target": {"files": []},
+    }
+    (receipt_dir / "receipt.json").write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    module = _switch_module()
+    plan = module.build_plan("codex", fixture.resolve(), REPO_ROOT.resolve())
+    manifest = module.build_proposal(plan, migration_id="fixture-generated-archive-block")
+    generated = next(
+        item
+        for item in manifest["items"]
+        if item["constraint_id"] == "bf-fixture-generated"
+    )
+    proposal_blocked = (
+        generated["target"]["action"] == "unresolved"
+        and generated["adapter"]["kind"] == "unavailable"
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(fixture, "codex", path, dry_run=True)
+    text = result.stdout + result.stderr
+    ok = (
+        proposal_blocked
+        and result.returncode == 2
+        and "no registered adapter is available" in text
+        and target.exists()
+        and (fixture / "CLAUDE.md").exists()
+    )
+    return CheckResult(
+        "switch_constraint_archive_requires_adapter",
+        ok,
+        "constraint-generated archive bytes are never replayed without a registered current adapter"
+        if ok
+        else f"constraint archive replay guard failed: {text.strip()}",
+    )
+
+
+def check_switch_archive_receipt_integrity() -> CheckResult:
+    failures: list[str] = []
+    cases = {
+        "missing": "registered-but-missing",
+        "extra": "unregistered-extra",
+        "mismatch": "hash-mismatch",
+    }
+    for case, expected_message in cases.items():
+        fixture = build_codex_fixture()
+        scripts_dir = fixture / "scripts"
+        scripts_dir.mkdir(exist_ok=True)
+        shutil.copy2(
+            CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py",
+            scripts_dir / "bridgeforge_switch.py",
+        )
+        before = _switch_live_digest(fixture, "codex")
+        archive = fixture / ".bridgeforge" / "archive" / "claude" / "20260707-153000"
+        archive.mkdir(parents=True)
+        rel = ".claude/memory/user-owned.md"
+        actual = archive / rel
+        if case in {"extra", "mismatch"}:
+            actual.parent.mkdir(parents=True)
+            actual.write_text("actual archive bytes\n", encoding="utf-8")
+        records: list[dict[str, object]] = []
+        if case in {"missing", "mismatch"}:
+            expected_bytes = (
+                b"approved but now missing\n"
+                if case == "missing"
+                else b"different approved bytes\n"
+            )
+            records.append(
+                {
+                    "path": rel,
+                    "sha256": "sha256:" + hashlib.sha256(expected_bytes).hexdigest(),
+                    "source_owner": "user-owned",
+                    "constraint_id": "bf-user-owned-archive",
+                    "constraint_level": "hard",
+                    "semantic": {
+                        "classification": "translatable",
+                        "summary": "registered user-owned archive delta",
+                    },
+                    "adapter": {"kind": "manual", "source": "fixture"},
+                }
+            )
+        receipt_dir = fixture / ".bridgeforge" / "migrations" / f"fixture-archive-{case}"
+        receipt_dir.mkdir(parents=True)
+        receipt = {
+            "schema_version": 2,
+            "migration_id": f"fixture-archive-{case}",
+            "status": "success",
+            "source_agent": "codex",
+            "target_agent": "claude",
+            "archive": {
+                "path": archive.relative_to(fixture).as_posix(),
+                "files": records,
+            },
+            "target": {"files": []},
+        }
+        (receipt_dir / "receipt.json").write_text(
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        result = _run_semantic_switch(fixture, "claude", dry_run=True)
+        text = result.stdout + result.stderr
+        if not (
+            result.returncode == 2
+            and expected_message in text
+            and _switch_live_digest(fixture, "codex") == before
+            and archive.exists()
+            and not (fixture / ".claude").exists()
+        ):
+            failures.append(f"{case}: {text.strip()}")
+    return CheckResult(
+        "switch_archive_receipt_integrity",
+        not failures,
+        "v2 receipt and archive inventory are bidirectionally exact for missing, extra, and hash-drift cases"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_switch_backup_toctou() -> CheckResult:
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "memory" / "toctou.md"
+    original = b"approved source bytes\n"
+    source.write_bytes(original)
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-backup-toctou",
+    )
+    module = _switch_module()
+    plan = module.build_plan("codex", fixture.resolve(), REPO_ROOT.resolve())
+    original_copy = module._copy_agent_snapshot
+
+    def attacked_copy(spec, source_root, snapshot_root):
+        original_copy(spec, source_root, snapshot_root)
+        if Path(source_root).resolve() == fixture.resolve():
+            source.write_bytes(b"concurrent drift during backup\n")
+
+    module._copy_agent_snapshot = attacked_copy
+    error = ""
+    try:
+        module.apply_manifest(plan, manifest)
+    except Exception as exc:
+        error = str(exc)
+    finally:
+        module._copy_agent_snapshot = original_copy
+    ok = (
+        "source live changed while its rollback snapshot was copied" in error
+        and source.read_bytes() == original
+        and not (fixture / ".codex").exists()
+        and not list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+    )
+    return CheckResult(
+        "switch_backup_toctou",
+        ok,
+        "post-copy live and backup snapshots are revalidated; concurrent source drift restores approved bytes"
+        if ok
+        else f"backup TOCTOU guard failed: {error}",
+    )
+
+
+def check_switch_detached_toctou() -> CheckResult:
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "memory" / "detached-toctou.md"
+    original = b"approved detached bytes\n"
+    source.write_bytes(original)
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-detached-toctou",
+    )
+    module = _switch_module()
+    plan = module.build_plan("codex", fixture.resolve(), REPO_ROOT.resolve())
+    original_move = module._move_agent_paths
+
+    def attacked_move(spec, source_root, target_root, **kwargs):
+        original_move(spec, source_root, target_root, **kwargs)
+        if (
+            Path(source_root).resolve() == fixture.resolve()
+            and Path(target_root).name == ".detached-old"
+        ):
+            detached = Path(target_root) / ".claude" / "memory" / "detached-toctou.md"
+            detached.write_bytes(b"unapproved detached drift\n")
+
+    module._move_agent_paths = attacked_move
+    error = ""
+    try:
+        module.apply_manifest(plan, manifest)
+    except Exception as exc:
+        error = str(exc)
+    finally:
+        module._move_agent_paths = original_move
+    ok = (
+        "detached source differs from the approved source snapshot" in error
+        and source.read_bytes() == original
+        and not (fixture / ".codex").exists()
+        and not list((fixture / ".bridgeforge" / "migrations").glob("*/receipt.json"))
+        and not (fixture / ".bridgeforge" / "archive" / "claude").exists()
+    )
+    return CheckResult(
+        "switch_detached_toctou",
+        ok,
+        "detached source is revalidated before target enable; drift restores the approved backup"
+        if ok
+        else f"detached TOCTOU guard failed: {error}",
+    )
+
+
+def check_switch_archive_destination_ownership() -> CheckResult:
+    failures: list[str] = []
+
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "memory" / "archive-collision.md"
+    source.write_text("approved source\n", encoding="utf-8")
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-archive-collision",
+    )
+    module = _switch_module()
+    plan = module.build_plan("codex", fixture.resolve(), REPO_ROOT.resolve())
+    original_timestamp = module._timestamp
+    module._timestamp = lambda: "20260725-235959"
+    collision = (
+        fixture
+        / ".bridgeforge"
+        / "archive"
+        / "claude"
+        / "20260725-235959-fixture-archive-collision"
+    )
+    collision.mkdir(parents=True)
+    sentinel = collision / "preexisting.txt"
+    sentinel.write_bytes(b"preexisting archive bytes\n")
+    error = ""
+    try:
+        module.apply_manifest(plan, manifest)
+    except Exception as exc:
+        error = str(exc)
+    finally:
+        module._timestamp = original_timestamp
+    if not (
+        "archive destination already exists" in error
+        and sentinel.read_bytes() == b"preexisting archive bytes\n"
+        and source.read_text(encoding="utf-8") == "approved source\n"
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("preexisting destination: " + error)
+
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "memory" / "archive-fault.md"
+    source.write_text("approved source\n", encoding="utf-8")
+    preexisting = fixture / ".bridgeforge" / "archive" / "claude" / "preexisting"
+    preexisting.mkdir(parents=True)
+    sentinel = preexisting / "sentinel.bin"
+    sentinel.write_bytes(b"must survive rollback\n")
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-archive-owned-fault",
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(
+        fixture,
+        "codex",
+        path,
+        env={"BRIDGEFORGE_SWITCH_FAIL_AT": "after-archive-finalize"},
+    )
+    text = result.stdout + result.stderr
+    remaining = sorted(
+        path.name
+        for path in (fixture / ".bridgeforge" / "archive" / "claude").iterdir()
+    )
+    if not (
+        result.returncode == 1
+        and "rolled back" in text
+        and sentinel.read_bytes() == b"must survive rollback\n"
+        and remaining == ["preexisting"]
+        and source.read_text(encoding="utf-8") == "approved source\n"
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("finalize rollback ownership: " + text.strip())
+
+    fixture = _build_switch_fixture()
+    source = fixture / ".claude" / "memory" / "empty-parent-fault.md"
+    source.write_text("approved source\n", encoding="utf-8")
+    preexisting_empty_parent = (
+        fixture / ".bridgeforge" / "archive" / "claude"
+    )
+    preexisting_empty_parent.mkdir(parents=True)
+    _plan, manifest = _semantic_manifest(
+        fixture,
+        "codex",
+        migration_id="fixture-empty-archive-parent-fault",
+    )
+    path = _write_switch_manifest(fixture, manifest)
+    result = _run_semantic_switch(
+        fixture,
+        "codex",
+        path,
+        env={"BRIDGEFORGE_SWITCH_FAIL_AT": "after-archive-finalize"},
+    )
+    text = result.stdout + result.stderr
+    if not (
+        result.returncode == 1
+        and "rolled back" in text
+        and preexisting_empty_parent.is_dir()
+        and not any(preexisting_empty_parent.iterdir())
+        and source.read_text(encoding="utf-8") == "approved source\n"
+        and not (fixture / ".codex").exists()
+    ):
+        failures.append("preexisting empty archive parent: " + text.strip())
+
+    return CheckResult(
+        "switch_archive_destination_ownership",
+        not failures,
+        "archive destination/parent ownership is explicit; rollback preserves preexisting data and empty parents"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def _build_layout_migration_fixture(platform: str = "codex") -> Path:
+    _safe_reset_dir(LAYOUT_MIGRATION_FIXTURE)
+    fixture = LAYOUT_MIGRATION_FIXTURE
+    (fixture / f".{platform}").mkdir()
+    entry = "AGENTS.md" if platform == "codex" else "CLAUDE.md"
+    (fixture / entry).write_text("fixture\n", encoding="utf-8")
+    _stage_manifest_skill(fixture / ".agents" / "skills" / "explain", "explain")
+    private = fixture / ".agents" / "skills" / "project-only"
+    private.mkdir(parents=True)
+    (private / "SKILL.md").write_text(
+        "---\nname: project-only\n---\n",
+        encoding="utf-8",
+    )
+    return fixture
+
+
+def _stage_manifest_skill(destination: Path, name: str) -> None:
+    manifest = json.loads(
+        (REPO_ROOT / "shared-skill-manifest.json").read_text(encoding="utf-8-sig")
+    )
+    records = manifest["platforms"]["codex"]["skills"]
+    record = next(item for item in records if item["name"] == name)
+    for file_record in record["files"]:
+        source = REPO_ROOT / file_record["source"]
+        target = destination / file_record["target"]
+        expected = file_record["sha256"].removeprefix("sha256:")
+        if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
+            raise RuntimeError(f"manifest hash is stale for fixture source: {source}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def _run_layout_migration(fixture: Path, mode: str) -> subprocess.CompletedProcess[str]:
+    return run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "bridgeforge_migrate_layout.py"),
+            "--project-root",
+            str(fixture),
+            mode,
+        ],
+        fixture,
+    )
+
+
+def check_layout_migration_dry_run_apply() -> CheckResult:
+    fixture = _build_layout_migration_fixture()
+    dry_run = _run_layout_migration(fixture, "--dry-run")
+    dry_text = dry_run.stdout + dry_run.stderr
+    dry_preserved = (
+        (fixture / ".agents" / "skills" / "explain" / "SKILL.md").is_file()
+        and (fixture / ".agents" / "skills" / "project-only" / "SKILL.md").is_file()
+        and not (fixture / ".codex" / "skills").exists()
+    )
+    applied = _run_layout_migration(fixture, "--apply")
+    applied_text = applied.stdout + applied.stderr
+    codex_ok = (
+        dry_run.returncode == 0
+        and '"action": "delete_managed_skill_copy"' in dry_text
+        and '"action": "move_project_private_skill"' in dry_text
+        and dry_preserved
+        and applied.returncode == 0
+        and not (fixture / ".agents").exists()
+        and (fixture / ".codex" / "skills" / "project-only" / "SKILL.md").is_file()
+        and not (fixture / ".codex" / "skills" / "explain").exists()
+        and "Migration applied" in applied_text
+    )
+    claude_fixture = _build_layout_migration_fixture("claude")
+    claude_applied = _run_layout_migration(claude_fixture, "--apply")
+    claude_text = claude_applied.stdout + claude_applied.stderr
+    claude_ok = (
+        claude_applied.returncode == 0
+        and not (claude_fixture / ".agents").exists()
+        and (
+            claude_fixture
+            / ".claude"
+            / "skills"
+            / "project-only"
+            / "SKILL.md"
+        ).is_file()
+        and not (
+            claude_fixture / ".claude" / "skills" / "explain"
+        ).exists()
+    )
+    ok = codex_ok and claude_ok
+    return CheckResult(
+        "layout_migration_dry_run_apply",
+        ok,
+        "dry-run classifies without writes; --apply removes managed copies, moves private skill into .codex/skills, and retires .agents"
+        if ok
+        else (
+            f"expected dry-run/apply migration contract, dry={dry_run.returncode}, "
+            f"apply={applied.returncode}, claude={claude_applied.returncode}: "
+            f"{(dry_text + applied_text + claude_text).strip()}"
+        ),
+    )
+
+
+def check_layout_migration_blockers_are_local() -> CheckResult:
+    fixture = _build_layout_migration_fixture()
+    for managed_name in ("bridgeforge", "develop"):
+        modified = fixture / ".agents" / "skills" / managed_name
+        modified.mkdir(parents=True)
+        (modified / "SKILL.md").write_text(
+            f"locally customized {managed_name}\n",
+            encoding="utf-8",
+        )
+    collision = fixture / ".codex" / "skills" / "project-only"
+    collision.mkdir(parents=True)
+    (collision / "SKILL.md").write_text("existing\n", encoding="utf-8")
+    unknown = fixture / ".agents" / "unknown.txt"
+    unknown.write_text("do not delete\n", encoding="utf-8")
+    sibling = fixture.parent / "layout-migration-other-project"
+    _safe_reset_dir(sibling)
+    sibling_marker = sibling / ".agents" / "keep.txt"
+    sibling_marker.parent.mkdir(parents=True)
+    sibling_marker.write_text("untouched\n", encoding="utf-8")
+
+    applied = _run_layout_migration(fixture, "--apply")
+    text = applied.stdout + applied.stderr
+    ok = (
+        applied.returncode == 2
+        and "无法分类内容" in text
+        and "目标已存在" in text
+        and text.count("与 manifest 文件清单或哈希不一致") == 2
+        and unknown.read_text(encoding="utf-8") == "do not delete\n"
+        and (fixture / ".agents" / "skills" / "explain" / "SKILL.md").is_file()
+        and (fixture / ".agents" / "skills" / "bridgeforge" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        == "locally customized bridgeforge\n"
+        and (fixture / ".agents" / "skills" / "develop" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        == "locally customized develop\n"
+        and (fixture / ".agents" / "skills" / "project-only" / "SKILL.md").is_file()
+        and sibling_marker.read_text(encoding="utf-8") == "untouched\n"
+    )
+    return CheckResult(
+        "layout_migration_blockers_are_local",
+        ok,
+        "unknown content and destination conflicts block all writes, and another project's .agents remains untouched"
+        if ok
+        else f"expected local blocker with zero writes, got exit {applied.returncode}: {text.strip()}",
+    )
+
+
+def check_layout_migration_transaction_rollback() -> CheckResult:
+    fixture = _build_layout_migration_fixture()
+    script = REPO_ROOT / "scripts" / "bridgeforge_migrate_layout.py"
+    spec = importlib.util.spec_from_file_location(
+        "bridgeforge_migrate_layout_harness",
+        script,
+    )
+    if spec is None or spec.loader is None:
+        return CheckResult(
+            "layout_migration_transaction_rollback",
+            False,
+            "could not import migration module",
+        )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    plan = module.build_plan(fixture, script)
+    original_remove = module._remove_empty_tree
+
+    def injected_failure(_root: Path) -> None:
+        raise OSError("injected failure after staging")
+
+    module._remove_empty_tree = injected_failure
+    failed = False
+    try:
+        module.apply_plan(plan)
+    except OSError:
+        failed = True
+    finally:
+        module._remove_empty_tree = original_remove
+        sys.modules.pop(spec.name, None)
+
+    ok = (
+        failed
+        and (fixture / ".agents" / "skills" / "explain" / "SKILL.md").is_file()
+        and (fixture / ".agents" / "skills" / "project-only" / "SKILL.md").is_file()
+        and not (fixture / ".codex" / "skills" / "project-only").exists()
+        and not list(fixture.glob(".bridgeforge-migrate-backup-*"))
+    )
+    return CheckResult(
+        "layout_migration_transaction_rollback",
+        ok,
+        "failure after delete staging and private move restores both sources and removes temporary backup"
+        if ok
+        else "injected mid-transaction failure left partial migration state",
     )
 
 
@@ -1047,18 +2518,9 @@ def check_skill_metadata() -> CheckResult:
 
 
 def check_user_skill_distribution() -> CheckResult:
-    """Check the documented maintenance path and its executable detector honestly.
-
-    BridgeForge installs user skills through instructions in SKILL.md and
-    references/user-skill-maintenance.md; there is no production installer
-    function for this fixture to call.  The executable skill_sync_check hooks
-    only detect drift and must never be represented as performing installation.
-    """
+    """Check new user shelves and the managed-ledger drift detector."""
     _safe_reset_dir(USER_SKILL_FIXTURE)
     fake_home = USER_SKILL_FIXTURE / "home"
-    upstream = fake_home / ".bridgeforge" / "skills" / "explain"
-    # Stage the factory source only. This is not a simulated user-shelf install.
-    _copytree(REPO_ROOT / "skills" / "explain", upstream)
     fixture_env = {
         "HOME": str(fake_home),
         "USERPROFILE": str(fake_home),
@@ -1071,64 +2533,90 @@ def check_user_skill_distribution() -> CheckResult:
     )
     contract_markers = (
         "[references/user-skill-maintenance.md](references/user-skill-maintenance.md)",
-        "init、update、adopt 都先完整执行",
-        "Claude Code 用户级目录是 `~/.claude/skills/`",
-        "Codex 是 `~/.agents/skills/`",
-        "两者都只扫描 `<name>/SKILL.md` 顶层",
-        'if [ ! -d "$SKILLS_DST/$s" ]; then',
-        'cp -r "$SKILLS_SRC/$s" "$SKILLS_DST/$s"',
-        'echo "⚠ 已存在但与上游不一致: $s"',
-        "禁止静默覆盖",
-        "若含定制，默认保留",
+        "~/.codex/skills/",
+        "~/.claude/skills/",
+        "bridgeforge-managed.json",
+        "/bridgeforge",
     )
     combined_contract = root_skill + "\n" + maintenance
     missing_markers = [marker for marker in contract_markers if marker not in combined_contract]
     if missing_markers:
         failures.append(f"maintenance contract missing markers: {missing_markers!r}")
-
-    sync_block = maintenance.split("```bash", 1)[-1].split("```", 1)[0]
-    divergent_marker = 'echo "⚠ 已存在但与上游不一致: $s"'
-    if divergent_marker in sync_block:
-        divergent_branch = sync_block[sync_block.index(divergent_marker) :]
-        if 'cp -r "$SKILLS_SRC/$s" "$SKILLS_DST/$s"' in divergent_branch:
-            failures.append("maintenance contract copies over the divergent branch")
+    if "~/.agents/skills/" in combined_contract or "~/.bridgeforge/skills/" in combined_contract:
+        failures.append("maintenance contract still names a retired runtime source")
 
     surfaces = (
         ("claude", fake_home / ".claude" / "skills"),
-        ("codex", fake_home / ".agents" / "skills"),
+        ("codex", fake_home / ".codex" / "skills"),
     )
     for agent, shelf in surfaces:
-        shelf.mkdir(parents=True)
-        hook = REPO_ROOT / "templates" / agent / "hooks" / "skill_sync_check.py"
+        explain = shelf / "explain"
+        bridgeforge = shelf / "bridgeforge"
+        explain.mkdir(parents=True)
+        bridgeforge.mkdir()
+        (explain / "SKILL.md").write_text("managed explain\n", encoding="utf-8")
+        hidden_hook = explain / ".githooks" / "pre-commit"
+        hidden_hook.parent.mkdir()
+        hidden_hook.write_text("#!/bin/sh\n", encoding="utf-8")
+        (bridgeforge / "SKILL.md").write_text("managed bridgeforge\n", encoding="utf-8")
 
-        before_missing = sorted(path.relative_to(shelf).as_posix() for path in shelf.rglob("*"))
-        missing = run([sys.executable, str(hook)], USER_SKILL_FIXTURE, env=fixture_env)
-        missing_output = missing.stdout + missing.stderr
-        after_missing = sorted(path.relative_to(shelf).as_posix() for path in shelf.rglob("*"))
+        def content_hash(skill_root: Path) -> str:
+            records = []
+            for path in sorted(item for item in skill_root.rglob("*") if item.is_file()):
+                rel = path.relative_to(skill_root).as_posix()
+                records.append((rel, hashlib.sha256(path.read_bytes()).hexdigest()))
+            payload = "".join(f"{rel}\n{digest}\n" for rel, digest in records)
+            return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+        ledger = {
+            "schema_version": 1,
+            "platform": agent,
+            "records": {
+                "explain": {
+                    "source_commit": "a" * 40,
+                    "content_hash": content_hash(explain),
+                    "installed_at": "2026-07-25T00:00:00Z",
+                },
+                "bridgeforge": {
+                    "source_commit": "a" * 40,
+                    "content_hash": content_hash(bridgeforge),
+                    "installed_at": "2026-07-25T00:00:00Z",
+                },
+            },
+        }
+        platform_root = shelf.parent
+        (platform_root / "bridgeforge-managed.json").write_text(
+            json.dumps(ledger, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        hook = USER_SKILL_FIXTURE / "project" / f".{agent}" / "hooks" / "skill_sync_check.py"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(
+            REPO_ROOT / "templates" / agent / "hooks" / "skill_sync_check.py",
+            hook,
+        )
+
+        current = run([sys.executable, str(hook)], USER_SKILL_FIXTURE, env=fixture_env)
         if (
-            missing.returncode != 0
-            or "缺失（explain）" not in missing_output
-            or after_missing != before_missing
+            current.returncode != 0
+            or current.stdout
+            or current.stderr
         ):
             failures.append(
-                f"{agent}: detector did not report missing explain without writes: "
-                f"exit={missing.returncode} output={missing_output.strip()!r} "
-                f"before={before_missing!r} after={after_missing!r}"
+                f"{agent}: current managed ledger should be silent: "
+                f"exit={current.returncode} output={(current.stdout + current.stderr).strip()!r}"
             )
             continue
 
-        custom_file = shelf / "explain" / "SKILL.md"
-        custom_file.parent.mkdir()
-        custom_file.write_text(
-            "---\nname: explain\ndescription: local customization\n---\n",
-            encoding="utf-8",
-        )
+        custom_file = explain / "SKILL.md"
+        custom_file.write_text("local customization\n", encoding="utf-8")
         before = custom_file.read_bytes()
         divergent = run([sys.executable, str(hook)], USER_SKILL_FIXTURE, env=fixture_env)
         divergent_output = divergent.stdout + divergent.stderr
         if (
             divergent.returncode != 0
-            or "内容不一致（explain）" not in divergent_output
+            or "托管 skill 缺失或内容漂移（explain）" not in divergent_output
+            or "无参 /bridgeforge" not in divergent_output
             or custom_file.read_bytes() != before
         ):
             failures.append(
@@ -1140,7 +2628,7 @@ def check_user_skill_distribution() -> CheckResult:
     return CheckResult(
         "user_skill_distribution",
         ok,
-        "natural-language maintenance contract targets both user shelves; executable hooks report missing/divergent explain without writes (installer execution and agent runtime discovery remain unautomated)"
+        "maintenance contract uses both new shelves; managed-ledger hooks stay silent when current and report drift without writes"
         if ok
         else "\n".join(failures),
     )
@@ -1528,6 +3016,9 @@ CHECKS = {
     "encoding-garble": check_encoding_garble_scan,
     "encoding-no-bom": check_encoding_no_bom,
     "model-policy": check_model_policy,
+    "layout-migration": check_layout_migration_dry_run_apply,
+    "layout-migration-blockers": check_layout_migration_blockers_are_local,
+    "layout-migration-rollback": check_layout_migration_transaction_rollback,
     "non-ascii-shell-guard": check_non_ascii_shell_guard,
     "non-ascii-shell-settings": check_non_ascii_shell_guard_settings,
     "rule-index": check_rule_index_missing,
@@ -1543,14 +3034,25 @@ CHECKS = {
     "subscription-routing": check_subscription_routing,
     "user-config-write-guard": check_user_config_write_guard,
     "switch-archive": check_switch_archive_restore,
+    "switch-archive-integrity": check_switch_archive_receipt_integrity,
+    "switch-archive-ownership": check_switch_archive_destination_ownership,
+    "switch-backup-toctou": check_switch_backup_toctou,
     "switch-claude-cleanup-only": check_switch_claude_complete_target_cleanup_only,
     "switch-codex-archive": check_switch_codex_to_claude_archive_scope,
     "switch-cleanup-only": check_switch_complete_target_cleanup_only,
     "switch-dry-run": check_switch_dry_run_full_plan,
+    "switch-detached-toctou": check_switch_detached_toctou,
+    "switch-evidence-attacks": check_switch_evidence_attack_rollback,
+    "switch-link-boundary": check_switch_link_boundary,
+    "switch-legacy-archive": check_switch_legacy_archive_fail_closed,
+    "switch-manifest-binding": check_switch_manifest_security_binding,
     "switch-memory": check_switch_memory_conflict_decision,
     "switch-no-old": check_switch_no_old_installs_target,
     "switch-partial-target-dir": check_switch_partial_target_dir_conflict_stops,
     "switch-partial-target": check_switch_partial_target_conflict_stops,
+    "switch-roundtrip-lineage": check_switch_roundtrip_lineage,
+    "switch-path-guards": check_switch_path_and_target_evidence_guards,
+    "switch-generated-archive": check_switch_constraint_archive_requires_adapter,
     "switch-same": check_switch_same_agent_noop,
     "switch-settings": check_switch_settings_decision,
 }
