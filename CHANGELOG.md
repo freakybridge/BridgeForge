@@ -17,10 +17,15 @@
 
 ---
 
+## [0.66.0] - 2026-07-25
+
+### Changed
+- `[product][meta]` **switch 改为项目双骨架直接同步**：`.codex` 与 `.claude` 长期并存；`/bridgeforge switch <当前宿主>` 以目标目录中的 `.bridgeforge-map.json` 管理可验证的语义组，不再创建、读取或写入项目根 `.bridgeforge/` archive、receipt 或 lineage。仅 clean generated output 可被后续自动更新或删除；人工修改、map 异常、forked projection 和不可转译项保留并报告 `completed_with_gaps`。当前宿主入口强制传递 host guard；支持 portable memory 与 `/permissions` JSON Pointer，hooks、入口、agents 等宿主专属资产不原样复制。可捕获异常精确回滚；强杀/断电后 map/live 不一致保守冲突，不承诺跨文件原子恢复。Claude 模板升至 `0.27.0`，Codex 模板升至 `0.37.0`。
+
 ## [0.65.1] - 2026-07-25
 
 ### Changed
-- `[product][meta]` 将 BridgeForge command bundle 的五份运行手册从根 `references/` 合并至 `doc/runtime/`；分发清单只携带该子树，需求卡、设计记录、pending 与 archive 继续留在仓库。下游同步后 `/bridgeforge` 与 `/bridgeforge switch <agent>` 的用户入口不变。
+- `[product][meta]` 将 BridgeForge command bundle 的五份运行手册从根 `references/` 合并至 `doc/0_playbook/`；分发清单只携带该编号子树，需求卡、设计记录、pending 与 archive 继续留在仓库。下游同步后 `/bridgeforge` 与 `/bridgeforge switch <agent>` 的用户入口不变。
 
 ## [0.65.0] - 2026-07-25
 

@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Switch a project through an approved semantic-migration manifest.
+"""Synchronize the other BridgeForge skeleton into the current host.
 
-The script deliberately does not decide semantic equivalence. Without an
-approved manifest it only inventories the current project and prints a
-proposal. Applying a manifest is mechanical: recheck hashes, build the current
-target template in isolation, apply approved target-native projections, verify
-the staged target, then commit the switch transactionally.
+Both host skeletons remain live.  BridgeForge stores only deterministic
+ownership metadata inside the target skeleton and never reads or writes a
+project-root ``.bridgeforge`` directory.
 """
 from __future__ import annotations
 
 import argparse
-import base64
-import difflib
 import hashlib
 import json
 import os
@@ -22,26 +18,29 @@ import sys
 import tempfile
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 AGENTS = ("claude", "codex")
-ARCHIVE_ROOT = Path(".bridgeforge") / "archive"
-MIGRATION_ROOT = Path(".bridgeforge") / "migrations"
-SCHEMA_VERSION = 2
-OWNERS = {
-    "template-managed",
-    "constraint-generated",
-    "user-owned",
-    "unknown-historical",
+SCHEMA_VERSION = 3
+MAP_NAME = ".bridgeforge-map.json"
+HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,199}$")
+REASON_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,99}$")
+STATUSES = {
+    "generated",
+    "created_unowned",
+    "untranslated",
+    "conflict",
+    "forked_projection",
+    "echo_suppressed",
 }
-EVIDENCE_RANK = {
-    "text-review": 1,
-    "static": 1,
-    "contract-smoke": 2,
-    "native-host": 3,
+ASSET_TYPES = {"portable-text", "shared-json", "host-specific"}
+ADAPTERS = {
+    ("whole-file", 1),
+    ("json-pointer", 1),
+    ("none", 1),
 }
 WINDOWS_RESERVED_NAMES = {
     "con",
@@ -58,80 +57,68 @@ class AgentSpec:
     name: str
     entry: str
     config_dir: str
-    config_dirs: tuple[str, ...]
-    config_files: tuple[str, ...]
 
 
 SPECS = {
-    "claude": AgentSpec(
-        "claude",
-        "CLAUDE.md",
-        ".claude",
-        ("hooks", "memory", "rules", "scripts"),
-        (".bridgeforge_version", "settings.json"),
-    ),
-    "codex": AgentSpec(
-        "codex",
-        "AGENTS.md",
-        ".codex",
-        ("agents", "hooks", "memory", "rules", "scripts"),
-        (
-            ".bridgeforge_version",
-            "config.toml",
-            "settings.json",
-            "skill-routing.json",
-            "subscription-tier.toml",
-        ),
-    ),
+    "claude": AgentSpec("claude", "CLAUDE.md", ".claude"),
+    "codex": AgentSpec("codex", "AGENTS.md", ".codex"),
 }
 
 
-@dataclass(frozen=True)
-class CopyItem:
-    src: Path
-    rel: str
+@dataclass
+class LoadedMap:
+    path: Path
+    state: str
+    data: dict[str, Any] | None = None
+    error: str | None = None
+    raw_sha256: str | None = None
 
 
 @dataclass
-class Plan:
-    agent: str
-    old_agent: str
+class SyncPlan:
+    current_host: str
+    source_host: str
     project_root: Path
     template_root: Path
-    template_items: list[CopyItem]
-    source_files: dict[str, Path]
-    target_archive: Path | None
-    archive_files: dict[str, Path]
-    receipts: list[dict[str, Any]]
-    target_paths: list[Path]
-    target_conflicts: list[Path]
-    already_target: bool
-    python_command: str | None
-    source_state: dict[str, str] = field(default_factory=dict)
-    snapshots: dict[str, str] = field(default_factory=dict)
+    source_map: LoadedMap
+    target_map: LoadedMap
+    source_snapshot: dict[str, str]
+    source_map_state: tuple[str, str | None]
+    target_map_state: tuple[str, str | None]
+    target_prestate: dict[str, str | None] = field(default_factory=dict)
+    writes: dict[str, bytes] = field(default_factory=dict)
+    deletes: set[str] = field(default_factory=set)
+    assets: list[dict[str, Any]] = field(default_factory=list)
+    messages: list[str] = field(default_factory=list)
+    map_bytes: bytes | None = None
+
+    @property
+    def degraded(self) -> bool:
+        return any(
+            asset["status"] in {
+                "created_unowned",
+                "untranslated",
+                "conflict",
+                "forked_projection",
+            }
+            for asset in self.assets
+        ) or any(message.startswith("map-error:") for message in self.messages)
 
 
-class ManifestError(ValueError):
-    """Raised when a migration manifest is incomplete or unsafe."""
+class SyncError(ValueError):
+    """Raised when direct synchronization cannot proceed safely."""
 
 
-def _posix(path: Path) -> str:
-    return path.as_posix().rstrip("/")
+class ApplyRolledBackError(RuntimeError):
+    """Raised when apply failed and every touched path was restored."""
 
 
-def _rel(path: Path, root: Path) -> str:
-    try:
-        return _posix(path.resolve().relative_to(root.resolve()))
-    except ValueError:
-        return _posix(path)
+class RollbackIncompleteError(RuntimeError):
+    """Raised when apply failed and rollback evidence is not fully clean."""
 
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _timestamp() -> str:
-    return datetime.now().strftime("%Y%m%d-%H%M%S")
+    def __init__(self, message: str, evidence: list[str]) -> None:
+        super().__init__(message)
+        self.evidence = tuple(evidence)
 
 
 def _sha_bytes(data: bytes) -> str:
@@ -142,59 +129,59 @@ def _sha_file(path: Path) -> str:
     return _sha_bytes(path.read_bytes())
 
 
-def _state_digest(state: dict[str, str]) -> str:
-    digest = hashlib.sha256()
-    for rel, value in sorted(state.items()):
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(value.encode("utf-8"))
-        digest.update(b"\0")
-    return "sha256:" + digest.hexdigest()
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
 
 
-def _snapshot(files: dict[str, Path]) -> str:
-    digest = hashlib.sha256()
-    for rel, path in sorted(files.items()):
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(_sha_file(path).encode("ascii"))
-        digest.update(b"\0")
-    return "sha256:" + digest.hexdigest()
+def _hash_json(value: Any) -> str:
+    return _sha_bytes(_canonical_json(value))
 
 
-def _path_state(paths: list[Path], root: Path) -> str:
-    files: dict[str, Path] = {}
-    markers: list[str] = []
-    for path in paths:
-        rel = _rel(path, root)
-        if path.is_file() or path.is_symlink():
-            files[rel] = path
-        elif path.is_dir():
-            markers.append(rel + "/")
-            for directory in sorted(item for item in path.rglob("*") if item.is_dir()):
-                markers.append(_rel(directory, root) + "/")
-            for child in sorted(item for item in path.rglob("*") if item.is_file()):
-                files[_rel(child, root)] = child
-        else:
-            markers.append(rel + ":absent")
-    digest = hashlib.sha256()
-    for marker in sorted(markers):
-        digest.update(marker.encode("utf-8"))
-        digest.update(b"\0")
-    digest.update(_snapshot(files).encode("ascii"))
-    return "sha256:" + digest.hexdigest()
+def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise SyncError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
 
 
-def _is_under(path: Path, parent: Path) -> bool:
+def _load_json_bytes(data: bytes, label: str) -> Any:
     try:
-        path.resolve().relative_to(parent.resolve())
-        return True
+        return json.loads(
+            data.decode("utf-8-sig"),
+            object_pairs_hook=_strict_object,
+        )
+    except (UnicodeError, json.JSONDecodeError, SyncError) as exc:
+        raise SyncError(f"{label} is not strict UTF-8 JSON: {exc}") from exc
+
+
+def _posix(path: Path) -> str:
+    return path.as_posix().rstrip("/")
+
+
+def _rel(path: Path, root: Path) -> str:
+    try:
+        return _posix(path.resolve(strict=False).relative_to(root.resolve()))
     except ValueError:
-        return False
+        return _posix(path)
 
 
 def _lexists(path: Path) -> bool:
     return os.path.lexists(path)
+
+
+def _is_under(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _is_link_like(path: Path) -> bool:
@@ -213,95 +200,1280 @@ def _assert_no_links(path: Path, label: str) -> None:
     if not _lexists(path):
         return
     if _is_link_like(path):
-        raise ManifestError(f"{label} must not be a symlink or junction: {path}")
+        raise SyncError(f"{label} must not be a symlink or junction: {path}")
     if path.is_dir():
         for child in path.rglob("*"):
             if _is_link_like(child):
-                raise ManifestError(
+                raise SyncError(
                     f"{label} contains a symlink or junction: {child}"
                 )
 
 
-def _assert_project_local(path: Path, project_root: Path, label: str) -> None:
-    root = project_root.resolve()
+def _assert_project_local(path: Path, root: Path, label: str) -> None:
+    root = root.resolve()
+    resolved = path.resolve(strict=False)
+    if resolved != root and not _is_under(resolved, root):
+        raise SyncError(f"{label} escapes project root: {path}")
     current = path
     while current != root and _is_under(current, root):
         if _lexists(current) and _is_link_like(current):
-            raise ManifestError(
-                f"{label} crosses a symlink or junction: {_rel(current, project_root)}"
+            raise SyncError(
+                f"{label} crosses a symlink or junction: {_rel(current, root)}"
             )
         current = current.parent
-    resolved = path.resolve(strict=False)
-    if not _is_under(resolved, root) and resolved != root:
-        raise ManifestError(f"{label} escapes the project root: {path}")
-
-
-def _windows_path_key(raw: str) -> str:
-    rel = _safe_rel(raw)
-    canonical: list[str] = []
-    for part in Path(rel).parts:
-        if part != part.rstrip(" ."):
-            raise ManifestError(
-                f"Windows-unsafe trailing dot or space in path component: {raw!r}"
-            )
-        if ":" in part:
-            raise ManifestError(f"Windows alternate-data-stream path is forbidden: {raw!r}")
-        normalized = unicodedata.normalize("NFC", part).casefold()
-        if normalized.split(".", 1)[0] in WINDOWS_RESERVED_NAMES:
-            raise ManifestError(f"Windows reserved path component: {raw!r}")
-        canonical.append(normalized)
-    return "/".join(canonical)
 
 
 def _safe_rel(raw: str) -> str:
+    if not isinstance(raw, str) or "\x00" in raw:
+        raise SyncError("path must be a non-empty string")
     normalized = raw.replace("\\", "/").strip("/")
     path = Path(normalized)
     if (
         not normalized
         or path.is_absolute()
         or ".." in path.parts
+        or normalized == ".bridgeforge"
         or normalized.startswith(".bridgeforge/")
     ):
-        raise ManifestError(f"unsafe project-relative path: {raw!r}")
+        raise SyncError(f"unsafe project-relative path: {raw!r}")
     return _posix(path)
 
 
-def _agent_paths(spec: AgentSpec, project_root: Path) -> list[Path]:
-    return [project_root / spec.entry, project_root / spec.config_dir]
+def _windows_path_key(raw: str) -> str:
+    rel = _safe_rel(raw)
+    result: list[str] = []
+    for part in Path(rel).parts:
+        if part != part.rstrip(" ."):
+            raise SyncError(
+                f"Windows-unsafe trailing dot/space component: {raw!r}"
+            )
+        if ":" in part:
+            raise SyncError(f"Windows ADS path is forbidden: {raw!r}")
+        normalized = unicodedata.normalize("NFC", part).casefold()
+        if normalized.split(".", 1)[0] in WINDOWS_RESERVED_NAMES:
+            raise SyncError(f"Windows reserved path component: {raw!r}")
+        result.append(normalized)
+    return "/".join(result)
 
 
-def _existing_agent_paths(spec: AgentSpec, project_root: Path) -> list[Path]:
-    return [path for path in _agent_paths(spec, project_root) if _lexists(path)]
+def _surface_ok(path: str, host: str) -> bool:
+    spec = SPECS[host]
+    return path == spec.entry or path.startswith(spec.config_dir + "/")
 
 
-def _is_complete_agent(spec: AgentSpec, project_root: Path) -> bool:
-    paths = _agent_paths(spec, project_root)
-    if any(_is_link_like(path) for path in paths):
-        return False
+def _portable_text_path(path: str, host: str) -> bool:
+    prefix = SPECS[host].config_dir + "/memory/"
+    return path.startswith(prefix) and path.endswith(".md")
+
+
+def _shared_json_member(member: dict[str, Any], host: str) -> bool:
     return (
-        (project_root / spec.entry).is_file()
-        and (project_root / spec.config_dir).is_dir()
-        and all(
-            (project_root / spec.config_dir / name).is_file()
-            for name in spec.config_files
-        )
-        and all(
-            (project_root / spec.config_dir / name).is_dir()
-            for name in spec.config_dirs
-        )
+        member["path"] == f"{SPECS[host].config_dir}/settings.json"
+        and member.get("selector") == "/permissions"
     )
 
 
-def _candidate_roots(
+def _map_path(root: Path, host: str) -> Path:
+    return root / SPECS[host].config_dir / MAP_NAME
+
+
+def _member_key(member: dict[str, Any]) -> tuple[str, str]:
+    return member["path"], member.get("selector", "")
+
+
+def _pointer_tokens(pointer: str) -> tuple[str, ...]:
+    if not isinstance(pointer, str) or not pointer.startswith("/") or pointer == "/":
+        raise SyncError(f"JSON Pointer selector must be non-root: {pointer!r}")
+    tokens: list[str] = []
+    for raw in pointer[1:].split("/"):
+        token = raw.replace("~1", "/").replace("~0", "~")
+        if re.search(r"~(?![01])", raw):
+            raise SyncError(f"invalid JSON Pointer escape: {pointer!r}")
+        tokens.append(token)
+    return tuple(tokens)
+
+
+def _pointer_get(document: Any, pointer: str) -> Any:
+    current = document
+    for token in _pointer_tokens(pointer):
+        if isinstance(current, dict) and token in current:
+            current = current[token]
+        elif isinstance(current, list) and token.isdigit():
+            index = int(token)
+            if index >= len(current):
+                raise KeyError(pointer)
+            current = current[index]
+        else:
+            raise KeyError(pointer)
+    return current
+
+
+def _pointer_set(document: Any, pointer: str, value: Any) -> None:
+    tokens = _pointer_tokens(pointer)
+    current = document
+    for token in tokens[:-1]:
+        if isinstance(current, dict):
+            child = current.get(token)
+            if child is None:
+                child = {}
+                current[token] = child
+            if not isinstance(child, (dict, list)):
+                raise SyncError(f"JSON Pointer parent is scalar: {pointer}")
+            current = child
+        elif isinstance(current, list) and token.isdigit():
+            index = int(token)
+            if index >= len(current):
+                raise SyncError(f"JSON Pointer index is absent: {pointer}")
+            current = current[index]
+        else:
+            raise SyncError(f"JSON Pointer parent is absent: {pointer}")
+    leaf = tokens[-1]
+    if isinstance(current, dict):
+        current[leaf] = value
+    elif isinstance(current, list) and leaf.isdigit():
+        index = int(leaf)
+        if index >= len(current):
+            raise SyncError(f"JSON Pointer index is absent: {pointer}")
+        current[index] = value
+    else:
+        raise SyncError(f"JSON Pointer target is not assignable: {pointer}")
+
+
+def _pointer_delete(document: Any, pointer: str) -> None:
+    tokens = _pointer_tokens(pointer)
+    current = document
+    for token in tokens[:-1]:
+        if isinstance(current, dict) and token in current:
+            current = current[token]
+        elif isinstance(current, list) and token.isdigit():
+            index = int(token)
+            if index >= len(current):
+                raise KeyError(pointer)
+            current = current[index]
+        else:
+            raise KeyError(pointer)
+    leaf = tokens[-1]
+    if isinstance(current, dict) and leaf in current:
+        del current[leaf]
+    elif isinstance(current, list) and leaf.isdigit():
+        index = int(leaf)
+        if index >= len(current):
+            raise KeyError(pointer)
+        del current[index]
+    else:
+        raise KeyError(pointer)
+
+
+def _selectors_overlap(first: str, second: str) -> bool:
+    a = _pointer_tokens(first)
+    b = _pointer_tokens(second)
+    return a[: len(b)] == b or b[: len(a)] == a
+
+
+def _validate_member(
+    member: Any,
+    host: str,
+    *,
+    target: bool,
+) -> dict[str, Any]:
+    if not isinstance(member, dict):
+        raise SyncError("map member must be an object")
+    required = {"path"} if target else {"path", "sha256"}
+    allowed = required | {"selector", "last_generated_sha256"}
+    if not target:
+        allowed.discard("last_generated_sha256")
+    if set(member) - allowed or not required.issubset(member):
+        raise SyncError("map member has unknown or missing fields")
+    path = _safe_rel(member["path"])
+    _windows_path_key(path)
+    if not _surface_ok(path, host) or path.endswith("/" + MAP_NAME):
+        raise SyncError(f"map member is outside {host} host surface: {path}")
+    result = {"path": path}
+    hash_key = "last_generated_sha256" if target else "sha256"
+    if hash_key in member:
+        digest = member[hash_key]
+        if not isinstance(digest, str) or not HASH_RE.fullmatch(digest):
+            raise SyncError(f"invalid member hash: {path}")
+        result[hash_key] = digest
+    if "selector" in member:
+        _pointer_tokens(member["selector"])
+        result["selector"] = member["selector"]
+    return result
+
+
+def _validate_map(data: Any, expected_target: str) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise SyncError("map root must be an object")
+    if set(data) != {"schema_version", "source_host", "target_host", "assets"}:
+        raise SyncError("map root fields do not match schema")
+    if data["schema_version"] != SCHEMA_VERSION:
+        raise SyncError("unsupported map schema_version")
+    target_host = data["target_host"]
+    source_host = data["source_host"]
+    if target_host != expected_target or source_host not in AGENTS:
+        raise SyncError("map host surface does not match its location")
+    if source_host == target_host:
+        raise SyncError("map source_host and target_host must differ")
+    if not isinstance(data["assets"], list):
+        raise SyncError("map assets must be an array")
+    assets: list[dict[str, Any]] = []
+    ids: set[str] = set()
+    source_keys: set[tuple[str, str]] = set()
+    target_keys: set[tuple[str, str]] = set()
+    for raw in data["assets"]:
+        if not isinstance(raw, dict):
+            raise SyncError("map asset must be an object")
+        required = {
+            "asset_id",
+            "asset_type",
+            "adapter",
+            "source_members",
+            "target_members",
+            "status",
+        }
+        if set(raw) - (required | {"reason"}) or not required.issubset(raw):
+            raise SyncError("map asset has unknown or missing fields")
+        asset_id = raw["asset_id"]
+        if not isinstance(asset_id, str) or not ID_RE.fullmatch(asset_id):
+            raise SyncError("invalid asset_id")
+        if asset_id in ids:
+            raise SyncError(f"duplicate asset_id: {asset_id}")
+        ids.add(asset_id)
+        asset_type = raw["asset_type"]
+        status = raw["status"]
+        if asset_type not in ASSET_TYPES or status not in STATUSES:
+            raise SyncError(f"invalid asset type/status: {asset_id}")
+        adapter = raw["adapter"]
+        if (
+            not isinstance(adapter, dict)
+            or set(adapter) != {"id", "version"}
+            or (adapter["id"], adapter["version"]) not in ADAPTERS
+        ):
+            raise SyncError(f"adapter is not allowlisted: {asset_id}")
+        if not isinstance(raw["source_members"], list) or not isinstance(
+            raw["target_members"], list
+        ):
+            raise SyncError(f"asset members must be arrays: {asset_id}")
+        sources = [
+            _validate_member(member, source_host, target=False)
+            for member in raw["source_members"]
+        ]
+        targets = [
+            _validate_member(member, target_host, target=True)
+            for member in raw["target_members"]
+        ]
+        for key in map(_member_key, sources):
+            if key in source_keys:
+                raise SyncError(f"duplicate source member: {key}")
+            source_keys.add(key)
+        for key in map(_member_key, targets):
+            if key in target_keys:
+                raise SyncError(f"duplicate target member: {key}")
+            target_keys.add(key)
+        if adapter["id"] == "whole-file":
+            if any("selector" in member for member in [*sources, *targets]):
+                raise SyncError(f"whole-file member has selector: {asset_id}")
+            if any(
+                not _portable_text_path(member["path"], source_host)
+                for member in sources
+            ) or any(
+                not _portable_text_path(member["path"], target_host)
+                for member in targets
+            ):
+                raise SyncError(
+                    f"whole-file is limited to portable memory Markdown: {asset_id}"
+                )
+        if adapter["id"] == "json-pointer":
+            if any("selector" not in member for member in [*sources, *targets]):
+                raise SyncError(f"json-pointer member lacks selector: {asset_id}")
+            if any(
+                not _shared_json_member(member, source_host)
+                for member in sources
+            ) or any(
+                not _shared_json_member(member, target_host)
+                for member in targets
+            ):
+                raise SyncError(
+                    f"json-pointer selector is not allowlisted: {asset_id}"
+                )
+            for members in (sources, targets):
+                for index, left in enumerate(members):
+                    for right in members[index + 1 :]:
+                        if (
+                            left["path"] == right["path"]
+                            and _selectors_overlap(
+                                left["selector"], right["selector"]
+                            )
+                        ):
+                            raise SyncError(
+                                f"overlapping JSON selectors: {asset_id}"
+                            )
+        if status == "generated" and (
+            not sources
+            or not targets
+            or adapter["id"] == "none"
+            or any("last_generated_sha256" not in member for member in targets)
+        ):
+            raise SyncError(f"generated asset must have both sides: {asset_id}")
+        reason = raw.get("reason")
+        if reason is not None and (
+            not isinstance(reason, str) or not REASON_RE.fullmatch(reason)
+        ):
+            raise SyncError(f"invalid reason: {asset_id}")
+        asset = {
+            "asset_id": asset_id,
+            "asset_type": asset_type,
+            "adapter": {
+                "id": adapter["id"],
+                "version": adapter["version"],
+            },
+            "source_members": sources,
+            "target_members": targets,
+            "status": status,
+        }
+        if reason is not None:
+            asset["reason"] = reason
+        assets.append(asset)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "source_host": source_host,
+        "target_host": target_host,
+        "assets": sorted(assets, key=lambda item: item["asset_id"]),
+    }
+
+
+def _file_state(path: Path) -> tuple[str, str | None]:
+    if not _lexists(path):
+        return "missing", None
+    if _is_link_like(path):
+        return "link", None
+    if not path.is_file():
+        return "non-file", None
+    return "file", _sha_file(path)
+
+
+def _load_map(root: Path, host: str) -> LoadedMap:
+    path = _map_path(root, host)
+    state, digest = _file_state(path)
+    if state == "missing":
+        return LoadedMap(path, state)
+    if state != "file":
+        return LoadedMap(path, "invalid", error=f"map path is {state}")
+    try:
+        data = _validate_map(
+            _load_json_bytes(path.read_bytes(), f"{host} map"),
+            host,
+        )
+    except SyncError as exc:
+        return LoadedMap(path, "invalid", error=str(exc), raw_sha256=digest)
+    return LoadedMap(path, "valid", data=data, raw_sha256=digest)
+
+
+def _inventory_host(root: Path, host: str) -> dict[str, Path]:
+    spec = SPECS[host]
+    paths = [root / spec.entry, root / spec.config_dir]
+    result: dict[str, Path] = {}
+    keys: dict[str, str] = {}
+    for path in paths:
+        _assert_project_local(path, root, f"{host} surface")
+        _assert_no_links(path, f"{host} surface")
+        candidates: list[Path] = []
+        if path.is_file():
+            candidates.append(path)
+        elif path.is_dir():
+            candidates.extend(
+                item
+                for item in path.rglob("*")
+                if item.is_file()
+                and "__pycache__" not in item.parts
+                and item.suffix != ".pyc"
+            )
+        for item in sorted(candidates):
+            rel = _rel(item, root)
+            if rel.endswith("/" + MAP_NAME):
+                continue
+            key = _windows_path_key(rel)
+            if key in keys:
+                raise SyncError(
+                    "Windows-equivalent path collision: "
+                    f"{keys[key]} and {rel}"
+                )
+            keys[key] = rel
+            result[rel] = item
+    return result
+
+
+def _template_inventory(template_root: Path, host: str) -> dict[str, str]:
+    spec = SPECS[host]
+    host_root = template_root / "templates" / host
+    _assert_no_links(host_root, f"{host} template")
+    result: dict[str, str] = {}
+    entry = host_root / spec.entry
+    if entry.is_file():
+        result[spec.entry] = _sha_file(entry)
+    config = host_root
+    if config.is_dir():
+        for path in sorted(item for item in config.rglob("*") if item.is_file()):
+            rel = _posix(path.relative_to(config))
+            result[f"{spec.config_dir}/{rel}"] = _sha_file(path)
+    version = template_root / "VERSION"
+    if version.is_file():
+        result[f"{spec.config_dir}/.bridgeforge_version"] = _sha_file(version)
+    return result
+
+
+def _asset_id(kind: str, rel: str) -> str:
+    safe = re.sub(r"[^a-z0-9._:-]+", "-", rel.casefold()).strip("-")
+    digest = hashlib.sha256(rel.encode("utf-8")).hexdigest()[:12]
+    return f"{kind}:{safe[:140]}:{digest}"
+
+
+def _portable_target_path(path: str, source: str, target: str) -> str | None:
+    prefix = SPECS[source].config_dir + "/memory/"
+    if not path.startswith(prefix) or not path.endswith(".md"):
+        return None
+    suffix = path[len(prefix) :]
+    return f"{SPECS[target].config_dir}/memory/{suffix}"
+
+
+def _read_member(root: Path, member: dict[str, Any]) -> tuple[Any, str]:
+    path = root / member["path"]
+    if not path.is_file() or _is_link_like(path):
+        raise KeyError(member["path"])
+    if "selector" not in member:
+        data = path.read_bytes()
+        return data, _sha_bytes(data)
+    document = _load_json_bytes(path.read_bytes(), member["path"])
+    value = _pointer_get(document, member["selector"])
+    return value, _hash_json(value)
+
+
+def _generated_projection_state(
+    root: Path,
+    asset: dict[str, Any],
+) -> str:
+    for member in asset["target_members"]:
+        try:
+            _, digest = _read_member(root, member)
+        except (KeyError, SyncError):
+            return "forked"
+        if digest != member["last_generated_sha256"]:
+            return "forked"
+    return "clean"
+
+
+def _new_asset(
+    asset_id: str,
+    asset_type: str,
+    adapter_id: str,
+    sources: list[dict[str, Any]],
+    targets: list[dict[str, Any]],
+    status: str,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    asset = {
+        "asset_id": asset_id,
+        "asset_type": asset_type,
+        "adapter": {"id": adapter_id, "version": 1},
+        "source_members": sorted(sources, key=_member_key),
+        "target_members": sorted(targets, key=_member_key),
+        "status": status,
+    }
+    if reason:
+        asset["reason"] = reason
+    return asset
+
+
+def _source_member(root: Path, path: str, selector: str | None = None) -> dict[str, Any]:
+    member: dict[str, Any] = {"path": path}
+    if selector is not None:
+        member["selector"] = selector
+    _, digest = _read_member(root, member)
+    member["sha256"] = digest
+    return member
+
+
+def _target_baselines(asset: dict[str, Any]) -> dict[tuple[str, str], str]:
+    return {
+        _member_key(member): member["last_generated_sha256"]
+        for member in asset["target_members"]
+    }
+
+
+def _target_is_owned_clean(
+    root: Path,
+    desired_targets: list[dict[str, Any]],
+    previous: dict[str, Any] | None,
+) -> tuple[bool, str | None]:
+    baselines = _target_baselines(previous) if previous else {}
+    previous_keys = set(baselines)
+    desired_keys = set(map(_member_key, desired_targets))
+    if previous and previous_keys != desired_keys:
+        return False, "stale-map-topology"
+    for member in desired_targets:
+        key = _member_key(member)
+        path = root / member["path"]
+        try:
+            _, digest = _read_member(root, member)
+        except KeyError:
+            if previous and key in baselines:
+                return False, "interrupted-or-modified"
+            if "selector" in member and (
+                not _lexists(path) or path.is_file()
+            ):
+                continue
+            if _lexists(path):
+                return False, "unowned-existing-target"
+            continue
+        except SyncError:
+            return False, "unowned-existing-target"
+        if not previous or key not in baselines:
+            return False, "unowned-existing-target"
+        if digest != baselines[key]:
+            return False, "interrupted-or-modified"
+    return True, None
+
+
+def _whole_file_outputs(
+    root: Path,
+    sources: list[dict[str, Any]],
+    targets: list[dict[str, Any]],
+) -> dict[tuple[str, str], Any]:
+    values = [_read_member(root, member)[0] for member in sources]
+    if not values or any(value != values[0] for value in values[1:]):
+        raise SyncError("whole-file many-to-one sources must be byte-identical")
+    return {_member_key(member): values[0] for member in targets}
+
+
+def _json_pointer_outputs(
+    root: Path,
+    sources: list[dict[str, Any]],
+    targets: list[dict[str, Any]],
+) -> dict[tuple[str, str], Any]:
+    values = [_read_member(root, member)[0] for member in sources]
+    if not values:
+        raise SyncError("json-pointer adapter needs a source")
+    if len(values) == 1:
+        values *= len(targets)
+    if len(values) != len(targets):
+        raise SyncError("json-pointer group must be 1:N or N:N")
+    return {
+        _member_key(member): value
+        for member, value in zip(targets, values)
+    }
+
+
+def _prepare_target_bytes(
+    root: Path,
+    groups: list[
+        tuple[dict[str, Any], dict[tuple[str, str], Any], dict[str, Any] | None]
+    ],
+) -> tuple[dict[str, bytes], dict[str, dict[tuple[str, str], str]]]:
+    whole: dict[str, bytes] = {}
+    json_edits: dict[str, list[tuple[str, Any]]] = {}
+    for asset, outputs, _ in groups:
+        for member in asset["target_members"]:
+            key = _member_key(member)
+            value = outputs[key]
+            if "selector" in member:
+                if member["path"] in whole:
+                    raise SyncError("whole-file/selector target collision")
+                json_edits.setdefault(member["path"], []).append(
+                    (member["selector"], value)
+                )
+            else:
+                if member["path"] in whole or member["path"] in json_edits:
+                    raise SyncError("target member collision")
+                if not isinstance(value, bytes):
+                    raise SyncError("whole-file adapter produced non-bytes")
+                whole[member["path"]] = value
+    writes = dict(whole)
+    target_hashes: dict[str, dict[tuple[str, str], str]] = {}
+    for path, edits in json_edits.items():
+        for index, (left, _) in enumerate(edits):
+            for right, _ in edits[index + 1 :]:
+                if _selectors_overlap(left, right):
+                    raise SyncError(f"overlapping target selectors: {path}")
+        live = root / path
+        if live.is_file():
+            document = _load_json_bytes(live.read_bytes(), path)
+        elif not _lexists(live):
+            document = {}
+        else:
+            raise SyncError(f"target JSON path is not a file: {path}")
+        for selector, value in edits:
+            _pointer_set(document, selector, value)
+        writes[path] = (
+            json.dumps(
+                document,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+    for asset, outputs, _ in groups:
+        hashes: dict[tuple[str, str], str] = {}
+        for member in asset["target_members"]:
+            key = _member_key(member)
+            hashes[key] = (
+                _hash_json(outputs[key])
+                if "selector" in member
+                else _sha_bytes(outputs[key])
+            )
+        target_hashes[asset["asset_id"]] = hashes
+    return writes, target_hashes
+
+
+def _map_state_tuple(loaded: LoadedMap) -> tuple[str, str | None]:
+    return loaded.state, loaded.raw_sha256
+
+
+def build_plan(
+    current_host: str,
     project_root: Path,
-    script_path: Path,
-    explicit: str | None,
-) -> list[Path]:
-    raw: list[Path] = []
+    template_root: Path,
+) -> SyncPlan:
+    source_host = "codex" if current_host == "claude" else "claude"
+    for host in AGENTS:
+        spec = SPECS[host]
+        _assert_project_local(project_root / spec.config_dir, project_root, "host")
+        _assert_no_links(project_root / spec.config_dir, f"{host} host")
+    source_map = _load_map(project_root, source_host)
+    target_map = _load_map(project_root, current_host)
+    source_files = _inventory_host(project_root, source_host)
+    source_snapshot = {
+        path: _sha_file(file_path) for path, file_path in source_files.items()
+    }
+    plan = SyncPlan(
+        current_host=current_host,
+        source_host=source_host,
+        project_root=project_root,
+        template_root=template_root,
+        source_map=source_map,
+        target_map=target_map,
+        source_snapshot=source_snapshot,
+        source_map_state=_map_state_tuple(source_map),
+        target_map_state=_map_state_tuple(target_map),
+    )
+    if source_map.state == "invalid":
+        plan.messages.append(f"map-error:source:{source_map.error}")
+    if target_map.state == "invalid":
+        plan.messages.append(f"map-error:target:{target_map.error}")
+    target_map_trusted = target_map.state == "valid"
+
+    suppressed: set[tuple[str, str]] = set()
+    if source_map.data:
+        for asset in source_map.data["assets"]:
+            if asset["status"] != "generated":
+                continue
+            state = _generated_projection_state(project_root, asset)
+            for member in asset["target_members"]:
+                suppressed.add(_member_key(member))
+            if state == "forked":
+                fork_sources: list[dict[str, Any]] = []
+                for member in asset["target_members"]:
+                    try:
+                        fork_sources.append(
+                            _source_member(
+                                project_root,
+                                member["path"],
+                                member.get("selector"),
+                            )
+                        )
+                    except (KeyError, SyncError):
+                        continue
+                plan.assets.append(
+                    _new_asset(
+                        asset["asset_id"],
+                        asset["asset_type"],
+                        asset["adapter"]["id"],
+                        fork_sources,
+                        [],
+                        "forked_projection",
+                        "interrupted-or-modified",
+                    )
+                )
+
+    previous_assets = {
+        asset["asset_id"]: asset
+        for asset in (target_map.data or {}).get("assets", [])
+        if asset["status"] == "generated"
+    }
+    template = _template_inventory(template_root, source_host)
+    desired: list[dict[str, Any]] = []
+    claimed: set[tuple[str, str]] = set()
+
+    for asset_id, previous in sorted(previous_assets.items()):
+        if previous["adapter"]["id"] not in {"whole-file", "json-pointer"}:
+            continue
+        try:
+            sources = []
+            for member in previous["source_members"]:
+                current = _source_member(
+                    project_root,
+                    member["path"],
+                    member.get("selector"),
+                )
+                sources.append(current)
+            if not sources:
+                continue
+        except (KeyError, SyncError):
+            continue
+        if any(_member_key(member) in suppressed for member in sources):
+            continue
+        claimed.update(map(_member_key, sources))
+        targets = [
+            {
+                key: value
+                for key, value in member.items()
+                if key in {"path", "selector"}
+            }
+            for member in previous["target_members"]
+        ]
+        desired.append(
+            _new_asset(
+                asset_id,
+                previous["asset_type"],
+                previous["adapter"]["id"],
+                sources,
+                targets,
+                "generated",
+            )
+        )
+
+    for path in sorted(source_files):
+        if (path, "") in claimed or (path, "") in suppressed:
+            continue
+        digest = source_snapshot[path]
+        if template.get(path) == digest:
+            continue
+        target_path = _portable_target_path(
+            path,
+            source_host,
+            current_host,
+        )
+        if target_path:
+            desired.append(
+                _new_asset(
+                    _asset_id("portable-memory", path.split("/memory/", 1)[1]),
+                    "portable-text",
+                    "whole-file",
+                    [_source_member(project_root, path)],
+                    [{"path": target_path}],
+                    "generated",
+                )
+            )
+            claimed.add((path, ""))
+            continue
+        settings = f"{SPECS[source_host].config_dir}/settings.json"
+        if (
+            path == settings
+            and (path, "/permissions") not in suppressed
+            and (path, "/permissions") not in claimed
+        ):
+            try:
+                source = _source_member(project_root, path, "/permissions")
+            except (KeyError, SyncError):
+                source = None
+            if source:
+                target_settings = (
+                    f"{SPECS[current_host].config_dir}/settings.json"
+                )
+                desired.append(
+                    _new_asset(
+                        "shared-settings:permissions",
+                        "shared-json",
+                        "json-pointer",
+                        [source],
+                        [
+                            {
+                                "path": target_settings,
+                                "selector": "/permissions",
+                            }
+                        ],
+                        "generated",
+                    )
+                )
+                claimed.add((path, "/permissions"))
+        plan.assets.append(
+            _new_asset(
+                _asset_id("untranslated", path),
+                "host-specific",
+                "none",
+                [_source_member(project_root, path)],
+                [],
+                "untranslated",
+                "no-equivalent-adapter",
+            )
+        )
+
+    if source_map.state == "invalid":
+        for asset in desired:
+            plan.assets.append(
+                _new_asset(
+                    asset["asset_id"],
+                    asset["asset_type"],
+                    asset["adapter"]["id"],
+                    asset["source_members"],
+                    [],
+                    "conflict",
+                    "source-map-invalid",
+                )
+            )
+        desired = []
+
+    applicable: list[
+        tuple[dict[str, Any], dict[tuple[str, str], Any], dict[str, Any] | None]
+    ] = []
+    desired_ids: set[str] = set()
+    for asset in desired:
+        desired_ids.add(asset["asset_id"])
+        previous = previous_assets.get(asset["asset_id"])
+        if not target_map_trusted and any(
+            _lexists(project_root / member["path"])
+            for member in asset["target_members"]
+        ):
+            plan.assets.append(
+                _new_asset(
+                    asset["asset_id"],
+                    asset["asset_type"],
+                    asset["adapter"]["id"],
+                    asset["source_members"],
+                    asset["target_members"],
+                    "conflict",
+                    "target-map-untrusted",
+                )
+            )
+            continue
+        clean, reason = _target_is_owned_clean(
+            project_root,
+            asset["target_members"],
+            previous,
+        )
+        if not clean:
+            plan.assets.append(
+                _new_asset(
+                    asset["asset_id"],
+                    asset["asset_type"],
+                    asset["adapter"]["id"],
+                    asset["source_members"],
+                    asset["target_members"],
+                    "conflict",
+                    reason,
+                )
+            )
+            continue
+        try:
+            outputs = (
+                _whole_file_outputs(
+                    project_root,
+                    asset["source_members"],
+                    asset["target_members"],
+                )
+                if asset["adapter"]["id"] == "whole-file"
+                else _json_pointer_outputs(
+                    project_root,
+                    asset["source_members"],
+                    asset["target_members"],
+                )
+            )
+        except (KeyError, SyncError) as exc:
+            plan.assets.append(
+                _new_asset(
+                    asset["asset_id"],
+                    asset["asset_type"],
+                    asset["adapter"]["id"],
+                    asset["source_members"],
+                    asset["target_members"],
+                    "conflict",
+                    "adapter-input-invalid",
+                )
+            )
+            plan.messages.append(f"adapter-error:{asset['asset_id']}:{exc}")
+            continue
+        applicable.append((asset, outputs, previous))
+
+    for asset_id, previous in sorted(previous_assets.items()):
+        if asset_id in desired_ids:
+            continue
+        clean = _generated_projection_state(project_root, previous) == "clean"
+        if not clean or source_map.state == "invalid":
+            plan.assets.append(
+                _new_asset(
+                    asset_id,
+                    previous["asset_type"],
+                    previous["adapter"]["id"],
+                    previous["source_members"],
+                    previous["target_members"],
+                    "conflict",
+                    "interrupted-or-modified",
+                )
+            )
+            continue
+        if previous["adapter"]["id"] == "whole-file":
+            for member in previous["target_members"]:
+                plan.deletes.add(member["path"])
+        else:
+            json_by_path: dict[str, Any] = {}
+            failed = False
+            for member in previous["target_members"]:
+                path = member["path"]
+                try:
+                    document = json_by_path.setdefault(
+                        path,
+                        _load_json_bytes(
+                            (project_root / path).read_bytes(),
+                            path,
+                        ),
+                    )
+                    _pointer_delete(document, member["selector"])
+                except (OSError, KeyError, SyncError):
+                    failed = True
+                    break
+            if failed:
+                plan.assets.append(
+                    _new_asset(
+                        asset_id,
+                        previous["asset_type"],
+                        previous["adapter"]["id"],
+                        previous["source_members"],
+                        previous["target_members"],
+                        "conflict",
+                        "interrupted-or-modified",
+                    )
+                )
+            else:
+                for path, document in json_by_path.items():
+                    plan.writes[path] = (
+                        json.dumps(
+                            document,
+                            ensure_ascii=False,
+                            indent=2,
+                            sort_keys=True,
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+
+    generated_writes, target_hashes = _prepare_target_bytes(
+        project_root,
+        applicable,
+    )
+    for path in set(plan.writes) & set(generated_writes):
+        if plan.writes[path] != generated_writes[path]:
+            raise SyncError(f"target write collision: {path}")
+    plan.writes.update(generated_writes)
+    for asset, _, _ in applicable:
+        targets = []
+        for member in asset["target_members"]:
+            target = {"path": member["path"]}
+            if target_map_trusted:
+                target["last_generated_sha256"] = target_hashes[
+                    asset["asset_id"]
+                ][_member_key(member)]
+            if "selector" in member:
+                target["selector"] = member["selector"]
+            targets.append(target)
+        plan.assets.append(
+            _new_asset(
+                asset["asset_id"],
+                asset["asset_type"],
+                asset["adapter"]["id"],
+                asset["source_members"],
+                targets,
+                "generated" if target_map_trusted else "created_unowned",
+                None if target_map_trusted else "target-map-untrusted",
+            )
+        )
+
+    plan.assets.sort(key=lambda item: item["asset_id"])
+    document = {
+        "schema_version": SCHEMA_VERSION,
+        "source_host": source_host,
+        "target_host": current_host,
+        "assets": plan.assets,
+    }
+    _validate_map(document, current_host)
+    if target_map.state != "invalid":
+        plan.map_bytes = (
+            json.dumps(
+                document,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+    touched = set(plan.writes) | set(plan.deletes)
+    if plan.map_bytes is not None:
+        touched.add(_rel(_map_path(project_root, current_host), project_root))
+    for rel in touched:
+        path = project_root / rel
+        _assert_project_local(path, project_root, "target")
+        state, digest = _file_state(path)
+        if state not in {"missing", "file"}:
+            raise SyncError(f"target path is unsafe ({state}): {rel}")
+        plan.target_prestate[rel] = digest
+    return plan
+
+
+def _assert_target_commit_path(
+    plan: SyncPlan,
+    rel: str,
+    label: str,
+) -> Path:
+    rel = _safe_rel(rel)
+    if not _surface_ok(rel, plan.current_host):
+        raise SyncError(f"{label} is outside target host surface: {rel}")
+    path = plan.project_root / rel
+    _assert_project_local(path, plan.project_root, label)
+    _assert_project_local(path.parent, plan.project_root, f"{label} parent")
+    if _is_link_like(path.parent):
+        raise SyncError(f"{label} parent is a symlink or junction: {rel}")
+    if _lexists(path):
+        _assert_no_links(path, label)
+    return path
+
+
+def _recheck_plan(plan: SyncPlan) -> None:
+    source = _inventory_host(plan.project_root, plan.source_host)
+    current_source = {path: _sha_file(value) for path, value in source.items()}
+    if current_source != plan.source_snapshot:
+        raise SyncError("source input drift before apply")
+    _inventory_host(plan.project_root, plan.current_host)
+    map_rel = _rel(
+        _map_path(plan.project_root, plan.current_host),
+        plan.project_root,
+    )
+    _assert_target_commit_path(plan, map_rel, "target map")
+    if _map_state_tuple(_load_map(plan.project_root, plan.source_host)) != (
+        plan.source_map_state
+    ):
+        raise SyncError("source map drift before apply")
+    if _map_state_tuple(_load_map(plan.project_root, plan.current_host)) != (
+        plan.target_map_state
+    ):
+        raise SyncError("target map drift before apply")
+    for rel, expected in plan.target_prestate.items():
+        path = _assert_target_commit_path(plan, rel, "target commit path")
+        state, digest = _file_state(path)
+        if state not in {"missing", "file"} or digest != expected:
+            raise SyncError(f"target input drift before apply: {rel}")
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, raw = tempfile.mkstemp(
+        prefix=".bridgeforge-switch-",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary = Path(raw)
+    mode: int | None = None
+    if path.is_file():
+        mode = stat.S_IMODE(path.stat().st_mode)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if mode is not None:
+            os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        if _lexists(temporary):
+            temporary.unlink()
+
+
+def _fault(label: str) -> None:
+    labels = {
+        item.strip()
+        for item in os.environ.get("BRIDGEFORGE_SWITCH_FAIL_AT", "").split(",")
+        if item.strip()
+    }
+    if label in labels:
+        raise RuntimeError(f"injected switch failure at {label}")
+
+
+def apply_plan(plan: SyncPlan) -> None:
+    _recheck_plan(plan)
+    touched = sorted(set(plan.writes) | set(plan.deletes))
+    map_rel = _rel(
+        _map_path(plan.project_root, plan.current_host),
+        plan.project_root,
+    )
+    all_touched = [*touched]
+    if plan.map_bytes is not None:
+        all_touched.append(map_rel)
+    with tempfile.TemporaryDirectory(prefix="bridgeforge-switch-") as raw_backup:
+        backup_root = Path(raw_backup)
+        absent: set[str] = set()
+        created_dirs: list[Path] = []
+        for rel in all_touched:
+            source = plan.project_root / rel
+            if source.is_file():
+                destination = backup_root / rel
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+            else:
+                absent.add(rel)
+        _recheck_plan(plan)
+        try:
+            write_count = 0
+            for rel, data in sorted(plan.writes.items()):
+                path = _assert_target_commit_path(
+                    plan,
+                    rel,
+                    "target write",
+                )
+                state, digest = _file_state(path)
+                if (
+                    state not in {"missing", "file"}
+                    or digest != plan.target_prestate[rel]
+                ):
+                    raise SyncError(
+                        f"target write drift before replace: {rel}"
+                    )
+                parent = path.parent
+                missing_parents: list[Path] = []
+                while parent != plan.project_root and not parent.exists():
+                    missing_parents.append(parent)
+                    parent = parent.parent
+                _atomic_write(path, data)
+                created_dirs.extend(reversed(missing_parents))
+                write_count += 1
+                if write_count == 1:
+                    _fault("after-first-write")
+            for rel in sorted(plan.deletes):
+                path = _assert_target_commit_path(
+                    plan,
+                    rel,
+                    "target delete",
+                )
+                state, digest = _file_state(path)
+                if state != "file" or digest != plan.target_prestate[rel]:
+                    raise SyncError(
+                        f"delete target drift before commit: {rel}"
+                    )
+                if path.is_file() and not _is_link_like(path):
+                    path.unlink()
+                else:
+                    raise SyncError(f"delete target changed before commit: {rel}")
+            _fault("after-deletes")
+            if plan.map_bytes is not None:
+                map_path = _assert_target_commit_path(
+                    plan,
+                    map_rel,
+                    "target map replace",
+                )
+                state, digest = _file_state(map_path)
+                if (
+                    state not in {"missing", "file"}
+                    or digest != plan.target_prestate[map_rel]
+                ):
+                    raise SyncError("target map drift before replace")
+                _fault("before-map-replace")
+                _atomic_write(map_path, plan.map_bytes)
+                _fault("after-map-replace")
+                loaded = _load_map(plan.project_root, plan.current_host)
+                if loaded.state != "valid":
+                    raise SyncError("written map failed validation")
+                for asset in loaded.data["assets"]:
+                    if asset["status"] != "generated":
+                        continue
+                    if (
+                        _generated_projection_state(plan.project_root, asset)
+                        != "clean"
+                    ):
+                        raise SyncError(
+                            "map/live verification failed: "
+                            + asset["asset_id"]
+                        )
+            for rel, data in sorted(plan.writes.items()):
+                if _file_state(plan.project_root / rel) != (
+                    "file",
+                    _sha_bytes(data),
+                ):
+                    raise SyncError(
+                        f"written target failed verification: {rel}"
+                    )
+            _fault("before-final-verify")
+        except Exception as original:
+            evidence: list[str] = [f"apply-error:{type(original).__name__}:{original}"]
+            restore_allowed = True
+            try:
+                _fault("rollback-before-restore")
+            except Exception as exc:
+                restore_allowed = False
+                evidence.append(
+                    f"rollback-fault:{type(exc).__name__}:{exc}"
+                )
+            if restore_allowed:
+                for rel in reversed(all_touched):
+                    live = plan.project_root / rel
+                    backup = backup_root / rel
+                    try:
+                        if backup.is_file():
+                            _atomic_write(live, backup.read_bytes())
+                        elif rel in absent and _lexists(live):
+                            if live.is_file() and not _is_link_like(live):
+                                live.unlink()
+                            else:
+                                raise RuntimeError(
+                                    f"cannot remove unsafe path: {rel}"
+                                )
+                    except Exception as exc:
+                        evidence.append(
+                            "restore-error:"
+                            f"{rel}:{type(exc).__name__}:{exc}"
+                        )
+                for directory in reversed(created_dirs):
+                    try:
+                        if directory.is_dir() and not any(directory.iterdir()):
+                            directory.rmdir()
+                    except Exception as exc:
+                        evidence.append(
+                            "cleanup-error:"
+                            f"{_rel(directory, plan.project_root)}:"
+                            f"{type(exc).__name__}:{exc}"
+                        )
+            verification_allowed = True
+            try:
+                _fault("rollback-before-verify")
+            except Exception as exc:
+                verification_allowed = False
+                evidence.append(
+                    f"rollback-verify-fault:{type(exc).__name__}:{exc}"
+                )
+            if verification_allowed:
+                for rel, expected in plan.target_prestate.items():
+                    state, digest = _file_state(plan.project_root / rel)
+                    if state not in {"missing", "file"} or digest != expected:
+                        evidence.append(
+                            "rollback-mismatch:"
+                            f"{rel}:expected={expected}:"
+                            f"actual-state={state}:actual={digest}"
+                        )
+                for directory in created_dirs:
+                    if _lexists(directory):
+                        evidence.append(
+                            "rollback-directory-remains:"
+                            + _rel(directory, plan.project_root)
+                        )
+            if len(evidence) > 1:
+                raise RollbackIncompleteError(
+                    "direct sync apply failed and rollback is incomplete",
+                    evidence,
+                ) from original
+            raise ApplyRolledBackError(str(original)) from original
+
+
+def _candidate_roots(script_path: Path, explicit: str | None) -> list[Path]:
+    candidates: list[Path] = []
     if explicit:
-        raw.append(Path(explicit))
+        candidates.append(Path(explicit))
     home = Path.home()
-    raw.extend(
+    candidates.extend(
         [
             script_path.parent.parent,
             home / ".bridgeforge",
@@ -309,30 +1481,25 @@ def _candidate_roots(
             home / ".claude" / "skills" / "bridgeforge",
         ]
     )
+    result: list[Path] = []
     seen: set[Path] = set()
-    roots: list[Path] = []
-    for path in raw:
-        resolved = path.expanduser().resolve()
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
         if resolved not in seen:
             seen.add(resolved)
-            roots.append(resolved)
-    return roots
+            result.append(resolved)
+    return result
 
 
-def find_template_root(
-    project_root: Path,
-    script_path: Path,
-    explicit: str | None,
-) -> Path:
-    for root in _candidate_roots(project_root, script_path, explicit):
+def find_template_root(script_path: Path, explicit: str | None) -> Path:
+    for root in _candidate_roots(script_path, explicit):
         if (
             (root / "templates" / "claude").is_dir()
             and (root / "templates" / "codex").is_dir()
         ):
             return root
-    raise SystemExit(
-        "ERROR: cannot find the installed BridgeForge command bundle. "
-        "Run no-argument /bridgeforge or pass --template-root explicitly."
+    raise SyncError(
+        "cannot find BridgeForge templates; pass --template-root"
     )
 
 
@@ -344,1598 +1511,137 @@ def looks_like_bridgeforge_source(root: Path) -> bool:
     )
 
 
-def choose_python_command(project_root: Path) -> str | None:
-    candidates = [
-        (project_root / ".venv" / "Scripts" / "python.exe", ".venv/Scripts/python.exe"),
-        (project_root / ".venv" / "bin" / "python", ".venv/bin/python"),
-    ]
-    for path, command in candidates:
-        if path.is_file():
-            return command
-    if shutil.which("python"):
-        return "python"
-    return None
-
-
-def _template_items(
-    template_root: Path,
-    agent: str,
-) -> list[CopyItem]:
-    spec = SPECS[agent]
-    template = template_root / "templates" / agent
-    _assert_no_links(template, f"{agent} target template")
-    items: list[CopyItem] = []
-    entry = template / spec.entry
-    if not entry.is_file():
-        raise SystemExit(f"ERROR: target template is missing {spec.entry}")
-    items.append(CopyItem(entry, spec.entry))
-    for name in spec.config_files:
-        source = template_root / "VERSION" if name == ".bridgeforge_version" else template / name
-        if not source.is_file():
-            raise SystemExit(f"ERROR: target template is missing {agent}/{name}")
-        items.append(CopyItem(source, f"{spec.config_dir}/{name}"))
-    for name in spec.config_dirs:
-        source_dir = template / name
-        if not source_dir.is_dir():
-            raise SystemExit(f"ERROR: target template is missing {agent}/{name}/")
-        for source in sorted(path for path in source_dir.rglob("*") if path.is_file()):
-            if "__pycache__" in source.parts or source.suffix == ".pyc":
-                continue
-            rel = _posix(source.relative_to(source_dir))
-            items.append(
-                CopyItem(source, f"{spec.config_dir}/{name}/{rel}")
-            )
-    return items
-
-
 def template_copy_items(
     template_root: Path,
     project_root: Path,
     agent: str,
-) -> list[CopyItem]:
-    """Return the complete agent-specific target installation surface."""
-    return [
-        CopyItem(item.src, _rel(project_root / item.rel, project_root))
-        for item in _template_items(template_root, agent)
-    ]
-
-
-def _inventory_paths(paths: list[Path], project_root: Path) -> dict[str, Path]:
-    files: dict[str, Path] = {}
-    for path in paths:
-        _assert_project_local(path, project_root, "agent inventory")
-        _assert_no_links(path, "agent inventory")
-        if path.is_file():
-            files[_rel(path, project_root)] = path
-        elif path.is_dir():
-            for child in sorted(item for item in path.rglob("*") if item.is_file()):
-                if "__pycache__" in child.parts or child.suffix == ".pyc":
-                    continue
-                files[_rel(child, project_root)] = child
-    return files
-
-
-def _latest_archive(project_root: Path, agent: str) -> Path | None:
-    root = project_root / ARCHIVE_ROOT / agent
-    _assert_project_local(root, project_root, "archive root")
-    _assert_no_links(project_root / ARCHIVE_ROOT, "archive root")
-    if not root.is_dir():
-        return None
-    candidates = sorted(path for path in root.iterdir() if path.is_dir())
-    for candidate in candidates:
-        _assert_project_local(candidate, project_root, "target archive")
-        _assert_no_links(candidate, "target archive")
-    return candidates[-1] if candidates else None
-
-
-def _archive_inventory(archive: Path | None) -> dict[str, Path]:
-    if archive is None:
-        return {}
-    return {
-        _posix(path.relative_to(archive)): path
-        for path in sorted(item for item in archive.rglob("*") if item.is_file())
-        if "__pycache__" not in path.parts and path.suffix != ".pyc"
-    }
-
-
-def _load_receipts(project_root: Path) -> list[dict[str, Any]]:
-    root = project_root / MIGRATION_ROOT
-    _assert_project_local(root, project_root, "migration root")
-    _assert_no_links(root, "migration root")
-    if not root.is_dir():
-        return []
-    receipts: list[dict[str, Any]] = []
-    for path in sorted(root.glob("*/receipt.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
-        except Exception:
-            continue
-        if (
-            isinstance(data, dict)
-            and data.get("status") == "success"
-            and data.get("schema_version") == SCHEMA_VERSION
-        ):
-            data["_receipt_path"] = _rel(path, project_root)
-            receipts.append(data)
-    return receipts
-
-
-def build_plan(agent: str, project_root: Path, template_root: Path) -> Plan:
-    target_spec = SPECS[agent]
-    old_agent = "codex" if agent == "claude" else "claude"
-    old_spec = SPECS[old_agent]
-    old_paths = _existing_agent_paths(old_spec, project_root)
-    target_paths = _existing_agent_paths(target_spec, project_root)
-    for path in [*old_paths, *target_paths]:
-        _assert_project_local(path, project_root, "live agent surface")
-        _assert_no_links(path, "live agent surface")
-    already_target = _is_complete_agent(target_spec, project_root) and not old_paths
-    target_conflicts = target_paths if old_paths or not already_target else []
-    template_items = _template_items(template_root, agent)
-    source_files = _inventory_paths(old_paths, project_root)
-    target_archive = _latest_archive(project_root, agent)
-    archive_files = _archive_inventory(target_archive)
-    plan = Plan(
-        agent=agent,
-        old_agent=old_agent,
-        project_root=project_root,
-        template_root=template_root,
-        template_items=template_items,
-        source_files=source_files,
-        target_archive=target_archive,
-        archive_files=archive_files,
-        receipts=_load_receipts(project_root),
-        target_paths=target_paths,
-        target_conflicts=target_conflicts,
-        already_target=already_target,
-        python_command=choose_python_command(project_root),
-    )
-    _validate_archive_receipt_inventory(plan)
-    plan.source_state = _agent_tree_state(project_root, old_spec)
-    template_map = {
-        item.rel: item.src
-        for item in template_items
-    }
-    plan.snapshots = {
-        "source": _state_digest(plan.source_state),
-        "target_template": _snapshot(template_map),
-        "target_prestate": _path_state(_agent_paths(target_spec, project_root), project_root),
-        "target_archive": (
-            _path_state([target_archive], project_root)
-            if target_archive is not None
-            else _snapshot({})
-        ),
-    }
-    return plan
-
-
-def _source_template_map(
-    plan: Plan,
-) -> dict[str, Path]:
-    return {
-        item.rel: item.src
-        for item in _template_items(plan.template_root, plan.old_agent)
-    }
-
-
-def _receipt_target_record(
-    plan: Plan,
-    rel: str,
-    sha256: str,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    for receipt in reversed(plan.receipts):
-        if receipt.get("target_agent") != plan.old_agent:
-            continue
-        for record in receipt.get("target", {}).get("files", []):
-            if record.get("path") == rel and record.get("sha256") == sha256:
-                return receipt, record
-    return None, None
-
-
-def _archive_receipt(plan: Plan) -> dict[str, Any] | None:
-    if plan.target_archive is None:
-        return None
-    archive_rel = _rel(plan.target_archive, plan.project_root)
-    for receipt in reversed(plan.receipts):
-        if receipt.get("archive", {}).get("path") == archive_rel:
-            return receipt
-    return None
-
-
-def _validate_archive_receipt_inventory(plan: Plan) -> None:
-    if plan.target_archive is None:
-        return
-    receipt = _archive_receipt(plan)
-    if receipt is None:
-        return
-    records = receipt.get("archive", {}).get("files")
-    if not isinstance(records, list):
-        raise ManifestError("target archive receipt.files is missing or invalid")
-
-    actual: dict[str, str] = {}
-    actual_keys: dict[str, str] = {}
-    for rel, path in sorted(plan.archive_files.items()):
-        key = _windows_path_key(rel)
-        if key in actual_keys:
-            raise ManifestError(
-                "target archive has Windows-equivalent path collision: "
-                f"{actual_keys[key]} and {rel}"
-            )
-        actual_keys[key] = rel
-        actual[rel] = _sha_file(path)
-
-    registered: dict[str, str] = {}
-    registered_keys: dict[str, str] = {}
-    for record in records:
-        if not isinstance(record, dict):
-            raise ManifestError("target archive receipt contains a non-object file record")
-        rel = _safe_rel(str(record.get("path", "")))
-        key = _windows_path_key(rel)
-        if key in registered_keys:
-            raise ManifestError(
-                "target archive receipt has Windows-equivalent path collision: "
-                f"{registered_keys[key]} and {rel}"
-            )
-        registered_keys[key] = rel
-        sha256 = record.get("sha256")
-        if not isinstance(sha256, str) or not sha256.startswith("sha256:"):
-            raise ManifestError(f"target archive receipt hash is invalid: {rel}")
-        registered[rel] = sha256
-
-    missing = sorted(set(registered) - set(actual))
-    extra = sorted(set(actual) - set(registered))
-    mismatched = sorted(
-        rel
-        for rel in set(actual) & set(registered)
-        if actual[rel] != registered[rel]
-    )
-    if missing or extra or mismatched:
-        details: list[str] = []
-        if missing:
-            details.append("registered-but-missing=" + ", ".join(missing))
-        if extra:
-            details.append("unregistered-extra=" + ", ".join(extra))
-        if mismatched:
-            details.append("hash-mismatch=" + ", ".join(mismatched))
-        raise ManifestError(
-            "target archive does not exactly match its v2 receipt: "
-            + "; ".join(details)
-        )
-
-
-def _archive_record(
-    receipt: dict[str, Any] | None,
-    rel: str,
-    sha256: str,
-) -> dict[str, Any] | None:
-    if receipt is None:
-        return None
-    for record in receipt.get("archive", {}).get("files", []):
-        if record.get("path") == rel and record.get("sha256") == sha256:
-            return record
-    return None
-
-
-def _constraint_id(agent: str, rel: str, sha256: str) -> str:
-    raw = f"{agent}\0{rel}\0{sha256}".encode("utf-8")
-    return "bf-" + hashlib.sha256(raw).hexdigest()[:20]
-
-
-def _is_executable(rel: str) -> bool:
-    normalized = unicodedata.normalize("NFC", rel.replace("\\", "/")).casefold()
-    parts = Path(normalized).parts
-    return (
-        Path(normalized).suffix in {".py", ".sh", ".ps1", ".bat", ".cmd"}
-        or "hooks" in parts
-        or "scripts" in parts
-    )
-
-
-def _required_evidence(rel: str, level: str) -> str:
-    if level == "hard" and _is_executable(rel):
-        return "contract-smoke"
-    return "text-review"
-
-
-def _proposal_item(
-    *,
-    constraint_id: str,
-    source_origin: str,
-    source_path: str,
-    source_sha: str,
-    owner: str,
-    level: str,
-    classification: str,
-    summary: str,
-    parent_receipt: str | None = None,
-) -> dict[str, Any]:
-    not_applicable = level == "platform-detail"
-    return {
-        "constraint_id": constraint_id,
-        "semantic": {
-            "summary": summary,
-            "classification": classification,
-        },
-        "constraint_level": level,
-        "source": {
-            "origin": source_origin,
-            "path": source_path,
-            "sha256": source_sha,
-        },
-        "target": {
-            "action": "not-applicable" if not_applicable else "unresolved",
-            "path": None,
-            "base_sha256": None,
-            "sha256": None,
-            "content": None,
-            "diff": "",
-        },
-        "source_owner": owner,
-        "target_owner": None,
-        "adapter": {
-            "kind": "platform-detail" if not_applicable else "unresolved",
-            "source": "inventory",
-        },
-        "approval": {
-            "status": "not-required" if not_applicable else "pending",
-            "approved_by": None,
-        },
-        "evidence": {
-            "required_level": _required_evidence(source_path, level),
-            "level": "text-review" if not_applicable else None,
-            "status": "not-required" if not_applicable else "pending",
-            "details": "current source template byte match" if not_applicable else "",
-        },
-        "status": "not-applicable" if not_applicable else "blocked",
-        "parent_receipt": parent_receipt,
-    }
-
-
-def _freeze_expected_fields(item: dict[str, Any]) -> None:
-    """Persist the mechanically detected security boundary for later approval."""
-    target = item["target"]
-    item["expected"] = {
-        "source_owner": item["source_owner"],
-        "target_owner": item["target_owner"],
-        "constraint_level": item["constraint_level"],
-        "semantic_classification": item["semantic"]["classification"],
-        "target_action": target["action"],
-        "target_path": target["path"],
-        "target_base_sha256": target["base_sha256"],
-    }
-
-
-def build_proposal(
-    plan: Plan,
-    migration_id: str | None = None,
-) -> dict[str, Any]:
-    migration_id = migration_id or (
-        f"{_timestamp()}-{plan.old_agent}-to-{plan.agent}-"
-        f"{hashlib.sha256(os.urandom(16)).hexdigest()[:8]}"
-    )
-    source_template = _source_template_map(plan)
-    items: list[dict[str, Any]] = []
-    parents: set[str] = set()
-    live_constraint_ids: set[str] = set()
-
-    for rel, path in sorted(plan.source_files.items()):
-        sha256 = _sha_file(path)
-        template_path = source_template.get(rel)
-        if template_path is not None and _sha_file(template_path) == sha256:
-            items.append(
-                _proposal_item(
-                    constraint_id=_constraint_id(plan.old_agent, rel, sha256),
-                    source_origin="live",
-                    source_path=rel,
-                    source_sha=sha256,
-                    owner="template-managed",
-                    level="platform-detail",
-                    classification="platform-detail",
-                    summary="Current source-platform template asset; no cross-platform copy.",
-                )
-            )
-            continue
-        receipt, record = _receipt_target_record(plan, rel, sha256)
-        parent_id = receipt.get("migration_id") if receipt else None
-        if parent_id:
-            parents.add(parent_id)
-        constraint_id = (
-            record.get("constraint_id")
-            if record and record.get("constraint_id")
-            else _constraint_id(plan.old_agent, rel, sha256)
-        )
-        live_constraint_ids.add(constraint_id)
-        items.append(
-            _proposal_item(
-                constraint_id=constraint_id,
-                source_origin="live",
-                source_path=rel,
-                source_sha=sha256,
-                owner=record.get("target_owner", "unknown-historical") if record else "unknown-historical",
-                level=record.get("constraint_level", "hard") if record else "hard",
-                classification=(
-                    record.get("semantic", {}).get("classification", "unresolved")
-                    if record
-                    else "unresolved"
-                ),
-                summary=(
-                    record.get("semantic", {}).get("summary", "")
-                    if record
-                    else ""
-                ),
-                parent_receipt=parent_id,
-            )
-        )
-
-    archive_receipt = _archive_receipt(plan)
-    if archive_receipt:
-        parents.add(archive_receipt.get("migration_id", ""))
-    for rel, path in sorted(plan.archive_files.items()):
-        sha256 = _sha_file(path)
-        record = _archive_record(archive_receipt, rel, sha256)
-        if record is None:
-            owner = "unknown-historical"
-            level = "hard"
-            classification = "unresolved"
-            summary = ""
-            constraint_id = _constraint_id(plan.agent, f"archive:{rel}", sha256)
-        else:
-            owner = record.get("source_owner", "unknown-historical")
-            constraint_id = record.get("constraint_id") or _constraint_id(
-                plan.agent,
-                f"archive:{rel}",
-                sha256,
-            )
-            level = record.get("constraint_level", "hard")
-            classification = record.get("semantic", {}).get(
-                "classification",
-                "translatable",
-            )
-            summary = record.get("semantic", {}).get("summary", "")
-            if owner == "template-managed":
-                level = "platform-detail"
-                classification = "platform-detail"
-                summary = "Archived managed template asset is superseded by the current template."
-            elif constraint_id in live_constraint_ids:
-                level = "platform-detail"
-                classification = "lineage-duplicate"
-                summary = "Archived projection is superseded by the same live constraint lineage."
-        item = _proposal_item(
-            constraint_id=constraint_id,
-            source_origin="target-archive",
-            source_path=rel,
-            source_sha=sha256,
-            owner=owner,
-            level=level,
-            classification=classification,
-            summary=summary,
-            parent_receipt=archive_receipt.get("migration_id") if archive_receipt else None,
-        )
-        if record and owner == "user-owned" and level != "platform-detail":
-            item["target"]["action"] = "replay-archive"
-            item["target"]["path"] = rel
-            item["target"]["sha256"] = sha256
-            item["target"]["diff"] = _expected_diff(
-                plan,
-                rel,
-                path.read_bytes(),
-            )
-            item["target_owner"] = "user-owned"
-            item["adapter"] = {
-                "kind": "provenance-replay",
-                "source": archive_receipt.get("_receipt_path", "prior receipt"),
-            }
-            item["approval"] = {"status": "pending", "approved_by": None}
-            item["evidence"]["status"] = "pending"
-            item["status"] = "blocked"
-        elif record and owner == "constraint-generated" and level != "platform-detail":
-            item["target"]["action"] = "unresolved"
-            item["adapter"] = {
-                "kind": "unavailable",
-                "source": "constraint-generated archive requires a registered adapter",
-                "id": record.get("adapter", {}).get("id"),
-                "version": record.get("adapter", {}).get("version"),
-            }
-        if item["target"]["path"]:
-            item["target"]["base_sha256"] = _sha_bytes(
-                _target_template_bytes(plan, item["target"]["path"])
-            )
-        _freeze_expected_fields(item)
-        items.append(item)
-
-    for item in items:
-        if "expected" not in item:
-            _freeze_expected_fields(item)
-
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "migration_id": migration_id,
-        "created_at": _now(),
-        "source_agent": plan.old_agent,
-        "target_agent": plan.agent,
-        "parent_migration_ids": sorted(parent for parent in parents if parent),
-        "snapshots": dict(plan.snapshots),
-        "items": items,
-    }
-
-
-def _target_template_bytes(plan: Plan, rel: str) -> bytes:
-    for item in plan.template_items:
-        if item.rel == rel:
-            return item.src.read_bytes()
-    return b""
-
-
-def _text_diff(before: bytes, after: bytes, rel: str) -> str:
-    try:
-        before_text = before.decode("utf-8").replace("\r\n", "\n")
-        after_text = after.decode("utf-8").replace("\r\n", "\n")
-    except UnicodeDecodeError:
-        return (
-            f"binary {rel}: {_sha_bytes(before)} -> {_sha_bytes(after)}"
-        )
-    return "".join(
-        difflib.unified_diff(
-            before_text.splitlines(keepends=True),
-            after_text.splitlines(keepends=True),
-            fromfile=f"template/{rel}",
-            tofile=f"target/{rel}",
-        )
-    )
-
-
-def _expected_diff(plan: Plan, rel: str, after: bytes) -> str:
-    return _text_diff(_target_template_bytes(plan, rel), after, rel)
-
-
-def _manifest_bytes(item: dict[str, Any]) -> bytes:
-    target = item.get("target", {})
-    if target.get("content_base64") is not None:
-        try:
-            return base64.b64decode(target["content_base64"], validate=True)
-        except Exception as exc:
-            raise ManifestError(
-                f"{item.get('constraint_id')}: invalid target.content_base64"
-            ) from exc
-    content = target.get("content")
-    if not isinstance(content, str):
-        raise ManifestError(
-            f"{item.get('constraint_id')}: write requires target.content"
-        )
-    return content.encode("utf-8")
-
-
-def _target_allowed(plan: Plan, rel: str) -> bool:
-    spec = SPECS[plan.agent]
-    return rel == spec.entry or rel.startswith(spec.config_dir + "/")
-
-
-def _inventory_key(item: dict[str, Any]) -> tuple[str, str, str]:
-    source = item.get("source", {})
-    return (
-        str(source.get("origin", "")),
-        str(source.get("path", "")),
-        str(source.get("sha256", "")),
-    )
-
-
-def _expected_inventory(plan: Plan) -> set[tuple[str, str, str]]:
-    expected = {
-        ("live", rel, _sha_file(path))
-        for rel, path in plan.source_files.items()
-    }
-    expected.update(
-        ("target-archive", rel, _sha_file(path))
-        for rel, path in plan.archive_files.items()
-    )
-    return expected
-
-
-def _require_string(data: dict[str, Any], key: str, label: str) -> str:
-    value = data.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ManifestError(f"{label}.{key} must be a non-empty string")
-    return value.strip()
-
-
-def validate_manifest(
-    plan: Plan,
-    manifest: dict[str, Any],
-) -> list[dict[str, Any]]:
-    if manifest.get("schema_version") != SCHEMA_VERSION:
-        raise ManifestError(f"schema_version must be {SCHEMA_VERSION}")
-    migration_id = _require_string(manifest, "migration_id", "manifest")
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}", migration_id):
-        raise ManifestError("manifest.migration_id is not path-safe")
-    if manifest.get("source_agent") != plan.old_agent:
-        raise ManifestError("manifest.source_agent does not match current live source")
-    if manifest.get("target_agent") != plan.agent:
-        raise ManifestError("manifest.target_agent does not match requested target")
-    if manifest.get("snapshots") != plan.snapshots:
-        raise ManifestError("manifest snapshots are stale")
-    expected_proposal = build_proposal(plan, migration_id=migration_id)
-    if manifest.get("parent_migration_ids", []) != expected_proposal["parent_migration_ids"]:
-        raise ManifestError("manifest parent lineage is missing or stale")
-    raw_items = manifest.get("items")
-    if not isinstance(raw_items, list):
-        raise ManifestError("manifest.items must be a list")
-    if {_inventory_key(item) for item in raw_items if isinstance(item, dict)} != _expected_inventory(plan):
-        raise ManifestError("manifest must cover the exact live and target-archive inventory")
-    if len(raw_items) != len(_expected_inventory(plan)):
-        raise ManifestError("manifest contains duplicate or non-object inventory items")
-    expected_items = {
-        _inventory_key(item): item
-        for item in expected_proposal["items"]
-    }
-
-    target_paths: dict[str, str] = {}
-    template_paths = {
-        _windows_path_key(copy_item.rel): copy_item.rel
-        for copy_item in plan.template_items
-    }
-    checked: list[dict[str, Any]] = []
-    for item in raw_items:
-        constraint_id = _require_string(item, "constraint_id", "item")
-        expected_item = expected_items[_inventory_key(item)]
-        if constraint_id != expected_item["constraint_id"]:
-            raise ManifestError(
-                f"{constraint_id}: constraint_id does not match persisted lineage"
-            )
-        if item.get("expected") != expected_item.get("expected"):
-            raise ManifestError(
-                f"{constraint_id}: mechanically detected proposal fields were modified"
-            )
-        level = item.get("constraint_level")
-        if level not in {"hard", "soft", "platform-detail"}:
-            raise ManifestError(f"{constraint_id}: invalid constraint_level")
-        expected_level = expected_item["constraint_level"]
-        if level != expected_level:
-            raise ManifestError(
-                f"{constraint_id}: constraint_level cannot be downgraded or rewritten"
-            )
-        source_owner = item.get("source_owner")
-        if source_owner not in OWNERS:
-            raise ManifestError(f"{constraint_id}: invalid source_owner")
-        expected_owner = expected_item["source_owner"]
-        if source_owner != expected_owner:
-            raise ManifestError(
-                f"{constraint_id}: source_owner does not match proven provenance"
-            )
-        target_owner = item.get("target_owner")
-        semantic = item.get("semantic")
-        if not isinstance(semantic, dict):
-            raise ManifestError(f"{constraint_id}: semantic object is required")
-        expected_classification = expected_item["semantic"]["classification"]
-        action = item.get("target", {}).get("action")
-        if action not in {
-            "not-applicable",
-            "unresolved",
-            "write",
-            "replay-archive",
-            "keep-template",
-        }:
-            raise ManifestError(f"{constraint_id}: unsupported target action")
-        if expected_owner == "unknown-historical":
-            lineage_duplicate = (
-                expected_level == "platform-detail"
-                and expected_classification == "lineage-duplicate"
-            )
-            if lineage_duplicate:
-                if (
-                    action != expected_item["target"]["action"]
-                    or semantic.get("classification") != expected_classification
-                ):
-                    raise ManifestError(
-                        f"{constraint_id}: archived lineage duplicate fields changed"
-                    )
-            elif action != "write":
-                raise ManifestError(
-                    f"{constraint_id}: unknown ownership requires an approved "
-                    "target-native write; archive replay is forbidden"
-                )
-            elif semantic.get("classification") != "translatable":
-                raise ManifestError(
-                    f"{constraint_id}: unresolved semantics may only advance to translatable"
-                )
-        else:
-            if semantic.get("classification") != expected_classification:
-                raise ManifestError(
-                    f"{constraint_id}: semantic classification does not match provenance"
-                )
-            expected_action = expected_item["target"]["action"]
-            generated_lineage_duplicate = (
-                expected_level == "platform-detail"
-                and expected_classification == "lineage-duplicate"
-                and expected_action == "not-applicable"
-            )
-            if (
-                item["source"]["origin"] == "target-archive"
-                and expected_owner == "constraint-generated"
-                and not generated_lineage_duplicate
-            ):
-                raise ManifestError(
-                    f"{constraint_id}: constraint-generated archive bytes cannot be "
-                    "replayed; no registered adapter is available"
-                )
-            if expected_action == "unresolved":
-                if action != "write":
-                    raise ManifestError(
-                        f"{constraint_id}: unresolved target requires a target-native write"
-                    )
-            elif action != expected_action:
-                raise ManifestError(
-                    f"{constraint_id}: target action does not match the proposal"
-                )
-            if (
-                expected_action != "unresolved"
-                and item["target"].get("path") != expected_item["target"].get("path")
-            ):
-                raise ManifestError(
-                    f"{constraint_id}: target path does not match the proposal"
-                )
-        if level == "hard" and (
-            semantic.get("classification") in {None, "", "unresolved"}
-            or not str(semantic.get("summary", "")).strip()
-        ):
-            raise ManifestError(f"{constraint_id}: hard constraint semantics are unresolved")
-        if level == "hard" and action in {"not-applicable", "keep-template"}:
-            raise ManifestError(
-                f"{constraint_id}: hard constraint requires a target-native projection"
-            )
-
-        approval = item.get("approval", {})
-        approval_required = level != "platform-detail" or action not in {
-            "not-applicable",
-            "keep-template",
-        }
-        if approval_required and (
-            approval.get("status") != "approved"
-            or not str(approval.get("approved_by", "")).strip()
-        ):
-            raise ManifestError(f"{constraint_id}: item is not explicitly approved")
-
-        source = item["source"]
-        source_path = _safe_rel(str(source["path"]))
-        evidence = item.get("evidence")
-        if not isinstance(evidence, dict):
-            raise ManifestError(f"{constraint_id}: evidence object is required")
-        default_required = _required_evidence(source_path, level)
-        target_path_for_evidence = item.get("target", {}).get("path")
-        if (
-            level == "hard"
-            and action in {"write", "replay-archive"}
-            and isinstance(target_path_for_evidence, str)
-            and _is_executable(target_path_for_evidence)
-        ):
-            default_required = "contract-smoke"
-        requested = evidence.get("required_level") or default_required
-        if requested not in EVIDENCE_RANK:
-            raise ManifestError(f"{constraint_id}: invalid required evidence level")
-        required_rank = max(
-            EVIDENCE_RANK[default_required],
-            EVIDENCE_RANK[requested],
-        )
-        actual_level = evidence.get("level")
-        if actual_level not in EVIDENCE_RANK:
-            if level == "platform-detail" and evidence.get("status") == "not-required":
-                actual_level = "text-review"
-            else:
-                raise ManifestError(f"{constraint_id}: evidence level is missing")
-        if EVIDENCE_RANK[actual_level] < required_rank:
-            raise ManifestError(f"{constraint_id}: evidence level is below the minimum")
-        if actual_level in {"contract-smoke", "native-host"}:
-            command = evidence.get("command")
-            if command is not None:
-                raise ManifestError(
-                    f"{constraint_id}: manifest evidence.command is forbidden; "
-                    "untrusted external commands are never executed"
-                )
-            raise ManifestError(
-                f"{constraint_id}: {actual_level} evidence is sandbox-unavailable; "
-                "executable hard constraints cannot migrate on this host"
-            )
-        elif approval_required and evidence.get("status") != "passed":
-            raise ManifestError(f"{constraint_id}: review evidence is not passed")
-
-        if action in {"write", "replay-archive"}:
-            target = item["target"]
-            target_rel = _safe_rel(str(target.get("path", "")))
-            if not _target_allowed(plan, target_rel):
-                raise ManifestError(
-                    f"{constraint_id}: target path is outside the target agent surface"
-                )
-            target_key = _windows_path_key(target_rel)
-            template_rel = template_paths.get(target_key)
-            if template_rel is not None and template_rel != target_rel:
-                raise ManifestError(
-                    "Windows path collision with target template: "
-                    f"{template_rel} and {target_rel}"
-                )
-            if target_key in target_paths:
-                raise ManifestError(
-                    "Windows path collision between target projections: "
-                    f"{target_paths[target_key]} and {target_rel}"
-                )
-            target_paths[target_key] = target_rel
-            if action == "write":
-                if target_owner != "constraint-generated":
-                    raise ManifestError(
-                        f"{constraint_id}: translated writes require "
-                        "target_owner=constraint-generated"
-                    )
-                content = _manifest_bytes(item)
-                source_file = (
-                    plan.source_files.get(source_path)
-                    if source.get("origin") == "live"
-                    else plan.archive_files.get(source_path)
-                )
-                if (
-                    source.get("origin") == "live"
-                    and source_file is not None
-                    and content == source_file.read_bytes()
-                ):
-                    raise ManifestError(
-                        f"{constraint_id}: direct cross-platform byte copy is forbidden"
-                    )
-            else:
-                if target_owner != "user-owned":
-                    raise ManifestError(
-                        f"{constraint_id}: archive replay requires target_owner=user-owned"
-                    )
-                if source.get("origin") != "target-archive":
-                    raise ManifestError(
-                        f"{constraint_id}: replay-archive requires target-archive source"
-                    )
-                if source_owner != "user-owned":
-                    raise ManifestError(
-                        f"{constraint_id}: archive replay lacks proven ownership"
-                    )
-                content = plan.archive_files[source_path].read_bytes()
-            if target.get("sha256") != _sha_bytes(content):
-                raise ManifestError(f"{constraint_id}: target hash does not match content")
-            expected_base_sha = _sha_bytes(_target_template_bytes(plan, target_rel))
-            if target.get("base_sha256") != expected_base_sha:
-                raise ManifestError(
-                    f"{constraint_id}: target base hash is missing or stale"
-                )
-            if target.get("diff") != _expected_diff(plan, target_rel, content):
-                raise ManifestError(f"{constraint_id}: target diff is missing or stale")
-            adapter = item.get("adapter", {})
-            if (
-                adapter.get("kind") in {None, "", "unresolved", "platform-detail"}
-                or not str(adapter.get("source", "")).strip()
-            ):
-                raise ManifestError(f"{constraint_id}: adapter provenance is incomplete")
-        elif target_owner is not None:
-            raise ManifestError(
-                f"{constraint_id}: non-writing item must not declare target_owner"
-            )
-        checked.append(item)
-    return checked
-
-
-def _copy_file(src: Path, dst: Path) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst)
-
-
-def _tree_state(root: Path) -> dict[str, str]:
-    state: dict[str, str] = {}
-    if not _lexists(root):
-        return state
-    _assert_no_links(root, "staged target")
-    for path in sorted(root.rglob("*")):
-        rel = _posix(path.relative_to(root))
-        if path.is_dir():
-            state[rel] = "directory"
-        elif path.is_file():
-            state[rel] = "file:" + _sha_file(path)
-        else:
-            raise ManifestError(f"unsupported staged target path type: {rel}")
-    return state
-
-
-def _agent_tree_state(root: Path, spec: AgentSpec) -> dict[str, str]:
-    state: dict[str, str] = {}
-    for rel in (spec.entry, spec.config_dir):
-        path = root / rel
-        if not _lexists(path):
-            continue
-        _assert_no_links(path, "agent target surface")
-        if path.is_file():
-            state[rel] = "file:" + _sha_file(path)
-            continue
-        state[rel] = "directory"
-        for child in sorted(path.rglob("*")):
-            child_rel = _posix(child.relative_to(root))
-            if child.is_dir():
-                state[child_rel] = "directory"
-            elif child.is_file():
-                state[child_rel] = "file:" + _sha_file(child)
-            else:
-                raise ManifestError(f"unsupported target path type: {child_rel}")
-    return state
-
-
-def _assert_tree_exact(
-    expected: dict[str, str],
-    root: Path,
-    label: str,
-    spec: AgentSpec | None = None,
-) -> None:
-    actual = _agent_tree_state(root, spec) if spec else _tree_state(root)
-    if actual == expected:
-        return
-    added = sorted(set(actual) - set(expected))
-    removed = sorted(set(expected) - set(actual))
-    changed = sorted(
-        rel
-        for rel in set(actual) & set(expected)
-        if actual[rel] != expected[rel]
-    )
-    details: list[str] = []
-    if added:
-        details.append("unregistered=" + ", ".join(added))
-    if removed:
-        details.append("missing=" + ", ".join(removed))
-    if changed:
-        details.append("hash/type drift=" + ", ".join(changed))
-    raise ManifestError(f"{label} differs from approved staged target: " + "; ".join(details))
-
-
-def _copy_agent_snapshot(
-    spec: AgentSpec,
-    source_root: Path,
-    snapshot_root: Path,
-) -> None:
-    for rel in (spec.entry, spec.config_dir):
-        source = source_root / rel
-        if not _lexists(source):
-            continue
-        _assert_no_links(source, "source live backup")
-        target = snapshot_root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if source.is_dir():
-            shutil.copytree(
-                source,
-                target,
-                symlinks=True,
-            )
-        else:
-            shutil.copy2(source, target)
-
-
-def _restore_agent_snapshot(
-    spec: AgentSpec,
-    project_root: Path,
-    snapshot_root: Path,
-) -> None:
-    for path in _agent_paths(spec, project_root):
-        _remove_path(path)
-    _copy_agent_snapshot(spec, snapshot_root, project_root)
-
-
-def _remove_path(path: Path) -> None:
-    if not _lexists(path):
-        return
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
-    else:
-        path.unlink()
-
-
-def adapt_settings(path: Path, python_command: str | None) -> None:
-    if not path.is_file() or not python_command:
-        return
-    original = path.read_text(encoding="utf-8-sig")
-    try:
-        data = json.loads(original)
-    except Exception:
-        tokens = r"(?:\.venv/Scripts/python\.exe|\.venv/bin/python|python3|python)"
-        text = re.sub(
-            rf'("command"\s*:\s*")({tokens})(?=\s)',
-            rf"\1{python_command}",
-            original,
-        )
-        path.write_text(text, encoding="utf-8")
-        return
-
-    commands = (".venv/Scripts/python.exe", ".venv/bin/python", "python3", "python")
-
-    def adapt(value: Any) -> Any:
-        if isinstance(value, str):
-            for command in commands:
-                if value == command or value.startswith(command + " "):
-                    return python_command + value[len(command):]
-            return value
-        if isinstance(value, list):
-            return [adapt(item) for item in value]
-        if isinstance(value, dict):
-            return {key: adapt(item) for key, item in value.items()}
-        return value
-
-    path.write_text(
-        json.dumps(adapt(data), ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-
-def _stage_target(
-    plan: Plan,
-    items: list[dict[str, Any]],
-    stage_root: Path,
-) -> None:
-    if stage_root.exists():
-        shutil.rmtree(stage_root)
-    stage_root.mkdir(parents=True)
-    for copy_item in plan.template_items:
-        _copy_file(copy_item.src, stage_root / copy_item.rel)
-    settings = stage_root / SPECS[plan.agent].config_dir / "settings.json"
-    adapt_settings(settings, plan.python_command)
-    for item in items:
-        action = item["target"]["action"]
-        if action not in {"write", "replay-archive"}:
-            continue
-        target = stage_root / _safe_rel(item["target"]["path"])
-        if action == "write":
-            content = _manifest_bytes(item)
-        else:
-            content = plan.archive_files[_safe_rel(item["source"]["path"])].read_bytes()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
-
-
-def _validate_target_root(plan: Plan, root: Path) -> list[str]:
-    spec = SPECS[plan.agent]
-    problems: list[str] = []
-    required_files = [spec.entry, *[f"{spec.config_dir}/{name}" for name in spec.config_files]]
-    required_dirs = [f"{spec.config_dir}/{name}" for name in spec.config_dirs]
-    for rel in required_files:
-        if not (root / rel).is_file():
-            problems.append(f"missing target file: {rel}")
-    for rel in required_dirs:
-        if not (root / rel).is_dir():
-            problems.append(f"missing target directory: {rel}")
-    other = SPECS[plan.old_agent]
-    for rel in (other.entry, other.config_dir):
-        if (root / rel).exists():
-            problems.append(f"source-platform residue in staged target: {rel}")
-    return problems
-
-
-def _run_evidence(
-    plan: Plan,
-    items: list[dict[str, Any]],
-    stage_root: Path,
-) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    for item in items:
-        evidence = item["evidence"]
-        level = evidence.get("level")
-        result = {
-            "constraint_id": item["constraint_id"],
-            "source": {
-                "origin": item["source"]["origin"],
-                "path": item["source"]["path"],
-                "sha256": item["source"]["sha256"],
-            },
-            "required_level": evidence.get("required_level"),
-            "level": level,
-            "status": evidence.get("status"),
-            "details": evidence.get("details", ""),
-        }
-        if level in {"contract-smoke", "native-host"} or "command" in evidence:
-            raise ManifestError(
-                f"{item['constraint_id']}: executable evidence is sandbox-unavailable"
-            )
-        results.append(result)
-    return results
-
-
-def _recheck_inputs(plan: Plan) -> None:
-    old_paths = _existing_agent_paths(SPECS[plan.old_agent], plan.project_root)
-    for path in old_paths:
-        _assert_project_local(path, plan.project_root, "source live recheck")
-        _assert_no_links(path, "source live recheck")
-    for item in plan.template_items:
-        _assert_no_links(item.src, "target template recheck")
-    if plan.target_archive is not None:
-        _assert_project_local(plan.target_archive, plan.project_root, "archive recheck")
-        _assert_no_links(plan.target_archive, "archive recheck")
-    current = {
-        "source": _state_digest(
-            _agent_tree_state(plan.project_root, SPECS[plan.old_agent])
-        ),
-        "target_template": _snapshot(
-            {item.rel: item.src for item in plan.template_items}
-        ),
-        "target_prestate": _path_state(
-            _agent_paths(SPECS[plan.agent], plan.project_root),
-            plan.project_root,
-        ),
-        "target_archive": (
-            _path_state([plan.target_archive], plan.project_root)
-            if plan.target_archive is not None
-            else _snapshot({})
-        ),
-    }
-    if current != plan.snapshots:
-        changed = [
-            key
-            for key in sorted(current)
-            if current[key] != plan.snapshots.get(key)
-        ]
-        raise ManifestError("input hash drift before apply: " + ", ".join(changed))
-
-
-def _fault(label: str) -> None:
-    if os.environ.get("BRIDGEFORGE_SWITCH_FAIL_AT") == label:
-        raise RuntimeError(f"injected switch failure at {label}")
-
-
-def _move_agent_paths(
-    spec: AgentSpec,
-    source_root: Path,
-    target_root: Path,
-    *,
-    fault_after_first: str | None = None,
-) -> None:
-    for index, rel in enumerate((spec.entry, spec.config_dir)):
-        source = source_root / rel
-        if not _lexists(source):
-            continue
-        target = target_root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(source), str(target))
-        if index == 0 and fault_after_first:
-            _fault(fault_after_first)
-
-
-def _inventory_records(
-    files: dict[str, Path],
-    item_by_source: dict[tuple[str, str], dict[str, Any]],
-    origin: str,
-) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    for rel, path in sorted(files.items()):
-        item = item_by_source.get((origin, rel), {})
-        records.append(
-            {
-                "path": rel,
-                "sha256": _sha_file(path),
-                "source_owner": item.get("source_owner", "unknown-historical"),
-                "constraint_id": item.get("constraint_id"),
-                "constraint_level": item.get("constraint_level"),
-                "semantic": item.get("semantic", {}),
-                "adapter": item.get("adapter", {}),
-            }
-        )
-    return records
-
-
-def _target_records(
-    plan: Plan,
-    items: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    spec = SPECS[plan.agent]
-    files = _inventory_paths(_agent_paths(spec, plan.project_root), plan.project_root)
-    projections = {
-        item["target"]["path"]: item
-        for item in items
-        if item["target"]["action"] in {"write", "replay-archive"}
-    }
-    records: list[dict[str, Any]] = []
-    for rel, path in sorted(files.items()):
-        item = projections.get(rel)
-        records.append(
-            {
-                "path": rel,
-                "sha256": _sha_file(path),
-                "target_owner": item.get("target_owner", "template-managed") if item else "template-managed",
-                "constraint_id": item.get("constraint_id") if item else None,
-                "constraint_level": item.get("constraint_level") if item else "platform-detail",
-                "semantic": item.get("semantic", {}) if item else {
-                    "classification": "platform-detail",
-                    "summary": "Current target template baseline.",
-                },
-                "adapter": item.get("adapter", {}) if item else {
-                    "kind": "template",
-                    "source": "current target template",
-                },
-            }
-        )
-    return records
-
-
-def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(
-        json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
-
-
-def apply_manifest(
-    plan: Plan,
-    manifest: dict[str, Any],
-) -> Path:
-    items = validate_manifest(plan, manifest)
-    migration_id = manifest["migration_id"]
-    migration_dir = plan.project_root / MIGRATION_ROOT / migration_id
-    receipt_path = migration_dir / "receipt.json"
-    _assert_project_local(migration_dir, plan.project_root, "migration directory")
-    _assert_project_local(receipt_path, plan.project_root, "migration receipt")
-    if _lexists(receipt_path):
-        raise ManifestError(f"migration receipt already exists: {_rel(receipt_path, plan.project_root)}")
-    archive_final = (
-        plan.project_root
-        / ARCHIVE_ROOT
-        / plan.old_agent
-        / f"{_timestamp()}-{migration_id}"
-    )
-    _assert_project_local(archive_final, plan.project_root, "archive destination")
-    if _lexists(archive_final):
-        raise ManifestError(
-            f"archive destination already exists: {_rel(archive_final, plan.project_root)}"
-        )
-    source_spec = SPECS[plan.old_agent]
-    target_spec = SPECS[plan.agent]
-    evidence_results: list[dict[str, Any]] = []
-    target_enable_started = False
-    archive_finalized = False
-    archive_owned = False
-    archive_agent_root_owned = False
-    source_backup_complete = False
-    preserve_transaction_state = False
-    with tempfile.TemporaryDirectory(prefix="bridgeforge-switch-") as temporary:
-        temporary_root = Path(temporary)
-        stage_root = temporary_root / "stage-target"
-        source_backup = temporary_root / "source-backup"
-        detached_root = migration_dir / ".detached-old"
-        try:
-            _recheck_inputs(plan)
-            _copy_agent_snapshot(source_spec, plan.project_root, source_backup)
-            source_backup_complete = True
-            if _agent_tree_state(source_backup, source_spec) != plan.source_state:
-                raise ManifestError(
-                    "source backup does not match the approved source snapshot"
-                )
-            if _agent_tree_state(plan.project_root, source_spec) != plan.source_state:
-                raise ManifestError(
-                    "source live changed while its rollback snapshot was copied"
-                )
-            _stage_target(plan, items, stage_root)
-            stage_problems = _validate_target_root(plan, stage_root)
-            if stage_problems:
-                raise ManifestError("; ".join(stage_problems))
-            approved_stage_state = _tree_state(stage_root)
-            evidence_results = _run_evidence(plan, items, stage_root)
-            _assert_tree_exact(
-                approved_stage_state,
-                stage_root,
-                "evidence output",
-            )
-            _recheck_inputs(plan)
-            _assert_tree_exact(
-                approved_stage_state,
-                stage_root,
-                "pre-commit staged target",
-            )
-            if plan.target_conflicts:
-                raise ManifestError("target live paths appeared before commit")
-            if _lexists(archive_final):
-                raise ManifestError(
-                    "archive destination appeared before commit: "
-                    + _rel(archive_final, plan.project_root)
-                )
-
-            migration_dir.mkdir(parents=True, exist_ok=True)
-            detached_root.mkdir(parents=True, exist_ok=True)
-            _move_agent_paths(source_spec, plan.project_root, detached_root)
-            if _agent_tree_state(detached_root, source_spec) != plan.source_state:
-                raise ManifestError(
-                    "detached source differs from the approved source snapshot"
-                )
-            _fault("after-old-detach")
-            target_enable_started = True
-            _move_agent_paths(
-                target_spec,
-                stage_root,
-                plan.project_root,
-                fault_after_first="after-target-entry-enable",
-            )
-            _fault("after-target-enable")
-            live_problems = _validate_target_root(plan, plan.project_root)
-            if live_problems:
-                raise ManifestError("; ".join(live_problems))
-            _assert_tree_exact(
-                approved_stage_state,
-                plan.project_root,
-                "enabled live target",
-                target_spec,
-            )
-
-            if any(
-                _lexists(detached_root / rel)
-                for rel in (source_spec.entry, source_spec.config_dir)
-            ):
-                archive_agent_root = archive_final.parent
-                archive_agent_root_preexisting = _lexists(archive_agent_root)
-                archive_agent_root.mkdir(parents=True, exist_ok=True)
-                archive_agent_root_owned = not archive_agent_root_preexisting
-                _assert_project_local(
-                    archive_agent_root,
-                    plan.project_root,
-                    "archive parent",
-                )
-                _assert_no_links(archive_agent_root, "archive parent")
-                archive_final.mkdir()
-                archive_owned = True
-                _move_agent_paths(source_spec, detached_root, archive_final)
-                if _tree_state(archive_final) != plan.source_state:
-                    raise ManifestError(
-                        "transaction-owned archive differs from the approved source snapshot"
-                    )
-                archive_finalized = True
-            _fault("after-archive-finalize")
-
-            item_by_source = {
-                (item["source"]["origin"], item["source"]["path"]): item
-                for item in items
-            }
-            archived_files = _archive_inventory(archive_final if archive_finalized else None)
-            archive_records = _inventory_records(
-                archived_files,
-                item_by_source,
-                "live",
-            )
-            evidence_by_id = {
-                (
-                    result["constraint_id"],
-                    result["source"]["origin"],
-                    result["source"]["path"],
-                ): result
-                for result in evidence_results
-            }
-            receipt_items = json.loads(json.dumps(items, ensure_ascii=False))
-            for item in receipt_items:
-                result = evidence_by_id.get(
-                    (
-                        item["constraint_id"],
-                        item["source"]["origin"],
-                        item["source"]["path"],
-                    )
-                )
-                if result is not None:
-                    item["evidence"] = result
-                item["status"] = (
-                    "not-applicable"
-                    if item["target"]["action"] in {"not-applicable", "keep-template"}
-                    else "applied"
-                )
-            receipt = {
-                "schema_version": SCHEMA_VERSION,
-                "migration_id": migration_id,
-                "status": "success",
-                "started_from_manifest_created_at": manifest.get("created_at"),
-                "completed_at": _now(),
-                "source_agent": plan.old_agent,
-                "target_agent": plan.agent,
-                "parent_migration_ids": manifest.get("parent_migration_ids", []),
-                "snapshots": dict(plan.snapshots),
-                "manifest_sha256": _sha_bytes(
-                    json.dumps(
-                        manifest,
-                        ensure_ascii=False,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ).encode("utf-8")
-                ),
-                "items": receipt_items,
-                "evidence": evidence_results,
-                "archive": {
-                    "path": (
-                        _rel(archive_final, plan.project_root)
-                        if archive_finalized
-                        else None
-                    ),
-                    "files": archive_records,
-                },
-                "target": {
-                    "files": _target_records(plan, items),
-                },
-            }
-            _write_receipt(receipt_path, receipt)
-            _fault("after-receipt")
-            return receipt_path
-        except Exception:
-            if _lexists(receipt_path):
-                receipt_path.unlink()
-            if target_enable_started:
-                for path in _agent_paths(target_spec, plan.project_root):
-                    _remove_path(path)
-            backup_valid = (
-                source_backup_complete
-                and _agent_tree_state(source_backup, source_spec) == plan.source_state
-            )
-            source_recovered = False
-            if backup_valid:
-                _restore_agent_snapshot(
-                    source_spec,
-                    plan.project_root,
-                    source_backup,
-                )
-                source_recovered = (
-                    _agent_tree_state(plan.project_root, source_spec)
-                    == plan.source_state
-                )
-            if not source_recovered:
-                for recovery_root in (archive_final, detached_root):
-                    if _lexists(recovery_root):
-                        _move_agent_paths(
-                            source_spec,
-                            recovery_root,
-                            plan.project_root,
-                        )
-                source_recovered = (
-                    _agent_tree_state(plan.project_root, source_spec)
-                    == plan.source_state
-                )
-            if not source_recovered:
-                preserve_transaction_state = True
-                raise RuntimeError(
-                    "source recovery integrity failure: no approved snapshot remains"
-                )
-            if archive_owned and _lexists(archive_final):
-                shutil.rmtree(archive_final)
-            archive_agent_root = archive_final.parent
-            if (
-                archive_agent_root_owned
-                and archive_agent_root.exists()
-                and not any(archive_agent_root.iterdir())
-            ):
-                archive_agent_root.rmdir()
-            raise
-        finally:
-            if detached_root.exists() and not preserve_transaction_state:
-                shutil.rmtree(detached_root)
-            if migration_dir.exists() and not any(migration_dir.iterdir()):
-                migration_dir.rmdir()
-
-
-def _print_proposal(plan: Plan, proposal: dict[str, Any]) -> None:
-    unresolved = [
-        item
-        for item in proposal["items"]
-        if item["status"] == "blocked"
-    ]
-    print(f"BridgeForge semantic switch proposal: {plan.old_agent} -> {plan.agent}")
-    print(f"Migration ID: {proposal['migration_id']}")
-    print(f"Source assets: {len(plan.source_files)}")
-    print(f"Target archive assets: {len(plan.archive_files)}")
-    print(f"Blocked items requiring semantic approval: {len(unresolved)}")
-    if plan.target_archive and _archive_receipt(plan) is None:
-        print("Legacy target archive provenance: missing; every archive item is fail-closed.")
-    print("BEGIN_BRIDGEFORGE_MIGRATION_MANIFEST")
-    print(json.dumps(proposal, ensure_ascii=False, indent=2))
-    print("END_BRIDGEFORGE_MIGRATION_MANIFEST")
+) -> list[Any]:
+    """Compatibility helper: direct-sync never installs a target template."""
+    del template_root, project_root, agent
+    return []
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Switch BridgeForge project skeleton through an approved semantic manifest."
+        description="Direct-sync the other BridgeForge skeleton into this host."
     )
-    parser.add_argument("agent", choices=AGENTS, help="target agent skeleton")
+    parser.add_argument("agent", choices=AGENTS, help="current/target host")
     parser.add_argument(
-        "--manifest",
-        help="approved semantic migration manifest JSON",
+        "--current-host",
+        required=True,
+        choices=AGENTS,
+        help="host attestation supplied by the current BridgeForge entry",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="inventory and validate without changing project files",
+        help="plan and validate without changing project files",
     )
     parser.add_argument(
         "--project-root",
         default=".",
-        help="project root to switch (default: current directory)",
+        help="project root (default: current directory)",
     )
     parser.add_argument(
         "--template-root",
-        help="BridgeForge repository root containing templates/claude and templates/codex",
+        help="BridgeForge repository root containing templates/",
     )
     return parser.parse_args(argv)
 
 
-def _load_manifest(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
-    except Exception as exc:
-        raise ManifestError(f"cannot read manifest {path}: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ManifestError("manifest root must be a JSON object")
-    return data
+def _print_summary(plan: SyncPlan, dry_run: bool) -> None:
+    counts = {
+        status: sum(asset["status"] == status for asset in plan.assets)
+        for status in sorted(STATUSES)
+    }
+    status = "completed_with_gaps" if plan.degraded else "completed"
+    readiness = "degraded" if plan.degraded else "ready"
+    prefix = "Dry-run" if dry_run else "Switch"
+    print(f"{prefix} {status}: {plan.current_host}")
+    print(f"readiness={readiness}")
+    print(
+        "assets="
+        + ",".join(f"{key}:{value}" for key, value in counts.items() if value)
+    )
+    for message in plan.messages:
+        print(f"NOTICE: {message}")
+    if plan.target_map.state == "invalid":
+        print(
+            "Target map is invalid and was preserved; only entirely absent "
+            "target paths were eligible for unowned creation."
+        )
+    else:
+        print(
+            "Map: "
+            + _rel(
+                _map_path(plan.project_root, plan.current_host),
+                plan.project_root,
+            )
+        )
+    legacy = plan.project_root / ".bridgeforge"
+    if _lexists(legacy):
+        print(
+            "NOTICE: legacy project-root .bridgeforge/ was not read, "
+            "written, or removed; delete it manually after review."
+        )
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    project_root = Path(args.project_root).resolve()
-    script_path = Path(__file__).resolve()
-    if looks_like_bridgeforge_source(project_root):
-        raise SystemExit("ERROR: refusing to switch the BridgeForge source repository itself.")
-    template_root = find_template_root(project_root, script_path, args.template_root)
-    if project_root == template_root:
-        raise SystemExit("ERROR: refusing to switch the BridgeForge source repository itself.")
-
-    try:
-        plan = build_plan(args.agent, project_root, template_root)
-    except ManifestError as exc:
-        print(f"ERROR: semantic migration blocked: {exc}", file=sys.stderr)
-        print("No live files were changed.", file=sys.stderr)
-        return 2
-    if plan.already_target:
-        print("Already target agent: switch is a no-op; use normal /bridgeforge maintenance.")
-        return 0
-    if plan.target_conflicts:
+    if args.current_host != args.agent:
         print(
-            "ERROR: target live paths already exist; semantic switch requires an absent target surface.",
+            "ERROR: --current-host must match the switch target; "
+            "no project files were changed.",
             file=sys.stderr,
         )
-        for path in plan.target_conflicts:
-            print(f"  - {_rel(path, project_root)}", file=sys.stderr)
-        print("No live files were changed.", file=sys.stderr)
         return 2
-
-    if args.manifest:
-        try:
-            manifest = _load_manifest(Path(args.manifest).resolve())
-            validate_manifest(plan, manifest)
-            if args.dry_run:
-                print(
-                    f"Manifest validated: {manifest['migration_id']} "
-                    f"({plan.old_agent} -> {plan.agent})"
-                )
-                print("Dry-run: no files were changed.")
-                return 0
-            receipt = apply_manifest(plan, manifest)
-        except ManifestError as exc:
-            print(f"ERROR: semantic migration blocked: {exc}", file=sys.stderr)
-            print("Old live and target pre-state were preserved.", file=sys.stderr)
-            return 2
-        except Exception as exc:
-            print(f"ERROR: semantic migration failed and was rolled back: {exc}", file=sys.stderr)
-            print("Old live and target pre-state were restored.", file=sys.stderr)
-            return 1
-        print(f"Switch completed: {args.agent}")
-        print(f"Receipt: {_rel(receipt, project_root)}")
-        print("Validation passed.")
-        return 0
-
-    proposal = build_proposal(plan)
-    if not plan.source_files and not plan.archive_files:
-        proposal["items"] = []
-        if args.dry_run:
-            _print_proposal(plan, proposal)
-            return 0
-        try:
-            receipt = apply_manifest(plan, proposal)
-        except Exception as exc:
-            print(f"ERROR: target install failed and was rolled back: {exc}", file=sys.stderr)
-            return 1
-        print(f"Target installed: {args.agent}")
-        print(f"Receipt: {_rel(receipt, project_root)}")
-        print("Validation passed.")
-        return 0
-
-    _print_proposal(plan, proposal)
-    print(
-        "ERROR: semantic switch requires a user-reviewed manifest passed with --manifest.",
-        file=sys.stderr,
-    )
-    print("No live files were changed.", file=sys.stderr)
-    return 2
+    project_root = Path(args.project_root).resolve()
+    try:
+        if looks_like_bridgeforge_source(project_root):
+            raise SyncError(
+                "refusing to switch the BridgeForge source repository itself"
+            )
+        template_root = find_template_root(
+            Path(__file__).resolve(),
+            args.template_root,
+        )
+        if project_root == template_root:
+            raise SyncError(
+                "refusing to switch the BridgeForge source repository itself"
+            )
+        plan = build_plan(args.current_host, project_root, template_root)
+        if not args.dry_run:
+            apply_plan(plan)
+    except SyncError as exc:
+        print(f"ERROR: direct sync blocked: {exc}", file=sys.stderr)
+        print("No project files were changed.", file=sys.stderr)
+        return 2
+    except RollbackIncompleteError as exc:
+        print(
+            f"ERROR: direct sync failed; rollback incomplete: {exc}",
+            file=sys.stderr,
+        )
+        for item in exc.evidence:
+            print(f"RECOVERY: {item}", file=sys.stderr)
+        print(
+            "Project state requires manual review before retrying.",
+            file=sys.stderr,
+        )
+        return 1
+    except ApplyRolledBackError as exc:
+        print(
+            f"ERROR: direct sync failed and was fully rolled back: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    except Exception as exc:
+        print(
+            f"ERROR: direct sync failed; rollback status was not confirmed: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    _print_summary(plan, args.dry_run)
+    return 0
 
 
 if __name__ == "__main__":

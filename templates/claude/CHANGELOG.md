@@ -21,6 +21,11 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.27.0] - 2026-07-25
+
+### Changed
+- [product] `/bridgeforge switch claude` 改为将 Codex 项目资产直接同步至长期保留的 `.claude/`；目标内 `.bridgeforge-map.json` 记录可验证映射，源 `.codex/` 不移动、不归档。宿主专属文件不原样复制；未转译或冲突项以 degraded 状态明确报告。旧项目根 `.bridgeforge/` 仅提示，不读写删。
+
 ## [0.26.0] - 2026-07-25
 
 ### Added

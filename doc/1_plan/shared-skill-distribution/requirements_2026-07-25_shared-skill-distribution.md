@@ -88,7 +88,7 @@
 
 ## 实施计划
 
-1. 新增根目录 `shared-skill-manifest.json`、Windows 首次安装脚本和可恢复的共享 skill updater。manifest 将 `bridgeforge` 作为平台托管 command bundle：除入口 `SKILL.md` 外，分发它所需的 `doc/runtime/`、`templates/`、项目迁移脚本和 updater；其他通用 skill 按各自目录分发。
+1. 新增根目录 `shared-skill-manifest.json`、Windows 首次安装脚本和可恢复的共享 skill updater。manifest 将 `bridgeforge` 作为平台托管 command bundle：除入口 `SKILL.md` 外，分发它所需的 `doc/0_playbook/`、`templates/`、项目迁移脚本和 updater；其他通用 skill 按各自目录分发。
 2. 将 `/bridgeforge` 改为直接从已安装的 command bundle 运行：无参数时先显式执行共享 skill 更新，再维护当前项目；不再读取、pull 或 fallback 到 `~/.bridgeforge`、`~/.agents` 或本地工作副本。遗留项目 `.agents/` 只在当前项目的 dry-run 与用户确认后迁移。
 3. 同步 Codex / Claude 模板及 bridgeforge 自身 dogfood 镜像，清除运行时旧路径假设；补充 manifest、首次安装、托管冲突、第三方保留、故障恢复、非 Windows 零写入与当前项目迁移的自动化测试。
 4. 产品层实现完成后，bump 根版本与双端模板版本，追加 `[product]` CHANGELOG，并记录实际验证收据与独立审查结论。

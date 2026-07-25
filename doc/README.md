@@ -4,17 +4,17 @@ This `doc/` tree is the only documentation system for BridgeForge. It tracks act
 
 ## Index
 
-### Runtime Manuals
+### 0 Playbooks
 
 These files are the only `doc/` content included in the installed `bridgeforge` command bundle.
 
 | Path | Purpose |
 |------|---------|
-| `runtime/init.md` | Initialize a new or existing project. |
-| `runtime/adopt.md` | Adopt a BridgeForge-derived project without a version marker. |
-| `runtime/update.md` | Update a project with `.bridgeforge_version`. |
-| `runtime/switch.md` | Switch Claude/Codex through reviewed semantic migration. |
-| `runtime/user-skill-maintenance.md` | Maintain user-level shared skills and legacy layout. |
+| `0_playbook/init.md` | Initialize a new or existing project. |
+| `0_playbook/adopt.md` | Adopt a BridgeForge-derived project without a version marker. |
+| `0_playbook/update.md` | Update a project with `.bridgeforge_version`. |
+| `0_playbook/switch.md` | Switch Claude/Codex through reviewed semantic migration. |
+| `0_playbook/user-skill-maintenance.md` | Maintain user-level shared skills and legacy layout. |
 
 ### Active Plans
 
@@ -33,6 +33,7 @@ These files are the only `doc/` content included in the installed `bridgeforge` 
 | `1_plan/explain-skill/requirements_2026-07-24_explain-skill.md` | confirmed | Add a shared explain skill for Claude and Codex downstream projects without silently overwriting local customizations. |
 | `1_plan/shared-skill-distribution/requirements_2026-07-25_shared-skill-distribution.md` | confirmed | Use GitHub main as the single source for platform-manifest shared skills; retire `.agents` and the `~/.bridgeforge` junction runtime layout. |
 | `1_plan/bridgeforge-switch-semantic-migration/requirements_2026-07-25_bridgeforge-switch-semantic-migration.md` | confirmed | Preserve project-level hard constraints during Claude/Codex switch through reviewed, target-native semantic migration. |
+| `1_plan/bridgeforge-switch-direct-sync/requirements_2026-07-25_bridgeforge-switch-direct-sync.md` | implemented | Keep both project skeletons and synchronize them directly through target-local semantic mapping tables. |
 | `1_plan/cross-project-write-guard/requirements_2026-07-10_cross-project-write-guard.md` | implementing | Add Claude/Codex hook protection against accidental cross-project writes and dangerous external git operations. |
 | `1_plan/ctx-management/requirements_2026-07-09_codex-ctx-budget.md` | implementing | Adapt Codex ctx-budget warnings from the Claude-proven mechanism without assuming a 1M Codex context window. |
 | `1_plan/doc-unification/requirements_2026-07-09_doc-unification.md` | implementing | Unify the repository documentation tree under `doc/` and remove the legacy root `docs` tree. |

@@ -26,7 +26,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 1. 写戳前询问用户记得的旧安装版本。
 2. 记得则把该版本作为临时基线；记不得时可建议保守基线 `0.1.0`，但必须由用户确认。
-3. 回根入口读取其直接链接的 `doc/runtime/update.md`，按类 C diff 让用户逐段吸收。
+3. 回根入口读取其直接链接的 `doc/0_playbook/update.md`，按类 C diff 让用户逐段吸收。
 4. 拿不准基线就不补；宁可漏历史增量，也不冒覆盖业务内容的风险。
 
 ## 禁止与收据
