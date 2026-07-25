@@ -131,6 +131,30 @@ def _rebuild_memory_index() -> None:
         raise SyncStop(f"memory_rebuild_index.py failed: {detail}", result.returncode or 1)
 
 
+def _rebuild_shared_skill_manifest() -> None:
+    script = REPO_ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
+    if not script.exists():
+        return
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=_env(),
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise SyncStop(
+            f"rebuild_shared_skill_manifest.py failed: {detail}",
+            result.returncode or 1,
+        )
+    if result.stdout.strip():
+        print(result.stdout.strip())
+
+
 def _refresh_harness_parity_report() -> None:
     script = REPO_ROOT / ".codex" / "scripts" / "harness_parity_check.py"
     if not script.exists():
@@ -197,6 +221,7 @@ def sync(args: argparse.Namespace) -> int:
 
     if dirty:
         _rebuild_memory_index()
+        _rebuild_shared_skill_manifest()
         _run_git(["add", "."], label="git add")
         if _has_staged_changes():
             message = _read_message(args)

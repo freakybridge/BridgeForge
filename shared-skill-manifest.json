@@ -12,17 +12,17 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:67ce58b567adf7280d85a852b7b69e43966ea92b9374faca0cce6d6fa2dacfd6"
+              "sha256": "sha256:7b8e64a637c4b2608c56c3c16cef6ab3f6ee55822b8ac35564f30f4a283bfa57"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:b5514ca3a3adaa881325f3f22f088ed44fc2544ded3532dc89ec6f5f0d6a0020"
+              "sha256": "sha256:1039dc8e9a4a9cdfc070ca5bf13146c0077e8dc1b4f29a8133f9387ca44b7837"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
               "target": "scripts/bridgeforge_migrate_layout.py",
-              "sha256": "sha256:07bd90feaeca33cadf4b176814fe4e85c0f1d7f674a7ac6566b138613743520e"
+              "sha256": "sha256:811c2b96db71c0e146ae36c3df1a373f7724328d39eca487975f5762da776534"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -37,17 +37,17 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:64bca56f88c54c2f483c79389313a91d8e38c000a144e121a03b601286f23c51"
+              "sha256": "sha256:f02ede972f2001ab20113b659eff639a56ed9bb3ccd34dc38675a6e65f5d17b2"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
               "target": "references/adopt.md",
-              "sha256": "sha256:6cc146d95e4b09f549a84741e4ac059d41fa3be2eeb4b99c077421ab52342184"
+              "sha256": "sha256:01bf9b0f8d6e874b499d9be3d8a26248c810f1be3f643b0933b738b36412353b"
             },
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:c004d2ee7f7e42c6a7e0dbb082224fa90c8ad64e8b60ff94917596c878db7f1e"
+              "sha256": "sha256:e69d6f13f410955c597ff367535f5ba5c9c723b8876bc302dcde01b4ffb3cba9"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -57,7 +57,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:13cef392538995d16ed75da6712e86955b45f549dca5d5df4876a8ec3ce17753"
+              "sha256": "sha256:9920219292d36c7c89c6e8b0c46d01d86186743bd7430355d46f4e4069b85a33"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -72,12 +72,12 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:9d34b8edc765b1ed6a3180b558e0d3abc4ed4f08886ed321c05e87b2b6f7d44e"
+              "sha256": "sha256:c5ef620606df672bef0a8c87894e8b6334b81139fd34b2ee423f76f3bf9794e7"
             },
             {
               "source": "templates/claude/CLAUDE.md",
               "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:31b9d6aad0c9a1a322b46fc3769f76ce96efa724d98290231af6ee3f914bbde1"
+              "sha256": "sha256:c7dc30955470d49c24dc706e32177c38e3e40606f2dace87b924e1ce2178ffcf"
             },
             {
               "source": "templates/claude/VERSION",
@@ -112,32 +112,32 @@
             {
               "source": "templates/claude/doc/README.md",
               "target": "templates/claude/doc/README.md",
-              "sha256": "sha256:d5ee0f124c33a9131e2306b4971b15d78b66512a2dc44eabe46c33a8f5b5e154"
+              "sha256": "sha256:a2518043abb4d301e69391847bad4c2d6d22c80f8434be1ae42edd1b9cdd8d2d"
             },
             {
               "source": "templates/claude/hooks/allow_memory_write.py",
               "target": "templates/claude/hooks/allow_memory_write.py",
-              "sha256": "sha256:15f172609c487c79e2c75ff1bbc0beb5b8750bff3a7cb402409a7448431ad6bf"
+              "sha256": "sha256:5106e6f924809ce16f45f6da01dc88b98b77b4e3f07c72b94527634bfc90575e"
             },
             {
               "source": "templates/claude/hooks/cargo_default_run_check.py",
               "target": "templates/claude/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:1728979fb3f579d633189a03dbfb94c99d09428bd418197f3962ebff80f88c04"
+              "sha256": "sha256:d2f2123876cf4b5fff19a3d90b3e360b04bf7ef48719fe4a07cda37839e19a20"
             },
             {
               "source": "templates/claude/hooks/clarify_reminder.py",
               "target": "templates/claude/hooks/clarify_reminder.py",
-              "sha256": "sha256:23eb48e08c2e389c4b705c8dd2ff7e16ea593b703b577d6bd8b7d077a8dc415e"
+              "sha256": "sha256:3367a36bec50be0aa1d6c1c76e59bde144187b567cad5bb8810ad63fa3b49e54"
             },
             {
               "source": "templates/claude/hooks/config_health_check.py",
               "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:b392eb254882b97e4d8c17b367c223c02228863271b42b1a186448d2bb75c97c"
+              "sha256": "sha256:6023039d3b79e27f7c712ce8ce5f33392b74b2a24eee4b98f210a4f705897e4c"
             },
             {
               "source": "templates/claude/hooks/context_warning.py",
               "target": "templates/claude/hooks/context_warning.py",
-              "sha256": "sha256:b85f68d8efa983a069ed174dc5883e6d3018b08ca117d8fcccc8696a90e3930f"
+              "sha256": "sha256:392f108a6f9cccb4addf0d65e0e19a9b0c63296d3b9402b9740afa2bbc1f8b2a"
             },
             {
               "source": "templates/claude/hooks/cross_project_write_guard.py",
@@ -152,52 +152,52 @@
             {
               "source": "templates/claude/hooks/enforce_no_effortlevel.py",
               "target": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:8760da31af44a65f431b13c996d91895b1946a1f32dd423983cd87c37477dbe9"
+              "sha256": "sha256:27d63a283ebf60111bff9a151049dfd852e7b2bdee1b8b0e17b290bd8670ad22"
             },
             {
               "source": "templates/claude/hooks/fallback_smell_check.py",
               "target": "templates/claude/hooks/fallback_smell_check.py",
-              "sha256": "sha256:4d205dffe58f77d0a2674f7f254d50fc2d6518d24a7b804d9fba9cb81a356ce2"
+              "sha256": "sha256:2128651d5428e46fa91b59ae0af620299d36a563ffa62a5c8b0a277a9194f4d6"
             },
             {
               "source": "templates/claude/hooks/find_doc_reminder.py",
               "target": "templates/claude/hooks/find_doc_reminder.py",
-              "sha256": "sha256:b0a1a9c37f01c99c047307fda4ec0abbe2f7a23c8dd26f4e8b5e5e2bc3e97115"
+              "sha256": "sha256:ffa2b9f74cd1555808147a48e874b720e6789caa4f022faaa2e52c1f9265cb66"
             },
             {
               "source": "templates/claude/hooks/focus_reminder.py",
               "target": "templates/claude/hooks/focus_reminder.py",
-              "sha256": "sha256:c90b1b62f5943635348ae15ef37c9ccae7e014f469bf737de2a58a659ef0a6ab"
+              "sha256": "sha256:100832c933eaa04d50800c66d531578a7181cd9460ea1bfba7cf2fd6c8f64f3b"
             },
             {
               "source": "templates/claude/hooks/git_add_all_guard.py",
               "target": "templates/claude/hooks/git_add_all_guard.py",
-              "sha256": "sha256:8bad8f1d61cf40c176d36823abf0b9c285b62e61b07c2204059010a9af808942"
+              "sha256": "sha256:1a942ecfbbd7e3e23d3716ddcb209df63b75c63e5f108bc3d8996986c1d435b8"
             },
             {
               "source": "templates/claude/hooks/githooks_path_check.py",
               "target": "templates/claude/hooks/githooks_path_check.py",
-              "sha256": "sha256:0be8388fb9e8d6acd3ab04be78f731e6aa56c2ea1b6e795f67bed1315d7b3224"
+              "sha256": "sha256:db1dbdacc350ee6cb51e59c41773878f0b1fb0582e74ef3792c263d91a4a7871"
             },
             {
               "source": "templates/claude/hooks/memory_dup_check.py",
               "target": "templates/claude/hooks/memory_dup_check.py",
-              "sha256": "sha256:ae55a2f101b44938f72c6887b2d4c831b9a91c6f2bfcc8ff2e4a064bd0e24e1b"
+              "sha256": "sha256:4146d8660114cc0b4ffb27c4a3d1726ee0c71b27b431bfec1feb61f455d2efc0"
             },
             {
               "source": "templates/claude/hooks/memory_junction_check.py",
               "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:c23053d3c51e6a6b0d0c60db4204e339b4eee64edcf7e0029e5de51b3be441d5"
+              "sha256": "sha256:39f668c985ea64a1694d9e5a6171f7ce96d51fb66543304ff0a7a1db1ec2f821"
             },
             {
               "source": "templates/claude/hooks/memory_lint.py",
               "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:5d6255e785cfe54d8289b8e1040a277a31775e3a9aece4300a1904d8cc2bb894"
+              "sha256": "sha256:44fb472abe724633fc6ba8e86c9edba0b00abc9bcaf802af5e67bd0827957f27"
             },
             {
               "source": "templates/claude/hooks/mirror_drift_check.py",
               "target": "templates/claude/hooks/mirror_drift_check.py",
-              "sha256": "sha256:1bfd623b2f3083f7d562347d0af3855b39df0eb006afe2092c409c1f185b2a1f"
+              "sha256": "sha256:5a9a18cb9b617d7407dbb40cb0070b22ace702ada18de290b8dc257e9e134938"
             },
             {
               "source": "templates/claude/hooks/non_ascii_shell_guard.py",
@@ -207,32 +207,32 @@
             {
               "source": "templates/claude/hooks/requirements_check.py",
               "target": "templates/claude/hooks/requirements_check.py",
-              "sha256": "sha256:ecf07972c98b445e8178c70f954e2c62a64210d4f924f0cfaf9c3fc6d395c2c2"
+              "sha256": "sha256:5ce95ae0288c92335a18b4bc96cb3a153e122b99c3bba292dfa27f25228e0a1b"
             },
             {
               "source": "templates/claude/hooks/rule_index_check.py",
               "target": "templates/claude/hooks/rule_index_check.py",
-              "sha256": "sha256:24565dfbb76812409fad2503558dc4807eafa8cfea7bf19824859868a051e08c"
+              "sha256": "sha256:84c9be07a241067e3c2e9f2d81397150c6c3dd3c7cd7995afa8802def54902ce"
             },
             {
               "source": "templates/claude/hooks/rule_size_check.py",
               "target": "templates/claude/hooks/rule_size_check.py",
-              "sha256": "sha256:1062aa753931f06083434e844d1942c190eccba68a376f76d21425fb9f3e0040"
+              "sha256": "sha256:5f088bd17d6b26394a50f1127a82cfdbfaa356e052a9d606b0f9ad277f63cff7"
             },
             {
               "source": "templates/claude/hooks/session_snapshot.py",
               "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:44d21fb054a68e53b20b045024446e270e452a0635ca0e05b3f4ce77817e8c90"
+              "sha256": "sha256:4c4acf2036f1cfcb102372d9ab6b945d5162c321ed7453cb5b03d05e0a55358c"
             },
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:e5ffce479e2eae4ed9a62c6424a3d216a2de0958f538a0798e629f358ecc6a84"
+              "sha256": "sha256:1e5c46cb09be6b811cc1d1d71d0f46dbc497303cc4e9176472409dfb89494e5f"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
               "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:fc7fc06b381541e44538bcc895b8aa057c91b49f53d9082ccde07c5b210638d0"
+              "sha256": "sha256:b6770fab3d4911536bb59d0d536667d8cdcf89061b85ddc35736f40eaf755810"
             },
             {
               "source": "templates/claude/hooks/skill_sync_check.py",
@@ -242,67 +242,67 @@
             {
               "source": "templates/claude/hooks/stall_warning.py",
               "target": "templates/claude/hooks/stall_warning.py",
-              "sha256": "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+              "sha256": "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0"
             },
             {
               "source": "templates/claude/hooks/target_cleanup.py",
               "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:3be9291707cc88437fbdd0ad4147b9b9b97792a6358ddfb133a9d9cfa24eecd9"
+              "sha256": "sha256:ad9ed89b54eb0ad332762618401abc4e4b53afa0d28981cabe4fd5843a450594"
             },
             {
               "source": "templates/claude/hooks/test_receipt.py",
               "target": "templates/claude/hooks/test_receipt.py",
-              "sha256": "sha256:f5859d484b5197709c13feaa836142cc041d8640464c8999fea58ebd87ff9414"
+              "sha256": "sha256:dd8e6360e7938ab35e7786595066513654f0acc182d4ac1420328896461f4d0a"
             },
             {
               "source": "templates/claude/hooks/version_check.py",
               "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:2c3597e01f117ad295fd5e7020baa15da318e2a4f6ad2b4052e0eb8e5dea3a23"
+              "sha256": "sha256:d35d8d98c7aec2ccc82bb4c5b500cc2b77d7a512fc74f5f4b6c2fb4f1df465c2"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
               "target": "templates/claude/memory/MEMORY.md",
-              "sha256": "sha256:79f61044ec13a47352c225bdb56e6cf6d7aa034385ad79ec82a9ce62d375d6bb"
+              "sha256": "sha256:4cf0484b59eb81666e8f4d0f6b953ea890acffbc717f186c9b40c75c0850485c"
             },
             {
               "source": "templates/claude/rules/anti_drift_hooks.md",
               "target": "templates/claude/rules/anti_drift_hooks.md",
-              "sha256": "sha256:2ae210501c870f9cb1987298b23db8cafa3d3c53a2743ff2df5293d57d448244"
+              "sha256": "sha256:04e0fea88e62378fddcb9cc6807285672b61b2c11d6213eebc5cf5aa788ee070"
             },
             {
               "source": "templates/claude/rules/anti_fabrication.md",
               "target": "templates/claude/rules/anti_fabrication.md",
-              "sha256": "sha256:ff538eba326d2999e8a93bfd4d7f013074dc7818a14ea27d78b6fd3107c1485a"
+              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
             },
             {
               "source": "templates/claude/rules/architecture.md",
               "target": "templates/claude/rules/architecture.md",
-              "sha256": "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
             },
             {
               "source": "templates/claude/rules/debugging.md",
               "target": "templates/claude/rules/debugging.md",
-              "sha256": "sha256:40105d113ecd61349e22d95f4e9d89e183e526ee6c0a0e82a9265de8ee6b4b37"
+              "sha256": "sha256:b75e64fe6583c6eed95fa10e1c479612affc61a46391cf74d793dc0393f1d0ac"
             },
             {
               "source": "templates/claude/rules/meta_rule_design.md",
               "target": "templates/claude/rules/meta_rule_design.md",
-              "sha256": "sha256:21806c9edec1979af292074c99af2ba0741ae09f52d923774a272c82efab678f"
+              "sha256": "sha256:791ab7819979ab1e87283c570114a4d2f44349cc39329c952338b3edeb86572f"
             },
             {
               "source": "templates/claude/rules/modules.md",
               "target": "templates/claude/rules/modules.md",
-              "sha256": "sha256:988813d95e43f54e5bab02b82ad44e744a4a6c5d0f8e33193ca751310b28f95f"
+              "sha256": "sha256:35d18762819700682fb51a2ecc87107b23d974a37b6e234c4c3b8d7d681c9a9f"
             },
             {
               "source": "templates/claude/rules/portability.md",
               "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:14f4d41ba6e9ad55b8caf27e3a1763c6370cdc930fef3507b12851e3627f7542"
+              "sha256": "sha256:b20507f7e446e66d0b5bab726b8b6951ae350067b1d5e39a18dd8b4a81fce407"
             },
             {
               "source": "templates/claude/rules/workflow.md",
               "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:ee31c92a7d17a6ceade0592e8910a043f9c003334c1deaf7255c0a2cda18db7f"
+              "sha256": "sha256:85f5fff5cc0881e34ae4c61489a0b9fd4ef435c2a184197709796d4ef6582d88"
             },
             {
               "source": "templates/claude/scripts/archive_scan.py",
@@ -312,7 +312,7 @@
             {
               "source": "templates/claude/scripts/audit_user_allow.py",
               "target": "templates/claude/scripts/audit_user_allow.py",
-              "sha256": "sha256:5e5d2ab7bf2050ce3a2de3a0d954cf892ce789f95a6327c932d05717460f24b5"
+              "sha256": "sha256:50d7bfab1d56be4f864279f25e0ab3c78331d375439ae1d59ebb42ebfcea5a8b"
             },
             {
               "source": "templates/claude/scripts/bridgeforge_switch.py",
@@ -322,12 +322,12 @@
             {
               "source": "templates/claude/scripts/memory_rebuild_index.py",
               "target": "templates/claude/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:19b735fc75a89541ff7bcf513814edfbe45bc07c960dcd584896e1165bf407e7"
+              "sha256": "sha256:7795f7dfa7eacf515e27d7fede5bb60140bd84b69508fd59871c6fd4a621c5df"
             },
             {
               "source": "templates/claude/scripts/memory_search.py",
               "target": "templates/claude/scripts/memory_search.py",
-              "sha256": "sha256:181dab403cb4ee8dc0d8d4b144ee4d736b61234897611818318072b1ba139ab6"
+              "sha256": "sha256:13cd73f0255fa6593f18da042b83f2ef06e99bcb82dbd0bc95e5ad789ff709ae"
             },
             {
               "source": "templates/claude/settings.json",
@@ -342,12 +342,12 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:382828baaa1a10debd573da0945b1583b7831b6fb160b822abaa8310d118d293"
+              "sha256": "sha256:22c6a528c9b1c0088e0de31f50b8eaf5628dda6670aca042979b7deb4c8a1810"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:b620794b294386ad2b82a26bbd69704567047f7861f180db9cca038946973120"
+              "sha256": "sha256:bf196ecc17038bc7d8466601c4b9286416c3a0ce4801cacc41c4d1c69872ab16"
             },
             {
               "source": "templates/codex/VERSION",
@@ -357,32 +357,32 @@
             {
               "source": "templates/codex/agents/implementation-worker.toml",
               "target": "templates/codex/agents/implementation-worker.toml",
-              "sha256": "sha256:782b7f3ffdf3f0b6f5acc9e5686cc534d94fe13f51bd50ec67e5042af8f89861"
+              "sha256": "sha256:2bf005e4f4a93276ebb0a4849d481ebf808722b712ad7b6652aa5ad2f01913ac"
             },
             {
               "source": "templates/codex/agents/light-explorer.toml",
               "target": "templates/codex/agents/light-explorer.toml",
-              "sha256": "sha256:a2ba35a03731aa030985ccf07a8d2d3454357d83e31b750ad82ae6c361e74ff0"
+              "sha256": "sha256:c4a6db5dbaecd5c14e7351f6d68a31ccbff7ebfa1505c0609b3e886574baed72"
             },
             {
               "source": "templates/codex/agents/mechanical-sync-worker.toml",
               "target": "templates/codex/agents/mechanical-sync-worker.toml",
-              "sha256": "sha256:918b573468ba44e68a2e47b277b422165e4750cb30c2c6e4f13eab429ece5cab"
+              "sha256": "sha256:13fa6a5dcf1eb24dfdf8e117bed96f92fae2847c15bf2d75bf24c30cffbb7f92"
             },
             {
               "source": "templates/codex/agents/review-auditor.toml",
               "target": "templates/codex/agents/review-auditor.toml",
-              "sha256": "sha256:186ad17625f7be26d3aa3249716c1f811ef82cde8fdf49d5116a8b5da8427586"
+              "sha256": "sha256:31aaf6b627fab4707d2953c0922631cb955bb3c67b1040fe52d188d3e5e8330e"
             },
             {
               "source": "templates/codex/agents/xhigh-auditor.toml",
               "target": "templates/codex/agents/xhigh-auditor.toml",
-              "sha256": "sha256:b1812dc428ef9cc30847f26e8b465fa73cae325413a8c92812625798073d41f1"
+              "sha256": "sha256:c4af34168a617e8c5268c4c577205e7a869dce2fda6ca236e168992318fc0b35"
             },
             {
               "source": "templates/codex/config.toml",
               "target": "templates/codex/config.toml",
-              "sha256": "sha256:5860f15bd4a3915294af5778157bb4f4dc84e72c76facde58bd5fb17ef4e83c4"
+              "sha256": "sha256:9ec8e85fb87af4dd61cf27cd1c74206746b62169bdf89dc8a50bf4338439dbb8"
             },
             {
               "source": "templates/codex/doc/0_architecture/.gitkeep",
@@ -412,32 +412,32 @@
             {
               "source": "templates/codex/doc/README.md",
               "target": "templates/codex/doc/README.md",
-              "sha256": "sha256:39e7ff8be3afe9555d6c7fad026e373cb62c9d360b6a84b44a615fbd0e1a5bfa"
+              "sha256": "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344"
             },
             {
               "source": "templates/codex/hooks/allow_memory_write.py",
               "target": "templates/codex/hooks/allow_memory_write.py",
-              "sha256": "sha256:2c7fa6457f090e7c50897d42956a820b856f214ea8350c276ac50936c9c66ee4"
+              "sha256": "sha256:4cdba937140a91d583a1e5aa500a8448a9b06de02a94949b48b747f97876c912"
             },
             {
               "source": "templates/codex/hooks/cargo_default_run_check.py",
               "target": "templates/codex/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:9bc9a86045ff606e30cdc35c4efe4d0ef47319516b80f7377bd27e9cc93bae32"
+              "sha256": "sha256:2f638330359472b740e20fff5fe79b1cc7b15241f8a600b404c31f7324ab2894"
             },
             {
               "source": "templates/codex/hooks/clarify_reminder.py",
               "target": "templates/codex/hooks/clarify_reminder.py",
-              "sha256": "sha256:e5a6e55494e8a66dcb47d367caad9b4723c207ecca2da8c49ff075a5398f621f"
+              "sha256": "sha256:cc60e6c961a7649d227bbea827c367fb2e6807cc0a181455ed66f1b02b4b862e"
             },
             {
               "source": "templates/codex/hooks/config_health_check.py",
               "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:4b3326ce40934e1a15d3ea0220c641911f64920ccf02fac5ec2bfc028a9436ab"
+              "sha256": "sha256:4f3988b1a7cab7a43a1f2085cada6032a70616b2f6b33f64f0d21abef8a1dec9"
             },
             {
               "source": "templates/codex/hooks/context_warning.py",
               "target": "templates/codex/hooks/context_warning.py",
-              "sha256": "sha256:b23d39923b9785043dae9371a41578d923d8a7b96299ab397ea2089f9e6ecbad"
+              "sha256": "sha256:a8716f29e84e251ca20350b491a6b645769459f1eae845b8f2bfc07c253c697a"
             },
             {
               "source": "templates/codex/hooks/cross_project_write_guard.py",
@@ -452,57 +452,57 @@
             {
               "source": "templates/codex/hooks/enforce_no_effortlevel.py",
               "target": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:26d3d14a66f37ed0572a8f9c82387540552c4febb90aae1fb8c6cef471b6f2f9"
+              "sha256": "sha256:e9ea5773b8471b9d43c4ede1178c08a6c7483dd5ba1f3cecb329478cf1a9e178"
             },
             {
               "source": "templates/codex/hooks/fallback_smell_check.py",
               "target": "templates/codex/hooks/fallback_smell_check.py",
-              "sha256": "sha256:fc8bf4396796858a1a3e9398e75028a421441ed2851e8fc4bc324fa298337cc3"
+              "sha256": "sha256:138bbc4c882992da5d1204ee82247499e17b9e302d2429467a545ce2facfd478"
             },
             {
               "source": "templates/codex/hooks/find_doc_reminder.py",
               "target": "templates/codex/hooks/find_doc_reminder.py",
-              "sha256": "sha256:c658bc88d57010eea101784aedc78c8ef55ef50358568419532dac657cdbedae"
+              "sha256": "sha256:2904455166af196c785a22067b3a8ab147b85acfd88fa6af57b5e9e6db3e0c63"
             },
             {
               "source": "templates/codex/hooks/focus_reminder.py",
               "target": "templates/codex/hooks/focus_reminder.py",
-              "sha256": "sha256:51b4d6bf1917818afbb3c5b208be45708a59e29be9ebc102929114f47caa4eac"
+              "sha256": "sha256:03b4708856e4a7a6709485afae3b6b296d948374ffc819737c0cdae5081ac9e3"
             },
             {
               "source": "templates/codex/hooks/git_add_all_guard.py",
               "target": "templates/codex/hooks/git_add_all_guard.py",
-              "sha256": "sha256:3ac4f8f5bfcfa3365246e48303a2311b21f7becb152176039502c0743ddbbb71"
+              "sha256": "sha256:fc917a8d3f97c11fc88b954822d9171b1b8ed9904c6dae20bd351a8be4ac5d8c"
             },
             {
               "source": "templates/codex/hooks/githooks_path_check.py",
               "target": "templates/codex/hooks/githooks_path_check.py",
-              "sha256": "sha256:4490bd332a8c4d110b1dad3e19f7d8df231c75ed13f9bee31a734d0f4a111187"
+              "sha256": "sha256:f90b5dd716148ef101d46f4dcf8aff7a657f98d3773395cb2aaece7fef778ead"
             },
             {
               "source": "templates/codex/hooks/memory_dup_check.py",
               "target": "templates/codex/hooks/memory_dup_check.py",
-              "sha256": "sha256:633ae069ad2c99c9f24b9997bede7f04984e898b278209a3057ff04e40e10b1f"
+              "sha256": "sha256:0cd4a2f8b46c361aa6856a9f8b8e9f64ef37cbe92c519f4e141fc93018c85b45"
             },
             {
               "source": "templates/codex/hooks/memory_junction_check.py",
               "target": "templates/codex/hooks/memory_junction_check.py",
-              "sha256": "sha256:a02c0a0724b913ff47e371072d8ff01b315aa723ceb113a07287d00340fdcb49"
+              "sha256": "sha256:78bf9f38caff5f71e416e9ebba1418067d94163bdaff95680fc927f0ba0d2c86"
             },
             {
               "source": "templates/codex/hooks/memory_lint.py",
               "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:00760bd8e64768dbcff4dbbc2d4ab46111ff5fa99cfd8987e46c8be6fb8450cd"
+              "sha256": "sha256:3dd8ae151987ea9ea4c0c64a7e3fa13e2457322d107174e24cd1ac9f86ad4020"
             },
             {
               "source": "templates/codex/hooks/mirror_drift_check.py",
               "target": "templates/codex/hooks/mirror_drift_check.py",
-              "sha256": "sha256:35328812b545946c19ad4152759cd5e6795755876c1921042a45aee52ef11ace"
+              "sha256": "sha256:10feaf89afdb7350470fd9821ffe2247a8fce27797871c3a146e52dab9494f0f"
             },
             {
               "source": "templates/codex/hooks/model_policy_check.py",
               "target": "templates/codex/hooks/model_policy_check.py",
-              "sha256": "sha256:8756704d6dd2fade44d14ad802b69ce0058ea0384d1fe0ad69ea7366cf0dc662"
+              "sha256": "sha256:35dd49bdf7c3703c3cd50c87139f1f9af55745b7d19692eb77c0affeb47bfd9d"
             },
             {
               "source": "templates/codex/hooks/non_ascii_shell_guard.py",
@@ -512,32 +512,32 @@
             {
               "source": "templates/codex/hooks/requirements_check.py",
               "target": "templates/codex/hooks/requirements_check.py",
-              "sha256": "sha256:9f6f74628b71202bf5619c0d6242bec7b9af6ab36ea5b72e71fd54297a613909"
+              "sha256": "sha256:6ccaaa8b06a406ca144afc18b28355145e18da9e544290cff95f76bfce9ad622"
             },
             {
               "source": "templates/codex/hooks/rule_index_check.py",
               "target": "templates/codex/hooks/rule_index_check.py",
-              "sha256": "sha256:795a7b6708afd46444b2282420dae0f8fa537680de4b334c8e60cd1f82ba5fc8"
+              "sha256": "sha256:6bac5bcac80a842f87251a706a1789a8fd57df01bcc34b31d32324235a636f5c"
             },
             {
               "source": "templates/codex/hooks/rule_size_check.py",
               "target": "templates/codex/hooks/rule_size_check.py",
-              "sha256": "sha256:5e9365702ad4826c51681fea43c7e227306448e84c27305100dcd7e6e0d1e429"
+              "sha256": "sha256:e821bcb2966239fb80c727e49cb42c7e5b20c9bcff49cf348b21ff87cb3298c9"
             },
             {
               "source": "templates/codex/hooks/session_snapshot.py",
               "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:8beaf56aa1d58d66352264946cdbbcefeca61ae1529f070309219543e7cf78d5"
+              "sha256": "sha256:bb227e21f88ecda0b63d80c9c6074ccc7def050e5e981c009a384f6e08fc0ed0"
             },
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:87cfe5cf1297916006e60d03c74458319ca2dd3da2ae836cf6ce77bfd5aebc77"
+              "sha256": "sha256:3c85f443027d6f5b43c96d4cdc22528e1ec62bea65230497437efe5c114f6c4e"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
               "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:68771ef2967f156094b5e72ff9aad9dbbe9d4b80630fbb4c7f1b25b21b1d6677"
+              "sha256": "sha256:d2931f533766e3ff22c5999cfd47b703d23f97c9a092533004de2c1e2f964d21"
             },
             {
               "source": "templates/codex/hooks/skill_sync_check.py",
@@ -547,72 +547,72 @@
             {
               "source": "templates/codex/hooks/stall_warning.py",
               "target": "templates/codex/hooks/stall_warning.py",
-              "sha256": "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+              "sha256": "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0"
             },
             {
               "source": "templates/codex/hooks/target_cleanup.py",
               "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:b9135ed87e9224145a84735f021bf32c9e755ab408728792bedaf56e8a5f1737"
+              "sha256": "sha256:f610872db632b36e1743336658c5d78bee4266d6e0e287fd4a55068a05829df0"
             },
             {
               "source": "templates/codex/hooks/test_receipt.py",
               "target": "templates/codex/hooks/test_receipt.py",
-              "sha256": "sha256:93cb56ec468bd0566bbeed10b3f0a61e45cced17f1dfd44add8faa0afd845ae9"
+              "sha256": "sha256:340a463ca6708ad0a0ea3b93188cbe738247d53bad18dbe650839adad63cf102"
             },
             {
               "source": "templates/codex/hooks/user_config_write_guard.py",
               "target": "templates/codex/hooks/user_config_write_guard.py",
-              "sha256": "sha256:348f7c97f74329c4975f4573200028ead35bb912de1acdfd40ed36b5dc46d034"
+              "sha256": "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
             },
             {
               "source": "templates/codex/hooks/version_check.py",
               "target": "templates/codex/hooks/version_check.py",
-              "sha256": "sha256:84081a855bfb49de904b0b95cc783fe9322140ab6fe0849b0f709d2d750e9a15"
+              "sha256": "sha256:702862388547c7ff0a7c10d42a29d29b7e1fd0a55f60cd936820603c1d4f5080"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
               "target": "templates/codex/memory/MEMORY.md",
-              "sha256": "sha256:a15ce923a159368bc4c6f4006ea42e3b27d62ed694ae07997fda922c2f6ad75e"
+              "sha256": "sha256:a20832447a3aea084c1280e28e811bd0dc57a41777d59398c8d12f2896a95b45"
             },
             {
               "source": "templates/codex/rules/anti_drift_hooks.md",
               "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:a8411fa274d0a7699637d965995ef5d6d68b05457e32d2d018e5b52271fda64b"
+              "sha256": "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20"
             },
             {
               "source": "templates/codex/rules/anti_fabrication.md",
               "target": "templates/codex/rules/anti_fabrication.md",
-              "sha256": "sha256:ff538eba326d2999e8a93bfd4d7f013074dc7818a14ea27d78b6fd3107c1485a"
+              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
             },
             {
               "source": "templates/codex/rules/architecture.md",
               "target": "templates/codex/rules/architecture.md",
-              "sha256": "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
             },
             {
               "source": "templates/codex/rules/debugging.md",
               "target": "templates/codex/rules/debugging.md",
-              "sha256": "sha256:b7279c7cc2f4e5d9c30438490876e42461ddf355b049fbc7771845a55e0e07e8"
+              "sha256": "sha256:a3f066fb196fd0da13f5d54c92e08d8f091f78b5c9ba0cacd77554fdb0517a1a"
             },
             {
               "source": "templates/codex/rules/meta_rule_design.md",
               "target": "templates/codex/rules/meta_rule_design.md",
-              "sha256": "sha256:3edd64262d3b7736a3df39af4dec30c007c47e9befbd8b1224787e4a7e3e6784"
+              "sha256": "sha256:28d6b3d748de0d0fdc91c4d11a521ebb9109096cdfbcd1bf9ce8de995c5788c4"
             },
             {
               "source": "templates/codex/rules/modules.md",
               "target": "templates/codex/rules/modules.md",
-              "sha256": "sha256:d7c5c6da6a6e8c00636eb873d71146250ca74d5236e24844ff51b30c5d3284dc"
+              "sha256": "sha256:c1a182060fec53a4fbddc08c48486cb320326d4d02838f8b3aaa1463f95b8880"
             },
             {
               "source": "templates/codex/rules/portability.md",
               "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:f4eb0d9280c14647ff515ad51c3cc719575af67ceb92a802aabe68853aa94272"
+              "sha256": "sha256:4c64c4859970565e09ce709a8c539b22b5e9e59e55bf8c60928090b3cece9b6d"
             },
             {
               "source": "templates/codex/rules/workflow.md",
               "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:4697a2f8ae79596e56d388e17ef95ae161eef7d3af9814df8a3e738f29e48678"
+              "sha256": "sha256:87f32b27e96e12b57fb8162c67953336d98906a8d72d38b490fc8898cb54dcaa"
             },
             {
               "source": "templates/codex/scripts/archive_scan.py",
@@ -622,7 +622,7 @@
             {
               "source": "templates/codex/scripts/audit_user_allow.py",
               "target": "templates/codex/scripts/audit_user_allow.py",
-              "sha256": "sha256:7d8d1bbb62065e4fa199f232e83d25a486db648ba1a6ebe9face0d90836d4bcc"
+              "sha256": "sha256:9004d94f16c3e631cfd1430bedabb3db2e9adec1181ca3bb45c77607d2113068"
             },
             {
               "source": "templates/codex/scripts/bridgeforge_switch.py",
@@ -632,47 +632,47 @@
             {
               "source": "templates/codex/scripts/codex_git_sync.py",
               "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:38522ec1636e2c78ab9a1edb2a365568f329bb9283b29f9f6079c97d1fa9c06e"
+              "sha256": "sha256:0840a8a43a017d9844facbc9a55c0c426292f935dbe12af922e123b799b0d7d2"
             },
             {
               "source": "templates/codex/scripts/context_cost_report.py",
               "target": "templates/codex/scripts/context_cost_report.py",
-              "sha256": "sha256:29c7426c621560b753b7e412762f60d0deac86b37f9b0566b40f20deea99b321"
+              "sha256": "sha256:d2c71a7ba20c8030b397390eb64ebf707bff7e6c86915209c91da19da0662527"
             },
             {
               "source": "templates/codex/scripts/harness_parity_check.py",
               "target": "templates/codex/scripts/harness_parity_check.py",
-              "sha256": "sha256:434c1a996e9973ba190e8793bf4c99bc6136da20197e523576419c4ef165f71d"
+              "sha256": "sha256:de21ad14c46e375502a2cc52e8edbba94a995a70f4829fc52dbfd445d96a9d1c"
             },
             {
               "source": "templates/codex/scripts/memory_rebuild_index.py",
               "target": "templates/codex/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:aa867ef14e417a84c61b559c612ce34ec32506a510da3c90245008a9c3e7cc80"
+              "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
             },
             {
               "source": "templates/codex/scripts/memory_search.py",
               "target": "templates/codex/scripts/memory_search.py",
-              "sha256": "sha256:a05a23da1c5a458adc00ed898507f0f052e550bcfd1c6fb3d73a03a44fac09b9"
+              "sha256": "sha256:b825d11eecffa287ddcbb9efeca0e8676a74bcd41e01e0d4bac75d4423e12490"
             },
             {
               "source": "templates/codex/scripts/subscription_routing.py",
               "target": "templates/codex/scripts/subscription_routing.py",
-              "sha256": "sha256:c7d86b71dd64aa8f407a7ea811b6e139931629b3dd62982d50c46b441fa15a5f"
+              "sha256": "sha256:05a4988127a27a009b31b7e04c222b35682fcbfa849d8cc8427d7fff3dbbb1be"
             },
             {
               "source": "templates/codex/settings.json",
               "target": "templates/codex/settings.json",
-              "sha256": "sha256:35f4405b199abb64759f654ec17af9362716563866bdd7b907687ba6c4fd73b4"
+              "sha256": "sha256:1d2d93c20610036a533936c681c441f77c1edb8b6f7d5203fa237ab7fef5afe7"
             },
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:02d12269110b1f7b8f69389cccc45e49d8ecf0fa680d97b76d33ce2f388f6579"
+              "sha256": "sha256:1275226aa059df45ba55fa201a19c7a47e89cd6843341ae0ba1d2b3d07948073"
             },
             {
               "source": "templates/codex/subscription-tier.toml",
               "target": "templates/codex/subscription-tier.toml",
-              "sha256": "sha256:b5ba59f3634ed916d0b8ef2c8fa41a7cad3855a345c8ce57325306dd1aa1878b"
+              "sha256": "sha256:9741b5bb9d2f87e4b926eb6da6220a033f2be13354785e144c56643203f1f4e3"
             }
           ]
         },
@@ -682,7 +682,7 @@
             {
               "source": "skills/archive-scan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:f5ed5af33a8b84509d4c7debdc16adf177e1ac3180aeb857cd77b27a2a1c76f1"
+              "sha256": "sha256:c65a69170de32f2b0196f3d68d8bce7ed26cb15cb29f0414e04565a703935867"
             }
           ]
         },
@@ -692,7 +692,7 @@
             {
               "source": "skills/collab/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:976c2517720457faa14d3944bf502758c961c842cb590ef6b351df52394d314e"
+              "sha256": "sha256:b70cf4539d44bfe6388d5c53a22f6dd35a6efe1513a1d5cca8a3f196041d6a07"
             }
           ]
         },
@@ -702,7 +702,7 @@
             {
               "source": "skills/confirm/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4a37a81210ce6040c775393dc352d56ce9b979a1587b762056e12e75bd3bbfa5"
+              "sha256": "sha256:660be5720400007764805a2ce5c7e41fb039f0bd0a33337a6cf7df8ed50bc10b"
             }
           ]
         },
@@ -712,7 +712,7 @@
             {
               "source": "skills/debate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:8ccd58529cca12d034d5b1844b86fe89d6b35055446c1305d1e377433b84ebfb"
+              "sha256": "sha256:27934a2e69e6405d5e964ec277b54d64b1d31c480b52f343e9901fdbdd3df4fa"
             }
           ]
         },
@@ -722,7 +722,7 @@
             {
               "source": "skills/develop/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:470442abf9cf211f1674cf431f67e3e2c581dfd62f514f57a3023b2ad262fa30"
+              "sha256": "sha256:66aa2ff9a230167434056bea8be7403ab5983b0ae23361013f8101452d763eeb"
             }
           ]
         },
@@ -732,7 +732,7 @@
             {
               "source": "skills/escalate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:1f9ac8ab1a0b9bdcce84efb4f575eb44eba541414f49cc9f301d838ec747868f"
+              "sha256": "sha256:8653702bf1aa78651bccbe50251573c93ab412000f82b4f6cddadb3233d6ec73"
             }
           ]
         },
@@ -742,7 +742,7 @@
             {
               "source": "skills/explain/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:eb33dded7a48f0663205c2cf6ff8f90d5ba9b0ecd1f2fefe9c3f221038ac8960"
+              "sha256": "sha256:182c5e9ae81f9683bd03ca365055912e63757e3774d22263463561f59752ca05"
             }
           ]
         },
@@ -752,17 +752,17 @@
             {
               "source": "skills/find-doc/references/map-reminder-sop.md",
               "target": "references/map-reminder-sop.md",
-              "sha256": "sha256:6e0baf4962aadaf4ca6cbf238717dde37a7891db740a096af2598f13dc323ee9"
+              "sha256": "sha256:96d9344f46f3b9f90b557dd1f03f40e70b36c36cbc4acb1067e077af06276e6f"
             },
             {
               "source": "skills/find-doc/references/output-format.md",
               "target": "references/output-format.md",
-              "sha256": "sha256:038a1217139b9808922b1a64ca9d47559943d97c6daa1404333f9528cbdd765c"
+              "sha256": "sha256:b3b4b5bc38dd8f7fcddea906624804555850951070c387f596bd4cc87f519bac"
             },
             {
               "source": "skills/find-doc/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c4dc8fe1f779e3109d8744bd1d9736f024737aaab8607b434770e327f57a9571"
+              "sha256": "sha256:3a9d4fbeb8679a51d903ad916a54ee045f9de224d8e23df951015bc1003c82d3"
             }
           ]
         },
@@ -772,7 +772,7 @@
             {
               "source": "skills/find-memory/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:de6060d08ec5b2eeed1b772196d30032d64601209407d6d1c06d646a13cbb641"
+              "sha256": "sha256:afddba08ee6af56df86c5c933cf357d0aed0f332d89950fbec7b6b0976299bc7"
             }
           ]
         },
@@ -782,7 +782,7 @@
             {
               "source": "skills/focus/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4e63a7883638ec35f8ac8b38f1624f79cb390387ab4819ed9e7173c9016d09f4"
+              "sha256": "sha256:5009c0cd1634b386b179414ba2035de3d56b7949fbfbdf8dbdafd8dd0e3f37fa"
             }
           ]
         },
@@ -792,7 +792,7 @@
             {
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:ceb216209c3b77a983442bf21e3f4e66d4daa2274c20ea5cfe4a975b581be8b8"
+              "sha256": "sha256:162f63f34885096cef06ae41b920d1c5da4b5ca5bd5d5208b8396ca1365acfca"
             }
           ]
         },
@@ -802,7 +802,7 @@
             {
               "source": "skills/harvest/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:802d30a7b3d803ad42a0aedf97204fe62cbb2d2e2f18639c4ad8f4c9bea5a626"
+              "sha256": "sha256:050f2ae947e93a8bd6ca38efcc2abe4ce6d8466282d47a005a1f8d60a802659e"
             }
           ]
         },
@@ -812,7 +812,7 @@
             {
               "source": "skills/plan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4c5e10b11a2c7227c8ba9665d3bd31b0a3f4b0ac213d370034e926ccf0872dbb"
+              "sha256": "sha256:9c9bccc0f38f9e035c72749c29cf1b8207a50d1855737da1b00bf101580d6211"
             }
           ]
         },
@@ -822,7 +822,7 @@
             {
               "source": "skills/resume/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:e0a8fd3b229b3051dbd3432b148e3e57db665472eeaa96420d92db2682089b73"
+              "sha256": "sha256:34be8806249cc5d06da2c9914d64e9331a9a6cf08f45d716793d27eaf543ffba"
             }
           ]
         },
@@ -832,7 +832,7 @@
             {
               "source": "skills/snapshot/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:5cc6879b3fbef584eb5dd7a75ef4ba09fd0e43157730f111f538c3fafd33a3f4"
+              "sha256": "sha256:efef9188f62bcac86c07d418a3e75b44b96369e857f2cd4336151d80381ad7ba"
             }
           ]
         },
@@ -842,7 +842,7 @@
             {
               "source": "skills/spinoff/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:b6132ea1f1dcd00f57988c4e56ca221cf0047b0339186c39535739f3dd999d8f"
+              "sha256": "sha256:2b01a823c4b4996970bbf5a480de5df3975633ec6209e2268c5f350ac5dba29b"
             }
           ]
         },
@@ -852,12 +852,12 @@
             {
               "source": "skills/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
-              "sha256": "sha256:94f7137e08248669f9084cda76cc3263c91cb66536cb9aa3f08df7c8b18cf1b7"
+              "sha256": "sha256:62509de954f4081cfcbceb8b0e4d27e401e24bb724fa45e72927647d35ebfb70"
             },
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:b22533445f0a90eb95af8f2e2cb8f0fba7a6f9a1c8b849279a8e57b842f85bc8"
+              "sha256": "sha256:a1092730e1f5029451cd9fcd7bdd1225ef3fbdb0cbf73d6f217252e08a80209d"
             }
           ]
         },
@@ -867,7 +867,7 @@
             {
               "source": "skills/sync-docs/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c651cb636b8cc764ece6e83f751ba57c560ad81409248a3d087e859858072440"
+              "sha256": "sha256:0c206850f437074dc8ab741db50a7eac5614c0a5ee4a98bb47187d2b217bf293"
             }
           ]
         },
@@ -877,7 +877,7 @@
             {
               "source": "skills/todo/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:0cfb81dad35af48f9b11419e3fd3119045e079dc7ce5902b5c403030b7eb19ec"
+              "sha256": "sha256:a055e443f1c72dc597cedd080c86402322db123edbb46dae78f0a9bf5edf81d7"
             }
           ]
         }
@@ -892,17 +892,17 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:67ce58b567adf7280d85a852b7b69e43966ea92b9374faca0cce6d6fa2dacfd6"
+              "sha256": "sha256:7b8e64a637c4b2608c56c3c16cef6ab3f6ee55822b8ac35564f30f4a283bfa57"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:b5514ca3a3adaa881325f3f22f088ed44fc2544ded3532dc89ec6f5f0d6a0020"
+              "sha256": "sha256:1039dc8e9a4a9cdfc070ca5bf13146c0077e8dc1b4f29a8133f9387ca44b7837"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
               "target": "scripts/bridgeforge_migrate_layout.py",
-              "sha256": "sha256:07bd90feaeca33cadf4b176814fe4e85c0f1d7f674a7ac6566b138613743520e"
+              "sha256": "sha256:811c2b96db71c0e146ae36c3df1a373f7724328d39eca487975f5762da776534"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -917,17 +917,17 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:64bca56f88c54c2f483c79389313a91d8e38c000a144e121a03b601286f23c51"
+              "sha256": "sha256:f02ede972f2001ab20113b659eff639a56ed9bb3ccd34dc38675a6e65f5d17b2"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
               "target": "references/adopt.md",
-              "sha256": "sha256:6cc146d95e4b09f549a84741e4ac059d41fa3be2eeb4b99c077421ab52342184"
+              "sha256": "sha256:01bf9b0f8d6e874b499d9be3d8a26248c810f1be3f643b0933b738b36412353b"
             },
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:c004d2ee7f7e42c6a7e0dbb082224fa90c8ad64e8b60ff94917596c878db7f1e"
+              "sha256": "sha256:e69d6f13f410955c597ff367535f5ba5c9c723b8876bc302dcde01b4ffb3cba9"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -937,7 +937,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:13cef392538995d16ed75da6712e86955b45f549dca5d5df4876a8ec3ce17753"
+              "sha256": "sha256:9920219292d36c7c89c6e8b0c46d01d86186743bd7430355d46f4e4069b85a33"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -952,12 +952,12 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:9d34b8edc765b1ed6a3180b558e0d3abc4ed4f08886ed321c05e87b2b6f7d44e"
+              "sha256": "sha256:c5ef620606df672bef0a8c87894e8b6334b81139fd34b2ee423f76f3bf9794e7"
             },
             {
               "source": "templates/claude/CLAUDE.md",
               "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:31b9d6aad0c9a1a322b46fc3769f76ce96efa724d98290231af6ee3f914bbde1"
+              "sha256": "sha256:c7dc30955470d49c24dc706e32177c38e3e40606f2dace87b924e1ce2178ffcf"
             },
             {
               "source": "templates/claude/VERSION",
@@ -992,32 +992,32 @@
             {
               "source": "templates/claude/doc/README.md",
               "target": "templates/claude/doc/README.md",
-              "sha256": "sha256:d5ee0f124c33a9131e2306b4971b15d78b66512a2dc44eabe46c33a8f5b5e154"
+              "sha256": "sha256:a2518043abb4d301e69391847bad4c2d6d22c80f8434be1ae42edd1b9cdd8d2d"
             },
             {
               "source": "templates/claude/hooks/allow_memory_write.py",
               "target": "templates/claude/hooks/allow_memory_write.py",
-              "sha256": "sha256:15f172609c487c79e2c75ff1bbc0beb5b8750bff3a7cb402409a7448431ad6bf"
+              "sha256": "sha256:5106e6f924809ce16f45f6da01dc88b98b77b4e3f07c72b94527634bfc90575e"
             },
             {
               "source": "templates/claude/hooks/cargo_default_run_check.py",
               "target": "templates/claude/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:1728979fb3f579d633189a03dbfb94c99d09428bd418197f3962ebff80f88c04"
+              "sha256": "sha256:d2f2123876cf4b5fff19a3d90b3e360b04bf7ef48719fe4a07cda37839e19a20"
             },
             {
               "source": "templates/claude/hooks/clarify_reminder.py",
               "target": "templates/claude/hooks/clarify_reminder.py",
-              "sha256": "sha256:23eb48e08c2e389c4b705c8dd2ff7e16ea593b703b577d6bd8b7d077a8dc415e"
+              "sha256": "sha256:3367a36bec50be0aa1d6c1c76e59bde144187b567cad5bb8810ad63fa3b49e54"
             },
             {
               "source": "templates/claude/hooks/config_health_check.py",
               "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:b392eb254882b97e4d8c17b367c223c02228863271b42b1a186448d2bb75c97c"
+              "sha256": "sha256:6023039d3b79e27f7c712ce8ce5f33392b74b2a24eee4b98f210a4f705897e4c"
             },
             {
               "source": "templates/claude/hooks/context_warning.py",
               "target": "templates/claude/hooks/context_warning.py",
-              "sha256": "sha256:b85f68d8efa983a069ed174dc5883e6d3018b08ca117d8fcccc8696a90e3930f"
+              "sha256": "sha256:392f108a6f9cccb4addf0d65e0e19a9b0c63296d3b9402b9740afa2bbc1f8b2a"
             },
             {
               "source": "templates/claude/hooks/cross_project_write_guard.py",
@@ -1032,52 +1032,52 @@
             {
               "source": "templates/claude/hooks/enforce_no_effortlevel.py",
               "target": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:8760da31af44a65f431b13c996d91895b1946a1f32dd423983cd87c37477dbe9"
+              "sha256": "sha256:27d63a283ebf60111bff9a151049dfd852e7b2bdee1b8b0e17b290bd8670ad22"
             },
             {
               "source": "templates/claude/hooks/fallback_smell_check.py",
               "target": "templates/claude/hooks/fallback_smell_check.py",
-              "sha256": "sha256:4d205dffe58f77d0a2674f7f254d50fc2d6518d24a7b804d9fba9cb81a356ce2"
+              "sha256": "sha256:2128651d5428e46fa91b59ae0af620299d36a563ffa62a5c8b0a277a9194f4d6"
             },
             {
               "source": "templates/claude/hooks/find_doc_reminder.py",
               "target": "templates/claude/hooks/find_doc_reminder.py",
-              "sha256": "sha256:b0a1a9c37f01c99c047307fda4ec0abbe2f7a23c8dd26f4e8b5e5e2bc3e97115"
+              "sha256": "sha256:ffa2b9f74cd1555808147a48e874b720e6789caa4f022faaa2e52c1f9265cb66"
             },
             {
               "source": "templates/claude/hooks/focus_reminder.py",
               "target": "templates/claude/hooks/focus_reminder.py",
-              "sha256": "sha256:c90b1b62f5943635348ae15ef37c9ccae7e014f469bf737de2a58a659ef0a6ab"
+              "sha256": "sha256:100832c933eaa04d50800c66d531578a7181cd9460ea1bfba7cf2fd6c8f64f3b"
             },
             {
               "source": "templates/claude/hooks/git_add_all_guard.py",
               "target": "templates/claude/hooks/git_add_all_guard.py",
-              "sha256": "sha256:8bad8f1d61cf40c176d36823abf0b9c285b62e61b07c2204059010a9af808942"
+              "sha256": "sha256:1a942ecfbbd7e3e23d3716ddcb209df63b75c63e5f108bc3d8996986c1d435b8"
             },
             {
               "source": "templates/claude/hooks/githooks_path_check.py",
               "target": "templates/claude/hooks/githooks_path_check.py",
-              "sha256": "sha256:0be8388fb9e8d6acd3ab04be78f731e6aa56c2ea1b6e795f67bed1315d7b3224"
+              "sha256": "sha256:db1dbdacc350ee6cb51e59c41773878f0b1fb0582e74ef3792c263d91a4a7871"
             },
             {
               "source": "templates/claude/hooks/memory_dup_check.py",
               "target": "templates/claude/hooks/memory_dup_check.py",
-              "sha256": "sha256:ae55a2f101b44938f72c6887b2d4c831b9a91c6f2bfcc8ff2e4a064bd0e24e1b"
+              "sha256": "sha256:4146d8660114cc0b4ffb27c4a3d1726ee0c71b27b431bfec1feb61f455d2efc0"
             },
             {
               "source": "templates/claude/hooks/memory_junction_check.py",
               "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:c23053d3c51e6a6b0d0c60db4204e339b4eee64edcf7e0029e5de51b3be441d5"
+              "sha256": "sha256:39f668c985ea64a1694d9e5a6171f7ce96d51fb66543304ff0a7a1db1ec2f821"
             },
             {
               "source": "templates/claude/hooks/memory_lint.py",
               "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:5d6255e785cfe54d8289b8e1040a277a31775e3a9aece4300a1904d8cc2bb894"
+              "sha256": "sha256:44fb472abe724633fc6ba8e86c9edba0b00abc9bcaf802af5e67bd0827957f27"
             },
             {
               "source": "templates/claude/hooks/mirror_drift_check.py",
               "target": "templates/claude/hooks/mirror_drift_check.py",
-              "sha256": "sha256:1bfd623b2f3083f7d562347d0af3855b39df0eb006afe2092c409c1f185b2a1f"
+              "sha256": "sha256:5a9a18cb9b617d7407dbb40cb0070b22ace702ada18de290b8dc257e9e134938"
             },
             {
               "source": "templates/claude/hooks/non_ascii_shell_guard.py",
@@ -1087,32 +1087,32 @@
             {
               "source": "templates/claude/hooks/requirements_check.py",
               "target": "templates/claude/hooks/requirements_check.py",
-              "sha256": "sha256:ecf07972c98b445e8178c70f954e2c62a64210d4f924f0cfaf9c3fc6d395c2c2"
+              "sha256": "sha256:5ce95ae0288c92335a18b4bc96cb3a153e122b99c3bba292dfa27f25228e0a1b"
             },
             {
               "source": "templates/claude/hooks/rule_index_check.py",
               "target": "templates/claude/hooks/rule_index_check.py",
-              "sha256": "sha256:24565dfbb76812409fad2503558dc4807eafa8cfea7bf19824859868a051e08c"
+              "sha256": "sha256:84c9be07a241067e3c2e9f2d81397150c6c3dd3c7cd7995afa8802def54902ce"
             },
             {
               "source": "templates/claude/hooks/rule_size_check.py",
               "target": "templates/claude/hooks/rule_size_check.py",
-              "sha256": "sha256:1062aa753931f06083434e844d1942c190eccba68a376f76d21425fb9f3e0040"
+              "sha256": "sha256:5f088bd17d6b26394a50f1127a82cfdbfaa356e052a9d606b0f9ad277f63cff7"
             },
             {
               "source": "templates/claude/hooks/session_snapshot.py",
               "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:44d21fb054a68e53b20b045024446e270e452a0635ca0e05b3f4ce77817e8c90"
+              "sha256": "sha256:4c4acf2036f1cfcb102372d9ab6b945d5162c321ed7453cb5b03d05e0a55358c"
             },
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:e5ffce479e2eae4ed9a62c6424a3d216a2de0958f538a0798e629f358ecc6a84"
+              "sha256": "sha256:1e5c46cb09be6b811cc1d1d71d0f46dbc497303cc4e9176472409dfb89494e5f"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
               "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:fc7fc06b381541e44538bcc895b8aa057c91b49f53d9082ccde07c5b210638d0"
+              "sha256": "sha256:b6770fab3d4911536bb59d0d536667d8cdcf89061b85ddc35736f40eaf755810"
             },
             {
               "source": "templates/claude/hooks/skill_sync_check.py",
@@ -1122,67 +1122,67 @@
             {
               "source": "templates/claude/hooks/stall_warning.py",
               "target": "templates/claude/hooks/stall_warning.py",
-              "sha256": "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+              "sha256": "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0"
             },
             {
               "source": "templates/claude/hooks/target_cleanup.py",
               "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:3be9291707cc88437fbdd0ad4147b9b9b97792a6358ddfb133a9d9cfa24eecd9"
+              "sha256": "sha256:ad9ed89b54eb0ad332762618401abc4e4b53afa0d28981cabe4fd5843a450594"
             },
             {
               "source": "templates/claude/hooks/test_receipt.py",
               "target": "templates/claude/hooks/test_receipt.py",
-              "sha256": "sha256:f5859d484b5197709c13feaa836142cc041d8640464c8999fea58ebd87ff9414"
+              "sha256": "sha256:dd8e6360e7938ab35e7786595066513654f0acc182d4ac1420328896461f4d0a"
             },
             {
               "source": "templates/claude/hooks/version_check.py",
               "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:2c3597e01f117ad295fd5e7020baa15da318e2a4f6ad2b4052e0eb8e5dea3a23"
+              "sha256": "sha256:d35d8d98c7aec2ccc82bb4c5b500cc2b77d7a512fc74f5f4b6c2fb4f1df465c2"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
               "target": "templates/claude/memory/MEMORY.md",
-              "sha256": "sha256:79f61044ec13a47352c225bdb56e6cf6d7aa034385ad79ec82a9ce62d375d6bb"
+              "sha256": "sha256:4cf0484b59eb81666e8f4d0f6b953ea890acffbc717f186c9b40c75c0850485c"
             },
             {
               "source": "templates/claude/rules/anti_drift_hooks.md",
               "target": "templates/claude/rules/anti_drift_hooks.md",
-              "sha256": "sha256:2ae210501c870f9cb1987298b23db8cafa3d3c53a2743ff2df5293d57d448244"
+              "sha256": "sha256:04e0fea88e62378fddcb9cc6807285672b61b2c11d6213eebc5cf5aa788ee070"
             },
             {
               "source": "templates/claude/rules/anti_fabrication.md",
               "target": "templates/claude/rules/anti_fabrication.md",
-              "sha256": "sha256:ff538eba326d2999e8a93bfd4d7f013074dc7818a14ea27d78b6fd3107c1485a"
+              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
             },
             {
               "source": "templates/claude/rules/architecture.md",
               "target": "templates/claude/rules/architecture.md",
-              "sha256": "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
             },
             {
               "source": "templates/claude/rules/debugging.md",
               "target": "templates/claude/rules/debugging.md",
-              "sha256": "sha256:40105d113ecd61349e22d95f4e9d89e183e526ee6c0a0e82a9265de8ee6b4b37"
+              "sha256": "sha256:b75e64fe6583c6eed95fa10e1c479612affc61a46391cf74d793dc0393f1d0ac"
             },
             {
               "source": "templates/claude/rules/meta_rule_design.md",
               "target": "templates/claude/rules/meta_rule_design.md",
-              "sha256": "sha256:21806c9edec1979af292074c99af2ba0741ae09f52d923774a272c82efab678f"
+              "sha256": "sha256:791ab7819979ab1e87283c570114a4d2f44349cc39329c952338b3edeb86572f"
             },
             {
               "source": "templates/claude/rules/modules.md",
               "target": "templates/claude/rules/modules.md",
-              "sha256": "sha256:988813d95e43f54e5bab02b82ad44e744a4a6c5d0f8e33193ca751310b28f95f"
+              "sha256": "sha256:35d18762819700682fb51a2ecc87107b23d974a37b6e234c4c3b8d7d681c9a9f"
             },
             {
               "source": "templates/claude/rules/portability.md",
               "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:14f4d41ba6e9ad55b8caf27e3a1763c6370cdc930fef3507b12851e3627f7542"
+              "sha256": "sha256:b20507f7e446e66d0b5bab726b8b6951ae350067b1d5e39a18dd8b4a81fce407"
             },
             {
               "source": "templates/claude/rules/workflow.md",
               "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:ee31c92a7d17a6ceade0592e8910a043f9c003334c1deaf7255c0a2cda18db7f"
+              "sha256": "sha256:85f5fff5cc0881e34ae4c61489a0b9fd4ef435c2a184197709796d4ef6582d88"
             },
             {
               "source": "templates/claude/scripts/archive_scan.py",
@@ -1192,7 +1192,7 @@
             {
               "source": "templates/claude/scripts/audit_user_allow.py",
               "target": "templates/claude/scripts/audit_user_allow.py",
-              "sha256": "sha256:5e5d2ab7bf2050ce3a2de3a0d954cf892ce789f95a6327c932d05717460f24b5"
+              "sha256": "sha256:50d7bfab1d56be4f864279f25e0ab3c78331d375439ae1d59ebb42ebfcea5a8b"
             },
             {
               "source": "templates/claude/scripts/bridgeforge_switch.py",
@@ -1202,12 +1202,12 @@
             {
               "source": "templates/claude/scripts/memory_rebuild_index.py",
               "target": "templates/claude/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:19b735fc75a89541ff7bcf513814edfbe45bc07c960dcd584896e1165bf407e7"
+              "sha256": "sha256:7795f7dfa7eacf515e27d7fede5bb60140bd84b69508fd59871c6fd4a621c5df"
             },
             {
               "source": "templates/claude/scripts/memory_search.py",
               "target": "templates/claude/scripts/memory_search.py",
-              "sha256": "sha256:181dab403cb4ee8dc0d8d4b144ee4d736b61234897611818318072b1ba139ab6"
+              "sha256": "sha256:13cd73f0255fa6593f18da042b83f2ef06e99bcb82dbd0bc95e5ad789ff709ae"
             },
             {
               "source": "templates/claude/settings.json",
@@ -1222,12 +1222,12 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:382828baaa1a10debd573da0945b1583b7831b6fb160b822abaa8310d118d293"
+              "sha256": "sha256:22c6a528c9b1c0088e0de31f50b8eaf5628dda6670aca042979b7deb4c8a1810"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:b620794b294386ad2b82a26bbd69704567047f7861f180db9cca038946973120"
+              "sha256": "sha256:bf196ecc17038bc7d8466601c4b9286416c3a0ce4801cacc41c4d1c69872ab16"
             },
             {
               "source": "templates/codex/VERSION",
@@ -1237,32 +1237,32 @@
             {
               "source": "templates/codex/agents/implementation-worker.toml",
               "target": "templates/codex/agents/implementation-worker.toml",
-              "sha256": "sha256:782b7f3ffdf3f0b6f5acc9e5686cc534d94fe13f51bd50ec67e5042af8f89861"
+              "sha256": "sha256:2bf005e4f4a93276ebb0a4849d481ebf808722b712ad7b6652aa5ad2f01913ac"
             },
             {
               "source": "templates/codex/agents/light-explorer.toml",
               "target": "templates/codex/agents/light-explorer.toml",
-              "sha256": "sha256:a2ba35a03731aa030985ccf07a8d2d3454357d83e31b750ad82ae6c361e74ff0"
+              "sha256": "sha256:c4a6db5dbaecd5c14e7351f6d68a31ccbff7ebfa1505c0609b3e886574baed72"
             },
             {
               "source": "templates/codex/agents/mechanical-sync-worker.toml",
               "target": "templates/codex/agents/mechanical-sync-worker.toml",
-              "sha256": "sha256:918b573468ba44e68a2e47b277b422165e4750cb30c2c6e4f13eab429ece5cab"
+              "sha256": "sha256:13fa6a5dcf1eb24dfdf8e117bed96f92fae2847c15bf2d75bf24c30cffbb7f92"
             },
             {
               "source": "templates/codex/agents/review-auditor.toml",
               "target": "templates/codex/agents/review-auditor.toml",
-              "sha256": "sha256:186ad17625f7be26d3aa3249716c1f811ef82cde8fdf49d5116a8b5da8427586"
+              "sha256": "sha256:31aaf6b627fab4707d2953c0922631cb955bb3c67b1040fe52d188d3e5e8330e"
             },
             {
               "source": "templates/codex/agents/xhigh-auditor.toml",
               "target": "templates/codex/agents/xhigh-auditor.toml",
-              "sha256": "sha256:b1812dc428ef9cc30847f26e8b465fa73cae325413a8c92812625798073d41f1"
+              "sha256": "sha256:c4af34168a617e8c5268c4c577205e7a869dce2fda6ca236e168992318fc0b35"
             },
             {
               "source": "templates/codex/config.toml",
               "target": "templates/codex/config.toml",
-              "sha256": "sha256:5860f15bd4a3915294af5778157bb4f4dc84e72c76facde58bd5fb17ef4e83c4"
+              "sha256": "sha256:9ec8e85fb87af4dd61cf27cd1c74206746b62169bdf89dc8a50bf4338439dbb8"
             },
             {
               "source": "templates/codex/doc/0_architecture/.gitkeep",
@@ -1292,32 +1292,32 @@
             {
               "source": "templates/codex/doc/README.md",
               "target": "templates/codex/doc/README.md",
-              "sha256": "sha256:39e7ff8be3afe9555d6c7fad026e373cb62c9d360b6a84b44a615fbd0e1a5bfa"
+              "sha256": "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344"
             },
             {
               "source": "templates/codex/hooks/allow_memory_write.py",
               "target": "templates/codex/hooks/allow_memory_write.py",
-              "sha256": "sha256:2c7fa6457f090e7c50897d42956a820b856f214ea8350c276ac50936c9c66ee4"
+              "sha256": "sha256:4cdba937140a91d583a1e5aa500a8448a9b06de02a94949b48b747f97876c912"
             },
             {
               "source": "templates/codex/hooks/cargo_default_run_check.py",
               "target": "templates/codex/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:9bc9a86045ff606e30cdc35c4efe4d0ef47319516b80f7377bd27e9cc93bae32"
+              "sha256": "sha256:2f638330359472b740e20fff5fe79b1cc7b15241f8a600b404c31f7324ab2894"
             },
             {
               "source": "templates/codex/hooks/clarify_reminder.py",
               "target": "templates/codex/hooks/clarify_reminder.py",
-              "sha256": "sha256:e5a6e55494e8a66dcb47d367caad9b4723c207ecca2da8c49ff075a5398f621f"
+              "sha256": "sha256:cc60e6c961a7649d227bbea827c367fb2e6807cc0a181455ed66f1b02b4b862e"
             },
             {
               "source": "templates/codex/hooks/config_health_check.py",
               "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:4b3326ce40934e1a15d3ea0220c641911f64920ccf02fac5ec2bfc028a9436ab"
+              "sha256": "sha256:4f3988b1a7cab7a43a1f2085cada6032a70616b2f6b33f64f0d21abef8a1dec9"
             },
             {
               "source": "templates/codex/hooks/context_warning.py",
               "target": "templates/codex/hooks/context_warning.py",
-              "sha256": "sha256:b23d39923b9785043dae9371a41578d923d8a7b96299ab397ea2089f9e6ecbad"
+              "sha256": "sha256:a8716f29e84e251ca20350b491a6b645769459f1eae845b8f2bfc07c253c697a"
             },
             {
               "source": "templates/codex/hooks/cross_project_write_guard.py",
@@ -1332,57 +1332,57 @@
             {
               "source": "templates/codex/hooks/enforce_no_effortlevel.py",
               "target": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:26d3d14a66f37ed0572a8f9c82387540552c4febb90aae1fb8c6cef471b6f2f9"
+              "sha256": "sha256:e9ea5773b8471b9d43c4ede1178c08a6c7483dd5ba1f3cecb329478cf1a9e178"
             },
             {
               "source": "templates/codex/hooks/fallback_smell_check.py",
               "target": "templates/codex/hooks/fallback_smell_check.py",
-              "sha256": "sha256:fc8bf4396796858a1a3e9398e75028a421441ed2851e8fc4bc324fa298337cc3"
+              "sha256": "sha256:138bbc4c882992da5d1204ee82247499e17b9e302d2429467a545ce2facfd478"
             },
             {
               "source": "templates/codex/hooks/find_doc_reminder.py",
               "target": "templates/codex/hooks/find_doc_reminder.py",
-              "sha256": "sha256:c658bc88d57010eea101784aedc78c8ef55ef50358568419532dac657cdbedae"
+              "sha256": "sha256:2904455166af196c785a22067b3a8ab147b85acfd88fa6af57b5e9e6db3e0c63"
             },
             {
               "source": "templates/codex/hooks/focus_reminder.py",
               "target": "templates/codex/hooks/focus_reminder.py",
-              "sha256": "sha256:51b4d6bf1917818afbb3c5b208be45708a59e29be9ebc102929114f47caa4eac"
+              "sha256": "sha256:03b4708856e4a7a6709485afae3b6b296d948374ffc819737c0cdae5081ac9e3"
             },
             {
               "source": "templates/codex/hooks/git_add_all_guard.py",
               "target": "templates/codex/hooks/git_add_all_guard.py",
-              "sha256": "sha256:3ac4f8f5bfcfa3365246e48303a2311b21f7becb152176039502c0743ddbbb71"
+              "sha256": "sha256:fc917a8d3f97c11fc88b954822d9171b1b8ed9904c6dae20bd351a8be4ac5d8c"
             },
             {
               "source": "templates/codex/hooks/githooks_path_check.py",
               "target": "templates/codex/hooks/githooks_path_check.py",
-              "sha256": "sha256:4490bd332a8c4d110b1dad3e19f7d8df231c75ed13f9bee31a734d0f4a111187"
+              "sha256": "sha256:f90b5dd716148ef101d46f4dcf8aff7a657f98d3773395cb2aaece7fef778ead"
             },
             {
               "source": "templates/codex/hooks/memory_dup_check.py",
               "target": "templates/codex/hooks/memory_dup_check.py",
-              "sha256": "sha256:633ae069ad2c99c9f24b9997bede7f04984e898b278209a3057ff04e40e10b1f"
+              "sha256": "sha256:0cd4a2f8b46c361aa6856a9f8b8e9f64ef37cbe92c519f4e141fc93018c85b45"
             },
             {
               "source": "templates/codex/hooks/memory_junction_check.py",
               "target": "templates/codex/hooks/memory_junction_check.py",
-              "sha256": "sha256:a02c0a0724b913ff47e371072d8ff01b315aa723ceb113a07287d00340fdcb49"
+              "sha256": "sha256:78bf9f38caff5f71e416e9ebba1418067d94163bdaff95680fc927f0ba0d2c86"
             },
             {
               "source": "templates/codex/hooks/memory_lint.py",
               "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:00760bd8e64768dbcff4dbbc2d4ab46111ff5fa99cfd8987e46c8be6fb8450cd"
+              "sha256": "sha256:3dd8ae151987ea9ea4c0c64a7e3fa13e2457322d107174e24cd1ac9f86ad4020"
             },
             {
               "source": "templates/codex/hooks/mirror_drift_check.py",
               "target": "templates/codex/hooks/mirror_drift_check.py",
-              "sha256": "sha256:35328812b545946c19ad4152759cd5e6795755876c1921042a45aee52ef11ace"
+              "sha256": "sha256:10feaf89afdb7350470fd9821ffe2247a8fce27797871c3a146e52dab9494f0f"
             },
             {
               "source": "templates/codex/hooks/model_policy_check.py",
               "target": "templates/codex/hooks/model_policy_check.py",
-              "sha256": "sha256:8756704d6dd2fade44d14ad802b69ce0058ea0384d1fe0ad69ea7366cf0dc662"
+              "sha256": "sha256:35dd49bdf7c3703c3cd50c87139f1f9af55745b7d19692eb77c0affeb47bfd9d"
             },
             {
               "source": "templates/codex/hooks/non_ascii_shell_guard.py",
@@ -1392,32 +1392,32 @@
             {
               "source": "templates/codex/hooks/requirements_check.py",
               "target": "templates/codex/hooks/requirements_check.py",
-              "sha256": "sha256:9f6f74628b71202bf5619c0d6242bec7b9af6ab36ea5b72e71fd54297a613909"
+              "sha256": "sha256:6ccaaa8b06a406ca144afc18b28355145e18da9e544290cff95f76bfce9ad622"
             },
             {
               "source": "templates/codex/hooks/rule_index_check.py",
               "target": "templates/codex/hooks/rule_index_check.py",
-              "sha256": "sha256:795a7b6708afd46444b2282420dae0f8fa537680de4b334c8e60cd1f82ba5fc8"
+              "sha256": "sha256:6bac5bcac80a842f87251a706a1789a8fd57df01bcc34b31d32324235a636f5c"
             },
             {
               "source": "templates/codex/hooks/rule_size_check.py",
               "target": "templates/codex/hooks/rule_size_check.py",
-              "sha256": "sha256:5e9365702ad4826c51681fea43c7e227306448e84c27305100dcd7e6e0d1e429"
+              "sha256": "sha256:e821bcb2966239fb80c727e49cb42c7e5b20c9bcff49cf348b21ff87cb3298c9"
             },
             {
               "source": "templates/codex/hooks/session_snapshot.py",
               "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:8beaf56aa1d58d66352264946cdbbcefeca61ae1529f070309219543e7cf78d5"
+              "sha256": "sha256:bb227e21f88ecda0b63d80c9c6074ccc7def050e5e981c009a384f6e08fc0ed0"
             },
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:87cfe5cf1297916006e60d03c74458319ca2dd3da2ae836cf6ce77bfd5aebc77"
+              "sha256": "sha256:3c85f443027d6f5b43c96d4cdc22528e1ec62bea65230497437efe5c114f6c4e"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
               "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:68771ef2967f156094b5e72ff9aad9dbbe9d4b80630fbb4c7f1b25b21b1d6677"
+              "sha256": "sha256:d2931f533766e3ff22c5999cfd47b703d23f97c9a092533004de2c1e2f964d21"
             },
             {
               "source": "templates/codex/hooks/skill_sync_check.py",
@@ -1427,72 +1427,72 @@
             {
               "source": "templates/codex/hooks/stall_warning.py",
               "target": "templates/codex/hooks/stall_warning.py",
-              "sha256": "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926"
+              "sha256": "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0"
             },
             {
               "source": "templates/codex/hooks/target_cleanup.py",
               "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:b9135ed87e9224145a84735f021bf32c9e755ab408728792bedaf56e8a5f1737"
+              "sha256": "sha256:f610872db632b36e1743336658c5d78bee4266d6e0e287fd4a55068a05829df0"
             },
             {
               "source": "templates/codex/hooks/test_receipt.py",
               "target": "templates/codex/hooks/test_receipt.py",
-              "sha256": "sha256:93cb56ec468bd0566bbeed10b3f0a61e45cced17f1dfd44add8faa0afd845ae9"
+              "sha256": "sha256:340a463ca6708ad0a0ea3b93188cbe738247d53bad18dbe650839adad63cf102"
             },
             {
               "source": "templates/codex/hooks/user_config_write_guard.py",
               "target": "templates/codex/hooks/user_config_write_guard.py",
-              "sha256": "sha256:348f7c97f74329c4975f4573200028ead35bb912de1acdfd40ed36b5dc46d034"
+              "sha256": "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
             },
             {
               "source": "templates/codex/hooks/version_check.py",
               "target": "templates/codex/hooks/version_check.py",
-              "sha256": "sha256:84081a855bfb49de904b0b95cc783fe9322140ab6fe0849b0f709d2d750e9a15"
+              "sha256": "sha256:702862388547c7ff0a7c10d42a29d29b7e1fd0a55f60cd936820603c1d4f5080"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
               "target": "templates/codex/memory/MEMORY.md",
-              "sha256": "sha256:a15ce923a159368bc4c6f4006ea42e3b27d62ed694ae07997fda922c2f6ad75e"
+              "sha256": "sha256:a20832447a3aea084c1280e28e811bd0dc57a41777d59398c8d12f2896a95b45"
             },
             {
               "source": "templates/codex/rules/anti_drift_hooks.md",
               "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:a8411fa274d0a7699637d965995ef5d6d68b05457e32d2d018e5b52271fda64b"
+              "sha256": "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20"
             },
             {
               "source": "templates/codex/rules/anti_fabrication.md",
               "target": "templates/codex/rules/anti_fabrication.md",
-              "sha256": "sha256:ff538eba326d2999e8a93bfd4d7f013074dc7818a14ea27d78b6fd3107c1485a"
+              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
             },
             {
               "source": "templates/codex/rules/architecture.md",
               "target": "templates/codex/rules/architecture.md",
-              "sha256": "sha256:25f587f73d16ea887dffe88bdf25b3e40dcc5dd8d4d1be4b3887fee799f0275e"
+              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
             },
             {
               "source": "templates/codex/rules/debugging.md",
               "target": "templates/codex/rules/debugging.md",
-              "sha256": "sha256:b7279c7cc2f4e5d9c30438490876e42461ddf355b049fbc7771845a55e0e07e8"
+              "sha256": "sha256:a3f066fb196fd0da13f5d54c92e08d8f091f78b5c9ba0cacd77554fdb0517a1a"
             },
             {
               "source": "templates/codex/rules/meta_rule_design.md",
               "target": "templates/codex/rules/meta_rule_design.md",
-              "sha256": "sha256:3edd64262d3b7736a3df39af4dec30c007c47e9befbd8b1224787e4a7e3e6784"
+              "sha256": "sha256:28d6b3d748de0d0fdc91c4d11a521ebb9109096cdfbcd1bf9ce8de995c5788c4"
             },
             {
               "source": "templates/codex/rules/modules.md",
               "target": "templates/codex/rules/modules.md",
-              "sha256": "sha256:d7c5c6da6a6e8c00636eb873d71146250ca74d5236e24844ff51b30c5d3284dc"
+              "sha256": "sha256:c1a182060fec53a4fbddc08c48486cb320326d4d02838f8b3aaa1463f95b8880"
             },
             {
               "source": "templates/codex/rules/portability.md",
               "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:f4eb0d9280c14647ff515ad51c3cc719575af67ceb92a802aabe68853aa94272"
+              "sha256": "sha256:4c64c4859970565e09ce709a8c539b22b5e9e59e55bf8c60928090b3cece9b6d"
             },
             {
               "source": "templates/codex/rules/workflow.md",
               "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:4697a2f8ae79596e56d388e17ef95ae161eef7d3af9814df8a3e738f29e48678"
+              "sha256": "sha256:87f32b27e96e12b57fb8162c67953336d98906a8d72d38b490fc8898cb54dcaa"
             },
             {
               "source": "templates/codex/scripts/archive_scan.py",
@@ -1502,7 +1502,7 @@
             {
               "source": "templates/codex/scripts/audit_user_allow.py",
               "target": "templates/codex/scripts/audit_user_allow.py",
-              "sha256": "sha256:7d8d1bbb62065e4fa199f232e83d25a486db648ba1a6ebe9face0d90836d4bcc"
+              "sha256": "sha256:9004d94f16c3e631cfd1430bedabb3db2e9adec1181ca3bb45c77607d2113068"
             },
             {
               "source": "templates/codex/scripts/bridgeforge_switch.py",
@@ -1512,47 +1512,47 @@
             {
               "source": "templates/codex/scripts/codex_git_sync.py",
               "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:38522ec1636e2c78ab9a1edb2a365568f329bb9283b29f9f6079c97d1fa9c06e"
+              "sha256": "sha256:0840a8a43a017d9844facbc9a55c0c426292f935dbe12af922e123b799b0d7d2"
             },
             {
               "source": "templates/codex/scripts/context_cost_report.py",
               "target": "templates/codex/scripts/context_cost_report.py",
-              "sha256": "sha256:29c7426c621560b753b7e412762f60d0deac86b37f9b0566b40f20deea99b321"
+              "sha256": "sha256:d2c71a7ba20c8030b397390eb64ebf707bff7e6c86915209c91da19da0662527"
             },
             {
               "source": "templates/codex/scripts/harness_parity_check.py",
               "target": "templates/codex/scripts/harness_parity_check.py",
-              "sha256": "sha256:434c1a996e9973ba190e8793bf4c99bc6136da20197e523576419c4ef165f71d"
+              "sha256": "sha256:de21ad14c46e375502a2cc52e8edbba94a995a70f4829fc52dbfd445d96a9d1c"
             },
             {
               "source": "templates/codex/scripts/memory_rebuild_index.py",
               "target": "templates/codex/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:aa867ef14e417a84c61b559c612ce34ec32506a510da3c90245008a9c3e7cc80"
+              "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
             },
             {
               "source": "templates/codex/scripts/memory_search.py",
               "target": "templates/codex/scripts/memory_search.py",
-              "sha256": "sha256:a05a23da1c5a458adc00ed898507f0f052e550bcfd1c6fb3d73a03a44fac09b9"
+              "sha256": "sha256:b825d11eecffa287ddcbb9efeca0e8676a74bcd41e01e0d4bac75d4423e12490"
             },
             {
               "source": "templates/codex/scripts/subscription_routing.py",
               "target": "templates/codex/scripts/subscription_routing.py",
-              "sha256": "sha256:c7d86b71dd64aa8f407a7ea811b6e139931629b3dd62982d50c46b441fa15a5f"
+              "sha256": "sha256:05a4988127a27a009b31b7e04c222b35682fcbfa849d8cc8427d7fff3dbbb1be"
             },
             {
               "source": "templates/codex/settings.json",
               "target": "templates/codex/settings.json",
-              "sha256": "sha256:35f4405b199abb64759f654ec17af9362716563866bdd7b907687ba6c4fd73b4"
+              "sha256": "sha256:1d2d93c20610036a533936c681c441f77c1edb8b6f7d5203fa237ab7fef5afe7"
             },
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:02d12269110b1f7b8f69389cccc45e49d8ecf0fa680d97b76d33ce2f388f6579"
+              "sha256": "sha256:1275226aa059df45ba55fa201a19c7a47e89cd6843341ae0ba1d2b3d07948073"
             },
             {
               "source": "templates/codex/subscription-tier.toml",
               "target": "templates/codex/subscription-tier.toml",
-              "sha256": "sha256:b5ba59f3634ed916d0b8ef2c8fa41a7cad3855a345c8ce57325306dd1aa1878b"
+              "sha256": "sha256:9741b5bb9d2f87e4b926eb6da6220a033f2be13354785e144c56643203f1f4e3"
             }
           ]
         },
@@ -1562,7 +1562,7 @@
             {
               "source": "skills/archive-scan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:f5ed5af33a8b84509d4c7debdc16adf177e1ac3180aeb857cd77b27a2a1c76f1"
+              "sha256": "sha256:c65a69170de32f2b0196f3d68d8bce7ed26cb15cb29f0414e04565a703935867"
             }
           ]
         },
@@ -1572,7 +1572,7 @@
             {
               "source": "skills/collab/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:976c2517720457faa14d3944bf502758c961c842cb590ef6b351df52394d314e"
+              "sha256": "sha256:b70cf4539d44bfe6388d5c53a22f6dd35a6efe1513a1d5cca8a3f196041d6a07"
             }
           ]
         },
@@ -1582,7 +1582,7 @@
             {
               "source": "skills/confirm/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4a37a81210ce6040c775393dc352d56ce9b979a1587b762056e12e75bd3bbfa5"
+              "sha256": "sha256:660be5720400007764805a2ce5c7e41fb039f0bd0a33337a6cf7df8ed50bc10b"
             }
           ]
         },
@@ -1592,7 +1592,7 @@
             {
               "source": "skills/debate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:8ccd58529cca12d034d5b1844b86fe89d6b35055446c1305d1e377433b84ebfb"
+              "sha256": "sha256:27934a2e69e6405d5e964ec277b54d64b1d31c480b52f343e9901fdbdd3df4fa"
             }
           ]
         },
@@ -1602,7 +1602,7 @@
             {
               "source": "skills/develop/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:470442abf9cf211f1674cf431f67e3e2c581dfd62f514f57a3023b2ad262fa30"
+              "sha256": "sha256:66aa2ff9a230167434056bea8be7403ab5983b0ae23361013f8101452d763eeb"
             }
           ]
         },
@@ -1612,7 +1612,7 @@
             {
               "source": "skills/escalate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:1f9ac8ab1a0b9bdcce84efb4f575eb44eba541414f49cc9f301d838ec747868f"
+              "sha256": "sha256:8653702bf1aa78651bccbe50251573c93ab412000f82b4f6cddadb3233d6ec73"
             }
           ]
         },
@@ -1622,7 +1622,7 @@
             {
               "source": "skills/explain/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:eb33dded7a48f0663205c2cf6ff8f90d5ba9b0ecd1f2fefe9c3f221038ac8960"
+              "sha256": "sha256:182c5e9ae81f9683bd03ca365055912e63757e3774d22263463561f59752ca05"
             }
           ]
         },
@@ -1632,17 +1632,17 @@
             {
               "source": "skills/find-doc/references/map-reminder-sop.md",
               "target": "references/map-reminder-sop.md",
-              "sha256": "sha256:6e0baf4962aadaf4ca6cbf238717dde37a7891db740a096af2598f13dc323ee9"
+              "sha256": "sha256:96d9344f46f3b9f90b557dd1f03f40e70b36c36cbc4acb1067e077af06276e6f"
             },
             {
               "source": "skills/find-doc/references/output-format.md",
               "target": "references/output-format.md",
-              "sha256": "sha256:038a1217139b9808922b1a64ca9d47559943d97c6daa1404333f9528cbdd765c"
+              "sha256": "sha256:b3b4b5bc38dd8f7fcddea906624804555850951070c387f596bd4cc87f519bac"
             },
             {
               "source": "skills/find-doc/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c4dc8fe1f779e3109d8744bd1d9736f024737aaab8607b434770e327f57a9571"
+              "sha256": "sha256:3a9d4fbeb8679a51d903ad916a54ee045f9de224d8e23df951015bc1003c82d3"
             }
           ]
         },
@@ -1652,7 +1652,7 @@
             {
               "source": "skills/find-memory/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:de6060d08ec5b2eeed1b772196d30032d64601209407d6d1c06d646a13cbb641"
+              "sha256": "sha256:afddba08ee6af56df86c5c933cf357d0aed0f332d89950fbec7b6b0976299bc7"
             }
           ]
         },
@@ -1662,7 +1662,7 @@
             {
               "source": "skills/focus/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4e63a7883638ec35f8ac8b38f1624f79cb390387ab4819ed9e7173c9016d09f4"
+              "sha256": "sha256:5009c0cd1634b386b179414ba2035de3d56b7949fbfbdf8dbdafd8dd0e3f37fa"
             }
           ]
         },
@@ -1672,7 +1672,7 @@
             {
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:ceb216209c3b77a983442bf21e3f4e66d4daa2274c20ea5cfe4a975b581be8b8"
+              "sha256": "sha256:162f63f34885096cef06ae41b920d1c5da4b5ca5bd5d5208b8396ca1365acfca"
             }
           ]
         },
@@ -1682,7 +1682,7 @@
             {
               "source": "skills/harvest/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:802d30a7b3d803ad42a0aedf97204fe62cbb2d2e2f18639c4ad8f4c9bea5a626"
+              "sha256": "sha256:050f2ae947e93a8bd6ca38efcc2abe4ce6d8466282d47a005a1f8d60a802659e"
             }
           ]
         },
@@ -1692,7 +1692,7 @@
             {
               "source": "skills/plan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4c5e10b11a2c7227c8ba9665d3bd31b0a3f4b0ac213d370034e926ccf0872dbb"
+              "sha256": "sha256:9c9bccc0f38f9e035c72749c29cf1b8207a50d1855737da1b00bf101580d6211"
             }
           ]
         },
@@ -1702,7 +1702,7 @@
             {
               "source": "skills/resume/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:e0a8fd3b229b3051dbd3432b148e3e57db665472eeaa96420d92db2682089b73"
+              "sha256": "sha256:34be8806249cc5d06da2c9914d64e9331a9a6cf08f45d716793d27eaf543ffba"
             }
           ]
         },
@@ -1712,7 +1712,7 @@
             {
               "source": "skills/snapshot/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:5cc6879b3fbef584eb5dd7a75ef4ba09fd0e43157730f111f538c3fafd33a3f4"
+              "sha256": "sha256:efef9188f62bcac86c07d418a3e75b44b96369e857f2cd4336151d80381ad7ba"
             }
           ]
         },
@@ -1722,7 +1722,7 @@
             {
               "source": "skills/spinoff/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:b6132ea1f1dcd00f57988c4e56ca221cf0047b0339186c39535739f3dd999d8f"
+              "sha256": "sha256:2b01a823c4b4996970bbf5a480de5df3975633ec6209e2268c5f350ac5dba29b"
             }
           ]
         },
@@ -1732,12 +1732,12 @@
             {
               "source": "skills/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
-              "sha256": "sha256:94f7137e08248669f9084cda76cc3263c91cb66536cb9aa3f08df7c8b18cf1b7"
+              "sha256": "sha256:62509de954f4081cfcbceb8b0e4d27e401e24bb724fa45e72927647d35ebfb70"
             },
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:b22533445f0a90eb95af8f2e2cb8f0fba7a6f9a1c8b849279a8e57b842f85bc8"
+              "sha256": "sha256:a1092730e1f5029451cd9fcd7bdd1225ef3fbdb0cbf73d6f217252e08a80209d"
             }
           ]
         },
@@ -1747,7 +1747,7 @@
             {
               "source": "skills/sync-docs/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c651cb636b8cc764ece6e83f751ba57c560ad81409248a3d087e859858072440"
+              "sha256": "sha256:0c206850f437074dc8ab741db50a7eac5614c0a5ee4a98bb47187d2b217bf293"
             }
           ]
         },
@@ -1757,7 +1757,7 @@
             {
               "source": "skills/todo/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:0cfb81dad35af48f9b11419e3fd3119045e079dc7ce5902b5c403030b7eb19ec"
+              "sha256": "sha256:a055e443f1c72dc597cedd080c86402322db123edbb46dae78f0a9bf5edf81d7"
             }
           ]
         }

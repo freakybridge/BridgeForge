@@ -1,4 +1,4 @@
-# git 原生 hook 由 sh 执行，CRLF 会让 shebang 变 `/bin/sh\r` 直接报错失效。
-# 强制根目录与模板 .githooks/ 下所有脚本以 LF 存储 + checkout，跨 Windows/Unix 一致可执行。
-.githooks/** text eol=lf
-templates/*/.githooks/** text eol=lf
+# BridgeForge 由 GitHub 分发；所有文本检出为 LF，避免同一版本因
+# Windows 的 core.autocrlf 不同而产生不同的 manifest SHA-256。
+# Git 会自动识别二进制文件，二进制内容不受此规则转换。
+* text=auto eol=lf

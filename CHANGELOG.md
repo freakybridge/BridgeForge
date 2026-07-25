@@ -17,6 +17,12 @@
 
 ---
 
+## [0.69.1] - 2026-07-26
+
+### Fixed
+
+- `[product][repo]` 统一 shared-skill 分发文本为 LF：Git 属性强制文本以 LF 检出，GitHub 安装器 clone 时显式禁用 `core.autocrlf`，并在每次 `git-sync` 前按 GitHub 等价字节重建 manifest 哈希。修复 Windows CRLF 工作区生成的 manifest 与 GitHub LF blob 不匹配、导致下游用户级 `/bridgeforge` 安装停止的问题；新增 `core.autocrlf=true` 回归覆盖。
+
 ## [0.69.0] - 2026-07-25
 
 ### Added

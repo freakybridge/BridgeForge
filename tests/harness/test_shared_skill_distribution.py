@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,11 +14,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 UPDATER = ROOT / "scripts" / "bridgeforge_shared_update.ps1"
 INSTALLER = ROOT / "scripts" / "install-shared-skills.ps1"
+MANIFEST_REBUILDER = ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
 CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForge.git"
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    payload = path.read_bytes()
+    if b"\0" not in payload:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def run(command: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -61,6 +66,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         common_text: str = "common-v1",
         include_common: bool = True,
     ) -> None:
+        (self.source / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
         (self.source / "entry.md").write_text(bridgeforge_text, encoding="utf-8")
         common = self.source / "skills" / "common"
         common.mkdir(parents=True, exist_ok=True)
@@ -253,6 +259,39 @@ class SharedSkillDistributionTests(unittest.TestCase):
                     self.assertEqual(item["sha256"], f"sha256:{sha256(source_path)}")
 
         self.assertEqual(platform_skills["codex"], platform_skills["claude"])
+
+    def test_installer_uses_lf_checkout_when_user_enables_autocrlf(self) -> None:
+        self.write_source()
+        (self.source / "entry.md").write_bytes(b"bridgeforge-v1\r\n")
+        rebuilt = run(
+            [sys.executable, str(MANIFEST_REBUILDER), "--manifest", str(self.source / "shared-skill-manifest.json")],
+            ROOT,
+        )
+        self.assertEqual(rebuilt.returncode, 0, rebuilt.stderr + rebuilt.stdout)
+        manifest = json.loads((self.source / "shared-skill-manifest.json").read_text(encoding="utf-8"))
+        expected = "sha256:" + hashlib.sha256(b"bridgeforge-v1\n").hexdigest()
+        bridgeforge = next(
+            skill
+            for skill in manifest["platforms"]["codex"]["skills"]
+            if skill["name"] == "bridgeforge"
+        )
+        self.assertEqual(
+            bridgeforge["files"][0]["sha256"],
+            expected,
+        )
+        self.initialize_repository()
+
+        self.env["GIT_CONFIG_COUNT"] = "2"
+        self.env["GIT_CONFIG_KEY_1"] = "core.autocrlf"
+        self.env["GIT_CONFIG_VALUE_1"] = "true"
+        result = self.invoke_installer()
+
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        for platform in ("codex", "claude"):
+            self.assertEqual(
+                (self.profile / f".{platform}" / "skills" / "bridgeforge" / "SKILL.md").read_text(),
+                "bridgeforge-v1\n",
+            )
 
     def test_installs_both_platforms_and_preserves_third_party(self) -> None:
         self.write_source()

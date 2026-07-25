@@ -1302,6 +1302,14 @@ def _build_layout_migration_fixture(platform: str = "codex") -> Path:
     return fixture
 
 
+def _manifest_source_hash(path: Path) -> str:
+    """Match the LF Git blob used by the shared-skill manifest."""
+    payload = path.read_bytes()
+    if b"\0" not in payload:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _stage_manifest_skill(destination: Path, name: str) -> None:
     manifest = json.loads(
         (REPO_ROOT / "shared-skill-manifest.json").read_text(encoding="utf-8-sig")
@@ -1312,7 +1320,7 @@ def _stage_manifest_skill(destination: Path, name: str) -> None:
         source = REPO_ROOT / file_record["source"]
         target = destination / file_record["target"]
         expected = file_record["sha256"].removeprefix("sha256:")
-        if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
+        if _manifest_source_hash(source) != expected:
             raise RuntimeError(f"manifest hash is stale for fixture source: {source}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)

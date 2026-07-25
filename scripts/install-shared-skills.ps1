@@ -153,6 +153,7 @@ function Invoke-Main {
     $cloneRoot = Join-Path ([IO.Path]::GetTempPath()) "bridgeforge-bootstrap-$([Guid]::NewGuid().ToString('N'))"
     try {
         Invoke-Git -Arguments @(
+            "-c", "core.autocrlf=false",
             "clone",
             "--branch", $CanonicalBranch,
             "--single-branch",

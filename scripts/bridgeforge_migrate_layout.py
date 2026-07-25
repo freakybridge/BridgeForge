@@ -114,6 +114,14 @@ def _safe_manifest_target(value: Any) -> str | None:
     return normalized
 
 
+def _manifest_sha256(path: Path) -> str:
+    """Match the LF Git blob bytes used by the shared-skill manifest."""
+    payload = path.read_bytes()
+    if b"\0" not in payload:
+        payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _codex_managed_skills(
     manifest_path: Path,
 ) -> tuple[dict[str, dict[str, str]], str | None]:
@@ -176,7 +184,7 @@ def _matches_manifest_copy(skill_root: Path, expected: dict[str, str]) -> bool:
         return False
     for path in actual_files:
         rel = path.relative_to(skill_root).as_posix()
-        if hashlib.sha256(path.read_bytes()).hexdigest() != expected[rel]:
+        if _manifest_sha256(path) != expected[rel]:
             return False
     return True
 
