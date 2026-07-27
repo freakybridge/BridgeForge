@@ -21,6 +21,16 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.40.0] - 2026-07-28
+
+### Added
+
+- [product] 项目级 memory junction 改为安全状态机：`SessionStart` 仅对正确 junction 静默 no-op，或在系统 memory 缺失且 `.codex/memory/` 已存在时建链并验证；系统路径为实目录时只报告待迁移。经 `/bridgeforge update` 展示计划并取得明确确认后，迁移只复制系统独有文件、跳过同内容文件，同路径内容冲突、错误或断裂 junction、路径异常均 fail-closed；仅在完整性校验通过后删除系统 memory 并建链，禁止创建迁移备份。
+
+### Changed
+
+- [product] Codex `SessionStart` 注册从无效的 `.codex/settings.json` 迁至 `.codex/hooks.json`；下游更新按 `command` 身份合并受管 junction hook、保留第三方事件与 hook，并移除旧承载面的 junction 注册。
+
 ## [0.39.0] - 2026-07-25
 
 ### Added

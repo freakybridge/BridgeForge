@@ -350,11 +350,6 @@
           },
           {
             "type": "command",
-            "command": ".venv/Scripts/python.exe .codex/hooks/memory_junction_check.py",
-            "comment": "memory junction 自愈：把 memory 纳入项目 git（.codex/memory/），系统路径 ~/.codex/projects/<hash>/memory/ 透明转发。每次 session 开始静默检查，不是 junction 则恢复（新机 clone 自动建链）。绝不硬删数据（首迁用 rename-to-.bak 兜底）。详见 rules/portability.md §2.1。"
-          },
-          {
-            "type": "command",
             "command": ".venv/Scripts/python.exe .codex/hooks/show_state.py session-start",
             "comment": "session 开始时注入仓库状态 + snapshot 接续提示 + 归档候选数"
           },

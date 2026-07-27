@@ -21,6 +21,14 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.30.0] - 2026-07-28
+
+### Added
+- [product] memory junction hook 新增 `check` / `plan` / `migrate --confirmed` 项目级状态机：新 clone 可直接建链；已存在的系统 memory 与项目 memory 仅合并各自独有文件，同路径同内容跳过、内容冲突即阻断；完整性校验通过后删除系统目录并建立、验证 junction。
+
+### Changed
+- [product] Claude Code 继续由 `.claude/settings.json` 的 `SessionStart` 注册 junction hook；启动阶段只做无损幂等检查，已有系统 memory 的合并与删除收紧到 `/bridgeforge update` 展示计划并经用户确认后执行。错误或断裂 junction、异常路径及校验失败均 fail-closed，不再创建 `memory.premigrate.bak`。
+
 ## [0.29.0] - 2026-07-25
 
 ### Added

@@ -35,11 +35,20 @@ paths:
 
 ### 2.1 Memory junction 自愈（SessionStart hook，机制化）
 
-memory 纳入项目 git（`.claude/memory/`），但 Claude Code 读写走系统路径 `~/.claude/projects/<project-hash>/memory/`。**换机 clone 后系统路径不会自动指向项目内 memory** —— 这步恢复由 `SessionStart` hook `.claude/hooks/memory_junction_check.py` 自动兜底，无需人工：
+memory 纳入项目 git（`.claude/memory/`），Claude Code 系统路径是
+`~/.claude/projects/<project-hash>/memory/`。项目级 `SessionStart` 必须由
+`.claude/settings.json` 注册 `.claude/hooks/memory_junction_check.py`。
 
-- **project-hash 推导**：从 repo root 绝对路径，**每个非字母数字字符替换为 `-`，大小写原样保留**（如 `D:\Quant\BridgeForge` → `D--Quant-BridgeForge`）。Windows 上 `Path.resolve()` 把盘符规范成大写，与 Claude Code 启动 cwd 的原始大小写可能不一致，但文件系统大小写不敏感，命中同一目录。
-- **三情形**：已链接→noop / 系统路径缺失+项目内有→建 junction（新机 clone）/ 系统是实目录→复制进项目 + 原目录改名 `.premigrate.bak`（**绝不硬删**）+ 建 junction。系统与项目同时有内容→拒绝自动合并，提示人工。
-- **可移植**：hook 项目无关，靠自身路径推导，无硬编码。
+- 正确 junction **必须**解析并验证最终目标等于当前项目 `.claude/memory/`。
+- 系统 memory 不存在且项目 memory 存在时，`SessionStart` **只允许**建 junction
+  并验证；正确 junction 只允许 no-op。
+- 系统 memory 是实目录时，`SessionStart` **禁止**复制、合并、删除或改名；
+  **必须** fail-closed 并提示运行 `/bridgeforge`。
+- 错误/断裂 junction、路径异常或内容冲突时**必须**零写入，禁止自动覆盖或重建。
+- `/bridgeforge update` **必须**先展示迁移计划并取得明确确认；只复制系统独有文件、
+  跳过同内容文件、遇到同路径不同内容即阻断；完整性校验通过后才允许删除系统
+  memory 并建 junction。
+- junction 迁移**禁止**创建 `.bak`、`memory.premigrate.bak` 或任何其他备份。
 
 > 这是 §2 表格里「Memory … Junction，CLAUDE.md §5 自动恢复」的实现支点。早期靠人工建 junction（易漏），现由 hook 机制化。
 

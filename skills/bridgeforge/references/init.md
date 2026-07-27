@@ -23,12 +23,16 @@
 
 若 `$PROJECT_AGENT_DIR/settings.json` 已存在，必须读取并 merge：
 
-- `hooks.*`：追加上游通用 hook 注册，不替换已有数组。
+- Claude 的 `hooks.*`：追加上游通用 hook 注册，不替换已有数组。
 - `permissions.allow` / `ask` / `deny`：分别追加去重；只增不删，deny 优先级最高。
 - `permissions.defaultMode`：仅用户原配置未设置时写 `acceptEdits`；已设置则保留。
 - 其余字段保持原样。
 
-保存前给用户 merge 预览。cwd 不是目标根时，先询问正确路径。
+Codex 的项目级 hook 注册只允许 merge 到 `.codex/hooks.json`；按 `command`
+身份增补或替换受管的 `memory_junction_check` `SessionStart` 项，并保留所有
+第三方事件与 hook。必须从 `.codex/settings.json` 移除旧的
+`memory_junction_check` 注册，其他字段不动。保存前给用户 merge 预览。cwd
+不是目标根时，先询问正确路径。
 
 ## 2. 一次性收集项目元信息
 
@@ -68,6 +72,7 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `hooks/*.py` | `$PROJECT_AGENT_DIR/hooks/` | 总是 |
 | `scripts/*.py` | `$PROJECT_AGENT_DIR/scripts/` | 总是 |
 | `settings.json` | `$PROJECT_AGENT_DIR/settings.json` | 总是；已存在只 merge |
+| `hooks.json` | `.codex/hooks.json` | 仅 Codex；按 command 身份 merge 受管项，保留第三方事件与 hook |
 | `config.toml` | `.codex/config.toml` | 仅 Codex；已存在按字段 merge，保留项目覆盖 |
 | `agents/*.toml` | `.codex/agents/` | 仅 Codex；同名文件冲突必须展示 diff 后决定；根入口 Step 4.5 刚生成的 `implementation-worker.toml` 保留档位字段并补齐模板其余内容 |
 | `subscription-tier.toml` | `.codex/subscription-tier.toml` | 仅 Codex；不直接复制，由根入口 Step 4.5 按用户选择写入 |
@@ -143,6 +148,12 @@ python "$PROJECT_AGENT_DIR/hooks/session_snapshot.py" manual
 
 期望输出 `[session snapshot manual] -> .runtime/session_state/<ts>.md`。失败则检查 Python 路径和 `.runtime/` 权限，不得宣称 hooks 已验证。
 
+Codex 若新增或变更 `.codex/hooks.json`，必须让用户执行 `/hooks`，逐项 review 并
+trust；随后开启新会话，以实际 `SessionStart` 行为做 smoke。无法在当前流程完成
+新会话 smoke 时，收据只能写“trust 未验证”，禁止把 JSON 可解析或脚本直跑当成
+已信任。Claude 若新增或变更 `.claude/settings.json` 的 hook，保持 Claude Code
+对应的配置 review / trust 流程，并在新会话 smoke；未完成时同样报告“trust 未验证”。
+
 还需告知用户：ctx-budget、PostCompact/Stop snapshot、skill-sync SessionStart 已启用；`find-doc.map.md` / `sync-docs.map.md` 可等项目目录稳定后再填。
 
 ## 9. 替换占位符
@@ -159,25 +170,24 @@ python "$PROJECT_AGENT_DIR/hooks/session_snapshot.py" manual
 
 ## 10. 建 memory junction
 
-Claude Code：按平台运行 BridgeForge 脚本；先让用户 review，不静默 sudo。
+只处理当前宿主，不读取或修改另一套骨架。路径映射：
 
-```powershell
-& <BRIDGEFORGE_HOME>\scripts\setup-junction.ps1 -ProjectPath <project-abs-path>
-```
+| 宿主 | 系统 memory | 项目唯一事实源 | SessionStart 承载 |
+|---|---|---|---|
+| Codex | `~/.codex/projects/<project-hash>/memory/` | `.codex/memory/` | `.codex/hooks.json` |
+| Claude Code | `~/.claude/projects/<project-hash>/memory/` | `.claude/memory/` | `.claude/settings.json` |
 
-```bash
-bash "$BRIDGEFORGE_HOME/scripts/setup-junction.sh" <project-abs-path>
-```
+先只读盘点 junction 状态：
 
-脚本把 `~/.claude/projects/<project-hash>/memory/` 链到 `<project>/.claude/memory/`。已有正确链接则跳过；已有非空实目录则先提示备份，禁止硬删。
+1. 已是指向当前项目 memory 的正确 junction：验证目标后 no-op。
+2. 系统 memory 不存在、项目 memory 存在：直接建 junction，并验证最终目标。
+3. 系统 memory 是实目录、错误/断裂 junction 或路径异常：阻断 memory 路径写入，
+   记录“待 update”，完成其余 init 后提示运行 `/bridgeforge update`。
 
-Codex 不运行 Claude 脚本，改为：
-
-```bash
-python .codex/hooks/memory_junction_check.py
-```
-
-Codex 系统路径是 `~/.codex/projects/<project-hash>/memory/`，项目路径是 `.codex/memory/`。系统路径是有内容实目录时，先复制进项目 memory，再把系统目录改名 `.bak`，最后建链接；禁止硬删。
+`init` 和 `SessionStart` 都禁止复制、合并或删除系统 memory。实目录迁移只能由
+`/bridgeforge update` 展示逐文件计划并取得用户确认后，调用当前宿主脚本
+`--mode migrate --confirmed`；禁止创建 `.bak` 或其他备份，同路径异内容、路径异常、
+错误或断裂 junction 必须阻断且零写入。
 
 ## 11. 可选 Git 初始化
 
@@ -208,7 +218,8 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 | 入口文件 | 通用红线、交互和 ctx 信号；架构/命令/结构留空 |
 | `rules/` | architecture/modules 骨架与 debugging/workflow/portability/meta rule |
 | `hooks/` | ctx、版本、snapshot、memory/rules/skill 检查等自动化 |
-| `settings.json` | permissions 三档与 hook 注册；已有配置只 merge |
+| `settings.json` | permissions 三档；Claude 还承载 hook 注册；已有配置只 merge |
+| Codex `hooks.json` | Codex 项目级 `SessionStart` hook 注册；已有配置只 merge |
 | Codex `subscription-tier.toml` / `config.toml` / `agents/*.toml` / `skill-routing.json` | 项目订阅档位、主对话默认档、named agent 预设和 skill 路由契约；必须配套验证 |
 | `.githooks/pre-commit` | 提交前聚合硬闸；已有项目只 merge BridgeForge 检查段 |
 | `memory/MEMORY.md` | 初始唯一文件；分类与 topic 目录在首次真实写入时创建 |
@@ -222,6 +233,9 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - 当前 agent 文件冲突但用户尚未选保留补缺/备份覆盖/退出。
 - settings merge 尚未 review。
 - 用户拒绝强制 doc 分层或 Python 硬依赖。
-- 缺 Python、memory junction 冲突、hook smoke test 失败。
+- 缺 Python，或 hook 脚本 smoke test 失败。
 - Codex 订阅档位未由用户选择，或订阅路由脚本失败。
 - 任何步骤需要静默覆盖用户已有内容。
+
+Codex `.codex/hooks.json` 或 Claude hook 配置的 review / trust 与新会话 smoke 未完成时，
+交付收据必须写“trust 未验证”，不得宣称 hook runtime 已验收。

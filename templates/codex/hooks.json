@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/memory_junction_check.py\"",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/memory_junction_check.py')\"",
+            "comment": "memory junction 项目级守卫：系统路径 ~/.codex/projects/<hash>/memory/ 缺失且项目 .codex/memory/ 存在时建立并验证 junction；正确 junction 静默 no-op；普通路径、错误/断裂 junction 与路径异常 fail-closed，不执行删除迁移。已有系统 memory 的合并/删除仅由经用户确认的 /bridgeforge 更新流程执行。详见 rules/portability.md §2.1。"
+          }
+        ]
+      }
+    ]
+  }
+}

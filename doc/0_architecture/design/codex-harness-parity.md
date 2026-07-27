@@ -49,7 +49,7 @@
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
-| `rules/portability.md` | 5 | -7 / +30 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
+| `rules/portability.md` | 8 | -9 / +38 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
 | `scripts/archive_scan.py` | 1 | -1 / +4 | `needs-review` | new or unclassified semantic difference |
 | `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `needs-review` | new or unclassified semantic difference |
 

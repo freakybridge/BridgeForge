@@ -20,6 +20,21 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 版本戳等于声明“以当前项目现状为最新同步基线”。首次收编默认不补历史增量；从下次运行起，才按 `(此版, 新版]` 处理 `[product]` 更新。
 
+写戳前只读审计当前宿主的项目级 hook 承载面与 memory junction：
+
+- Codex 的 `SessionStart` 承载面必须是 `.codex/hooks.json`；Claude Code 保持
+  `.claude/settings.json`。
+- adopt 不 merge hook 配置，不复制、合并或删除 memory，也不建立 junction。
+- 若承载面缺失/遗留或 junction 不是已验证的正确目标，记录为“待 update”。
+  写戳后提示运行 `/bridgeforge update`；update 即使发现版本相等，也必须处理
+  B 类承载面和 D 类 junction 迁移，不能以“已是最新”提前退出。
+- 错误/断裂 junction、路径异常或系统 memory 实目录只报告状态；禁止在
+  `SessionStart` 或 adopt 中自动迁移。
+- Codex 若审计发现 `.codex/hooks.json` 新增或变更后没有 trust 与新会话 smoke
+  证据，必须提示用户执行 `/hooks`，逐项 review 并 trust，再开启新会话 smoke。
+  adopt 不改 hook；当前流程无法完成时只能记录“trust 未验证”。Claude 保持其
+  对应的配置 review / trust 与新会话 smoke 流程。
+
 ## 可选：补历史差量
 
 仅用户明确要求时执行：
@@ -32,9 +47,11 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 ## 禁止与收据
 
 - 禁止覆盖任何入口文件、rules 或 settings，即使先备份也不行。
-- 禁止改 memory 或 `doc/`。
+- 禁止改 hook 承载面、memory 或 `doc/`。
 - 禁止未经用户确认写版本戳。
 - 禁止在 Codex 无有效订阅档位 marker 时完成收编。
 - 禁止把“像 BridgeForge”当成“允许 fresh init 覆盖”。
 
-结束时报告命中的指纹、用户是否确认、写入的基线版本，以及是否跳过历史增量。
+结束时报告命中的指纹、用户是否确认、写入的基线版本、是否跳过历史增量，以及
+当前宿主 hook/junction 审计结果、trust 验证状态与是否需要运行
+`/bridgeforge update`。

@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
-"""SessionStart hook: memory junction 自愈。
+"""Reconcile the host system memory path with project-tracked memory.
 
-把 memory 纳入项目 git（项目内 `.codex/memory/`），但 Codex 读写走系统路径
-`~/.codex/projects/<project-hash>/memory/`。本 hook 在每次 session 开始时静默检查
-系统路径是否已是 junction/symlink，不是则恢复链接，让"clone 即恢复"无需人工操作。
-
-三种情形（对齐 portability.md §2.1）：
-- 已是 junction/symlink     → noop（稳态，99% 的 session）
-- 系统路径不存在 + 项目内有 → 建 junction（场景 B：新机 clone）
-- 系统路径是实目录 + 有内容 → 场景 A 首迁：复制进项目 → 系统目录改名 .bak（**不硬删**）→ 建 junction
-
-红线：**绝不硬删可能含数据的目录**。场景 A 用 rename-to-.bak 兜底，任何一步失败即中止并提示人工处理。
-非阻塞（始终 exit 0），只在发生动作或异常时打印一行。
-
-可移植：项目无关。repo root 取自 hook 自身路径（`.codex/hooks/` 上两级），
-project-hash 按 Codex 编码规则（路径分隔符 + `:` → `-`，Windows 盘符小写）从 repo root 推导。
+The default ``check`` mode is safe for SessionStart. It may create a missing
+junction when project memory already exists, but it never migrates or deletes
+an existing system directory. Destructive migration is available only through
+the explicit ``migrate --confirmed`` CLI used by ``/bridgeforge update``.
 """
 from __future__ import annotations
 
+import argparse
+import hashlib
 import os
 import re
 import shutil
+import stat
+import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -29,124 +24,401 @@ try:
 except Exception:
     pass
 
-# repo root = 本文件的 .codex/hooks/ 上两级
+HOST_DIR = Path(__file__).resolve().parent.parent.name
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PROJECT_MEMORY = REPO_ROOT / ".codex" / "memory"
+PROJECT_MEMORY = REPO_ROOT / HOST_DIR / "memory"
 
 
-def _is_link(p: Path) -> bool:
-    """junction（Windows）或 symlink（Unix）都算已链接。"""
-    if p.is_symlink():
-        return True
-    # Windows junction：is_symlink() 对 junction 返回 False，需额外判定 —— realpath 解到别处即链接。
-    # 两边都过 normcase(abspath) 再比，避免大小写/分隔符未规范化时把实目录误判成链接。
+class ReconcileError(RuntimeError):
+    """Unsafe or inconsistent filesystem state."""
+
+
+@dataclass(frozen=True)
+class TreeSnapshot:
+    files: dict[Path, Path]
+    directories: frozenset[Path]
+
+
+@dataclass(frozen=True)
+class MergePlan:
+    copy: tuple[Path, ...]
+    identical: tuple[Path, ...]
+    project_only: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class ReconcileResult:
+    state: str
+    changed: bool = False
+    detail: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.state != "error"
+
+
+def _lexists(path: Path) -> bool:
+    return os.path.lexists(str(path))
+
+
+def _is_link(path: Path) -> bool:
+    """Return True for symlinks and Windows reparse-point junctions."""
     try:
-        norm = os.path.normcase(os.path.abspath(str(p)))
-        real = os.path.normcase(os.path.realpath(str(p)))
-        return os.path.isdir(p) and real != norm
-    except Exception:
+        if path.is_symlink():
+            return True
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+        if attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
+            return True
+        absolute = os.path.normcase(os.path.abspath(str(path)))
+        resolved = os.path.normcase(os.path.realpath(str(path)))
+        return path.is_dir() and absolute != resolved
+    except OSError:
         return False
 
 
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        left_resolved = left.resolve(strict=True)
+        right_resolved = right.resolve(strict=True)
+    except OSError:
+        return False
+    return os.path.normcase(str(left_resolved)) == os.path.normcase(
+        str(right_resolved)
+    )
+
+
+def _link_matches(link: Path, target: Path) -> bool:
+    return (
+        _lexists(link)
+        and _is_link(link)
+        and target.is_dir()
+        and not _is_link(target)
+        and _same_path(link, target)
+    )
+
+
 def _project_hash(root: Path) -> str:
-    """按 Codex 编码规则把绝对路径转 project-hash。
-
-    实测规则（从 `~/.codex/projects/` 下真实目录名反推）：**每个非字母数字字符替换为
-    单个 `-`，字母大小写原样保留**。分隔符、`_`、`.`、空格等都算非字母数字，各映射一个
-    `-`（不折叠连续分隔符，故 `d:\\` 段产出 `d--`）。
-    例：`d:\\Quant\\setup_agent` → `d--Quant-setup-agent`；`C:\\Users\\bridg` → `C--Users-bridg`。
-
-    注意盘符大小写：Windows 上 `Path.resolve()` 会把盘符规范成**大写**（`D:`），
-    而 Codex 建目录时用的是启动 cwd 的原始大小写（可能是小写 `d`）。二者大小写
-    可能不一致，但 **Windows 文件系统大小写不敏感**，`exists()`/junction 判定照样命中同一目录，
-    故此处不做大小写归一（保留 re.sub 的原样大小写即可）。Unix 无盘符、路径串一致，亦无此问题。
-
-    （旧实现只替换 `: \\ /` 且强制盘符小写 —— 漏了 `_`/`.`（真字符差异，大小写不敏感也救不回），
-    在路径含下划线/点的项目上算出错误 hash，hook 静默失效。本仓库 `setup_agent` 正中此坑。）
-    """
+    """Encode a repo path using the host project-directory convention."""
     return re.sub(r"[^A-Za-z0-9]", "-", str(root))
 
 
 def _system_memory_path() -> Path | None:
-    """推导系统 memory 路径；父目录 `~/.codex/projects/<hash>/` 不存在则返 None（不瞎建）。"""
-    h = _project_hash(REPO_ROOT)
-    proj_dir = Path.home() / ".codex" / "projects" / h
-    if not proj_dir.exists():
+    project_dir = Path.home() / HOST_DIR / "projects" / _project_hash(REPO_ROOT)
+    if not _lexists(project_dir):
         return None
-    return proj_dir / "memory"
+    if _is_link(project_dir) or not project_dir.is_dir():
+        raise ReconcileError(f"abnormal host project path: {project_dir}")
+    return project_dir / "memory"
 
 
-def _make_junction(link: Path, target: Path) -> bool:
-    """建 junction（Windows）/ symlink（Unix）。成功返 True。"""
+def _scan_tree(root: Path) -> TreeSnapshot:
+    """Snapshot regular files while rejecting links and special paths."""
+    if not _lexists(root):
+        return TreeSnapshot({}, frozenset())
+    if _is_link(root) or not root.is_dir():
+        raise ReconcileError(f"abnormal memory path: {root}")
+
+    files: dict[Path, Path] = {}
+    directories: set[Path] = set()
+    for current_text, dir_names, file_names in os.walk(
+        root, topdown=True, followlinks=False
+    ):
+        current = Path(current_text)
+        for name in dir_names:
+            child = current / name
+            if _is_link(child) or not child.is_dir():
+                raise ReconcileError(f"abnormal directory entry: {child}")
+            directories.add(child.relative_to(root))
+        for name in file_names:
+            child = current / name
+            if _is_link(child) or not child.is_file():
+                raise ReconcileError(f"abnormal file entry: {child}")
+            files[child.relative_to(root)] = child
+    return TreeSnapshot(files, frozenset(directories))
+
+
+def _digest(path: Path) -> bytes:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.digest()
+
+
+def _same_content(left: Path, right: Path) -> bool:
+    try:
+        return left.stat().st_size == right.stat().st_size and _digest(
+            left
+        ) == _digest(right)
+    except OSError as exc:
+        raise ReconcileError(f"cannot compare memory files: {exc}") from exc
+
+
+def _relative_key(path: Path) -> str:
+    """Use host filesystem case semantics for relative-path comparisons."""
+    return os.path.normcase(os.path.normpath(str(path)))
+
+
+def _normalized_paths(paths: set[Path]) -> dict[str, Path]:
+    normalized: dict[str, Path] = {}
+    for path in paths:
+        key = _relative_key(path)
+        previous = normalized.get(key)
+        if previous is not None and str(previous) != str(path):
+            raise ReconcileError(
+                f"case-only path collision: {previous} <-> {path}"
+            )
+        normalized[key] = path
+    return normalized
+
+
+def _build_merge_plan(system: Path, project: Path) -> MergePlan:
+    system_tree = _scan_tree(system)
+    project_tree = _scan_tree(project)
+    system_files = _normalized_paths(set(system_tree.files))
+    project_files = _normalized_paths(set(project_tree.files))
+    _normalized_paths(set(system_tree.directories))
+    project_directories = _normalized_paths(set(project_tree.directories))
+    conflicts: list[str] = []
+    copy: list[Path] = []
+    identical: list[Path] = []
+
+    for relative, source in system_tree.files.items():
+        key = _relative_key(relative)
+        project_directory = project_directories.get(key)
+        if project_directory is not None:
+            conflicts.append(f"{relative} <-> {project_directory}")
+            continue
+        project_relative = project_files.get(key)
+        if project_relative is None:
+            copy.append(relative)
+        elif str(project_relative) != str(relative):
+            conflicts.append(f"{relative} <-> {project_relative}")
+        elif _same_content(source, project_tree.files[project_relative]):
+            identical.append(relative)
+        else:
+            conflicts.append(str(relative))
+
+    for relative in system_tree.directories:
+        key = _relative_key(relative)
+        project_file = project_files.get(key)
+        if project_file is not None:
+            conflicts.append(f"{relative} <-> {project_file}")
+
+    if conflicts:
+        rendered = ", ".join(sorted(set(conflicts)))
+        raise ReconcileError(f"memory merge conflict: {rendered}")
+
+    project_only = tuple(
+        sorted(
+            relative
+            for key, relative in project_files.items()
+            if key not in system_files
+        )
+    )
+    return MergePlan(
+        copy=tuple(sorted(copy)),
+        identical=tuple(sorted(identical)),
+        project_only=project_only,
+    )
+
+
+def _copy_unique_files(system: Path, project: Path, plan: MergePlan) -> None:
+    for relative in plan.copy:
+        source = system / relative
+        destination = project / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if _lexists(destination):
+            if (
+                not _is_link(destination)
+                and destination.is_file()
+                and _same_content(source, destination)
+            ):
+                continue
+            raise ReconcileError(
+                f"destination changed during migration: {destination}"
+            )
+        try:
+            with source.open("rb") as reader, destination.open("xb") as writer:
+                shutil.copyfileobj(reader, writer)
+            shutil.copystat(source, destination, follow_symlinks=False)
+        except Exception as exc:
+            raise ReconcileError(f"copy failed for {relative}: {exc}") from exc
+
+
+def _verify_contains(system: Path, project: Path) -> None:
+    source_tree = _scan_tree(system)
+    target_tree = _scan_tree(project)
+    for relative, source in source_tree.files.items():
+        destination = target_tree.files.get(relative)
+        if destination is None or not _same_content(source, destination):
+            raise ReconcileError(f"integrity check failed: {relative}")
+
+
+def _create_junction(link: Path, target: Path) -> None:
+    if _lexists(link):
+        raise ReconcileError(f"refusing to replace existing path: {link}")
+    link.parent.mkdir(parents=True, exist_ok=True)
     try:
         if os.name == "nt":
-            import subprocess
-            r = subprocess.run(
+            result = subprocess.run(
                 ["cmd", "/c", "mklink", "/J", str(link), str(target)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
             )
-            return r.returncode == 0
-        os.symlink(str(target), str(link))
-        return True
-    except Exception as e:
-        print(f"[memory-junction] 建链接失败: {e}")
-        return False
+            if result.returncode:
+                raise ReconcileError(
+                    f"junction creation failed: {result.stderr.strip()}"
+                )
+        else:
+            os.symlink(str(target), str(link), target_is_directory=True)
+    except ReconcileError:
+        raise
+    except Exception as exc:
+        raise ReconcileError(f"junction creation failed: {exc}") from exc
+    if not _link_matches(link, target):
+        raise ReconcileError(
+            f"created junction does not target project memory: {link}"
+        )
 
 
-def main() -> int:
-    sys_mem = _system_memory_path()
-    if sys_mem is None:
-        # 项目目录在 ~/.codex/projects 下没有对应 hash → 该机尚未用 Codex 打开过本项目，跳过
-        return 0
+def _classify(system: Path, project: Path) -> str:
+    project_exists = _lexists(project)
+    if project_exists:
+        _scan_tree(project)
 
-    # 稳态：已是 junction/symlink → 静默 noop
-    if sys_mem.exists() and _is_link(sys_mem):
-        return 0
-
-    # 场景 B：系统路径不存在 + 项目内 memory 已存在 → 直接建 junction
-    if not sys_mem.exists():
-        if not PROJECT_MEMORY.exists():
-            return 0  # 两边都没有，无可恢复
-        sys_mem.parent.mkdir(parents=True, exist_ok=True)
-        if _make_junction(sys_mem, PROJECT_MEMORY):
-            print(f"[memory-junction] 已恢复链接（新机 clone）: {sys_mem} → {PROJECT_MEMORY}")
-        return 0
-
-    # 系统路径存在但不是链接 = 实目录
-    sys_has_content = any(sys_mem.iterdir())
-    proj_has_content = PROJECT_MEMORY.exists() and any(PROJECT_MEMORY.iterdir())
-
-    # 场景 A：首迁 — 系统是实目录、项目内尚无（或空）→ 复制进项目，系统改名 .bak，建 junction
-    if sys_has_content and not proj_has_content:
-        try:
-            PROJECT_MEMORY.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(sys_mem, PROJECT_MEMORY, dirs_exist_ok=True)
-        except Exception as e:
-            print(f"[memory-junction] 场景A 复制失败，已中止（未动原目录）: {e}")
-            return 0
-        # 不硬删 — 改名 .bak 兜底
-        bak = sys_mem.with_name("memory.premigrate.bak")
-        try:
-            if bak.exists():
-                print(f"[memory-junction] {bak} 已存在，请人工清理后重试；本次跳过")
-                return 0
-            sys_mem.rename(bak)
-        except Exception as e:
-            print(f"[memory-junction] 系统目录改名失败，已中止: {e}")
-            return 0
-        if _make_junction(sys_mem, PROJECT_MEMORY):
-            print(
-                f"[memory-junction] 首次迁移完成: 内容已入项目 {PROJECT_MEMORY}，"
-                f"原系统目录备份为 {bak.name}，junction 已建。确认无误后可删 .bak"
+    if not _lexists(system):
+        return "system-missing"
+    if _is_link(system):
+        if not project_exists or not _link_matches(system, project):
+            raise ReconcileError(
+                f"wrong or broken memory junction: {system}; "
+                f"expected target: {project}"
             )
-        return 0
+        return "linked"
+    if not system.is_dir():
+        raise ReconcileError(f"system memory is not a directory: {system}")
+    _scan_tree(system)
+    return "real-directory"
 
-    # 系统是实目录且项目内也有内容 → 不敢自动合并（可能冲突/丢数据），提示人工
-    print(
-        "[memory-junction] 系统 memory 与项目 memory 同时有内容，无法安全自动合并 — "
-        "请人工核对后手动建 junction（见 rules/portability.md §2.1）"
+
+def _plan_detail(plan: MergePlan) -> str:
+    return (
+        "migration plan: "
+        f"copy={len(plan.copy)}, identical={len(plan.identical)}, "
+        f"project_only={len(plan.project_only)}"
     )
-    return 0
+
+
+def reconcile(
+    mode: str = "check",
+    *,
+    confirmed: bool = False,
+    system_memory: Path | None = None,
+    project_memory: Path | None = None,
+) -> ReconcileResult:
+    """Run the shared state machine for SessionStart or confirmed update."""
+    if mode not in {"check", "plan", "migrate"}:
+        return ReconcileResult(
+            "error",
+            detail=f"invalid reconciliation mode: {mode!r}",
+        )
+    if mode == "migrate" and not confirmed:
+        return ReconcileResult(
+            "error",
+            detail=(
+                "migrate refused: explicit confirmed=True is required after "
+                "the user reviews the migration plan"
+            ),
+        )
+    project = project_memory if project_memory is not None else PROJECT_MEMORY
+    try:
+        system = (
+            system_memory
+            if system_memory is not None
+            else _system_memory_path()
+        )
+        if system is None:
+            return ReconcileResult("unmanaged")
+        state = _classify(system, project)
+        if state == "linked":
+            return ReconcileResult("linked")
+
+        if state == "system-missing":
+            if not _lexists(project):
+                return ReconcileResult("uninitialized")
+            if mode == "plan":
+                return ReconcileResult(
+                    "link-required",
+                    detail=f"migration plan: create junction {system} -> {project}",
+                )
+            _create_junction(system, project)
+            return ReconcileResult(
+                "linked",
+                changed=True,
+                detail=f"restored memory junction: {system} -> {project}",
+            )
+
+        if mode == "check":
+            return ReconcileResult(
+                "migration-required",
+                detail=(
+                    "system memory is a real directory; no changes made. "
+                    "Run /bridgeforge update to review and confirm migration."
+                ),
+            )
+
+        plan = _build_merge_plan(system, project)
+        if mode == "plan":
+            return ReconcileResult("migration-required", detail=_plan_detail(plan))
+
+        if mode != "migrate":
+            return ReconcileResult(
+                "error",
+                detail=f"refusing destructive action for mode: {mode!r}",
+            )
+        project.mkdir(parents=True, exist_ok=True)
+        _copy_unique_files(system, project, plan)
+        _verify_contains(system, project)
+        shutil.rmtree(system)
+        _create_junction(system, project)
+        return ReconcileResult(
+            "linked",
+            changed=True,
+            detail=f"memory migration complete; {_plan_detail(plan)}",
+        )
+    except ReconcileError as exc:
+        return ReconcileResult("error", detail=str(exc))
+    except Exception as exc:
+        return ReconcileResult(
+            "error", detail=f"unexpected memory junction error: {exc}"
+        )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--mode", choices=("check", "plan", "migrate"), default="check"
+    )
+    parser.add_argument(
+        "--confirmed",
+        action="store_true",
+        help="required for the destructive migrate mode",
+    )
+    args = parser.parse_args(argv)
+    if args.mode == "migrate" and not args.confirmed:
+        print(
+            "[memory-junction] migrate refused: review the plan and pass "
+            "--confirmed only after user confirmation"
+        )
+        return 2
+
+    result = reconcile(args.mode, confirmed=args.confirmed)
+    if result.detail:
+        print(f"[memory-junction] {result.detail}")
+    return 0 if result.ok else 1
 
 
 if __name__ == "__main__":
