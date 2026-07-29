@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:fe66f223413a855a9ad41668c450efd25a48866e54ce2ddf9d4d044c1c34a180"
+              "sha256": "sha256:af2f021aef2b3f886036fe5277d4d4a1471461eb59ccd9b8ceba57ec4bc67ea4"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:c331eead7a30606b70e1147df29c7e1695a002083887d0c590834e62509e05c1"
+              "sha256": "sha256:ed5fab6baedda8f80bd6a85d4b526f937ec0fb173f1de31e06cf891f00e6ed77"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:f02ede972f2001ab20113b659eff639a56ed9bb3ccd34dc38675a6e65f5d17b2"
+              "sha256": "sha256:d09dfcf9ebc03106b4a8c7ab0266d02ff8f7636d134b6d1f36bfbc8072d8d58d"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -347,12 +347,12 @@
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:8c492a95ad0516267e069a33327eafae4707934bba20a8205c71c343b6a36fdc"
+              "sha256": "sha256:1981553e2e4cda95edf39b21f1dac1ab0bec88df5274717ece8bfbdf788ef042"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:bcf5882304ccce31b229f96121f8698897b277e567ba6a02f8c900f6ae8c2994"
+              "sha256": "sha256:475badcd43c5caa9e8b1f40548b97af6a52bef9a88f333f696b8a0d1c757112a"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -653,6 +653,16 @@
               "source": "templates/codex/scripts/memory_rebuild_index.py",
               "target": "templates/codex/scripts/memory_rebuild_index.py",
               "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
+            },
+            {
+              "source": "templates/codex/scripts/project_memory_recovery.py",
+              "target": "templates/codex/scripts/project_memory_recovery.py",
+              "sha256": "sha256:23e89d5b453581771610bd35876993888a02ace27aff6be7dc654d3c64f1a92c"
+            },
+            {
+              "source": "templates/codex/scripts/project_memory_writer.py",
+              "target": "templates/codex/scripts/project_memory_writer.py",
+              "sha256": "sha256:57f46be46806ef9dc3bb2939e82959a5914812ff9169bea1a248720ff556dd1b"
             },
             {
               "source": "templates/codex/scripts/memory_search.py",
@@ -897,12 +907,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:fe66f223413a855a9ad41668c450efd25a48866e54ce2ddf9d4d044c1c34a180"
+              "sha256": "sha256:af2f021aef2b3f886036fe5277d4d4a1471461eb59ccd9b8ceba57ec4bc67ea4"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:c331eead7a30606b70e1147df29c7e1695a002083887d0c590834e62509e05c1"
+              "sha256": "sha256:ed5fab6baedda8f80bd6a85d4b526f937ec0fb173f1de31e06cf891f00e6ed77"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -922,7 +932,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:f02ede972f2001ab20113b659eff639a56ed9bb3ccd34dc38675a6e65f5d17b2"
+              "sha256": "sha256:d09dfcf9ebc03106b4a8c7ab0266d02ff8f7636d134b6d1f36bfbc8072d8d58d"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1232,12 +1242,12 @@
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:8c492a95ad0516267e069a33327eafae4707934bba20a8205c71c343b6a36fdc"
+              "sha256": "sha256:1981553e2e4cda95edf39b21f1dac1ab0bec88df5274717ece8bfbdf788ef042"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:bcf5882304ccce31b229f96121f8698897b277e567ba6a02f8c900f6ae8c2994"
+              "sha256": "sha256:475badcd43c5caa9e8b1f40548b97af6a52bef9a88f333f696b8a0d1c757112a"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1538,6 +1548,16 @@
               "source": "templates/codex/scripts/memory_rebuild_index.py",
               "target": "templates/codex/scripts/memory_rebuild_index.py",
               "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
+            },
+            {
+              "source": "templates/codex/scripts/project_memory_recovery.py",
+              "target": "templates/codex/scripts/project_memory_recovery.py",
+              "sha256": "sha256:23e89d5b453581771610bd35876993888a02ace27aff6be7dc654d3c64f1a92c"
+            },
+            {
+              "source": "templates/codex/scripts/project_memory_writer.py",
+              "target": "templates/codex/scripts/project_memory_writer.py",
+              "sha256": "sha256:57f46be46806ef9dc3bb2939e82959a5914812ff9169bea1a248720ff556dd1b"
             },
             {
               "source": "templates/codex/scripts/memory_search.py",

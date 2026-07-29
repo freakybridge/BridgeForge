@@ -17,6 +17,10 @@
 
 ---
 
+## [0.70.2] - 2026-07-29
+
+- `[product]` 修复共享 BridgeForge 发布清单遗漏 `project_memory_writer.py` 和 `project_memory_recovery.py`：用户级更新包现在完整携带 Codex 下游 `$summary` 与 memory 恢复所需的项目脚本；同步入口版本标识。
+
 ## [0.70.1] - 2026-07-29
 
 - `[product][repo][meta]` Codex 下游 `$summary` 新增确定性项目 memory 写入边界：受管项目只能经项目内写入器落到 `.codex/memory/` 并重建索引，禁止隐式回退用户级 `~/.codex/memories`；无参数 `/bridgeforge` 的既有项目维护分支可在明确确认后迁移带精确项目路径字段的遗留 note，并仅把严格为空的 `~/.codex/memory` 作为清理候选。所有公开提示统一为 `/bridgeforge`，不再出现不存在的 `/bridgeforge update`。

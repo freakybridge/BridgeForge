@@ -217,6 +217,10 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 "scripts/bridgeforge_shared_update.ps1",
             }
         )
+        required_project_memory_scripts = {
+            "templates/codex/scripts/project_memory_writer.py",
+            "templates/codex/scripts/project_memory_recovery.py",
+        }
 
         platform_skills: dict[str, dict[str, dict[str, object]]] = {}
         for platform, expected_target in (
@@ -233,6 +237,10 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 item["source"]: item for item in skills["bridgeforge"]["files"]
             }
             self.assertEqual(set(bridgeforge_files), expected_bundle)
+            self.assertTrue(
+                required_project_memory_scripts.issubset(bridgeforge_files),
+                f"{platform} BridgeForge release bundle omits required project-memory scripts",
+            )
             for source, item in bridgeforge_files.items():
                 expected_target = source.removeprefix("skills/bridgeforge/")
                 self.assertEqual(item["target"], expected_target)

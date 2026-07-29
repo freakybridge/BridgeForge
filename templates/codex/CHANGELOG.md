@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.40.2] - 2026-07-29
+
+### Fixed
+
+- [product] 共享 BridgeForge 发布包补齐 `project_memory_writer.py` 与 `project_memory_recovery.py`，下游更新后可安装 `$summary` 和 memory 恢复所需脚本。
+
 ## [0.40.1] - 2026-07-29
 
 ### Added
