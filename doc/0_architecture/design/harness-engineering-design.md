@@ -2,6 +2,7 @@
 
 > 版本：v1（2026-07-01）｜依据：`harness-preferences.md`（19 问 + 宪法原则，权威）+ 9 维已复核设计（含 verify 修正）+ `doc/0_architecture/design/antifabrication-framework.md`（既有四层框架）+ 对抗式批评 11 项 + 事实核查结论
 > 定位：本文是**可直接照着开工**的实现蓝图。所有 verify 打回/降级项与对抗式批评项均已按结论修正并融进正文，凡与仓库现状对不上的地方均已订正。v0.1→v1 的逐条修订记录见 §6。
+> **2026-07-30 版本域修订**：下游 `version_check` 已退役为兼容 no-op；BridgeForge 工厂改由 `.githooks/pre-commit` 中的 `factory_version_check.py` 仅对产品层版本 bump 执行确定性检查。本文其余历史性 `version_check` 叙述以此为准。
 
 ---
 
@@ -15,7 +16,7 @@
 
 由此推出三条工程铁律，贯穿全文：
 1. **只认铁证**：硬闸判据只能是 `git diff --cached` / 文件存在性 / exit 码 / 字节数行数正则计数这类确定性事实，**绝不引入 LLM-judge**。凡「可能误伤」的判据不得当 exit-2 硬闸（这正是 framework 否 C1 的坑）。这一条也是解开「Q2 硬闸优先 × Q3 下沉全下游」张力的钥匙（确定性对账既硬又近零误伤 → 可安全下沉）。
-2. **少而精、复用优先**：硬闸尽量共骑 `.githooks/pre-commit`（version_check 同款范式），软信号复用现有 reminder hook 家族（context_warning 骨架）。非必要不新建。
+2. **少而精、复用优先**：硬闸尽量共骑 `.githooks/pre-commit`（factory_version_check 范式），软信号复用现有 reminder hook 家族（context_warning 骨架）。非必要不新建。
 3. **下沉即 dogfood**：产品层 `templates/` 改动必须当场镜像自身 `.claude/`（CLAUDE.md §1 第 4 问红线），命令前缀 templates 用 `.venv/Scripts/python.exe`、自身用系统 `python`。
 
 ---
@@ -35,7 +36,7 @@
 | M1 | 不可逆危险动作（删/覆盖/外发上线） | **复用** `settings.json` permissions.deny/ask 三段式（已 dogfood）：deny 段硬拦 `rm -rf/-r`、`git reset --hard/clean`、`push --force/--delete`、`npm/cargo publish`、`twine upload`、`gh release`、`docker push`、`Remove-Item`；ask 段拦 push/rebase/reset/checkout/merge。本维只**查漏补齐** + CHANGELOG 明示这套 deny 清单是产品层承诺 | **hard-gate**（PreToolUse 层真硬闸） | reuse-existing | both |
 | M2 | 谎称「测试/命令跑通」 | **新建**软 hook `test_receipt.py`（PostToolUse on Bash）：命令匹配 `pytest\|cargo test\|npm test\|go test\|tsc\|make` 时抓真实 exit 码 + **命令指纹 + 时间戳**写入 `.runtime/test_receipts/` 一行收据；非测试命令自门控 no-op。配 CLAUDE 红线：声称「测试通过」须指到**命令签名匹配且在本轮时间窗内**的 exit==0 收据（防旧收据钓鱼），指不到=按编造处理。**明确覆盖边界（见 M3 与 §5.2）**：收据只证「命令真跑了且退出码为 0」，**不证「验证内容本身有效」**——exit 0 但断言写错/漏断言的假验证，收据照样盖章，属残余风险 | soft-signal | new-build | both |
 | M3 | 编造(A 类) + 假验证 + 谎称「已改/已删/已同步」 | **不新建 hook**。复用常驻 rule `anti_fabrication.md` R1–R5，在 `templates/CLAUDE.md §2.5` 收据口诀升为明文红线：**交付/危险处的结论（改了什么/验证通过/某资源存在）必须贴真实工具返回原文当证据；引不到=显式标未验证或说不知道；琐碎处免**。特别补一句针对**假验证**：「测试 exit 0 ≠ 验证有效——声称『验证通过』须同时说清验了什么断言、覆盖哪条路径，不得拿一个绿色退出码冒充结论」 | rule | reuse-existing | both |
-| M4 | 碰核心（改架构/核心 path） | **不硬拦**（合 N5「看影响面即放行」）。复用 `clarify_reminder`/`focus_reminder` 软信号 + CLAUDE 红线：改核心 path 前先摆影响面。version_check 已硬拦「改产品层不 bump」，碰核心的「先摆影响面」保持软 | soft-signal | reuse-existing | both |
+| M4 | 碰核心（改架构/核心 path） | **不硬拦**（合 N5「看影响面即放行」）。复用 `clarify_reminder`/`focus_reminder` 软信号 + CLAUDE 红线：改核心 path 前先摆影响面。factory_version_check 只拦工厂产品层漏 bump，碰核心的「先摆影响面」保持软 | soft-signal | reuse-existing | both |
 | M5 | 悄悄跑偏（**擅自换实现方案** / 扩范围） | **落明文红线，不再挂空 focus**。`focus_reminder.py` 的锚是「本会话首条实质 prompt」、四分类判的是**话题漂移**，**同一任务内换实现方案不改话题、锚不动、focus 永不 fire**——旧设计挂 focus 是空指针。改法两步：① `templates/CLAUDE.md §9.6` **增第五类「方案替换」**（定义：任务目标不变但实现路径/技术选型/数据结构被换掉），归入「大偏离」；② 落一条 CLAUDE 明文红线 **N7「大偏离必先说」**：换实现方案 / 扩缩范围前，先一句话告知用户「原打算 X，现改走 Y，因为 Z」，等确认或至少显式声明后再动手。focus 仅继续管话题漂移，不再假装能抓方案替换 | rule | modify-existing（§9.6 加类 + N7 红线） | both |
 
 > **★ 设计要点（P1/P4 + 批评①②）**：原设计想把「dogfood 镜像漂移对账 + CHANGELOG 未同 staged」塞进 pre-commit 并 exit 2，**已否决**——这两条都不是「机器一眼判死」（分两次提交是合法节奏、补 typo 不动 CHANGELOG 合法），升 exit 2 会误伤，正踩 framework 否 C1 的覆辙。pre-commit 保持纯卫生闸；D1 的谎报硬闸能力实际由 **D8 的 dogfood 镜像闸**（真机检项）+ **M3 收据红线**（软兜）承接，D1 自身不再往 pre-commit 加对账段。CHANGELOG 对账整条**砍掉**（与 `version_check.py` 覆盖重叠）。**假验证盲区**（M2 收据对「exit 0 但验证无效」失明）已在 M2 边界 + M3 红线 + §5.2 三处显式点破，不把收据吹成防假验证。

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import shutil
 import subprocess
 import sys
@@ -19,6 +18,13 @@ VERSION_CHECKS = (
     ROOT / "templates" / "claude" / "hooks" / "version_check.py",
     ROOT / ".claude" / "hooks" / "version_check.py",
 )
+SETTINGS = (
+    ROOT / "templates" / "codex" / "settings.json",
+    ROOT / ".codex" / "settings.json",
+    ROOT / "templates" / "claude" / "settings.json",
+    ROOT / ".claude" / "settings.json",
+)
+FACTORY_VERSION_CHECK = ROOT / ".codex" / "scripts" / "factory_version_check.py"
 SHOW_STATES = (
     ROOT / "templates" / "codex" / "hooks" / "show_state.py",
     ROOT / ".codex" / "hooks" / "show_state.py",
@@ -50,23 +56,17 @@ class DownstreamVersionSotTests(unittest.TestCase):
     def test_template_and_dogfood_hooks_are_mirrored(self) -> None:
         self.assertEqual(VERSION_CHECKS[0].read_bytes(), VERSION_CHECKS[1].read_bytes())
         self.assertEqual(VERSION_CHECKS[2].read_bytes(), VERSION_CHECKS[3].read_bytes())
-        self.assertIn(
-            "业务 manifest 不参与", SHOW_STATES[0].read_text(encoding="utf-8")
-        )
-        self.assertIn(
-            "业务 manifest 不参与", SHOW_STATES[1].read_text(encoding="utf-8")
-        )
-        self.assertIn(
-            "业务 manifest 不参与", SHOW_STATES[2].read_text(encoding="utf-8")
-        )
-        self.assertIn(
-            "业务 manifest 不参与", SHOW_STATES[3].read_text(encoding="utf-8")
-        )
+        for script in VERSION_CHECKS:
+            self.assertIn("Compatibility shim", script.read_text(encoding="utf-8"))
+        for settings in SETTINGS:
+            self.assertNotIn("version_check.py", settings.read_text(encoding="utf-8"))
+        for script in SHOW_STATES:
+            self.assertIn(".bridgeforge_version", script.read_text(encoding="utf-8"))
 
     def test_show_state_ignores_native_manifest_versions(self) -> None:
         with tempfile.TemporaryDirectory() as raw_temp:
             repo = Path(raw_temp)
-            (repo / "VERSION").write_text("0.71.0\n", encoding="utf-8")
+            (repo / "VERSION").write_text("9.9.9\n", encoding="utf-8")
             (repo / "package.json").write_text('{"version": "9.9.9"}\n', encoding="utf-8")
             (repo / "pyproject.toml").write_text('version = "8.8.8"\n', encoding="utf-8")
             (repo / "Cargo.toml").write_text('version = "7.7.7"\n', encoding="utf-8")
@@ -77,13 +77,18 @@ class DownstreamVersionSotTests(unittest.TestCase):
                 self.assertIsNotNone(spec.loader)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                module.REPO_ROOT = repo
+                host = ".codex" if index < 2 else ".claude"
+                module.HOST_DIR = repo / host
+                module.HOST_DIR.mkdir(exist_ok=True)
+                (module.HOST_DIR / ".bridgeforge_version").write_text(
+                    "0.71.0\n", encoding="utf-8"
+                )
                 self.assertEqual(module._version(), "0.71.0")
 
     def test_session_snapshot_ignores_native_manifest_versions(self) -> None:
         with tempfile.TemporaryDirectory() as raw_temp:
             repo = Path(raw_temp)
-            (repo / "VERSION").write_text("0.71.0\n", encoding="utf-8")
+            (repo / "VERSION").write_text("9.9.9\n", encoding="utf-8")
             (repo / "package.json").write_text('{"version": "9.9.9"}\n', encoding="utf-8")
             (repo / "pyproject.toml").write_text('version = "8.8.8"\n', encoding="utf-8")
             (repo / "Cargo.toml").write_text('version = "7.7.7"\n', encoding="utf-8")
@@ -96,23 +101,27 @@ class DownstreamVersionSotTests(unittest.TestCase):
                 self.assertIsNotNone(spec.loader)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                module.REPO_ROOT = repo
+                host = ".codex" if index < 2 else ".claude"
+                module.HOST_DIR = repo / host
+                module.HOST_DIR.mkdir(exist_ok=True)
+                (module.HOST_DIR / ".bridgeforge_version").write_text(
+                    "0.71.0\n", encoding="utf-8"
+                )
                 self.assertEqual(module._version(), "0.71.0")
 
-    def test_version_hook_requires_root_version_even_with_native_manifests(self) -> None:
+    def test_legacy_version_hook_is_a_noop(self) -> None:
+        request = '{"tool_input": {"command": "git commit -m update"}}'
+        for hook in VERSION_CHECKS:
+            allowed = run([sys.executable, str(hook)], ROOT, input_text=request)
+            self.assertEqual(allowed.returncode, 0, allowed.stderr)
+
+    def test_factory_version_check_requires_version_for_product_changes(self) -> None:
         if shutil.which("git") is None:
             self.skipTest("git is required")
 
         with tempfile.TemporaryDirectory() as raw_temp:
             repo = Path(raw_temp)
-            hook_dir = repo / ".codex" / "hooks"
-            hook_dir.mkdir(parents=True)
-            hook = hook_dir / "version_check.py"
-            shutil.copy2(VERSION_CHECKS[0], hook)
             (repo / "VERSION").write_text("0.71.0\n", encoding="utf-8")
-            (repo / "package.json").write_text('{"version": "9.9.9"}\n', encoding="utf-8")
-            (repo / "pyproject.toml").write_text('version = "8.8.8"\n', encoding="utf-8")
-            (repo / "Cargo.toml").write_text('version = "7.7.7"\n', encoding="utf-8")
             (repo / "payload.txt").write_text("baseline\n", encoding="utf-8")
 
             for command in (
@@ -126,28 +135,34 @@ class DownstreamVersionSotTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
 
             (repo / "payload.txt").write_text("changed\n", encoding="utf-8")
-            (repo / "package.json").write_text('{"version": "10.0.0"}\n', encoding="utf-8")
-            result = run(["git", "add", "payload.txt", "package.json"], repo)
+            result = run(["git", "add", "payload.txt"], repo)
             self.assertEqual(result.returncode, 0, result.stderr)
-            request = json.dumps({"tool_input": {"command": "git commit -m update"}})
-            blocked = run([sys.executable, str(hook)], repo, input_text=request)
+            allowed = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
+            self.assertEqual(allowed.returncode, 0, allowed.stderr)
+
+            (repo / "templates" / "codex").mkdir(parents=True)
+            (repo / "templates" / "codex" / "AGENTS.md").write_text("changed\n", encoding="utf-8")
+            result = run(["git", "add", "templates/codex/AGENTS.md"], repo)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            blocked = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
             self.assertEqual(blocked.returncode, 2, blocked.stderr)
-            self.assertIn("`VERSION`", blocked.stderr)
+            self.assertIn("根 VERSION", blocked.stderr)
 
             (repo / "VERSION").write_text("0.72.0\n", encoding="utf-8")
             result = run(["git", "add", "VERSION"], repo)
             self.assertEqual(result.returncode, 0, result.stderr)
-            allowed = run([sys.executable, str(hook)], repo, input_text=request)
+            allowed = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
             self.assertEqual(allowed.returncode, 0, allowed.stderr)
 
-    def test_init_reference_requires_upstream_root_version(self) -> None:
+    def test_init_reference_keeps_business_version_outside_bridgeforge(self) -> None:
         reference = (ROOT / "skills" / "bridgeforge" / "references" / "init.md").read_text(
             encoding="utf-8"
         )
         self.assertIn("$BRIDGEFORGE_HOME/VERSION", reference)
-        self.assertIn("原生 manifest 的版本字段属于下游业务", reference)
+        self.assertIn("$PROJECT_AGENT_DIR/.bridgeforge_version", reference)
+        self.assertIn("BridgeForge **禁止**创建、改写、展示或检查", reference)
 
-    def test_downstream_fixture_copies_bridgeforge_root_version(self) -> None:
+    def test_downstream_fixture_separates_business_and_skeleton_versions(self) -> None:
         script = ROOT / "tests" / "harness" / "run_downstream_fixture.py"
         spec = importlib.util.spec_from_file_location("downstream_fixture", script)
         self.assertIsNotNone(spec)
@@ -156,8 +171,12 @@ class DownstreamVersionSotTests(unittest.TestCase):
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         fixture = module.build_codex_fixture()
-        self.assertEqual(
+        self.assertNotEqual(
             (fixture / "VERSION").read_text(encoding="utf-8"),
+            (ROOT / "VERSION").read_text(encoding="utf-8"),
+        )
+        self.assertEqual(
+            (fixture / ".codex" / ".bridgeforge_version").read_text(encoding="utf-8"),
             (ROOT / "VERSION").read_text(encoding="utf-8"),
         )
 

@@ -22,6 +22,7 @@ except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+HOST_DIR = Path(__file__).resolve().parent.parent
 
 
 def _run(cmd: list[str]) -> str:
@@ -36,9 +37,9 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """只显示 BridgeForge 管理的根目录 VERSION；业务 manifest 不参与。"""
+    """只显示当前宿主的 BridgeForge 骨架版本戳。"""
     try:
-        version = (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        version = (HOST_DIR / ".bridgeforge_version").read_text(encoding="utf-8").strip()
     except Exception:
         return "?"
     return version or "?"
@@ -89,7 +90,7 @@ def main() -> int:
     ab = _run(["git", "rev-list", "--left-right", "--count", "HEAD...@{u}"])
     ab = ab.replace("\t", "/") if ab else "no-upstream"
     v = _version()
-    print(f"[{prefix}] branch={branch} | dirty={dirty} | ahead/behind={ab} | v{v}")
+    print(f"[{prefix}] branch={branch} | dirty={dirty} | ahead/behind={ab} | skeleton=v{v}")
 
     # SessionStart 时额外提示：snapshot 接续 + 归档候选
     if prefix == "session-start":

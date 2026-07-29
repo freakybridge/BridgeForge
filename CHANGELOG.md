@@ -1,6 +1,6 @@
 # Changelog
 
-格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本按 `templates/<agent>/rules/workflow.md §9` **简版**（小项目退化版）：
+格式参考 [Keep a Changelog](https://keepachangelog.com/) — 语义化版本按 SemVer：
 
 - **major (X)** — 破坏性变更 / 范式重写
 - **minor (Y)** — 新功能（新 hook / 新 skill / 新 rule / 新模板）
@@ -16,6 +16,10 @@
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
 ---
+
+## [0.73.0] - 2026-07-30
+
+- `[product][repo][meta]` 分离下游业务版本与 BridgeForge 骨架版本：`.<host>/.bridgeforge_version` 成为唯一骨架版本戳，init / update 不再创建或覆盖下游根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml`。下游模板注销强制版本 hook，遗留同名 hook 降级为兼容 no-op；状态与 snapshot 只显示骨架版本。BridgeForge 工厂自身改为仅在暂存 `templates/**` 或 `skills/**` 时由本地 pre-commit 强制暂存根 `VERSION`。
 
 ## [0.72.0] - 2026-07-30
 

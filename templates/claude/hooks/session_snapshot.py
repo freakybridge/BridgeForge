@@ -29,6 +29,7 @@ except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+HOST_DIR = Path(__file__).resolve().parent.parent
 SESSION_DIR = REPO_ROOT / ".runtime" / "session_state"
 THROTTLE_SECONDS = 300  # 5 分钟节流（仅 stop 事件）
 MAX_SNAPSHOTS = 20  # 保留最近 20 份
@@ -46,9 +47,9 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """读取 BridgeForge 管理的唯一骨架版本源：根 VERSION。"""
+    """读取当前宿主的 BridgeForge 骨架版本戳。"""
     try:
-        value = (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        value = (HOST_DIR / ".bridgeforge_version").read_text(encoding="utf-8").strip()
         return value or "?"
     except Exception:
         return "?"
@@ -114,7 +115,7 @@ def main() -> int:
 **Event**: {args.event}
 **Branch**: {branch}
 **Ahead/Behind**: {ahead_behind}
-**Version**: v{version}
+**BridgeForge Skeleton**: v{version}
 
 ## Uncommitted changes
 

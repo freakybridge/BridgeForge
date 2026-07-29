@@ -121,7 +121,8 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
 
     shutil.copy2(CODEX_TEMPLATE / "AGENTS.md", CODEX_FIXTURE / "AGENTS.md")
     shutil.copy2(CODEX_TEMPLATE / "CHANGELOG.md", CODEX_FIXTURE / "CHANGELOG.md")
-    shutil.copy2(REPO_ROOT / "VERSION", CODEX_FIXTURE / "VERSION")
+    # 该 fixture 已是下游项目：根 VERSION 代表下游业务版本，不来自 BridgeForge。
+    (CODEX_FIXTURE / "VERSION").write_text("0.1.0\n", encoding="utf-8")
 
     codex_dir = CODEX_FIXTURE / ".codex"
     codex_dir.mkdir()

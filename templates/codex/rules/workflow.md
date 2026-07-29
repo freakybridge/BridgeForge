@@ -140,53 +140,13 @@ paths:
 
 ---
 
-## 9. 版本号管理（红线）
+## 9. 版本域隔离（红线）
 
-> 适合**有 Milestone 节奏 + 长期演进**的项目。小项目（< 5 人、无 Milestone）可退化简版（patch=bug / minor=新功能 / major=破坏性），整节用 TODO 注释包住。
+下游业务版本由项目自行定义和维护：可使用根 `VERSION`、原生 manifest 或项目另行约定的来源。BridgeForge **禁止**创建、改写、展示或检查该业务版本。
 
-**红线：每次 commit 前必须提升一次版本号。**
+BridgeForge 骨架版本只写当前宿主的 `.<host>/.bridgeforge_version`，仅由 `/bridgeforge init` 与 `/bridgeforge update` 写入。下游业务提交和本地骨架定制都**禁止**修改该版本戳。
 
-### 9.1 单一事实源
-
-BridgeForge 骨架版本**必须**只写根目录 `VERSION`，并在骨架更新时跟随上游 BridgeForge 总版本。`package.json`、`pyproject.toml`、`Cargo.toml` 是下游业务元数据，**禁止**作为骨架版本源、展示源或版本检查依据。
-
-### 9.2 三段语义（SemVer，Milestone 绑定）
-
-| 段 | 触发 |
-|---|------|
-| **Major** | Milestone 整体验收通过（M1 ship → 1.0.0） |
-| **Minor** | 用户多了一件能干的事（新模块 / 面板 / 接入） |
-| **Patch** | 日常 commit（bug / 小调整 / 文档 / refactor） |
-
-**核心判据**：commit 后用户能否多干一件之前不能干的事？能 → minor，否则 → patch。**重置**：major+1 → minor/patch 归 0；minor+1 → patch 归 0。
-
-### 9.3 细颗粒度不进版本号
-
-Phase / Sprint / Task 比 Milestone 细，不进版本号：Phase 用 git tag（`m<N>.<phase>-complete`，链接验收报告）、Sprint/Task 用 commit prefix（1 commit 1 task）。Milestone ship 打 `m<N>-shipped` 并 bump major。Phase 完成本身不强制 bump minor，只看是否引入用户可感知新功能。
-
-### 9.4 Commit message 格式
-
-`<类型>(M<N>.<Phase>.S<Sprint>): <描述> (vX.Y.Z)` — 类型取 `feat`/`fix`/`refactor`/`perf`/`docs`/`chore`，无 phase 概念则省略括号前缀。**末尾必带 `(vX.Y.Z)`** 便于 `git log --oneline` 识别。
-
-> 范例：`feat(M1.D.S1): 接入新数据源 (v0.10.5)`
-
-### 9.5 触发时机
-
-`git commit` 前先编辑 SoT 文件提版本号，一并 `git add` 进本次 commit。
-
-### 9.7 禁止（红线）
-
-- ❌ 跳过 patch 直接跳 minor
-- ❌ 一次 commit 跳多级（如 0.9.102 → 1.1.0）
-- ❌ 忘编辑版本号就 commit（忘了则后续 commit 补一次并注明"版本补齐"）
-- ❌ Milestone 验收通过前自行 bump major（v1.0.0 必须等 M1 ship）
-- ❌ 用 4 段版本号（不兼容 SemVer / Cargo / npm）
-
-### 9.8 自动强制（hook 兜底，非自觉）
-
-Python 项目装有 `.codex/hooks/version_check.py`（PreToolUse / Bash）：`git commit` 前 staged **必须**含根 `VERSION`；仅暂存业务 manifest 不算版本 bump，直接 `exit 2` 阻断。豁免：message 加 `[skip-version]` / `--amend` / 正在 merge。非 Python 项目无此 hook，退化为仅靠 §9 软规则（自觉 + 收尾自查 §4）。
-
-> **Why**：hook 存在前 §9 作软规则被反复忘记（多次忘 bump / 漏 tag），故把红线从「自觉」升级为「机制强制」。
+> **Why**：业务发布与上游骨架同步是独立生命周期；将两者绑在同一版本文件会制造虚假的上游版本。
 
 ---
 

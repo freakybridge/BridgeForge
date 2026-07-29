@@ -1,10 +1,13 @@
 ---
-status: implemented
+status: superseded
 topic: codex-harness-parity
 source: downstream nested-workspace version SoT proposal, scope revised by user decision
+superseded_by: requirements_2026-07-30_version-domain-separation.md
 ---
 
 # 下游骨架版本单一事实源确认卡
+
+> 已由 `requirements_2026-07-30_version-domain-separation.md` 取代：根 `VERSION` 回归下游业务版本域，骨架版本仅由 `.<host>/.bridgeforge_version` 表示。
 
 ## 目标
 

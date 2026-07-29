@@ -79,7 +79,6 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `skill-routing.json` | `.codex/skill-routing.json` | 仅 Codex；与 agents 一起复制并验证引用完整 |
 | `.githooks/pre-commit` | 项目根 `.githooks/pre-commit` | 仅模板存在时；已有文件只合并 BridgeForge 检查段 |
 | `doc/README.md` | `doc/README.md` | 总是；将 `delivery_layout` 替换为用户选择 |
-| `VERSION` | 项目根 `VERSION` | 总是；内容来自 `$BRIDGEFORGE_HOME/VERSION` |
 | `CHANGELOG.md` | 项目根 `CHANGELOG.md` | 总是 |
 | `.bridgeforge_version` | `$PROJECT_AGENT_DIR/.bridgeforge_version` | Step 9 最后写 |
 | doc 目录 | `doc/{0_architecture,1_delivery,2_bugs,3_reference,4_archive}/` | 总是 |
@@ -106,11 +105,11 @@ __pycache__/
 
 只维护 BridgeForge 自身机制生成物，不替项目决定 `target/`、`node_modules/` 等语言相关规则。
 
-## 6. 版本号 SoT
+## 6. 版本域隔离
 
-无论项目根是否存在 `package.json`、`Cargo.toml`、`pyproject.toml` 或 `setup.py`，都**必须**写入根 `VERSION`，其内容直接复制 `$BRIDGEFORGE_HOME/VERSION`。该文件是唯一受 BridgeForge 管理的骨架版本源。
+`$PROJECT_AGENT_DIR/.bridgeforge_version` 是唯一受 BridgeForge 管理的骨架版本戳，内容直接复制 `$BRIDGEFORGE_HOME/VERSION`。初始化只在所有前置步骤成功后写入该戳。
 
-原生 manifest 的版本字段属于下游业务，**禁止**参与 BridgeForge 的版本检查、展示或版本 bump；初始化不得改写它们。始终复制 `CHANGELOG.md`。
+根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 等均属于下游业务版本域。BridgeForge **禁止**创建、改写、展示或检查它们；初始化始终复制 `CHANGELOG.md`。
 
 ## 7. OPTIONAL 段裁剪
 
@@ -213,15 +212,15 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 |---|---|
 | 入口文件 | 通用红线、交互和 ctx 信号；架构/命令/结构留空 |
 | `rules/` | architecture/modules 骨架与 debugging/workflow/portability/meta rule |
-| `hooks/` | ctx、版本、snapshot、memory/rules/skill 检查等自动化 |
+| `hooks/` | ctx、snapshot、memory/rules/skill 检查等自动化 |
 | `settings.json` | permissions 三档；Claude 还承载 hook 注册；已有配置只 merge |
 | Codex `hooks.json` | Codex 项目级 `SessionStart` hook 注册；已有配置只 merge |
 | Codex `subscription-tier.toml` / `config.toml` / `agents/*.toml` / `skill-routing.json` | 项目订阅档位、主对话默认档、named agent 预设和 skill 路由契约；必须配套验证 |
 | `.githooks/pre-commit` | 提交前聚合硬闸；已有项目只 merge BridgeForge 检查段 |
 | `memory/MEMORY.md` | 初始唯一文件；分类与 topic 目录在首次真实写入时创建 |
 | `doc/README.md` | 分层唯一索引 |
-| `VERSION` / `CHANGELOG.md` | `VERSION` 是唯一骨架版本源，初始化时来自 BridgeForge 根 `VERSION`；业务 manifest 不参与 |
-| `.bridgeforge_version` | 下次路由 update 的同步基线 |
+| `CHANGELOG.md` | BridgeForge 产品更新说明；不定义下游业务版本 |
+| `.bridgeforge_version` | 唯一骨架版本戳，也是下次路由 update 的同步基线 |
 
 ## 14. 停止条件
 

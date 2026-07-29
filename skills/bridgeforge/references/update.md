@@ -161,7 +161,7 @@ python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证 `.codex/subscription-tier.toml` 存在，`model_policy_check.py --pre-commit` 按 marker 对应档位通过；无 marker 时必须先回根入口 Step 4.5 询问并写入，禁止静默套用模板高档。
 5. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
-6. 将项目根 `VERSION` 与 `$PROJECT_AGENT_DIR/.bridgeforge_version` 都写为上游当前 `$BRIDGEFORGE_HOME/VERSION`；`package.json`、`pyproject.toml`、`Cargo.toml` 保持业务自有版本，不参与骨架版本同步。
+6. 仅将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。
 9. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。

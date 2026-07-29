@@ -159,11 +159,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .codex/hooks/version_check.py",
-            "comment": "git commit 前强制版本号 bump 检查（workflow.md §9 红线）：staged 未含版本号文件则 exit 2 阻断。非 commit 命令立即放行。"
-          },
-          {
-            "type": "command",
             "command": "python .codex/hooks/git_add_all_guard.py",
             "comment": "Dogfood bulk git add safety guard: blocks git add -A/--all/. when credentials or .runtime artifacts would be staged; exact-path git add remains allowed."
           },

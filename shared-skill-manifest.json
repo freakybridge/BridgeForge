@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:ee3670edf6e7a2267459a483aa41fde9e4c7ee83310e46bf27aaedda3437baf3"
+              "sha256": "sha256:88dd87327b98489cfc46119113176b2de3f72e5f1acb3779d5c22fd592b1a765"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:d56671526b75a2599b2541e0695b7208dcce3f70b6ee8097f9b7c27e85d44343"
+              "sha256": "sha256:06cbf5d9f26b8c25dcbfef7504b545f579be8f29a3f7f22580e763c433f0eb57"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -47,7 +47,7 @@
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:22759322b4837faf69ce7ec13decd4158c26d296cfe80edf81b41d3a8a10a438"
+              "sha256": "sha256:6df8428b7a2ea209ea0e1e076adc230b758cef7d9a7c5d6f184330b7e5bf5371"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -57,7 +57,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:26d3f98dc73fc993985bac7e4dbcd2173c1111ba11efd39a63388ab192a54bed"
+              "sha256": "sha256:f9067da33da5219d3b36ef6ed57e75ea0acfa45acb6f4680f92b64cb035181b0"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -222,12 +222,12 @@
             {
               "source": "templates/claude/hooks/session_snapshot.py",
               "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:7fa78d8c5c0de2175d805cb4c53176f861c0824b29ce35e9c91e528e3c73d7e2"
+              "sha256": "sha256:b4fa7eb3403c09e3ffcf3c062b129463fc99ee37af2839a7908c348a83945013"
             },
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:ed3dbc3762018b592955c20df31b013e1f2b1eeddeaa7d63bba5cbfadd7c88c4"
+              "sha256": "sha256:51697998699646effc659720501fe713bbb9eaf41dc1e38e40053c44c6e7436f"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
@@ -252,7 +252,7 @@
             {
               "source": "templates/claude/hooks/version_check.py",
               "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:18cf2c831682576596e9588f936b566d4bd05c95c85df9805d11010d63e74e85"
+              "sha256": "sha256:2d4be74e1352dd4fd4e5315c417f4f5526105316572eef795ce6677cecea26ea"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
@@ -297,7 +297,7 @@
             {
               "source": "templates/claude/rules/workflow.md",
               "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:7244ceef90d4a099ba9e9e084d79b9c87e525edbcafed5e5d48d41fec0082d05"
+              "sha256": "sha256:8d2a7c4d0049a22655f34221cc03ce5219275db4a92d2b64c499bdb2c42b9abe"
             },
             {
               "source": "templates/claude/scripts/archive_scan.py",
@@ -327,7 +327,7 @@
             {
               "source": "templates/claude/settings.json",
               "target": "templates/claude/settings.json",
-              "sha256": "sha256:9f7cd761286ba972e2be44c67d0baf014d8edeaa9b54c599d2423d7d1d7bdfd0"
+              "sha256": "sha256:45c8f7c37b6dd6a37d40096f07fe7e82ea97556cc9b0d033348c17c52f8ac42d"
             },
             {
               "source": "templates/codex/.githooks/pre-commit",
@@ -527,12 +527,12 @@
             {
               "source": "templates/codex/hooks/session_snapshot.py",
               "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:b1eb986d20c4fa40ff1baf07b6698e7cdbcbbb7cda16d89e989d9d437308db71"
+              "sha256": "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
             },
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:1b7fa8f7e87602949ea81814aa0a69142e88fe93a881d73fa54eae97cc7ca58a"
+              "sha256": "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
@@ -562,7 +562,7 @@
             {
               "source": "templates/codex/hooks/version_check.py",
               "target": "templates/codex/hooks/version_check.py",
-              "sha256": "sha256:932170a37f11cd3e382f4e81ea7d9e6b0fe8aeff5743502cb484fa9dab79155b"
+              "sha256": "sha256:ab1b2a697148a5bc1fb66ddb7b97f9bb3b47e3f32bd21ffa8b69c292e644aeca"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -607,7 +607,7 @@
             {
               "source": "templates/codex/rules/workflow.md",
               "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:b9f75ac9b12e7a64b3471afd5f78d18eb896c1e70fe9a3427e7e0bf60b7f840e"
+              "sha256": "sha256:a6ecf35410e4e67d86d751ccf3391f2956a576b2ed8761438ffaf138bdfb850c"
             },
             {
               "source": "templates/codex/scripts/archive_scan.py",
@@ -667,7 +667,7 @@
             {
               "source": "templates/codex/settings.json",
               "target": "templates/codex/settings.json",
-              "sha256": "sha256:fdf8018999e4b146247a4da5672e1d60d5bca1525b19a354a99de24f0deea242"
+              "sha256": "sha256:22a1f1ef8f8a9ddca8730278871578ecf07877ffe66896b12607b4ac992f66b1"
             },
             {
               "source": "templates/codex/skill-routing.json",
@@ -897,12 +897,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:ee3670edf6e7a2267459a483aa41fde9e4c7ee83310e46bf27aaedda3437baf3"
+              "sha256": "sha256:88dd87327b98489cfc46119113176b2de3f72e5f1acb3779d5c22fd592b1a765"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:d56671526b75a2599b2541e0695b7208dcce3f70b6ee8097f9b7c27e85d44343"
+              "sha256": "sha256:06cbf5d9f26b8c25dcbfef7504b545f579be8f29a3f7f22580e763c433f0eb57"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -932,7 +932,7 @@
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:22759322b4837faf69ce7ec13decd4158c26d296cfe80edf81b41d3a8a10a438"
+              "sha256": "sha256:6df8428b7a2ea209ea0e1e076adc230b758cef7d9a7c5d6f184330b7e5bf5371"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -942,7 +942,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:26d3f98dc73fc993985bac7e4dbcd2173c1111ba11efd39a63388ab192a54bed"
+              "sha256": "sha256:f9067da33da5219d3b36ef6ed57e75ea0acfa45acb6f4680f92b64cb035181b0"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -1107,12 +1107,12 @@
             {
               "source": "templates/claude/hooks/session_snapshot.py",
               "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:7fa78d8c5c0de2175d805cb4c53176f861c0824b29ce35e9c91e528e3c73d7e2"
+              "sha256": "sha256:b4fa7eb3403c09e3ffcf3c062b129463fc99ee37af2839a7908c348a83945013"
             },
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:ed3dbc3762018b592955c20df31b013e1f2b1eeddeaa7d63bba5cbfadd7c88c4"
+              "sha256": "sha256:51697998699646effc659720501fe713bbb9eaf41dc1e38e40053c44c6e7436f"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
@@ -1137,7 +1137,7 @@
             {
               "source": "templates/claude/hooks/version_check.py",
               "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:18cf2c831682576596e9588f936b566d4bd05c95c85df9805d11010d63e74e85"
+              "sha256": "sha256:2d4be74e1352dd4fd4e5315c417f4f5526105316572eef795ce6677cecea26ea"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
@@ -1182,7 +1182,7 @@
             {
               "source": "templates/claude/rules/workflow.md",
               "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:7244ceef90d4a099ba9e9e084d79b9c87e525edbcafed5e5d48d41fec0082d05"
+              "sha256": "sha256:8d2a7c4d0049a22655f34221cc03ce5219275db4a92d2b64c499bdb2c42b9abe"
             },
             {
               "source": "templates/claude/scripts/archive_scan.py",
@@ -1212,7 +1212,7 @@
             {
               "source": "templates/claude/settings.json",
               "target": "templates/claude/settings.json",
-              "sha256": "sha256:9f7cd761286ba972e2be44c67d0baf014d8edeaa9b54c599d2423d7d1d7bdfd0"
+              "sha256": "sha256:45c8f7c37b6dd6a37d40096f07fe7e82ea97556cc9b0d033348c17c52f8ac42d"
             },
             {
               "source": "templates/codex/.githooks/pre-commit",
@@ -1412,12 +1412,12 @@
             {
               "source": "templates/codex/hooks/session_snapshot.py",
               "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:b1eb986d20c4fa40ff1baf07b6698e7cdbcbbb7cda16d89e989d9d437308db71"
+              "sha256": "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
             },
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:1b7fa8f7e87602949ea81814aa0a69142e88fe93a881d73fa54eae97cc7ca58a"
+              "sha256": "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
@@ -1447,7 +1447,7 @@
             {
               "source": "templates/codex/hooks/version_check.py",
               "target": "templates/codex/hooks/version_check.py",
-              "sha256": "sha256:932170a37f11cd3e382f4e81ea7d9e6b0fe8aeff5743502cb484fa9dab79155b"
+              "sha256": "sha256:ab1b2a697148a5bc1fb66ddb7b97f9bb3b47e3f32bd21ffa8b69c292e644aeca"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -1492,7 +1492,7 @@
             {
               "source": "templates/codex/rules/workflow.md",
               "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:b9f75ac9b12e7a64b3471afd5f78d18eb896c1e70fe9a3427e7e0bf60b7f840e"
+              "sha256": "sha256:a6ecf35410e4e67d86d751ccf3391f2956a576b2ed8761438ffaf138bdfb850c"
             },
             {
               "source": "templates/codex/scripts/archive_scan.py",
@@ -1552,7 +1552,7 @@
             {
               "source": "templates/codex/settings.json",
               "target": "templates/codex/settings.json",
-              "sha256": "sha256:fdf8018999e4b146247a4da5672e1d60d5bca1525b19a354a99de24f0deea242"
+              "sha256": "sha256:22a1f1ef8f8a9ddca8730278871578ecf07877ffe66896b12607b4ac992f66b1"
             },
             {
               "source": "templates/codex/skill-routing.json",
