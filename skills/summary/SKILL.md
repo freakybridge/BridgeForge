@@ -14,6 +14,28 @@ model: sonnet
 作为热区；topic memory 与其他正文按需读取。低频的 rule-memory 对账与已解决事项
 清理按需读取 [`references/deep-steps.md`](references/deep-steps.md)，不要预加载整份参考。
 
+### Codex 项目 memory 写入边界（强制）
+
+当前工作目录存在 `.codex/.bridgeforge_version` 时，这是受 BridgeForge 管理的 Codex
+项目：本次 `$summary` 的唯一默认目标是 `<repo>/.codex/memory/`。不得把“当前
+agent memory”解释为 `~/.codex/memories`，也不得把用户级
+`extensions/ad_hoc/notes` 当作项目写入失败时的回退。
+
+- 先读取项目 `MEMORY.md` 和候选同主题正文；已有同主题记录时，生成**合并后的完整
+  正文**，不得另建无依据的重复条目。
+- 分类、项目 memory 可写性、junction/路径或目标相对路径任一项不能确认时，报告阻塞并
+  停止对应写入。禁止改写为用户级 note 以伪造完成。
+- 项目 memory 的最终写入只能通过
+  `.codex/scripts/project_memory_writer.py`：传入当前项目根、相对
+  `.codex/memory/` 的目标路径及最终正文。禁止直接 Write/Edit 项目 memory 正文或
+  自动索引；写入器负责路径校验、原子写入、索引重建和收据。
+- 只有用户明确说要沉淀“跨项目 / 全局经验”时，才允许写用户级 memory；该次写入必须
+  在输出中明确标为用户级，不得宣称已写入项目。
+
+这不是仅靠文字的偏好：下游的 `cross_project_write_guard.py` 还会阻断项目根外的
+隐式写入。配置已存在不等同于运行时已 trust；未完成 `/hooks` review/trust 和新会话
+smoke 时，必须标记为 `runtime trust 未验证`。
+
 ## 输入
 
 - 当前对话中的架构决策及原因、已验证根因、已完成事项和遗留问题。
@@ -35,7 +57,9 @@ model: sonnet
 3. 分类置信度不足时，只展示候选 `category`；候选含 `topic` 时同时展示
    `topic` slug。用一个单题选择请求用户决定并结束当前回合；确认前禁止写入
    frontmatter、创建目录或移动文件。已有 `_inbox/` 条目离开收件箱也遵循同一规则。
-4. 把确认后的内容写入当前 agent memory，并运行项目的确定性索引重建脚本。
+4. 对 BridgeForge Codex 项目：将确认后的最终正文交给项目
+   `.codex/scripts/project_memory_writer.py` 写入唯一目标；检查其成功收据中的目标路径、
+   SHA-256 和索引结果。其他环境才按当前 agent 的既有 memory 机制写入。
    `completed` / `superseded` topic 仍保留在原 `memory/topics/<topic>/`；
    只由索引降温，禁止移动到不存在的 `memory/_archive/`。
 5. 检查 rules：只有“必须 / 禁止”的稳定红线才进入 rule；案例进入 memory，长示例进入 doc。与既有约束重叠时合并，保持单一正文和窄 `paths` 触发。
@@ -48,7 +72,8 @@ model: sonnet
 
 列出：
 
-- 新增或更新的 memory 路径、`category` / `topic` / `status` 和一句话内容。
+- 新增或更新的 memory 路径、`category` / `topic` / `status` 和一句话内容；BridgeForge
+  Codex 项目还必须列出写入器收据中的目标路径与索引结果。
 - 修改的 rules、同步的 docs 与索引。
 - 经用户确认后清理的 memory / TODO / pending 文档。
 - 写入的 harvest 候选。
@@ -69,5 +94,9 @@ model: sonnet
 - 禁止重复写入同一规则、案例或索引条目。
 - 禁止预建空 memory 分类目录，或为完成的 topic 创建 / 移入
   `memory/_archive/`。
+- 禁止在 BridgeForge Codex 项目中直接 Write/Edit `.codex/memory/` 正文、
+  `MEMORY.md`、`MEMORY_COLD.md` 或 `_stats.json`；必须调用项目 memory 写入器。
+- 禁止在未获用户明确“跨项目 / 全局经验”授权时写入
+  `~/.codex/memories` 或其 `extensions/ad_hoc/notes`。
 
 $ARGUMENTS

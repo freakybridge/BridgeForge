@@ -6,7 +6,7 @@
 
 - 状态：`REVIEW`
 - Claude 有但 Codex 缺失：0
-- 未登记的 Codex-only 文件：2
+- 未登记的 Codex-only 文件：4
 - 归一化后仍有差异的同名文件：26（未分类：3）
 - skills 内容检查问题：0
 
@@ -16,7 +16,7 @@
 |---|---:|---:|---|---|
 | `hooks` | 29 | 31 | - | `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
-| `scripts` | 5 | 9 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `subscription_routing.py` |
+| `scripts` | 5 | 11 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `project_memory_recovery.py`, `project_memory_writer.py`, `subscription_routing.py` |
 | `memory` | 1 | 1 | - | - |
 | `skills` | 20 | 20 | - | 共享单一源 |
 

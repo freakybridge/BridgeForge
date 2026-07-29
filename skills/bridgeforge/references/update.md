@@ -94,8 +94,35 @@ python "$PROJECT_AGENT_DIR/hooks/memory_junction_check.py" --mode migrate --conf
 
 `SessionStart` 禁止执行上述含复制、合并或删除的迁移。它只允许对正确 junction
 no-op，或在系统 memory 不存在且项目 memory 已存在时建链；遇到实目录必须
-fail-closed 并提示运行 `/bridgeforge update`。实目录迁移只能在本 update 流程中，
+fail-closed 并提示无参数运行 `/bridgeforge`。实目录迁移只能在本既有项目维护流程中，
 取得用户确认后执行 `--mode migrate --confirmed`。
+
+### U2.3 Codex 用户级遗留 note 恢复与空孤儿目录清理
+
+仅当前宿主为 Codex 且类 A 已确认安装 `project_memory_writer.py` 与
+`project_memory_recovery.py` 时执行。本节不扫描、复制、移动或删除
+`~/.codex/memories` 的其他内容；它只读取
+`~/.codex/memories/extensions/ad_hoc/notes/`。
+
+1. 先运行 `project_memory_recovery.py notes-plan`，传入当前项目根和该固定 notes
+   路径。候选必须在 note 正文中包含严格的 `项目：<绝对路径>`，规范化后完全等于
+   当前项目，且当前项目有 `.codex/.bridgeforge_version`。标题、关键词或模型推断
+   一律不是归属证据。
+2. 计划必须逐项展示 source、SHA-256、候选项目和建议的项目 memory 目标。没有候选
+   时零写入；不符合格式或属于其他项目的 note 必须原样保留。
+3. 用户明确确认后，先由主对话生成同主题的最终合并正文，再以 source 路径、计划
+   SHA-256、项目内相对目标和最终正文调用 `notes-apply --confirmed`。脚本必须通过
+   项目写入器完成写入、索引重建和索引引用验证后，才允许删除原 note。任一 hash
+   变化、路径异常、链接、写入器失败或索引验证失败都必须零删除。
+4. 另对 `~/.codex/memory` 运行 `orphan-plan`。只有它是非 junction 普通目录，且
+   内容严格为 `MEMORY.md`、`MEMORY_COLD.md`、`_stats.json` 并且 `_stats.json` 的
+   `files` 为空时，才能展示为清理候选。用户确认后才允许以计划 fingerprint 调用
+   `orphan-apply --confirmed`；重新校验不通过时必须保留目录。
+5. `~/.codex/memories` 是用户级 Codex memory 存储，禁止整体迁移、删除或把它当作
+   项目 `$summary` 的默认目标。
+
+本节所有复制/删除都属于用户级外部路径操作：没有明确确认不得 apply。用户级 memory
+写入仅在用户明确要求跨项目 / 全局经验时允许，并且输出必须标为用户级收据。
 
 ## U3. 路径适配
 

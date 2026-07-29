@@ -53,7 +53,7 @@
 
 ## 5. Memory 项目内托管
 
-memory 纳入项目 git（`.claude/memory/`），系统路径 `~/.claude/projects/<hash>/memory/` 用 junction 透明转发。`SessionStart` 只允许在系统 memory 路径缺失且项目 memory 已存在时建链；系统路径是实目录时必须 fail-closed。实目录迁移只能走 `/bridgeforge update`：先展示计划并取得确认，再执行 `--mode migrate --confirmed`；禁止创建备份，同路径异内容或路径异常必须阻断。
+memory 纳入项目 git（`.claude/memory/`），系统路径 `~/.claude/projects/<hash>/memory/` 用 junction 透明转发。`SessionStart` 只允许在系统 memory 路径缺失且项目 memory 已存在时建链；系统路径是实目录时必须 fail-closed。实目录迁移只能走无参数 `/bridgeforge` 的既有项目维护分支：先展示计划并取得确认，再执行内部 `--mode migrate --confirmed`；禁止创建备份，同路径异内容或路径异常必须阻断。
 
 检索顺序：先查 MEMORY.md 主索引；任务锚或确认卡能唯一定位 delivery topic 时，再读 `memory/topics/<topic>/`；无匹配再用 `/find-memory <关键词>` 搜冷区与主题目录；禁止跳过主索引直接 grep 全量 memory。MEMORY.md 是派生索引，勿手改。
 

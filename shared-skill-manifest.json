@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:2cf3ebacfc9cd578d627d4b3c590a4d1f1c1f9b1de71e8386ee5e7f8805e63e6"
+              "sha256": "sha256:fe66f223413a855a9ad41668c450efd25a48866e54ce2ddf9d4d044c1c34a180"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:3bbac2b8bc8b6dfafcf20756d1a420e1758fc32244e99f57d0130b0c44a16457"
+              "sha256": "sha256:c331eead7a30606b70e1147df29c7e1695a002083887d0c590834e62509e05c1"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -42,12 +42,12 @@
             {
               "source": "skills/bridgeforge/references/adopt.md",
               "target": "references/adopt.md",
-              "sha256": "sha256:0c4c8b8afa15e6355a354e07b12d51cae46a428ef68d735ff9dd30ab6881c12a"
+              "sha256": "sha256:71131f71b53b2e9e3cd822cca82ad6989d2d8ad554a26510261346bdcadcd139"
             },
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:fee377229f50a908f3fdc4d2d1836b22aedc01ef46c6d9c06111f2d1ac677fd2"
+              "sha256": "sha256:a9ca539655f8cbbdb659da001b3a2d7a36c16c80af91da3d9a0c0cb38f9bb58a"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -57,7 +57,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:f21a7943b8d98b80ff134c6c2cf4e8eecece278d9b7c828edaf15a558d1881ff"
+              "sha256": "sha256:64d2340701c4b472dfd4cdc715ee3c1228bf524bc41926d240fa2c9bb78213f7"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -72,17 +72,17 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:459c342c50536ccddc00f66f54f446182072568fa16fb5701d316a91a8f108c0"
+              "sha256": "sha256:b4b3dd437067aa4ffa6dd76a1da037087f0ee81790bc55dc4d68cb342d6d81a9"
             },
             {
               "source": "templates/claude/CLAUDE.md",
               "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:23d48757399a45c2a21d1efd9fe2cbe9b6b24b93e91dfe38a2733aba09e5e15c"
+              "sha256": "sha256:aba2d9d60f4c37dea72175c3027ad08dfac6995ec7972d6f3d3e96b8c95bdcfd"
             },
             {
               "source": "templates/claude/VERSION",
               "target": "templates/claude/VERSION",
-              "sha256": "sha256:42659901f3c792eb230cf32b2c844ae738cd6d53dd84c1b7eb434e969b472ec2"
+              "sha256": "sha256:3b2234b65d3aa488b122baba61669c187293385c0c348b8c80a775459ccea55e"
             },
             {
               "source": "templates/claude/doc/0_architecture/.gitkeep",
@@ -187,7 +187,7 @@
             {
               "source": "templates/claude/hooks/memory_junction_check.py",
               "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:e916882355e455aa400c4830facc863747efc54ed01fd659e533806331bec9c0"
+              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
             },
             {
               "source": "templates/claude/hooks/memory_lint.py",
@@ -297,7 +297,7 @@
             {
               "source": "templates/claude/rules/portability.md",
               "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:c12dbef77d03edef4607dadc2548cd701092b110f4bf387878c42ebcdc7ac3a9"
+              "sha256": "sha256:15b6a8981574a08e832d845c8c1ba93fb40065ca89feee2b8ae36c423d5f96fb"
             },
             {
               "source": "templates/claude/rules/workflow.md",
@@ -342,17 +342,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:5c6f5459e6801e3382c501a898cec153a7afab0cd132a4c011fcf27902697e62"
+              "sha256": "sha256:e61d413a2f282c81244338c48349ae1644de6f4d757a816c61e4a9add4c5572f"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:d0adc9abf2099043e69b61b6737f3704a3475ee80be0e514a75eefde29750864"
+              "sha256": "sha256:8c492a95ad0516267e069a33327eafae4707934bba20a8205c71c343b6a36fdc"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:3019bdb106d042ba1f7cf88d1dd844530076d5ff49f6b88e48316a3e1e05d9da"
+              "sha256": "sha256:bcf5882304ccce31b229f96121f8698897b277e567ba6a02f8c900f6ae8c2994"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -492,7 +492,7 @@
             {
               "source": "templates/codex/hooks/memory_junction_check.py",
               "target": "templates/codex/hooks/memory_junction_check.py",
-              "sha256": "sha256:e916882355e455aa400c4830facc863747efc54ed01fd659e533806331bec9c0"
+              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
             },
             {
               "source": "templates/codex/hooks/memory_lint.py",
@@ -612,7 +612,7 @@
             {
               "source": "templates/codex/rules/portability.md",
               "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:8507bcd11bac987fc20b4af0bf4960cddecdcdc78a2b0dd258aaf40758aa28ec"
+              "sha256": "sha256:b3afa780f94b6f833c17160c565fc8ad998c1208412815cddc51a8c6774a9abe"
             },
             {
               "source": "templates/codex/rules/workflow.md",
@@ -862,7 +862,7 @@
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:a1092730e1f5029451cd9fcd7bdd1225ef3fbdb0cbf73d6f217252e08a80209d"
+              "sha256": "sha256:8286e8134fd2bb90b10fa5a135220a5c0a1326de83f77c2874c2562f8974a9d3"
             }
           ]
         },
@@ -897,12 +897,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:2cf3ebacfc9cd578d627d4b3c590a4d1f1c1f9b1de71e8386ee5e7f8805e63e6"
+              "sha256": "sha256:fe66f223413a855a9ad41668c450efd25a48866e54ce2ddf9d4d044c1c34a180"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:3bbac2b8bc8b6dfafcf20756d1a420e1758fc32244e99f57d0130b0c44a16457"
+              "sha256": "sha256:c331eead7a30606b70e1147df29c7e1695a002083887d0c590834e62509e05c1"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -927,12 +927,12 @@
             {
               "source": "skills/bridgeforge/references/adopt.md",
               "target": "references/adopt.md",
-              "sha256": "sha256:0c4c8b8afa15e6355a354e07b12d51cae46a428ef68d735ff9dd30ab6881c12a"
+              "sha256": "sha256:71131f71b53b2e9e3cd822cca82ad6989d2d8ad554a26510261346bdcadcd139"
             },
             {
               "source": "skills/bridgeforge/references/init.md",
               "target": "references/init.md",
-              "sha256": "sha256:fee377229f50a908f3fdc4d2d1836b22aedc01ef46c6d9c06111f2d1ac677fd2"
+              "sha256": "sha256:a9ca539655f8cbbdb659da001b3a2d7a36c16c80af91da3d9a0c0cb38f9bb58a"
             },
             {
               "source": "skills/bridgeforge/references/switch.md",
@@ -942,7 +942,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:f21a7943b8d98b80ff134c6c2cf4e8eecece278d9b7c828edaf15a558d1881ff"
+              "sha256": "sha256:64d2340701c4b472dfd4cdc715ee3c1228bf524bc41926d240fa2c9bb78213f7"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -957,17 +957,17 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:459c342c50536ccddc00f66f54f446182072568fa16fb5701d316a91a8f108c0"
+              "sha256": "sha256:b4b3dd437067aa4ffa6dd76a1da037087f0ee81790bc55dc4d68cb342d6d81a9"
             },
             {
               "source": "templates/claude/CLAUDE.md",
               "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:23d48757399a45c2a21d1efd9fe2cbe9b6b24b93e91dfe38a2733aba09e5e15c"
+              "sha256": "sha256:aba2d9d60f4c37dea72175c3027ad08dfac6995ec7972d6f3d3e96b8c95bdcfd"
             },
             {
               "source": "templates/claude/VERSION",
               "target": "templates/claude/VERSION",
-              "sha256": "sha256:42659901f3c792eb230cf32b2c844ae738cd6d53dd84c1b7eb434e969b472ec2"
+              "sha256": "sha256:3b2234b65d3aa488b122baba61669c187293385c0c348b8c80a775459ccea55e"
             },
             {
               "source": "templates/claude/doc/0_architecture/.gitkeep",
@@ -1072,7 +1072,7 @@
             {
               "source": "templates/claude/hooks/memory_junction_check.py",
               "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:e916882355e455aa400c4830facc863747efc54ed01fd659e533806331bec9c0"
+              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
             },
             {
               "source": "templates/claude/hooks/memory_lint.py",
@@ -1182,7 +1182,7 @@
             {
               "source": "templates/claude/rules/portability.md",
               "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:c12dbef77d03edef4607dadc2548cd701092b110f4bf387878c42ebcdc7ac3a9"
+              "sha256": "sha256:15b6a8981574a08e832d845c8c1ba93fb40065ca89feee2b8ae36c423d5f96fb"
             },
             {
               "source": "templates/claude/rules/workflow.md",
@@ -1227,17 +1227,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:5c6f5459e6801e3382c501a898cec153a7afab0cd132a4c011fcf27902697e62"
+              "sha256": "sha256:e61d413a2f282c81244338c48349ae1644de6f4d757a816c61e4a9add4c5572f"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:d0adc9abf2099043e69b61b6737f3704a3475ee80be0e514a75eefde29750864"
+              "sha256": "sha256:8c492a95ad0516267e069a33327eafae4707934bba20a8205c71c343b6a36fdc"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:3019bdb106d042ba1f7cf88d1dd844530076d5ff49f6b88e48316a3e1e05d9da"
+              "sha256": "sha256:bcf5882304ccce31b229f96121f8698897b277e567ba6a02f8c900f6ae8c2994"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1377,7 +1377,7 @@
             {
               "source": "templates/codex/hooks/memory_junction_check.py",
               "target": "templates/codex/hooks/memory_junction_check.py",
-              "sha256": "sha256:e916882355e455aa400c4830facc863747efc54ed01fd659e533806331bec9c0"
+              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
             },
             {
               "source": "templates/codex/hooks/memory_lint.py",
@@ -1497,7 +1497,7 @@
             {
               "source": "templates/codex/rules/portability.md",
               "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:8507bcd11bac987fc20b4af0bf4960cddecdcdc78a2b0dd258aaf40758aa28ec"
+              "sha256": "sha256:b3afa780f94b6f833c17160c565fc8ad998c1208412815cddc51a8c6774a9abe"
             },
             {
               "source": "templates/codex/rules/workflow.md",
@@ -1747,7 +1747,7 @@
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:a1092730e1f5029451cd9fcd7bdd1225ef3fbdb0cbf73d6f217252e08a80209d"
+              "sha256": "sha256:8286e8134fd2bb90b10fa5a135220a5c0a1326de83f77c2874c2562f8974a9d3"
             }
           ]
         },

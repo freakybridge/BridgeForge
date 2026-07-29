@@ -25,8 +25,8 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - Codex 的 `SessionStart` 承载面必须是 `.codex/hooks.json`；Claude Code 保持
   `.claude/settings.json`。
 - adopt 不 merge hook 配置，不复制、合并或删除 memory，也不建立 junction。
-- 若承载面缺失/遗留或 junction 不是已验证的正确目标，记录为“待 update”。
-  写戳后提示运行 `/bridgeforge update`；update 即使发现版本相等，也必须处理
+- 若承载面缺失/遗留或 junction 不是已验证的正确目标，记录为“待维护”。
+  写戳后提示无参数运行 `/bridgeforge`；既有项目维护分支即使发现版本相等，也必须处理
   B 类承载面和 D 类 junction 迁移，不能以“已是最新”提前退出。
 - 错误/断裂 junction、路径异常或系统 memory 实目录只报告状态；禁止在
   `SessionStart` 或 adopt 中自动迁移。
@@ -54,4 +54,4 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 结束时报告命中的指纹、用户是否确认、写入的基线版本、是否跳过历史增量，以及
 当前宿主 hook/junction 审计结果、trust 验证状态与是否需要运行
-`/bridgeforge update`。
+无参数 `/bridgeforge`。

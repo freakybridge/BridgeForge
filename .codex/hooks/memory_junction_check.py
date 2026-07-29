@@ -4,7 +4,7 @@
 The default ``check`` mode is safe for SessionStart. It may create a missing
 junction when project memory already exists, but it never migrates or deletes
 an existing system directory. Destructive migration is available only through
-the explicit ``migrate --confirmed`` CLI used by ``/bridgeforge update``.
+the explicit ``migrate --confirmed`` CLI orchestrated by ``/bridgeforge``.
 """
 from __future__ import annotations
 
@@ -366,7 +366,7 @@ def reconcile(
                 "migration-required",
                 detail=(
                     "system memory is a real directory; no changes made. "
-                    "Run /bridgeforge update to review and confirm migration."
+                    "Run /bridgeforge to review and confirm migration."
                 ),
             )
 

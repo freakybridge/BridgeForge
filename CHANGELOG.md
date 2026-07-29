@@ -17,11 +17,15 @@
 
 ---
 
+## [0.70.1] - 2026-07-29
+
+- `[product][repo][meta]` Codex 下游 `$summary` 新增确定性项目 memory 写入边界：受管项目只能经项目内写入器落到 `.codex/memory/` 并重建索引，禁止隐式回退用户级 `~/.codex/memories`；无参数 `/bridgeforge` 的既有项目维护分支可在明确确认后迁移带精确项目路径字段的遗留 note，并仅把严格为空的 `~/.codex/memory` 作为清理候选。所有公开提示统一为 `/bridgeforge`，不再出现不存在的 `/bridgeforge update`。
+
 ## [0.70.0] - 2026-07-28
 
 ### Added
 
-- `[product][repo]` Codex / Claude Code 项目级 memory junction 改为双宿主独立的安全状态机：`SessionStart` 仅对正确 junction 静默 no-op，或在系统 memory 缺失且项目 memory 已存在时建链并验证；实目录迁移必须由 `/bridgeforge update` 先展示计划并取得明确确认，只复制系统独有文件、跳过同内容文件，同路径内容冲突、错误或断裂 junction、路径异常均 fail-closed。迁移仅在完整性校验通过后删除系统 memory 并建链，禁止创建迁移备份。
+- `[product][repo]` Codex / Claude Code 项目级 memory junction 改为双宿主独立的安全状态机：`SessionStart` 仅对正确 junction 静默 no-op，或在系统 memory 缺失且项目 memory 已存在时建链并验证；实目录迁移必须由无参数 `/bridgeforge` 的既有项目维护分支先展示计划并取得明确确认，只复制系统独有文件、跳过同内容文件，同路径内容冲突、错误或断裂 junction、路径异常均 fail-closed。迁移仅在完整性校验通过后删除系统 memory 并建链，禁止创建迁移备份。
 
 ### Changed
 

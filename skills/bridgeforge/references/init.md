@@ -182,10 +182,10 @@ trust；随后开启新会话，以实际 `SessionStart` 行为做 smoke。无�
 1. 已是指向当前项目 memory 的正确 junction：验证目标后 no-op。
 2. 系统 memory 不存在、项目 memory 存在：直接建 junction，并验证最终目标。
 3. 系统 memory 是实目录、错误/断裂 junction 或路径异常：阻断 memory 路径写入，
-   记录“待 update”，完成其余 init 后提示运行 `/bridgeforge update`。
+   记录“待维护”，完成其余 init 后提示无参数运行 `/bridgeforge`。
 
 `init` 和 `SessionStart` 都禁止复制、合并或删除系统 memory。实目录迁移只能由
-`/bridgeforge update` 展示逐文件计划并取得用户确认后，调用当前宿主脚本
+无参数 `/bridgeforge` 的既有项目维护分支展示逐文件计划并取得用户确认后，调用当前宿主脚本
 `--mode migrate --confirmed`；禁止创建 `.bak` 或其他备份，同路径异内容、路径异常、
 错误或断裂 junction 必须阻断且零写入。
 

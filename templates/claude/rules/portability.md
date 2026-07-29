@@ -45,7 +45,7 @@ memory 纳入项目 git（`.claude/memory/`），Claude Code 系统路径是
 - 系统 memory 是实目录时，`SessionStart` **禁止**复制、合并、删除或改名；
   **必须** fail-closed 并提示运行 `/bridgeforge`。
 - 错误/断裂 junction、路径异常或内容冲突时**必须**零写入，禁止自动覆盖或重建。
-- `/bridgeforge update` **必须**先展示迁移计划并取得明确确认；只复制系统独有文件、
+- 无参数 `/bridgeforge` 的既有项目维护分支**必须**先展示迁移计划并取得明确确认；只复制系统独有文件、
   跳过同内容文件、遇到同路径不同内容即阻断；完整性校验通过后才允许删除系统
   memory 并建 junction。
 - junction 迁移**禁止**创建 `.bak`、`memory.premigrate.bak` 或任何其他备份。

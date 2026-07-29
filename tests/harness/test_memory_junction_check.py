@@ -109,7 +109,7 @@ class MemoryJunctionCheckTests(unittest.TestCase):
                 )
 
             self.assertEqual(result.state, "migration-required")
-            self.assertIn("/bridgeforge update", result.detail)
+            self.assertIn("/bridgeforge to review and confirm migration", result.detail)
             copy_unique.assert_not_called()
             remove.assert_not_called()
             create_junction.assert_not_called()
