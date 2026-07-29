@@ -11,7 +11,6 @@
   prefix = "prompt-state" → UserPromptSubmit 调用（只打基本状态行）
   prefix = "session-start" → SessionStart 调用（额外打 snapshot / archive 提示）
 """
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -37,35 +36,12 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """探测项目版本号。按优先级：pyproject.toml / setup.py / package.json / Cargo.toml / VERSION。
-
-    VERSION 是无原生版本源项目的单一事实源（纯文本，整文件内容即版本号，无 key=value
-    包裹），故用 None pattern 特判：不走正则，直接取 strip 后的文件内容。
-    """
-    candidates = [
-        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
-        ("setup.py", r'version\s*=\s*[\'"]([^\'"]+)[\'"]'),
-        ("package.json", r'"version"\s*:\s*"([^"]+)"'),
-        ("Cargo.toml", r'^version\s*=\s*"([^"]+)"'),
-        ("VERSION", None),
-    ]
-    for fname, pattern in candidates:
-        p = REPO_ROOT / fname
-        if not p.exists():
-            continue
-        try:
-            text = p.read_text(encoding="utf-8")
-            if pattern is None:
-                stripped = text.strip()
-                if stripped:
-                    return stripped
-                continue
-            m = re.search(pattern, text, re.MULTILINE)
-            if m:
-                return m.group(1)
-        except Exception:
-            continue
-    return "?"
+    """只显示 BridgeForge 管理的根目录 VERSION；业务 manifest 不参与。"""
+    try:
+        version = (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    except Exception:
+        return "?"
+    return version or "?"
 
 
 def _latest_snapshot() -> str:

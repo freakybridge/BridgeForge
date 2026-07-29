@@ -17,6 +17,17 @@
 
 ---
 
+## [0.72.0] - 2026-07-30
+
+- `[product][meta]` 移除 Codex / Claude 的 `stall_warning.py`、注册和 `[stall]` 响应契约；下游更新经受管 switch 强制删除两宿主项目级脚本，即使人工修改过也不保留，其他 hook 保持不动。
+- `[product][meta]` 下游骨架版本唯一以根 `VERSION` 为准，init / update 同步 BridgeForge 根版本；版本 hook 与状态展示不再读取业务 manifest，业务 `package.json`、`pyproject.toml`、`Cargo.toml` 保持不改。
+
+## [0.71.0] - 2026-07-29
+
+- `[product][meta]` Rule 索引 hook 限定解析入口的“规则文件索引”章节，避免示例与说明中的路径被误收；新增只读 `--audit-all`，供 CI / 人工以无豁免模式复核索引完整性。Codex / Claude 模板与 BridgeForge dogfood 镜像同步，新增下游 fixture 覆盖。
+- `[product][meta]` direct switch 现在仅发现首个 YAML frontmatter 中唯一 `bridgeforge_portable_rule: true` 的顶层 Rule，将其记录为无 target ownership 的 `untranslated` 迁移候选；绝不写入目标 Rule 或入口索引。自动 Rule 投影、分段、replacement、memory 路由和 root map 保持拒绝。
+- `[product]` Codex `memory_search.py` 将宿主目录局部变量从 `claude_dir` 正名为 `host_dir`；parity 保留该有意命名差异的 `cleanup-only` 登记，并更新说明。
+
 ## [0.70.2] - 2026-07-29
 
 - `[product]` 修复共享 BridgeForge 发布清单遗漏 `project_memory_writer.py` 和 `project_memory_recovery.py`：用户级更新包现在完整携带 Codex 下游 `$summary` 与 memory 恢复所需的项目脚本；同步入口版本标识。

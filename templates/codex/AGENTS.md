@@ -189,12 +189,6 @@ Codex 的有效窗口优先读取日志 `model_context_window`，环境变量仅
 
 ---
 
-## 10.5 空转弱提醒 — `[stall]`
-
-读到 `[stall]` 后本轮尽快收口：给结论，或落一个具体动作（工具调用 / 文件改）。它是下一轮弱提醒，不是实时刹车；若确属正当长分析可忽略。判据见 `stall_warning.py`。
-
----
-
 ## 11. 文档管理（红线）
 
 本项目必须用 `doc/` 五层结构：`0_architecture` / `1_delivery` / `2_bugs` / `3_reference` / `4_archive`。

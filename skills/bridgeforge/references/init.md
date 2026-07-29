@@ -79,7 +79,7 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `skill-routing.json` | `.codex/skill-routing.json` | 仅 Codex；与 agents 一起复制并验证引用完整 |
 | `.githooks/pre-commit` | 项目根 `.githooks/pre-commit` | 仅模板存在时；已有文件只合并 BridgeForge 检查段 |
 | `doc/README.md` | `doc/README.md` | 总是；将 `delivery_layout` 替换为用户选择 |
-| `VERSION` | 项目根 `VERSION` | 仅无原生版本源时 |
+| `VERSION` | 项目根 `VERSION` | 总是；内容来自 `$BRIDGEFORGE_HOME/VERSION` |
 | `CHANGELOG.md` | 项目根 `CHANGELOG.md` | 总是 |
 | `.bridgeforge_version` | `$PROJECT_AGENT_DIR/.bridgeforge_version` | Step 9 最后写 |
 | doc 目录 | `doc/{0_architecture,1_delivery,2_bugs,3_reference,4_archive}/` | 总是 |
@@ -108,13 +108,9 @@ __pycache__/
 
 ## 6. 版本号 SoT
 
-检测项目根：
+无论项目根是否存在 `package.json`、`Cargo.toml`、`pyproject.toml` 或 `setup.py`，都**必须**写入根 `VERSION`，其内容直接复制 `$BRIDGEFORGE_HOME/VERSION`。该文件是唯一受 BridgeForge 管理的骨架版本源。
 
-- `package.json`
-- `Cargo.toml`
-- `pyproject.toml` / `setup.py`，且含 version 字段
-
-任一原生版本源存在：跳过模板 `VERSION`，仍复制 `CHANGELOG.md`，并说明以后只 bump 原生版本源。全部不存在：复制模板 `VERSION`（初始 `0.1.0`）和 `CHANGELOG.md`。
+原生 manifest 的版本字段属于下游业务，**禁止**参与 BridgeForge 的版本检查、展示或版本 bump；初始化不得改写它们。始终复制 `CHANGELOG.md`。
 
 ## 7. OPTIONAL 段裁剪
 
@@ -224,7 +220,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 | `.githooks/pre-commit` | 提交前聚合硬闸；已有项目只 merge BridgeForge 检查段 |
 | `memory/MEMORY.md` | 初始唯一文件；分类与 topic 目录在首次真实写入时创建 |
 | `doc/README.md` | 分层唯一索引 |
-| `VERSION` / `CHANGELOG.md` | 项目版本与变更记录；原生版本源优先 |
+| `VERSION` / `CHANGELOG.md` | `VERSION` 是唯一骨架版本源，初始化时来自 BridgeForge 根 `VERSION`；业务 manifest 不参与 |
 | `.bridgeforge_version` | 下次路由 update 的同步基线 |
 
 ## 14. 停止条件

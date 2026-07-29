@@ -105,3 +105,38 @@ python tests\harness\run_downstream_fixture.py
 兼容性检测已闭环。现在可以说：Codex 骨架主链路、检测表、memory、skills 都已经纳入自动验证；没有剩余 P1/P2 阻断项。
 
 剩余的 `cleanup-only` 命名残留可以后续单独做一次小清理，不影响这次迁移验收。
+
+## 2026-07-30 下游反哺复核：`memory_search.py`
+
+下游复核确认 `templates/codex/scripts/memory_search.py` 仍有一处已知的宿主命名残留：
+
+```diff
+- claude_dir = script_dir.parent
+- memory_dir = claude_dir / "memory"
++ host_dir = script_dir.parent
++ memory_dir = host_dir / "memory"
+```
+
+该差异只涉及局部变量名。已将 Codex 模板和 dogfood 镜像中的 `claude_dir` 改为
+`host_dir`；路径推导、递归搜索、过滤、评分、排序、输出和退出码逻辑保持不变。
+
+裁定保持为 `cleanup-only`：
+
+- 不属于功能缺陷；
+- 不阻断 parity；
+- 不需要独立版本发布；
+- parity 保留 `cleanup-only` 分类，但说明改为 Codex 使用中性 `host_dir`，避免把这项有意差异误判为 `needs-review`；
+- 建议在下一次 Codex 宿主中性命名清理中吸收；
+- 修改时必须同步 BridgeForge 自身 `.codex` dogfood 副本。
+
+本次吸收已验证：
+
+```powershell
+.venv\Scripts\python.exe -m py_compile templates\codex\scripts\memory_search.py
+.venv\Scripts\python.exe .codex\scripts\harness_parity_check.py --check
+.venv\Scripts\python.exe templates\codex\scripts\harness_parity_check.py --check
+```
+
+改名为纯局部绑定替换，不需要保留前后两个运行时版本做 fixture 对照；语法编译和
+双侧 parity 检查已通过。该脚本与 Claude 版仍会保留一个 `cleanup-only` 的命名差异，
+原因是 Codex 采用中性 `host_dir`，不再遗留 Claude 宿主名。

@@ -148,7 +148,7 @@ paths:
 
 ### 9.1 单一事实源
 
-版本号只写**唯一一处** SoT 文件（`package.json` / `Cargo.toml` / `pyproject.toml` / `VERSION`），子包靠继承机制（如 Cargo `version.workspace = true`）共享；构建期嵌入（`env!("CARGO_PKG_VERSION")` 等），bump 后须重新 build。展示位置按项目填 <!-- TODO: 标题栏 / CLI `--version` / 关于框 -->。
+BridgeForge 骨架版本**必须**只写根目录 `VERSION`，并在骨架更新时跟随上游 BridgeForge 总版本。`package.json`、`pyproject.toml`、`Cargo.toml` 是下游业务元数据，**禁止**作为骨架版本源、展示源或版本检查依据。
 
 ### 9.2 三段语义（SemVer，Milestone 绑定）
 
@@ -184,7 +184,7 @@ Phase / Sprint / Task 比 Milestone 细，不进版本号：Phase 用 git tag（
 
 ### 9.8 自动强制（hook 兜底，非自觉）
 
-Python 项目装有 `.codex/hooks/version_check.py`（PreToolUse / Bash）：`git commit` 前查 staged 是否含版本号 SoT 文件（`VERSION` / `package.json` / `Cargo.toml` / `pyproject.toml`），没 bump 直接 `exit 2` 阻断。豁免：message 加 `[skip-version]` / `--amend` / 正在 merge。非 Python 项目无此 hook，退化为仅靠 §9 软规则（自觉 + 收尾自查 §4）。
+Python 项目装有 `.codex/hooks/version_check.py`（PreToolUse / Bash）：`git commit` 前 staged **必须**含根 `VERSION`；仅暂存业务 manifest 不算版本 bump，直接 `exit 2` 阻断。豁免：message 加 `[skip-version]` / `--amend` / 正在 merge。非 Python 项目无此 hook，退化为仅靠 §9 软规则（自觉 + 收尾自查 §4）。
 
 > **Why**：hook 存在前 §9 作软规则被反复忘记（多次忘 bump / 漏 tag），故把红线从「自觉」升级为「机制强制」。
 

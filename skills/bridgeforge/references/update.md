@@ -19,6 +19,20 @@
 
 先给总览，再逐项处理：
 
+### U2.0 强制退役：`stall_warning.py`
+
+在 A-F 分类、diff 和任何用户确认前，先对项目中已存在的两套宿主目录执行
+以下强制退役；缺失时静默 no-op：
+
+1. 无条件删除 `.codex/hooks/stall_warning.py` 与
+   `.claude/hooks/stall_warning.py`。不得比较 hash、展示 diff、保留备份或因
+   下游人工修改而跳过。
+2. 分别从 `.codex/settings.json` 和 `.claude/settings.json` 的
+   `UserPromptSubmit` hook 列表移除引用对应 `stall_warning.py` 的受管注册；
+   保留同一事件的所有其他 hook 与下游自定义配置。
+3. 该退役不写入 host map 的资产所有权，也不等待 A/B 类覆盖确认；它是用户已确认
+   的安全策略变更。收据须逐宿主报告脚本和注册各自的“已移除 / 原本不存在”。
+
 | 类 | 文件 | 策略 |
 |---|---|---|
 | A | hooks、scripts；Codex `agents/*.toml`（`implementation-worker` 的模型字段除外）、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
@@ -147,7 +161,7 @@ python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证 `.codex/subscription-tier.toml` 存在，`model_policy_check.py --pre-commit` 按 marker 对应档位通过；无 marker 时必须先回根入口 Step 4.5 询问并写入，禁止静默套用模板高档。
 5. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
-6. 将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `VERSION`。
+6. 将项目根 `VERSION` 与 `$PROJECT_AGENT_DIR/.bridgeforge_version` 都写为上游当前 `$BRIDGEFORGE_HOME/VERSION`；`package.json`、`pyproject.toml`、`Cargo.toml` 保持业务自有版本，不参与骨架版本同步。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。
 9. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。

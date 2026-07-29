@@ -311,11 +311,6 @@
             "type": "command",
             "command": ".venv/Scripts/python.exe .claude/hooks/focus_reminder.py",
             "comment": "任务防漂移 — 记本会话原始任务锚(.runtime/focus/anchor.json), 攒够 FOCUS_MIN_TURN 轮后周期注入 [focus] 信号, 提示模型自检是否跑偏 + 按类型(前置/附加/无关)响应 (详见 CLAUDE.md §9.6)。配套 /spinoff(派生交接) + /focus(锚控制) skill。"
-          },
-          {
-            "type": "command",
-            "command": ".venv/Scripts/python.exe .claude/hooks/stall_warning.py",
-            "comment": "空转弱事后提醒（D4-M4）：多特征合取（最近>=2轮高 output 且零 tool_use + 续接式 nudge 驱动 + thinking 占比高代理）才注入 [stall]，exit 0 非阻塞。弱事后代理提醒非实时刹车，对合法长思考轮无区分力、宁漏不烦。详见 CLAUDE.md §10。"
           }
         ]
       }

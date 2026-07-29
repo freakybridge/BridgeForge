@@ -121,7 +121,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
 
     shutil.copy2(CODEX_TEMPLATE / "AGENTS.md", CODEX_FIXTURE / "AGENTS.md")
     shutil.copy2(CODEX_TEMPLATE / "CHANGELOG.md", CODEX_FIXTURE / "CHANGELOG.md")
-    shutil.copy2(CODEX_TEMPLATE / "VERSION", CODEX_FIXTURE / "VERSION")
+    shutil.copy2(REPO_ROOT / "VERSION", CODEX_FIXTURE / "VERSION")
 
     codex_dir = CODEX_FIXTURE / ".codex"
     codex_dir.mkdir()
@@ -155,6 +155,58 @@ def check_rule_index_missing() -> CheckResult:
         "codex_rule_index_missing",
         ok,
         f"expected exit 2 mentioning debugging.md, got exit {r.returncode}",
+    )
+
+
+def check_rule_index_scope_and_audit() -> CheckResult:
+    scope_fixture = build_codex_fixture()
+    entry = scope_fixture / "AGENTS.md"
+    entry.write_text(
+        entry.read_text(encoding="utf-8")
+        + "\n## 12. 非索引示例\n\n`rules/not-indexed.md` 仅用于说明。\n",
+        encoding="utf-8",
+    )
+    scoped = run(
+        [sys.executable, ".codex/hooks/rule_index_check.py", "--pre-commit"],
+        scope_fixture,
+    )
+
+    audit_fixture = build_codex_fixture()
+    (audit_fixture / ".codex" / "rules" / "debugging.md").unlink()
+    audit = run(
+        [sys.executable, ".codex/hooks/rule_index_check.py", "--audit-all"],
+        audit_fixture,
+    )
+
+    malformed_fixture = build_codex_fixture()
+    malformed_entry = malformed_fixture / "AGENTS.md"
+    malformed_entry.write_text(
+        malformed_entry.read_text(encoding="utf-8").replace(
+            "## 2. 规则文件索引", "## 2. 已移除的标题", 1
+        ),
+        encoding="utf-8",
+    )
+    malformed = run(
+        [sys.executable, ".codex/hooks/rule_index_check.py", "--audit-all"],
+        malformed_fixture,
+    )
+
+    ok = (
+        scoped.returncode == 0
+        and audit.returncode == 2
+        and "debugging.md" in (audit.stderr + audit.stdout)
+        and malformed.returncode == 2
+        and "规则文件索引" in (malformed.stderr + malformed.stdout)
+    )
+    return CheckResult(
+        "codex_rule_index_scope_and_audit",
+        ok,
+        "non-index references are ignored; audit blocks missing entries and a missing index section"
+        if ok
+        else (
+            f"scoped={scoped.returncode} audit={audit.returncode} "
+            f"malformed={malformed.returncode}"
+        ),
     )
 
 
@@ -1263,6 +1315,360 @@ def check_switch_direct_untranslated() -> CheckResult:
     )
 
 
+def check_switch_direct_portable_rule_candidates() -> CheckResult:
+    portable_field = "bridgeforge_portable_rule: true"
+    failures: list[str] = []
+    module = _direct_switch_module()
+
+    def seed_rules(
+        fixture: Path,
+        source_host: str,
+        target_host: str,
+        *,
+        include_target: bool = True,
+    ) -> tuple[dict[str, str], dict[Path, bytes]]:
+        source_rules = fixture / f".{source_host}" / "rules"
+        target_rules = fixture / f".{target_host}" / "rules"
+        source_rules.mkdir()
+        target_rules.mkdir()
+        rels = {
+            "marked": f".{source_host}/rules/portable.md",
+            "missing": f".{source_host}/rules/missing-field.md",
+            "duplicate": f".{source_host}/rules/duplicate-field.md",
+            "false": f".{source_host}/rules/false-field.md",
+            "nonboolean": f".{source_host}/rules/nonboolean-field.md",
+            "unclosed": f".{source_host}/rules/unclosed-frontmatter.md",
+            "body_field": f".{source_host}/rules/body-field.md",
+            "nested": f".{source_host}/rules/nested/portable.md",
+            "target": f".{target_host}/rules/portable.md",
+        }
+        (fixture / rels["marked"]).write_text(
+            "---\npaths:\n  - src/portable/**\n"
+            f"{portable_field}\n"
+            "---\n\n# Portable candidate\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["missing"]).write_text(
+            "---\npaths:\n  - src/missing/**\n---\n\n"
+            "# Missing portable field\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["duplicate"]).write_text(
+            "---\npaths:\n  - src/duplicate/**\n"
+            f"{portable_field}\n"
+            f"{portable_field}\n"
+            "---\n\n# Duplicate portable field\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["false"]).write_text(
+            "---\npaths:\n  - src/false/**\n"
+            "bridgeforge_portable_rule: false\n"
+            "---\n\n# Explicitly non-portable\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["nonboolean"]).write_text(
+            "---\npaths:\n  - src/nonboolean/**\n"
+            'bridgeforge_portable_rule: "true"\n'
+            "---\n\n# String is not a boolean\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["unclosed"]).write_text(
+            "---\npaths:\n  - src/unclosed/**\n"
+            f"{portable_field}\n\n"
+            "# Missing closing frontmatter delimiter\n",
+            encoding="utf-8",
+        )
+        (fixture / rels["body_field"]).write_text(
+            "---\npaths:\n  - src/body/**\n---\n\n"
+            "# Body example is not metadata\n\n"
+            f"{portable_field}\n",
+            encoding="utf-8",
+        )
+        nested = fixture / rels["nested"]
+        nested.parent.mkdir()
+        nested.write_text(
+            "---\npaths:\n  - src/nested/**\n"
+            f"{portable_field}\n"
+            "---\n\n# Nested candidate is out of scope\n",
+            encoding="utf-8",
+        )
+        if include_target:
+            (fixture / rels["target"]).write_bytes(
+                b"target-owned same-name Rule sentinel\r\n"
+            )
+        protected_rels = {
+            rel
+            for key, rel in rels.items()
+            if key != "target" or include_target
+        }
+        protected = {fixture / rel for rel in protected_rels} | {
+            fixture / "AGENTS.md",
+            fixture / "CLAUDE.md",
+        }
+        return rels, {path: path.read_bytes() for path in protected}
+
+    def related_assets(
+        assets: list[dict[str, object]],
+        source_path: str,
+    ) -> list[dict[str, object]]:
+        return [
+            asset
+            for asset in assets
+            if any(
+                member.get("path") == source_path
+                for member in asset.get("source_members", [])
+            )
+        ]
+
+    def is_unowned_candidate(
+        assets: list[dict[str, object]],
+        source_path: str,
+    ) -> bool:
+        related = related_assets(assets, source_path)
+        return (
+            len(related) == 1
+            and related[0].get("asset_type") == "host-specific"
+            and related[0].get("status") == "untranslated"
+            and related[0].get("adapter", {}).get("id") == "none"
+            and related[0].get("target_members") == []
+        )
+
+    def protected_unchanged(before: dict[Path, bytes]) -> bool:
+        return all(
+            path.is_file() and path.read_bytes() == content
+            for path, content in before.items()
+        )
+
+    for source_host, target_host in (
+        ("claude", "codex"),
+        ("codex", "claude"),
+    ):
+        fixture = _build_direct_switch_fixture()
+        _write_empty_switch_map(
+            fixture,
+            source_host=source_host,
+            target_host=target_host,
+        )
+        rels, before = seed_rules(fixture, source_host, target_host)
+        result = _run_direct_switch(fixture, target_host)
+        target_map = _switch_map(fixture, target_host)
+        assets = target_map["assets"]
+        if not (
+            result.returncode == 0
+            and is_unowned_candidate(assets, rels["marked"])
+            and not related_assets(assets, rels["nested"])
+            and all(
+                not related_assets(assets, rels[key])
+                for key in (
+                    "missing",
+                    "duplicate",
+                    "false",
+                    "nonboolean",
+                    "unclosed",
+                    "body_field",
+                )
+            )
+            and protected_unchanged(before)
+            and "untranslated" in result.stdout
+            and "completed_with_gaps" in result.stdout
+        ):
+            failures.append(
+                f"{source_host}->{target_host} discovery boundary or "
+                f"byte preservation failed: "
+                f"{(result.stdout + result.stderr).strip()}"
+            )
+
+    fixture = _build_direct_switch_fixture()
+    _write_empty_switch_map(
+        fixture,
+        source_host="claude",
+        target_host="codex",
+    )
+    rels, before = seed_rules(
+        fixture,
+        "claude",
+        "codex",
+        include_target=False,
+    )
+    absent_target_rules = fixture / ".codex" / "rules"
+    absent_tree_before = _switch_snapshot(absent_target_rules)
+    absent_plan = module.build_plan(
+        "codex",
+        fixture.resolve(),
+        REPO_ROOT.resolve(),
+    )
+    absent = _run_direct_switch(fixture, "codex")
+    absent_assets = _switch_map(fixture, "codex")["assets"]
+    target_rule_prefix = ".codex/rules/"
+    if not (
+        absent.returncode == 0
+        and is_unowned_candidate(absent_assets, rels["marked"])
+        and not any(
+            path.startswith(target_rule_prefix)
+            for path in [*absent_plan.writes, *absent_plan.deletes]
+        )
+        and _switch_snapshot(absent_target_rules) == absent_tree_before
+        and protected_unchanged(before)
+    ):
+        failures.append(
+            "absent target Rule/tree was created or scheduled for ownership"
+        )
+
+    fixture = _build_direct_switch_fixture()
+    rels, before = seed_rules(fixture, "claude", "codex")
+    missing = _run_direct_switch(fixture, "codex")
+    missing_assets = _switch_map(fixture, "codex")["assets"]
+    if not (
+        missing.returncode == 0
+        and is_unowned_candidate(missing_assets, rels["marked"])
+        and protected_unchanged(before)
+    ):
+        failures.append(
+            "missing target map did not retain an unowned candidate while "
+            "preserving Rule/entry bytes"
+        )
+
+    fixture = _build_direct_switch_fixture()
+    rels, before = seed_rules(fixture, "claude", "codex")
+    corrupt_map = fixture / ".codex" / ".bridgeforge-map.json"
+    corrupt_bytes = b"{broken portable Rule map sentinel"
+    corrupt_map.write_bytes(corrupt_bytes)
+    corrupt_plan = module.build_plan(
+        "codex",
+        fixture.resolve(),
+        REPO_ROOT.resolve(),
+    )
+    corrupt = _run_direct_switch(fixture, "codex")
+    corrupt_output = corrupt.stdout + corrupt.stderr
+    if not (
+        is_unowned_candidate(corrupt_plan.assets, rels["marked"])
+        and rels["target"] not in corrupt_plan.writes
+        and rels["target"] not in corrupt_plan.deletes
+        and corrupt.returncode == 0
+        and corrupt_map.read_bytes() == corrupt_bytes
+        and protected_unchanged(before)
+        and "Target map is invalid and was preserved" in corrupt_output
+        and "untranslated" in corrupt_output
+    ):
+        failures.append(
+            "corrupt target map did not stay fail-closed and byte-preserving"
+        )
+
+    fixture = _build_direct_switch_fixture()
+    _write_empty_switch_map(
+        fixture,
+        source_host="claude",
+        target_host="codex",
+    )
+    rels, before = seed_rules(fixture, "claude", "codex")
+    drift_plan = module.build_plan(
+        "codex",
+        fixture.resolve(),
+        REPO_ROOT.resolve(),
+    )
+    drift_map = fixture / ".codex" / ".bridgeforge-map.json"
+    drifted_map_bytes = drift_map.read_bytes() + b"\n"
+    drift_map.write_bytes(drifted_map_bytes)
+    drift_error = ""
+    try:
+        module.apply_plan(drift_plan)
+    except Exception as exc:
+        drift_error = f"{type(exc).__name__}: {exc}"
+    if not (
+        is_unowned_candidate(drift_plan.assets, rels["marked"])
+        and rels["target"] not in drift_plan.writes
+        and rels["target"] not in drift_plan.deletes
+        and "target map drift before apply" in drift_error
+        and drift_map.read_bytes() == drifted_map_bytes
+        and protected_unchanged(before)
+    ):
+        failures.append(
+            "pre-apply target map drift was not rejected before Rule/entry writes: "
+            + drift_error
+        )
+
+    return CheckResult(
+        "switch_direct_portable_rule_candidates",
+        not failures,
+        "both directions report only a unique true frontmatter field as an "
+        "unowned top-level Rule candidate; missing, duplicate, false, "
+        "non-boolean, unclosed, body-only, and nested declarations are excluded; "
+        "present or absent target Rules and entries remain byte-identical, "
+        "including missing/corrupt/drifted map paths"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
+def check_switch_direct_retired_stall_warning_cleanup() -> CheckResult:
+    """Retired stall hooks must be removed even after a local edit."""
+    fixture = _build_direct_switch_fixture()
+    module = _direct_switch_module()
+    hooks: dict[str, tuple[Path, Path]] = {}
+    for host in ("claude", "codex"):
+        hook_dir = fixture / f".{host}" / "hooks"
+        hook_dir.mkdir()
+        retired = hook_dir / "stall_warning.py"
+        unrelated = hook_dir / "keep_me.py"
+        retired.write_text(
+            f"locally modified retired {host} hook\n",
+            encoding="utf-8",
+        )
+        unrelated.write_text(
+            f"unrelated {host} hook\n",
+            encoding="utf-8",
+        )
+        hooks[host] = (retired, unrelated)
+
+    failures: list[str] = []
+    for target_host in ("codex", "claude"):
+        retired, unrelated = hooks[target_host]
+        other_host = "claude" if target_host == "codex" else "codex"
+        other_retired, other_unrelated = hooks[other_host]
+        target_rel = f".{target_host}/hooks/stall_warning.py"
+        other_retired_before = (
+            other_retired.read_bytes() if other_retired.exists() else None
+        )
+        plan = module.build_plan(
+            target_host,
+            fixture.resolve(),
+            REPO_ROOT.resolve(),
+        )
+        dry_run = _run_direct_switch(fixture, target_host, dry_run=True)
+        retired_after_dry_run = retired.exists()
+        applied = _run_direct_switch(fixture, target_host)
+        output = dry_run.stdout + dry_run.stderr + applied.stdout + applied.stderr
+        if not (
+            target_rel in plan.deletes
+            and dry_run.returncode == 0
+            and retired_after_dry_run
+            and applied.returncode == 0
+            and not retired.exists()
+            and unrelated.read_text(encoding="utf-8")
+            == f"unrelated {target_host} hook\n"
+            and (
+                other_retired.read_bytes() if other_retired.exists() else None
+            )
+            == other_retired_before
+            and other_unrelated.read_text(encoding="utf-8")
+            == f"unrelated {other_host} hook\n"
+            and f"retired-managed-file:{target_rel}" in output
+        ):
+            failures.append(
+                f"{target_host} retirement did not force-delete only its "
+                f"modified stall hook: {output.strip()}"
+            )
+
+    return CheckResult(
+        "switch_direct_retired_stall_warning_cleanup",
+        not failures,
+        "both host targets force-delete locally modified retired stall hooks, "
+        "keep unrelated hooks, and expose each deletion in the sync plan"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
 def check_switch_direct_script_mirrors() -> CheckResult:
     paths = [
         REPO_ROOT / "scripts" / "bridgeforge_switch.py",
@@ -2158,6 +2564,7 @@ CHECKS = {
     "non-ascii-shell-guard": check_non_ascii_shell_guard,
     "non-ascii-shell-settings": check_non_ascii_shell_guard_settings,
     "rule-index": check_rule_index_missing,
+    "rule-index-scope-audit": check_rule_index_scope_and_audit,
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,
     "mirror-noop": check_mirror_no_templates_noop,
@@ -2176,9 +2583,11 @@ CHECKS = {
     "switch-legacy-root": check_switch_direct_legacy_root,
     "switch-map-ownership": check_switch_direct_map_ownership,
     "switch-projection": check_switch_direct_source_map_projection,
+    "switch-retired-stall-warning": check_switch_direct_retired_stall_warning_cleanup,
     "switch-rollback": check_switch_direct_rollback,
     "switch-script-mirrors": check_switch_direct_script_mirrors,
     "switch-target-link-toctou": check_switch_direct_target_link_toctou,
+    "switch-portable-rule-candidates": check_switch_direct_portable_rule_candidates,
     "switch-untranslated": check_switch_direct_untranslated,
     "switch-whole-file": check_switch_direct_whole_file_lifecycle,
 }

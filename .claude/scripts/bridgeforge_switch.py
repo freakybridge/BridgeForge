@@ -25,6 +25,7 @@ from typing import Any
 AGENTS = ("claude", "codex")
 SCHEMA_VERSION = 3
 MAP_NAME = ".bridgeforge-map.json"
+PORTABLE_RULE_FIELD = b"bridgeforge_portable_rule:"
 HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,199}$")
 REASON_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,99}$")
@@ -62,6 +63,10 @@ class AgentSpec:
 SPECS = {
     "claude": AgentSpec("claude", "CLAUDE.md", ".claude"),
     "codex": AgentSpec("codex", "AGENTS.md", ".codex"),
+}
+RETIRED_TARGET_FILES = {
+    "claude": (".claude/hooks/stall_warning.py",),
+    "codex": (".codex/hooks/stall_warning.py",),
 }
 
 
@@ -264,6 +269,38 @@ def _surface_ok(path: str, host: str) -> bool:
 def _portable_text_path(path: str, host: str) -> bool:
     prefix = SPECS[host].config_dir + "/memory/"
     return path.startswith(prefix) and path.endswith(".md")
+
+
+def _rule_markdown_path(path: str, host: str) -> str | None:
+    prefix = SPECS[host].config_dir + "/rules/"
+    if not path.startswith(prefix) or not path.endswith(".md"):
+        return None
+    return path[len(prefix) :]
+
+
+def _has_portable_rule_frontmatter(data: bytes) -> bool:
+    lines = data.splitlines()
+    if not lines or lines[0] != b"---":
+        return False
+    try:
+        closing = lines.index(b"---", 1)
+    except ValueError:
+        return False
+    declarations = [
+        line[len(PORTABLE_RULE_FIELD) :]
+        for line in lines[1:closing]
+        if line.startswith(PORTABLE_RULE_FIELD)
+    ]
+    return declarations == [b" true"]
+
+
+def _portable_rule_candidate(path: str, file_path: Path, host: str) -> bool:
+    rule_path = _rule_markdown_path(path, host)
+    return (
+        rule_path is not None
+        and "/" not in rule_path
+        and _has_portable_rule_frontmatter(file_path.read_bytes())
+    )
 
 
 def _shared_json_member(member: dict[str, Any], host: str) -> bool:
@@ -550,6 +587,20 @@ def _file_state(path: Path) -> tuple[str, str | None]:
     if not path.is_file():
         return "non-file", None
     return "file", _sha_file(path)
+
+
+def _schedule_retired_target_deletes(plan: SyncPlan) -> None:
+    """Delete explicitly retired host files without map ownership checks."""
+    for rel in RETIRED_TARGET_FILES[plan.current_host]:
+        path = plan.project_root / rel
+        _assert_project_local(path, plan.project_root, "retired target")
+        state, _ = _file_state(path)
+        if state == "missing":
+            continue
+        if state != "file":
+            raise SyncError(f"retired target is unsafe ({state}): {rel}")
+        plan.deletes.add(rel)
+        plan.messages.append(f"retired-managed-file:{rel}")
 
 
 def _load_map(root: Path, host: str) -> LoadedMap:
@@ -948,6 +999,24 @@ def build_plan(
         digest = source_snapshot[path]
         if template.get(path) == digest:
             continue
+        if _rule_markdown_path(path, source_host) is not None:
+            if _portable_rule_candidate(
+                path,
+                source_files[path],
+                source_host,
+            ):
+                plan.assets.append(
+                    _new_asset(
+                        _asset_id("untranslated", path),
+                        "host-specific",
+                        "none",
+                        [_source_member(project_root, path)],
+                        [],
+                        "untranslated",
+                        "no-equivalent-adapter",
+                    )
+                )
+            continue
         target_path = _portable_target_path(
             path,
             source_host,
@@ -1204,6 +1273,7 @@ def build_plan(
             )
             + "\n"
         ).encode("utf-8")
+    _schedule_retired_target_deletes(plan)
     touched = set(plan.writes) | set(plan.deletes)
     if plan.map_bytes is not None:
         touched.add(_rel(_map_path(project_root, current_host), project_root))

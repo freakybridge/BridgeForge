@@ -87,6 +87,7 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/mirror_drift_check.py": ("expected-codex-adapter", "Codex dogfood paths and AGENTS.md wording differ"),
     "hooks/requirements_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/rule_index_check.py": ("cleanup-only", "behavior OK; local variable naming still carries claude_md"),
+    "scripts/memory_search.py": ("cleanup-only", "behavior OK; Codex uses neutral host_dir rather than Claude-specific name"),
     "hooks/rule_size_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/show_state.py": ("expected-codex-adapter", "Codex startup hints use $ skills and .codex scripts"),
     "hooks/test_receipt.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
@@ -96,7 +97,6 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "rules/debugging.md": ("expected-codex-adapter", "Codex rule text references AGENTS.md and $debate"),
     "rules/meta_rule_design.md": ("expected-codex-adapter", "Codex rule paths and AGENTS.md terminology differ"),
     "rules/portability.md": ("codex-only", "Codex config.toml, custom agents, and model_policy_check policy"),
-    "scripts/memory_search.py": ("cleanup-only", "behavior OK; local variable naming still carries claude_dir"),
 }
 
 

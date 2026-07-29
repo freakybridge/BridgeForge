@@ -46,25 +46,12 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """探测项目版本号。按优先级：pyproject.toml / setup.py / package.json / Cargo.toml。"""
-    candidates = [
-        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
-        ("setup.py", r'version\s*=\s*[\'"]([^\'"]+)[\'"]'),
-        ("package.json", r'"version"\s*:\s*"([^"]+)"'),
-        ("Cargo.toml", r'^version\s*=\s*"([^"]+)"'),
-    ]
-    for fname, pattern in candidates:
-        p = REPO_ROOT / fname
-        if not p.exists():
-            continue
-        try:
-            text = p.read_text(encoding="utf-8")
-            m = re.search(pattern, text, re.MULTILINE)
-            if m:
-                return m.group(1)
-        except Exception:
-            continue
-    return "?"
+    """读取 BridgeForge 管理的唯一骨架版本源：根 VERSION。"""
+    try:
+        value = (REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        return value or "?"
+    except Exception:
+        return "?"
 
 
 def _active_work() -> str:

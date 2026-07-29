@@ -25,8 +25,8 @@ def main() -> None:
         sys.exit(0)
 
     script_dir = Path(__file__).resolve().parent
-    claude_dir = script_dir.parent
-    memory_dir = claude_dir / "memory"
+    host_dir = script_dir.parent
+    memory_dir = host_dir / "memory"
     skip_names = {"MEMORY.md", "MEMORY_COLD.md"}
 
     results: list[tuple[int, str, str, list[str]]] = []

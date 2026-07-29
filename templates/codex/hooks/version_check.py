@@ -6,8 +6,7 @@
 
 机制：
 1. 拦截所有 Bash 调用，只对 `git commit` 命令做检查（其余立即放行，开销 = 一次 python 冷启动）。
-2. 检查本次 staged 改动是否包含版本号「单一事实源」文件
-   （package.json / Cargo.toml / pyproject.toml / VERSION 之一，与 SKILL.md SoT 检测一致）。
+2. 检查本次 staged 改动是否包含根目录 `VERSION`：这是 BridgeForge 管理的唯一骨架版本源。
 3. 没包含 → exit 2 + stderr 提示 → Codex 阻断该 commit，把 stderr 反馈给 Codex，
    Codex 先 bump 版本号 + 同步 CHANGELOG 再重试 commit。
 
@@ -39,8 +38,7 @@ try:
 except Exception:
     pass
 
-# 版本号单一事实源候选，按优先级（与 SKILL.md Step 3 "版本号 SoT 条件复制" 一致）
-VERSION_FILES = ["package.json", "Cargo.toml", "pyproject.toml", "VERSION"]
+VERSION_FILE = "VERSION"
 
 
 def get_command() -> str:
@@ -71,23 +69,6 @@ def is_git_commit(cmd: str) -> bool:
     return bool(re.search(r"\bgit\b(?:\s+-C\s+\S+|\s+--?[\w-]+)*\s+commit\b", cmd))
 
 
-def declares_version(repo_root: Path, fname: str) -> bool:
-    """该文件是否真的声明了版本号（避免把无 version 字段的 pyproject.toml 误判为 SoT）。"""
-    p = repo_root / fname
-    if not p.exists():
-        return False
-    if fname == "VERSION":
-        return True
-    try:
-        txt = p.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return False
-    if fname == "package.json":
-        return '"version"' in txt
-    # Cargo.toml / pyproject.toml
-    return bool(re.search(r"(?m)^\s*version\s*=", txt))
-
-
 def main() -> int:
     cmd = get_command()
     if not cmd or not is_git_commit(cmd):
@@ -103,12 +84,8 @@ def main() -> int:
     if (repo_root / ".git" / "MERGE_HEAD").exists():
         return 0
 
-    # 找本项目的版本号 SoT 文件
-    version_file = next(
-        (f for f in VERSION_FILES if declares_version(repo_root, f)), None
-    )
-    if version_file is None:
-        return 0  # 没建版本号机制，不拦
+    if not (repo_root / VERSION_FILE).is_file():
+        return 0  # 尚未接入 BridgeForge 根 VERSION，不拦
 
     # 读 staged 文件列表
     try:
@@ -123,14 +100,14 @@ def main() -> int:
         return 0  # git 不可用 → 不拦（避免误伤正常工作）
 
     staged = {line.strip() for line in out.splitlines() if line.strip()}
-    if version_file in staged:
+    if VERSION_FILE in staged:
         return 0  # 版本号文件已在本次 commit → 放行
 
     # 拦下
     print(
-        f"[version-check] 阻断 commit：本次 staged 改动未包含版本号文件 `{version_file}`。\n"
+        f"[version-check] 阻断 commit：本次 staged 改动未包含骨架版本源 `{VERSION_FILE}`。\n"
         f"[version-check] 按 rules/workflow.md §9 红线，每次 commit 前必须提升版本号。\n"
-        f"[version-check] 请先编辑 `{version_file}` bump 版本号 + 同步 CHANGELOG.md，"
+        f"[version-check] 请先编辑 `{VERSION_FILE}` bump 骨架版本 + 同步 CHANGELOG.md，"
         f"再 git add 后重试 commit。\n"
         f"[version-check] 确需跳过（纯 merge / 紧急 hotfix）：commit message 里加 [skip-version]。",
         file=sys.stderr,

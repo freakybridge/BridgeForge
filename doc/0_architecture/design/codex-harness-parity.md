@@ -7,14 +7,14 @@
 - 状态：`REVIEW`
 - Claude 有但 Codex 缺失：0
 - 未登记的 Codex-only 文件：4
-- 归一化后仍有差异的同名文件：26（未分类：3）
+- 归一化后仍有差异的同名文件：27（未分类：3）
 - skills 内容检查问题：0
 
 ## Inventory
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 29 | 31 | - | `model_policy_check.py`, `user_config_write_guard.py` |
+| `hooks` | 28 | 30 | - | `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 5 | 11 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `project_memory_recovery.py`, `project_memory_writer.py`, `subscription_routing.py` |
 | `memory` | 1 | 1 | - | - |
@@ -52,6 +52,7 @@
 | `rules/portability.md` | 8 | -9 / +38 | `codex-only` | Codex config.toml, custom agents, and model_policy_check policy |
 | `scripts/archive_scan.py` | 1 | -1 / +4 | `needs-review` | new or unclassified semantic difference |
 | `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `needs-review` | new or unclassified semantic difference |
+| `scripts/memory_search.py` | 1 | -2 / +2 | `cleanup-only` | behavior OK; Codex uses neutral host_dir rather than Claude-specific name |
 
 ## Shared Skills Checks
 

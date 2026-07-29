@@ -13,13 +13,32 @@
 
 本项目版本号写在**根目录的 `VERSION` 文件**，所有其他位置（CLI `--version` / 关于对话框 / build 产物）通过读取或编译时嵌入获取。
 
-<!-- TODO: 若本项目有原生版本源（`package.json` / `Cargo.toml` / `pyproject.toml` 等），可删除根目录 `VERSION` 文件，改用原生源。本 CHANGELOG.md 仍保留。 -->
+<!-- BridgeForge 管理的下游项目始终以根目录 `VERSION` 为骨架版本 SoT；业务 manifest 不参与该版本口径。 -->
 
 ---
 
 ## [Unreleased]
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
+
+## [0.42.0] - 2026-07-30
+
+### Changed
+
+- [product] 移除 `stall_warning.py` 及其 hook 注册和 `[stall]` 入口契约；下游更新会强制退役项目级遗留脚本。
+- [product] 下游骨架版本唯一取根 `VERSION`，由 BridgeForge 根版本同步；版本 hook 与状态展示忽略业务 manifest。
+
+## [0.41.0] - 2026-07-29
+
+### Added
+
+- [product] `rule_index_check.py` 新增只读 `--audit-all`，供 CI / 人工在不使用 `[skip-rule-size]` 豁免的情况下复核规则索引完整性。
+
+### Fixed
+
+- [product] 规则索引仅解析 `AGENTS.md` 的“规则文件索引”章节，示例和其他章节中的 `rules/*.md` 不再误计入索引。
+- [product] direct switch 仅报告显式 portable Rule 的迁移候选，不再把 Rule 误作可自动投影资产；目标 Rule 和入口索引保持不变。
+- [product] `memory_search.py` 将宿主目录局部变量从 `claude_dir` 正名为 `host_dir`；parity 保留该有意命名差异的 `cleanup-only` 登记，并更新说明。
 
 ## [0.40.2] - 2026-07-29
 

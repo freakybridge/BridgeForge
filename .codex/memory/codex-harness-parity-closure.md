@@ -24,7 +24,7 @@ description: Codex 迁移兼容闭环验收：parity 覆盖 memory/skills，20 �
 
 保留项：
 
-- `rule_index_check.py` 的 `claude_md`、`memory_search.py` 的 `claude_dir` 属于 `cleanup-only` 命名残留，不影响运行，可后续单独清理。
+- `rule_index_check.py` 的 `claude_md` 属于 `cleanup-only` 命名残留，不影响运行，可后续单独清理。
 
 验证收据：
 

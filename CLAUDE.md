@@ -83,7 +83,6 @@
 | `[clarify]` | 大而模糊需求 → 先 `AskUserQuestion` 问 2-4 个背景问题对齐再动手；琐碎 / 续接 / 已说全细节 → 忽略 |
 | `[focus] 任务锚:…` | 判断是否**不知不觉**偏离锚任务；正常转新任务 → 忽略；真偏离 → 先一句话说明再动（前置阻塞大的走 `/spinoff`） |
 | `[ctx-budget] MEDIUM/HIGH/CRITICAL` | MEDIUM：完成后建议 `/snapshot`；HIGH/CRITICAL：响应开头报用量 + 强烈建议 `/snapshot` 换会话，决定权交用户 |
-| `[stall]` | 本轮尽快收口——给结论或落一个具体动作，别继续纯 thinking 空耗 |
 | `[find-doc]` | 定位文档优先 `/find-doc <topic>`；已知精确路径 / 代码搜索 → 忽略 |
 
 > 完整契约（下游版全文）→ `templates/claude/CLAUDE.md` §9.5-§10.5。
