@@ -198,32 +198,9 @@ REFRESHED
 
 禁止在同一轮把 init、adopt、update 混着执行。模式执行中若新证据改变判定，先停止并重新报告判场依据；不得凭惯性继续原分支。
 
-## Step 4.5：Codex 项目订阅档位（仅 init / adopt / update）
+## Step 4.5：Codex 平台默认调度（仅 init / adopt / update）
 
-Claude 跳过本节。Codex 主对话检查项目 `.codex/subscription-tier.toml`：
-
-- 标记存在且 `tier` 为 `high` 或 `conservative`：沿用，不重复询问。
-- 标记缺失：必须由主对话询问一次。用户明确声明套餐为 200 美元及以上才选 `high`；100 美元及以下、100–200 美元之间或无法判定都选 `conservative`。
-- 标记存在但格式或 `tier` 非法：停止并展示诊断，由用户明确选择两档之一后修复；禁止自行猜测。
-- 标记存在时，只有用户主动要求切换档位才允许改写。
-
-两档含义：
-
-| 档位 | 主对话 | implementation-worker |
-|---|---|---|
-| `high` | `gpt-5.6-terra + high` | `gpt-5.6-sol + high` |
-| `conservative` | `gpt-5.6-terra + medium` | `gpt-5.6-terra + high` |
-
-取得选择后执行项目级写入：
-
-```powershell
-python (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\subscription_routing.py") `
-  --tier <high|conservative> `
-  --project-root "$PWD" `
-  --template-root (Join-Path $BRIDGEFORGE_HOME "templates\codex")
-```
-
-脚本只允许写目标项目 `.codex/subscription-tier.toml`、`.codex/config.toml` 与 `.codex/agents/implementation-worker.toml`；禁止读取或写入用户级 `~/.codex/config.toml`。脚本失败则停止，不得继续写版本戳。运行中的会话不会即时换模，配置从后续会话生效。
+Claude 跳过本节。BridgeForge 不再创建、读取或修改项目级模型、reasoning effort 或订阅档位配置；新项目和更新后的受管配置均让 Codex 平台自行按任务选择。若用户要固定模型或思考强度，必须在项目骨架之外自行明确配置，且该选择不属于 BridgeForge 管理范围。
 
 ## Step 5：执行唯一模式
 

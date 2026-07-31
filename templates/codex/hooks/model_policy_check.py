@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Deprecated compatibility hook; BridgeForge no longer pins model routing."""
+
+raise SystemExit(0)
 """Check Codex model / reasoning-effort routing policy.
 
 SessionStart mode is check-only and non-blocking: report drift, change nothing,

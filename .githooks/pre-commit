@@ -50,9 +50,6 @@ run_exit2_hook ".claude/hooks/rule_index_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_size_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_index_check.py" --pre-commit
 
-# ── [model] Codex 模型/effort 路由闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
-run_exit2_hook ".codex/hooks/model_policy_check.py" --pre-commit
-
 # ── [skills] 通用 skill metadata 闸(硬拦; 下游无 skills/ 则自门控 no-op) ──
 run_exit2_hook ".claude/hooks/skill_metadata_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/skill_metadata_check.py" --pre-commit

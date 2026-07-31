@@ -14,6 +14,6 @@
 - [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>；显式 switch 时目标完整但旧骨架残留要 cleanup-only。
 - [claude-template-safety-hooks-review](claude-template-safety-hooks-review.md) — Claude 模板从 StratusAgent 反哺的三个轻量 hook 审查结论：产品层和 dogfood 成套、注册事件合理、以伪 payload 和阻断路径验收。
 - [codex-harness-parity-closure](codex-harness-parity-closure.md) — Codex 迁移兼容闭环验收：parity 覆盖 memory/skills，20 个差异必须归类，报告状态以未分类为 0 才算 OK。
-- [codex-model-routing-policy](codex-model-routing-policy.md) — Codex 成本路由权威落点：主对话用 config.toml，子 agent 用 .codex/agents/*.toml，hook 只做漂移机检。
+- [codex-model-routing-policy](codex-model-routing-policy.md) — Codex 平台默认调度：BridgeForge 只定义 agent 职责，不固定模型或思考强度。
 - [skill-metadata-precommit-gate](skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
 - [codex-bridgeforge-slash-entry-debug](codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。

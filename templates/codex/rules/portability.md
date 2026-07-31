@@ -17,7 +17,7 @@ paths:
 - 所有影响开发体验的项目级配置 **必须** 存放在项目 `.codex/` 内，纳入 git 管理
 - **禁止** 在用户目录 (`~/.codex/`) 下创建仅特定机器才有的关键配置
 - 新增配置/技能/规则时，默认放项目内，除非明确只对当前机器有意义
-- `effortLevel` 是旧 settings 键，**禁止** 放进 `.codex/settings.json`；由 `SessionStart` hook `enforce_no_effortlevel.py` 机检剔除。Codex 当前模型 / effort 默认值用 `.codex/config.toml` 的 `model` / `model_reasoning_effort`，由 `model_policy_check.py` 机检。
+- `effortLevel` 是旧 settings 键，**禁止** 放进 `.codex/settings.json`；由 `SessionStart` hook `enforce_no_effortlevel.py` 机检剔除。BridgeForge 标准骨架不在项目配置中固定模型或思考强度。
 
 ---
 
@@ -29,8 +29,7 @@ paths:
 | Rules | `.codex/rules/` | 直接 git 管理 |
 | 项目专属 Skill | `.codex/skills/` | 直接 git 管理。**仅项目独有、bridgeforge 不出品的 skill**（如某项目的 restart-ui） |
 | 通用 skill 的项目数据 | `.codex/find-doc.map.md` / `.codex/sync-docs.map.md` 等 | 通用 skill 本体在 bridgeforge，但其**项目专属映射表**留项目内，直接 git 管理 |
-| Codex 配置 | `.codex/config.toml` | 模型默认值、reasoning effort、custom agent 全局参数 |
-| Codex 订阅档位 | `.codex/subscription-tier.toml` | `/bridgeforge` 用户声明的项目级路由档位 |
+| Codex 配置 | `.codex/config.toml` | sandbox、custom agent 全局参数；模型与 reasoning effort 保持未设置 |
 | Custom agents | `.codex/agents/*.toml` | 轻量探索 / 开发 / 复核 / xhigh 审计档位 |
 | 项目 hook | `.codex/hooks.json` | Codex 项目级 `SessionStart` 注册 |
 | 项目设置 | `.codex/settings.json` | defaultMode、项目级权限；禁止作为 hook 承载面 |
@@ -65,20 +64,17 @@ memory 纳入项目 git（`.codex/memory/`），Codex 系统路径是
 | 文件 | 说明 | 处理方式 |
 |------|------|---------|
 | `.codex/settings.local.json` | 本机路径、本机权限覆盖 | `.gitignore` 已排除，换机后按需创建 |
-| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写；项目模型路由只由 `.codex/subscription-tier.toml` 和项目配置决定 |
+| 用户级 `~/.codex/config.toml` | 个人默认（模型、reasoning effort、profile 等）| 换机后手动设置；骨架只读不写 |
 | 用户级 `~/.codex/settings.json` | 旧式 / 本机设置 | 不放项目策略；项目级 `effortLevel` 由 `enforce_no_effortlevel` 剔除 |
 
-### 3.1 Codex 模型 / effort 策略（机检）
+### 3.1 Codex 模型 / effort（平台默认）
 
-**项目必须有 `.codex/subscription-tier.toml`；`high` 必须对应主对话 `gpt-5.6-terra + high`、implementation `gpt-5.6-sol + high`，`conservative` 必须对应主对话 `gpt-5.6-terra + medium`、implementation `gpt-5.6-terra + high`。**
+**BridgeForge 模板与 dogfood 镜像不得在 `.codex/config.toml` 或 `.codex/agents/*.toml` 固定 `model`、`model_reasoning_effort` 或 `plan_mode_reasoning_effort`。**
 
-**禁止读取或写入用户级 `~/.codex/config.toml` 推断或应用项目档位；禁止在 marker 存在时重复询问或静默改档。**
+**禁止读取或写入用户级 `~/.codex/config.toml`。用户若要覆盖平台默认，必须自己明确配置并承担项目特定维护。**
 
 **`.codex/agents/*.toml` 必须保留四类公共子 agent；`xhigh` agent 必须明示需要用户确认。**
 
-策略漂移由 `.codex/hooks/model_policy_check.py` 负责：
-
-- `SessionStart`：只读提示，不自动修。
 - `pre-commit`：硬拦漂移，避免把高成本默认值或无确认的 `xhigh` 传播到下游。
 
 骨架 hook、脚本和测试**禁止写**用户级 `~/.codex/config.toml`；`user_config_write_guard.py` 在 PreToolUse 阶段拦截显式写入，模型策略检查和 fixture 共同校验该边界。

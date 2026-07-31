@@ -17,6 +17,10 @@
 
 ---
 
+## [0.74.0] - 2026-07-31
+
+- `[product][repo][meta]` 移除 BridgeForge 对 Codex 模型和思考强度的项目级固定路由：模板与 dogfood 的 `config.toml`、全部 custom agent 不再写 `model` / `model_reasoning_effort`，订阅档位 marker 与路由脚本停止分发，模型策略 hook 不再注册或作为 pre-commit 闸。`$bridgeforge` init/adopt/update 改为保持 Codex 平台默认；named agent 只保留职责边界和 `xhigh` 的用户确认门槛。下游需新会话后生效；已有项目的自主模型覆盖保持由用户决定。
+
 ## [0.73.0] - 2026-07-30
 
 - `[product][repo][meta]` 分离下游业务版本与 BridgeForge 骨架版本：`.<host>/.bridgeforge_version` 成为唯一骨架版本戳，init / update 不再创建或覆盖下游根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml`。下游模板注销强制版本 hook，遗留同名 hook 降级为兼容 no-op；状态与 snapshot 只显示骨架版本。BridgeForge 工厂自身改为仅在暂存 `templates/**` 或 `skills/**` 时由本地 pre-commit 强制暂存根 `VERSION`。

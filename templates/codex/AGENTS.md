@@ -61,24 +61,13 @@
 
 ---
 
-## 4.5 Codex 模型 / effort 路由（红线）
+## 4.5 Codex 模型 / effort（平台默认）
 
-配置负责选档，hook 负责防漂：`.codex/config.toml` 是主对话默认档，`.codex/agents/*.toml` 是子 agent 预设档，`model_policy_check.py` 负责检查这些档位是否被改坏。
+BridgeForge 不在 `.codex/config.toml` 或 `.codex/agents/*.toml` 固定模型和思考强度。主任务与 custom agent 都交给 Codex 按当前会话、任务和平台可用选项自动调度；用户在模型选择器或项目配置中作出的显式选择优先。
 
-| 场景 | Agent / 配置 | 模型 | Effort |
-|------|--------------|------|--------|
-| 高档主对话（marker=`high`） | `.codex/config.toml` | `gpt-5.6-terra` | `high` |
-| 保守档主对话（marker=`conservative`） | `.codex/config.toml` | `gpt-5.6-terra` | `medium` |
-| 只读探索 / 扫文档 / 找线索 | `light-explorer` | `gpt-5.6-luna` | `low` |
-| 已授权的确定性 Git 同步 | `mechanical-sync-worker` | `gpt-5.6-luna` | `low` |
-| 高档明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-sol` | `high` |
-| 保守档明确开发 / 跨文件判断 | `implementation-worker` | `gpt-5.6-terra` | `high` |
-| 独立复核 / 验收审计 | `review-auditor` | `gpt-5.6-sol` | `high` |
-| 超强审计 / 专家会诊 | `xhigh-auditor` | `gpt-5.6-sol` | `xhigh` |
-
-项目档位必须由 `/bridgeforge` 根据用户明确声明写入 `.codex/subscription-tier.toml`；marker 存在时禁止重复询问或静默改档，只有用户主动要求切换才可改写。禁止读取账户、账单或用户级 `~/.codex/config.toml` 推断档位。
-
-- 已运行的主对话不自动中途换模型；需要升档时按任务分流到对应 custom agent。`xhigh` 只由用户当次自行选择，骨架不得自动提升。
+- `light-explorer`、`mechanical-sync-worker`、`implementation-worker`、`review-auditor` 和 `xhigh-auditor` 只定义职责边界，不预设模型或 effort。
+- 已运行的主对话不会因文件修改中途换模型；新的配置只在后续会话生效。
+- `xhigh` 仍只由用户当次明确选择，骨架不得自动提升。
 - 禁止因为“任务大但机械”就用 `xhigh`；只有疑难根因、高风险决策、或 high 复核仍判断不清时才申请。
 - Codex 的 `SKILL.md` frontmatter `model:` 不作为本骨架的自动切换依据；Codex 模型路由以 `config.toml` 和 `.codex/agents/*.toml` 为准。
 
@@ -91,9 +80,9 @@
 - `light-explorer` 只能执行 `read-only` 行；`implementation-worker` 只能执行 `implementation` 行；`review-auditor` 只能执行 `audit` 行。不得把写入、用户确认或独立审计降到 Luna。
 - `mechanical-sync-worker` 只在用户显式 `$git-sync` 时执行 `controlled-write` 行，且只允许运行 `.codex/scripts/codex_git_sync.py`；分叉、冲突、失败和任何决策必须立即交回主对话。
 - manifest 不得自动路由到 `xhigh-auditor`。`xhigh` 仍须本次请求中用户明确确认。
-- 这是工作流指令契约，不是 Codex 平台级 runtime router：`model_policy_check.py` 只校验配置与规则；实际 named-agent 分派须通过运行时 smoke test 留证。
+- 这是工作流指令契约，不是 Codex 平台级 runtime router；实际 named-agent 分派须通过运行时 smoke test 留证。
 
-白话类比：主对话是总控台默认中火，子 agent 是预设工具箱；hook 是巡检员，发现档位被拧错就报警或在提交前拦住。
+白话类比：骨架只提供不同用途的工具箱，不给每把工具锁死火力；火力由 Codex 和你当前任务现场决定。
 
 ---
 

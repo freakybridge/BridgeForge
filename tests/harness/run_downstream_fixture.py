@@ -131,7 +131,6 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
     shutil.copy2(REPO_ROOT / "VERSION", codex_dir / ".bridgeforge_version")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
-    shutil.copy2(CODEX_TEMPLATE / "subscription-tier.toml", codex_dir / "subscription-tier.toml")
     shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
     _copytree(CODEX_TEMPLATE / "agents", codex_dir / "agents")
 
@@ -305,7 +304,6 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py" --pre-commit',
         '.codex/hooks/rule_size_check.py" --pre-commit',
         '.codex/hooks/rule_index_check.py" --pre-commit',
-        '.codex/hooks/model_policy_check.py" --pre-commit',
         '.claude/hooks/encoding_check.py" --pre-commit',
         '.codex/hooks/encoding_check.py" --pre-commit',
         '.claude/hooks/skill_metadata_check.py" --pre-commit',
@@ -319,7 +317,6 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.claude/hooks/rule_index_check.py --pre-commit',
         '.codex/hooks/rule_size_check.py --pre-commit',
         '.codex/hooks/rule_index_check.py --pre-commit',
-        '.codex/hooks/model_policy_check.py --pre-commit',
         '.claude/hooks/encoding_check.py --pre-commit',
         '.codex/hooks/encoding_check.py --pre-commit',
         '.claude/hooks/skill_metadata_check.py --pre-commit',
@@ -2177,7 +2174,37 @@ def check_user_skill_distribution() -> CheckResult:
     )
 
 
-def check_model_policy() -> CheckResult:
+def check_platform_default() -> CheckResult:
+    roots = (REPO_ROOT / ".codex", CODEX_TEMPLATE)
+    paths = [
+        *(root / "config.toml" for root in roots),
+        *(path for root in roots for path in (root / "agents").glob("*.toml")),
+    ]
+    pinned = []
+    for path in paths:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if re.match(r"\\s*(model|model_reasoning_effort|plan_mode_reasoning_effort)\\s*=", line):
+                pinned.append(f"{path.relative_to(REPO_ROOT)}:{number}")
+    retired = [
+        path
+        for root in roots
+        for path in (
+            root / "subscription-tier.toml",
+            root / "scripts" / "subscription_routing.py",
+        )
+        if path.exists()
+    ]
+    ok = not pinned and not retired
+    return CheckResult(
+        "platform_default",
+        ok,
+        "BridgeForge leaves model and reasoning-effort selection to Codex"
+        if ok
+        else f"pinned={pinned}; retired routing artifacts={[str(path) for path in retired]}",
+    )
+
+
+def _legacy_check_model_policy() -> CheckResult:
     source = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], REPO_ROOT)
     if source.returncode != 0:
         return CheckResult(
@@ -2291,7 +2318,7 @@ def check_model_policy() -> CheckResult:
     )
 
 
-def check_subscription_routing() -> CheckResult:
+def _legacy_check_subscription_routing() -> CheckResult:
     script = CODEX_TEMPLATE / "scripts" / "subscription_routing.py"
     command = [
         sys.executable,
@@ -2558,7 +2585,7 @@ CHECKS = {
     "codex-git-sync": check_codex_git_sync_runner,
     "encoding-garble": check_encoding_garble_scan,
     "encoding-no-bom": check_encoding_no_bom,
-    "model-policy": check_model_policy,
+    "platform-default": check_platform_default,
     "layout-migration": check_layout_migration_dry_run_apply,
     "layout-migration-blockers": check_layout_migration_blockers_are_local,
     "layout-migration-rollback": check_layout_migration_transaction_rollback,
@@ -2575,7 +2602,6 @@ CHECKS = {
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
     "user-skill-distribution": check_user_skill_distribution,
-    "subscription-routing": check_subscription_routing,
     "user-config-write-guard": check_user_config_write_guard,
     "switch-bidirectional": check_switch_direct_bidirectional_maps,
     "switch-cardinality": check_switch_direct_cardinality,

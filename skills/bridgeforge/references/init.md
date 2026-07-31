@@ -74,8 +74,7 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `settings.json` | `$PROJECT_AGENT_DIR/settings.json` | 总是；已存在只 merge |
 | `hooks.json` | `.codex/hooks.json` | 仅 Codex；按 command 身份 merge 受管项，保留第三方事件与 hook |
 | `config.toml` | `.codex/config.toml` | 仅 Codex；已存在按字段 merge，保留项目覆盖 |
-| `agents/*.toml` | `.codex/agents/` | 仅 Codex；同名文件冲突必须展示 diff 后决定；根入口 Step 4.5 刚生成的 `implementation-worker.toml` 保留档位字段并补齐模板其余内容 |
-| `subscription-tier.toml` | `.codex/subscription-tier.toml` | 仅 Codex；不直接复制，由根入口 Step 4.5 按用户选择写入 |
+| `agents/*.toml` | `.codex/agents/` | 仅 Codex；同名文件冲突必须展示 diff 后决定；BridgeForge 不在 agent 文件中固定模型或思考强度 |
 | `skill-routing.json` | `.codex/skill-routing.json` | 仅 Codex；与 agents 一起复制并验证引用完整 |
 | `.githooks/pre-commit` | 项目根 `.githooks/pre-commit` | 仅模板存在时；已有文件只合并 BridgeForge 检查段 |
 | `doc/README.md` | `doc/README.md` | 总是；将 `delivery_layout` 替换为用户选择 |
@@ -215,7 +214,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 | `hooks/` | ctx、snapshot、memory/rules/skill 检查等自动化 |
 | `settings.json` | permissions 三档；Claude 还承载 hook 注册；已有配置只 merge |
 | Codex `hooks.json` | Codex 项目级 `SessionStart` hook 注册；已有配置只 merge |
-| Codex `subscription-tier.toml` / `config.toml` / `agents/*.toml` / `skill-routing.json` | 项目订阅档位、主对话默认档、named agent 预设和 skill 路由契约；必须配套验证 |
+| Codex `config.toml` / `agents/*.toml` / `skill-routing.json` | 项目配置、named agent 职责和 skill 路由契约；模型与思考强度保持 Codex 平台默认 |
 | `.githooks/pre-commit` | 提交前聚合硬闸；已有项目只 merge BridgeForge 检查段 |
 | `memory/MEMORY.md` | 初始唯一文件；分类与 topic 目录在首次真实写入时创建 |
 | `doc/README.md` | 分层唯一索引 |

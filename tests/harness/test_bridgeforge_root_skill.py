@@ -24,7 +24,6 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
         init = (ROOT / "skills" / "bridgeforge" / "references" / "init.md").read_text(encoding="utf-8")
         update = (ROOT / "skills" / "bridgeforge" / "references" / "update.md").read_text(encoding="utf-8")
         for marker in (
-            "subscription-tier.toml",
             "config.toml",
             "agents/*.toml",
             "skill-routing.json",
@@ -33,26 +32,15 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             self.assertIn(marker, init)
             self.assertIn(marker, update)
 
-    def test_codex_subscription_routing_is_main_dialog_and_all_modes(self) -> None:
+    def test_codex_platform_default_policy_is_main_dialog_and_all_modes(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("templates\\codex\\scripts\\subscription_routing.py", skill)
-        self.assertIn(
-            "标记存在且 `tier` 为 `high` 或 `conservative`：沿用，不重复询问。",
-            skill,
-        )
-        self.assertIn("标记缺失：必须由主对话询问一次。", skill)
-        self.assertIn(
-            "100 美元及以下、100–200 美元之间或无法判定都选 `conservative`。",
-            skill,
-        )
-        self.assertIn(
-            "标记存在时，只有用户主动要求切换档位才允许改写。",
-            skill,
-        )
+        self.assertIn("Codex 平台默认调度", skill)
+        self.assertIn("不再创建、读取或修改项目级模型、reasoning effort 或订阅档位配置", skill)
+        self.assertNotIn("subscription_routing.py", skill)
         self.assertIn("Claude 跳过本节。", skill)
         for name in ("init.md", "adopt.md", "update.md"):
             text = (ROOT / "skills" / "bridgeforge" / "references" / name).read_text(encoding="utf-8")
-            self.assertIn("订阅", text)
+            self.assertNotIn("subscription-tier.toml", text)
 
     def test_progressive_references_are_one_level_and_live(self) -> None:
         expected = {"switch.md", "user-skill-maintenance.md", "init.md", "adopt.md", "update.md"}

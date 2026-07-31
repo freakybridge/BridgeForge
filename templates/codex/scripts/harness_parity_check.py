@@ -38,7 +38,6 @@ REPORT = REPO_ROOT / "doc" / "0_architecture" / "design" / "codex-harness-parity
 COMPARE_DIRS = ("hooks", "rules", "scripts", "memory")
 CODEX_ONLY_EXPECTED = {
     "config.toml",
-    "hooks/model_policy_check.py",
     "hooks/user_config_write_guard.py",
     "scripts/codex_git_sync.py",
     "scripts/harness_parity_check.py",
@@ -75,7 +74,7 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/allow_memory_write.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_* fallback"),
     "hooks/cargo_default_run_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/clarify_reminder.py": ("expected-codex-adapter", "Codex must skip both / commands and $ skills"),
-    "hooks/config_health_check.py": ("codex-only", "Codex registers model_policy_check health signal"),
+    "hooks/config_health_check.py": ("codex-only", "Codex checks project configuration health at session start"),
     "hooks/context_warning.py": ("expected-codex-adapter", "Codex skill calls use $ and must bypass ctx warning"),
     "hooks/encoding_check.py": ("expected-codex-adapter", "managed roots differ between .claude and .codex"),
     "hooks/fallback_smell_check.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
@@ -96,7 +95,7 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "rules/anti_drift_hooks.md": ("expected-codex-adapter", "Codex rule paths, AGENTS.md refs, and $ skills differ"),
     "rules/debugging.md": ("expected-codex-adapter", "Codex rule text references AGENTS.md and $debate"),
     "rules/meta_rule_design.md": ("expected-codex-adapter", "Codex rule paths and AGENTS.md terminology differ"),
-    "rules/portability.md": ("codex-only", "Codex config.toml, custom agents, and model_policy_check policy"),
+    "rules/portability.md": ("codex-only", "Codex config.toml and custom-agent portability guidance"),
 }
 
 

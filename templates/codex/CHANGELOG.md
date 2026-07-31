@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.43.0] - 2026-07-31
+
+### Changed
+
+- [product] BridgeForge 不再固定 Codex 模型或思考强度：`config.toml` 与 custom agent 均保持未设置，订阅档位路由与模型策略 hook 退役；后续会话由 Codex 平台按任务自动调度。
+
 ## [0.42.0] - 2026-07-30
 
 ### Changed
