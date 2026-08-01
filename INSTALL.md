@@ -141,7 +141,7 @@ cp ~/.bridgeforge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bri
 
 上面的直接 clone 适合**只用不改**的人——它在 `~/.bridgeforge` 下放一份真实副本。
 
-如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`、做下游反哺 harvest），让 `~/.bridgeforge` 指向开发仓库；Codex 和 Claude Code 的用户级 skill 目录都只放 wrapper。
+如果你**既要用、又要维护 bridgeforge 本体**（改 `templates/` / `skills/`），让 `~/.bridgeforge` 指向开发仓库；Codex 和 Claude Code 的用户级 skill 目录都只放 wrapper。
 
 ```powershell
 # Windows：开发仓库放哪自己定，例 D:\Quant\BridgeForge
@@ -169,7 +169,7 @@ mkdir -p ~/.claude/skills/bridgeforge
 cp ~/dev/BridgeForge/scripts/claude_bridgeforge_entry.SKILL.md ~/.claude/skills/bridgeforge/SKILL.md
 ```
 
-**单一真相源 = 你的开发仓库**。所有编辑、版本 bump、下游 harvest 都只改开发仓库；`~/.bridgeforge` 指向它。Codex 的 `~/.agents/skills/bridgeforge` 和 Claude Code 的 `~/.claude/skills/bridgeforge` 都只是叶子入口 wrapper，模板和脚本读取 `$HOME/.bridgeforge`。
+**单一真相源 = 你的开发仓库**。所有产品层编辑与版本 bump 都只改开发仓库；`~/.bridgeforge` 指向它。Codex 的 `~/.agents/skills/bridgeforge` 和 Claude Code 的 `~/.claude/skills/bridgeforge` 都只是叶子入口 wrapper，模板和脚本读取 `$HOME/.bridgeforge`。
 
 > **验真 & 防骗**：`Get-Item "$env:USERPROFILE\.bridgeforge" -Force` 才是完整仓库或 junction；`Get-Item "$env:USERPROFILE\.agents\skills\bridgeforge" -Force` 和 `Get-Item "$env:USERPROFILE\.claude\skills\bridgeforge" -Force` 应是普通目录，里面只需要 `SKILL.md`。
 

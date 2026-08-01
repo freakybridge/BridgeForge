@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:eee1f87c70f505b50e2248f3ae106c9d15d2e91b05ea7c90a63afed923963230"
+              "sha256": "sha256:402f055d5a3695547b73516231f37b07d385b51f98c0cf422ad9fd5fb8580c91"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:9ed2eb811f25f8b5408e71838c3412be5e1b94ff2206cf4cb771040a777ec025"
+              "sha256": "sha256:c5b722ad80eb4002720d2b0aa86b29b66877e7c765e88aa50a8633d303a65817"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c5cf64c7b073042152a91bc188bc4e744fda52ee1228a2115016dab5b3f3c132"
+              "sha256": "sha256:12725789240c521de709e23bf31258c3951a04a8e58d194736655c61dd04ab3f"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -72,7 +72,7 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:29b49a3ffcb47a85689637f38613ae246e67abd0c99caaa0e7e6898030df04cc"
+              "sha256": "sha256:af1659b94003a93f8ddaa3619bee94f6efce48ce2011fb768481326d3f18c3ef"
             },
             {
               "source": "templates/claude/CLAUDE.md",
@@ -82,7 +82,7 @@
             {
               "source": "templates/claude/VERSION",
               "target": "templates/claude/VERSION",
-              "sha256": "sha256:d553a58a6837c95f31bae39ac344e63cc82fa81cc524966a7cd5174db38c8fa6"
+              "sha256": "sha256:a341550457891be148045ef7560e7499da6063d012ce8163bf6e6db2f08d2466"
             },
             {
               "source": "templates/claude/doc/0_architecture/.gitkeep",
@@ -342,17 +342,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:2e4c900dfe8366932f78c5046331dff0cb54105fdc5963af9b907b85c1a6d621"
+              "sha256": "sha256:f3943a0534f92fb65da965f3923a6974dc4b09eaba1312d9b110956347d9a202"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:c9919add80baa46567a722183f54e8f74748f862a0772b1342a3a7fe191669a0"
+              "sha256": "sha256:beb70a730638f79513a1fa1ad9c87a7c093765309e06b0b2a1d1896b64256a6f"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:ce0ae25b92cad1efa474eb0605bcb1160f6913aed259c1057035987a67f31ae4"
+              "sha256": "sha256:aff9ddc2135efcf30e7d35185a1021bb6ce6c87692431ae712b49482a43dd6ae"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -687,7 +687,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:88e9912072b39748f3002937d08a5ab92f2c605766caac8034ce6f42901fa37f"
+              "sha256": "sha256:3195a8c42453389f8e582925d2afa92d5bd000ba66ae350cd67411daa9bd6581"
             }
           ]
         },
@@ -808,16 +808,6 @@
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:ee376434b645f3dee75ae35f0a89508ed0976f58353d7816d95c63bf41aecc9f"
-            }
-          ]
-        },
-        {
-          "name": "harvest",
-          "files": [
-            {
-              "source": "skills/harvest/SKILL.md",
-              "target": "SKILL.md",
-              "sha256": "sha256:e7d772b5e7ef246f414d9229dc8f1c08f8d7b8285330c0c5ed54a4c15916cb49"
             }
           ]
         },
@@ -907,12 +897,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:eee1f87c70f505b50e2248f3ae106c9d15d2e91b05ea7c90a63afed923963230"
+              "sha256": "sha256:402f055d5a3695547b73516231f37b07d385b51f98c0cf422ad9fd5fb8580c91"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:9ed2eb811f25f8b5408e71838c3412be5e1b94ff2206cf4cb771040a777ec025"
+              "sha256": "sha256:c5b722ad80eb4002720d2b0aa86b29b66877e7c765e88aa50a8633d303a65817"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -932,7 +922,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c5cf64c7b073042152a91bc188bc4e744fda52ee1228a2115016dab5b3f3c132"
+              "sha256": "sha256:12725789240c521de709e23bf31258c3951a04a8e58d194736655c61dd04ab3f"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -967,7 +957,7 @@
             {
               "source": "templates/claude/CHANGELOG.md",
               "target": "templates/claude/CHANGELOG.md",
-              "sha256": "sha256:29b49a3ffcb47a85689637f38613ae246e67abd0c99caaa0e7e6898030df04cc"
+              "sha256": "sha256:af1659b94003a93f8ddaa3619bee94f6efce48ce2011fb768481326d3f18c3ef"
             },
             {
               "source": "templates/claude/CLAUDE.md",
@@ -977,7 +967,7 @@
             {
               "source": "templates/claude/VERSION",
               "target": "templates/claude/VERSION",
-              "sha256": "sha256:d553a58a6837c95f31bae39ac344e63cc82fa81cc524966a7cd5174db38c8fa6"
+              "sha256": "sha256:a341550457891be148045ef7560e7499da6063d012ce8163bf6e6db2f08d2466"
             },
             {
               "source": "templates/claude/doc/0_architecture/.gitkeep",
@@ -1237,17 +1227,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:2e4c900dfe8366932f78c5046331dff0cb54105fdc5963af9b907b85c1a6d621"
+              "sha256": "sha256:f3943a0534f92fb65da965f3923a6974dc4b09eaba1312d9b110956347d9a202"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:c9919add80baa46567a722183f54e8f74748f862a0772b1342a3a7fe191669a0"
+              "sha256": "sha256:beb70a730638f79513a1fa1ad9c87a7c093765309e06b0b2a1d1896b64256a6f"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:ce0ae25b92cad1efa474eb0605bcb1160f6913aed259c1057035987a67f31ae4"
+              "sha256": "sha256:aff9ddc2135efcf30e7d35185a1021bb6ce6c87692431ae712b49482a43dd6ae"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1582,7 +1572,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:88e9912072b39748f3002937d08a5ab92f2c605766caac8034ce6f42901fa37f"
+              "sha256": "sha256:3195a8c42453389f8e582925d2afa92d5bd000ba66ae350cd67411daa9bd6581"
             }
           ]
         },
@@ -1703,16 +1693,6 @@
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:ee376434b645f3dee75ae35f0a89508ed0976f58353d7816d95c63bf41aecc9f"
-            }
-          ]
-        },
-        {
-          "name": "harvest",
-          "files": [
-            {
-              "source": "skills/harvest/SKILL.md",
-              "target": "SKILL.md",
-              "sha256": "sha256:e7d772b5e7ef246f414d9229dc8f1c08f8d7b8285330c0c5ed54a4c15916cb49"
             }
           ]
         },

@@ -17,6 +17,10 @@
 
 ---
 
+## [0.80.0] - 2026-08-01
+
+- `[product][repo][meta]` 退役 `$harvest`：删除共享 skill 源及 Codex/Claude 双平台分发条目，Codex 模板与 dogfood 同步移除三段 agent 路由，现行 README、INSTALL 与设计入口不再引导调用该命令；受管用户级副本会在后续 `/bridgeforge` 更新时按账本安全删除，旧 playbook 明确标记为历史记录，历史 CHANGELOG、需求记录与 harvest inbox 保留为追溯证据。Codex / Claude 模板分别升至 `0.48.0` / `0.34.0`，根版本与 BridgeForge 入口升至 `0.80.0`。
+
 ## [0.79.0] - 2026-08-01
 
 - `[product][meta]` `$git-sync` 在运行同步脚本前从真实 diff 固化 1-3 条代码变动效果，并在成功收据中说明新增功能、已修问题或系统行为变化；禁止用文件清单或空话代替效果摘要，也不会因提交后 diff 清空而漏报。根版本与 BridgeForge 入口升至 `0.79.0`。

@@ -2,6 +2,7 @@
 
 > 状态：设计/未实施。2026-06-09 一次架构 review 的产物。
 > 性质：元文档（描述产品机制，**不**随产品下沉）。
+> 退役说明：本文描述的是旧分发模型；`harvest` shared skill 已于 v0.80.0 退役，现行分发以 manifest + 托管账本 updater 为准。
 
 ## 背景：当前分发机制（事实）
 
@@ -10,7 +11,7 @@
   - `bridgeforge` 这一项 = **junction**（开发机）/ **git clone**（真下游），指向上游仓库。
   - 各通用 skill（find-doc/summary/…）= 从 `bridgeforge/skills/` 复印来的**实体副本**（非软链——`portability.md §2` 有意取舍：换可移植性）。
 - **正向同步**（`/bridgeforge` Step 0）：缺→补、旧→更（给 diff 问用户）、**无删除语义**。
-- **反向同步**（`/harvest`）：下游收件箱→脱敏→写上游 `templates/`/`skills/`→**人工 review + push**（不自动 push）。
+- **反向同步（历史机制，已退役）**：下游收件箱→脱敏→写上游 `templates/`/`skills/`→**人工 review + push**（不自动 push）。
 
 ## 五个漏洞
 

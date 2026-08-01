@@ -232,6 +232,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
             self.assertEqual(platform_manifest["target"], expected_target)
             skills = {skill["name"]: skill for skill in platform_manifest["skills"]}
             self.assertEqual(len(skills), len(platform_manifest["skills"]))
+            self.assertNotIn("harvest", skills)
             platform_skills[platform] = skills
 
             bridgeforge_files = {
@@ -268,6 +269,20 @@ class SharedSkillDistributionTests(unittest.TestCase):
                     self.assertEqual(item["sha256"], f"sha256:{sha256(source_path)}")
 
         self.assertEqual(platform_skills["codex"], platform_skills["claude"])
+
+    def test_retired_harvest_has_no_live_entrypoints(self) -> None:
+        self.assertFalse((ROOT / "skills" / "harvest").exists())
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        install = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
+        playbook_head = "\n".join(
+            (ROOT / "doc" / "0_architecture" / "design" / "reverse-sync-playbook.md")
+            .read_text(encoding="utf-8")
+            .splitlines()[:24]
+        )
+        self.assertNotIn("[反哺手册]", readme)
+        self.assertNotIn("下游 harvest", install)
+        self.assertIn("已退役", playbook_head)
+        self.assertNotIn("/harvest", playbook_head)
 
     def test_installer_uses_lf_checkout_when_user_enables_autocrlf(self) -> None:
         self.write_source()

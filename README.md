@@ -55,7 +55,7 @@ Set-Location D:\tools\BridgeForge
 - 按需创建的 memory：初始只有 `MEMORY.md`；长期知识可写入
   `architecture/`、`engineering/`、`domain/`、`operations/`，专题恢复摘要写入
   `topics/<topic>/`。`completed` 与 `superseded` topic 只会冷却，不会被物理归档。
-- `confirm`、`develop`、`summary`、`find-doc`、`find-memory`、`harvest`、`git-sync`
+- `confirm`、`develop`、`summary`、`find-doc`、`find-memory`、`git-sync`
   等受管通用 skills。
 
 ## 文档与 memory 的边界
@@ -99,8 +99,7 @@ BridgeForge 是“协作骨架工厂”，不是普通业务项目。修改前�
 
 详细设计入口：[文档索引](doc/README.md)、
 [设计依据](doc/0_architecture/design/design-rationale.md)、
-[上游同步手册](doc/0_architecture/design/sync-from-upstream-playbook.md)、
-[反哺手册](doc/0_architecture/design/reverse-sync-playbook.md)。
+[上游同步手册](doc/0_architecture/design/sync-from-upstream-playbook.md)。
 
 ## License
 

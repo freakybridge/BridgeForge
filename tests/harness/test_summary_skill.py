@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "skills" / "summary" / "SKILL.md"
 DEEP_STEPS = ROOT / "skills" / "summary" / "references" / "deep-steps.md"
-HARVEST = ROOT / "skills" / "harvest" / "SKILL.md"
 
 
 class SummarySkillContractTests(unittest.TestCase):
@@ -15,7 +14,6 @@ class SummarySkillContractTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.skill = SKILL.read_text(encoding="utf-8")
         cls.deep_steps = DEEP_STEPS.read_text(encoding="utf-8")
-        cls.harvest = HARVEST.read_text(encoding="utf-8")
         cls.all_text = cls.skill + "\n" + cls.deep_steps
 
     def test_host_matrix_routes_capability_before_identity_and_fails_closed(self) -> None:
@@ -104,12 +102,6 @@ class SummarySkillContractTests(unittest.TestCase):
             "继续 lint 或宣称整理成功",
         ):
             self.assertIn(marker, self.deep_steps)
-
-    def test_harvest_candidates_have_no_summary_backchannel(self) -> None:
-        self.assertIn("候选来源仅限", self.harvest)
-        self.assertIn("`$ARGUMENTS` 显式提供", self.harvest)
-        self.assertIn("已经存在的 harvest inbox", self.harvest)
-        self.assertNotIn("`summary` 只捕捉候选", self.harvest)
 
     def test_archive_user_memory_evidence_git_and_runtime_boundaries(self) -> None:
         for marker in (

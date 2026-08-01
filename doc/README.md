@@ -18,7 +18,7 @@ delivery_layout: flat
 
 ## 架构
 
-- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 `design-rationale.md`、同步/反哺 playbook、harness、memory 与文档体系设计。
+- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 `design-rationale.md`、上游同步 playbook、已退役反哺历史记录、harness、memory 与文档体系设计。
 - `$bridgeforge` 的运行手册属于产品源码，位于 [`skills/bridgeforge/references/`](../skills/bridgeforge/references/)，不纳入 `doc/`。
 
 ## Delivery topic

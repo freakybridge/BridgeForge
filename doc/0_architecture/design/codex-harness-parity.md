@@ -18,7 +18,7 @@
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 6 | 12 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `project_memory_recovery.py` |
 | `memory` | 1 | 1 | - | - |
-| `skills` | 20 | 20 | - | 共享单一源 |
+| `skills` | 19 | 19 | - | 共享单一源 |
 
 ## Normalized Diffs
 

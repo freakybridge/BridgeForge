@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.34.0] - 2026-08-01
+
+### Removed
+
+- [product] 退役受管共享 `$harvest` skill；发布清单不再向 Claude 用户级 skill 目录分发该入口，后续 `/bridgeforge` 更新会按托管账本删除既有受管副本。
+
 ## [0.33.0] - 2026-08-01
 
 ### Added
