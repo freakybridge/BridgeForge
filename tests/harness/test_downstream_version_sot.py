@@ -235,6 +235,44 @@ class DownstreamVersionSotTests(unittest.TestCase):
         self.assertNotIn("### 3. 标准路径", skill)
         self.assertNotIn("git fetch origin", skill)
 
+    def test_confirm_and_develop_enforce_scale_and_budget(self) -> None:
+        confirm = (ROOT / "skills" / "confirm" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        develop = (ROOT / "skills" / "develop" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("### 0. 规模与预算硬闸", confirm)
+        self.assertIn("20 分钟 / 8k 新增 token", confirm)
+        self.assertIn("45 分钟 / 20k 新增 token", confirm)
+        self.assertIn("禁止伪报精确 token 消耗", confirm)
+        self.assertIn("**S 级直接路径**", develop)
+        self.assertIn("0 个子 agent", develop)
+        self.assertIn("禁止 S/M 任务默认启动完整三段 agent 流程", develop)
+
+        routing_files = (
+            ROOT / ".codex" / "skill-routing.json",
+            ROOT / "templates" / "codex" / "skill-routing.json",
+        )
+        for routing_file in routing_files:
+            with self.subTest(routing=routing_file):
+                routing = json.loads(routing_file.read_text(encoding="utf-8"))
+                routes = [
+                    entry for entry in routing["skills"] if entry["skill"] == "develop"
+                ]
+                size_gate = next(
+                    entry
+                    for entry in routes
+                    if entry["stage"] == "size-gate-and-lean-delivery"
+                )
+                self.assertEqual(size_gate["agent"], "main")
+                self.assertEqual(size_gate["mode"], "main")
+                delegated = [entry for entry in routes if entry["agent"] != "main"]
+                self.assertTrue(delegated)
+                self.assertTrue(
+                    all("L only" in entry["root_must_do"] for entry in delegated)
+                )
+
     def test_init_reference_keeps_business_version_outside_bridgeforge(self) -> None:
         reference = (ROOT / "skills" / "bridgeforge" / "references" / "init.md").read_text(
             encoding="utf-8"

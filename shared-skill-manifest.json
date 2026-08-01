@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:063c295a2a2faf759fa276a78db478e9a199de184ea92917a5b69533216b19b8"
+              "sha256": "sha256:5f3965f0abcca7f984beff88a5ed5298070ed9bf66f4ba158da9ffd39854cd79"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:6ef7ef029aa303959303e41ee76945e1ab9a3b9a860fc56e5e7b5c056758393f"
+              "sha256": "sha256:67de3bad31b09f73602ae1679f744e142b729c41f02769d8626fdbe5ef26c6c5"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:2508e90784a01bd1cfc820ff84252589ea61f506a3f97d1ea23c4f39b09519ff"
+              "sha256": "sha256:05fc4a1dbb2ca08610d4960bb5ec9e6294b7dd3ce10b30a25a0a5669000d5b0e"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -342,17 +342,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:9582924a53894d8ef03290566029e81d4147a3eca80761fc23460c87ce2f8812"
+              "sha256": "sha256:2e4c900dfe8366932f78c5046331dff0cb54105fdc5963af9b907b85c1a6d621"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:46a325137e09d7b383a1db459fe9b41ce0024866c11a53a18cc81be4c9c22f78"
+              "sha256": "sha256:c9919add80baa46567a722183f54e8f74748f862a0772b1342a3a7fe191669a0"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:b760182a94c463a8b4ee9fc2fce90723df5fa7cfa35413e9b3c80be53a649896"
+              "sha256": "sha256:ce0ae25b92cad1efa474eb0605bcb1160f6913aed259c1057035987a67f31ae4"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -687,7 +687,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:5e0cd803e23f19338a745eb1d0b698d53f0dde759b9baf07da3135ce66493b10"
+              "sha256": "sha256:88e9912072b39748f3002937d08a5ab92f2c605766caac8034ce6f42901fa37f"
             }
           ]
         },
@@ -717,7 +717,7 @@
             {
               "source": "skills/confirm/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:660be5720400007764805a2ce5c7e41fb039f0bd0a33337a6cf7df8ed50bc10b"
+              "sha256": "sha256:5989ba2633affb3b6087e07f81ad5974433f256beb4782b2e9ef02889518f92f"
             }
           ]
         },
@@ -737,7 +737,7 @@
             {
               "source": "skills/develop/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:66aa2ff9a230167434056bea8be7403ab5983b0ae23361013f8101452d763eeb"
+              "sha256": "sha256:8cb34407c72a34928e4ee2692496d3b2f68daacbc8647aeefd3a7324e51329a6"
             }
           ]
         },
@@ -907,12 +907,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:063c295a2a2faf759fa276a78db478e9a199de184ea92917a5b69533216b19b8"
+              "sha256": "sha256:5f3965f0abcca7f984beff88a5ed5298070ed9bf66f4ba158da9ffd39854cd79"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:6ef7ef029aa303959303e41ee76945e1ab9a3b9a860fc56e5e7b5c056758393f"
+              "sha256": "sha256:67de3bad31b09f73602ae1679f744e142b729c41f02769d8626fdbe5ef26c6c5"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -932,7 +932,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:2508e90784a01bd1cfc820ff84252589ea61f506a3f97d1ea23c4f39b09519ff"
+              "sha256": "sha256:05fc4a1dbb2ca08610d4960bb5ec9e6294b7dd3ce10b30a25a0a5669000d5b0e"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1237,17 +1237,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:9582924a53894d8ef03290566029e81d4147a3eca80761fc23460c87ce2f8812"
+              "sha256": "sha256:2e4c900dfe8366932f78c5046331dff0cb54105fdc5963af9b907b85c1a6d621"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:46a325137e09d7b383a1db459fe9b41ce0024866c11a53a18cc81be4c9c22f78"
+              "sha256": "sha256:c9919add80baa46567a722183f54e8f74748f862a0772b1342a3a7fe191669a0"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:b760182a94c463a8b4ee9fc2fce90723df5fa7cfa35413e9b3c80be53a649896"
+              "sha256": "sha256:ce0ae25b92cad1efa474eb0605bcb1160f6913aed259c1057035987a67f31ae4"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1582,7 +1582,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:5e0cd803e23f19338a745eb1d0b698d53f0dde759b9baf07da3135ce66493b10"
+              "sha256": "sha256:88e9912072b39748f3002937d08a5ab92f2c605766caac8034ce6f42901fa37f"
             }
           ]
         },
@@ -1612,7 +1612,7 @@
             {
               "source": "skills/confirm/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:660be5720400007764805a2ce5c7e41fb039f0bd0a33337a6cf7df8ed50bc10b"
+              "sha256": "sha256:5989ba2633affb3b6087e07f81ad5974433f256beb4782b2e9ef02889518f92f"
             }
           ]
         },
@@ -1632,7 +1632,7 @@
             {
               "source": "skills/develop/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:66aa2ff9a230167434056bea8be7403ab5983b0ae23361013f8101452d763eeb"
+              "sha256": "sha256:8cb34407c72a34928e4ee2692496d3b2f68daacbc8647aeefd3a7324e51329a6"
             }
           ]
         },

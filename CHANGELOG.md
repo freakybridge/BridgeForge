@@ -17,6 +17,10 @@
 
 ---
 
+## [0.78.0] - 2026-08-01
+
+- `[product][repo][meta]` `confirm` 确认卡新增 S/M/L 规模、时间、token、agent 与验证轮次预算；`develop` 在任何确认卡或子 agent 前先执行规模闸，S 级主对话直接开发，M 级默认单线且最多一个子 agent，L 级才进入完整分段交付；规模升档或预计超预算必须先暂停确认，机械镜像和发布元数据不再被误算为业务复杂度。Codex 模板版本升至 `0.47.0`，根版本与 BridgeForge 入口升至 `0.78.0`。
+
 ## [0.77.0] - 2026-08-01
 
 - `[product][repo][meta]` 优化 `$git-sync` 延迟：主对话完成只读审查后直接运行唯一 repo-local 同步脚本，取消 `mechanical-sync-worker` 中转与手工 Git 旁路；缺 upstream / push target / 提交消息和版本未 bump 在网络操作前失败，runner 不再额外重建 memory 索引，统一由 pre-commit 按宿主重建；成功输出直接包含 commit、实际 push target、是否执行 push、干净工作区与 `ahead=0 behind=0` 完整收据；分叉、冲突、权限与非快进安全边界保持不变。

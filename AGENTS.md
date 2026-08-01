@@ -115,7 +115,7 @@
 
 ## §6 Codex skill 路由 dogfood（always-on）
 
-本仓库 `.codex/skill-routing.json` 与 `templates/codex/skill-routing.json` 必须结构一致。调用其中登记的通用 skill 时，按阶段显式分派 manifest 指定的 named custom agent；主对话保留用户确认、决策和 `root_must_do`。
+本仓库 `.codex/skill-routing.json` 与 `templates/codex/skill-routing.json` 必须结构一致。调用其中登记的通用 skill 时，按实际进入的阶段显式分派 manifest 指定的 named custom agent；主对话保留用户确认、决策和 `root_must_do`。`develop` 必须先由主对话执行规模预算闸，只有路由为 L 或满足 M 级独立审计条件时才进入对应非 `main` 阶段。
 
 - `light-explorer` 仅做只读阶段；`implementation-worker` 仅做实现；`review-auditor` 仅做独立审计。
 - `$git-sync` 由主对话完成只读审查后直接且只运行 `.codex/scripts/codex_git_sync.py`；禁止拆成手工 Git 命令或再次委派，任何分叉、冲突或失败仍由主对话处理。
