@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.45.0] - 2026-08-01
+
+### Changed
+
+- [product] 项目 memory writer 改为 Codex/Claude 宿主无关实现：按脚本所在宿主目录验证项目 memory、原子写入并重建索引；writer 能力本身即可安全写当前项目，BridgeForge 工厂无需伪造版本戳。
+
 ## [0.44.0] - 2026-08-01
 
 ### Changed

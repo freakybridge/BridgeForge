@@ -17,6 +17,11 @@
 
 ---
 
+## [0.76.0] - 2026-08-01
+
+- `[product][meta]` `$summary` 收口为当前项目的知识归纳入口：以项目 writer 能力而非版本戳决定确定性写入，topic 固定维护唯一 `summary.md`，通用 memory 必须围绕可重复检索的稳定问题聚合；既有碎片只输出合并候选，归档交给 `$archive-scan`，用户级 memory 必须另行确认，并移除 harvest 捕捉、测试重跑和 Git 发布职责。
+- `[product][repo]` 项目 memory writer 改为 Codex/Claude 共用的宿主无关实现，并在 Claude 模板与 dogfood 补齐投影；writer 按自身宿主严格限制当前项目 memory 根、原子写入并验证重建索引，BridgeForge 工厂无需伪造 `.bridgeforge_version` 即可 dogfood。
+
 ## [0.75.0] - 2026-08-01
 
 - `[product][repo][meta]` Codex 项目 lifecycle hook 全量迁移到唯一注册源 `.codex/hooks.json`：33 个旧 handler 逐项审计后由单 dispatcher 按真实 payload 串行编排，memory 固定 `encoding → rebuild → lint` 且 rebuild 失败跳过 lint；settings/config 非法双源由健康检查与 pre-commit 硬拦。`/bridgeforge` init/update/adopt 增加保留第三方 hook 的确认式 merge 与版本戳事务边界。Claude 注册方式不变。

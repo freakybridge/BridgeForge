@@ -220,6 +220,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         required_project_memory_scripts = {
             "templates/codex/scripts/project_memory_writer.py",
             "templates/codex/scripts/project_memory_recovery.py",
+            "templates/claude/scripts/project_memory_writer.py",
         }
 
         platform_skills: dict[str, dict[str, dict[str, object]]] = {}

@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.33.0] - 2026-08-01
+
+### Added
+
+- [product] 新增与 Codex 同契约的项目 memory writer：严格限制写入 `.claude/memory/`，原子写入后重建并验证索引，使共享 `$summary` 在 Claude 下游同样走确定性项目写入。
+
 ### Changed
 
 - [product] **Breaking baseline**：所有 hooks 最低要求 Python 3.11；项目 `.venv` 存在时是唯一解释器，低版本或损坏环境禁止 PATH 回退，pre-commit 在运行任何检查前硬拦。

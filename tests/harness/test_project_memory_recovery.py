@@ -9,7 +9,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "templates" / "codex" / "scripts"
+CODEX_SCRIPTS = ROOT / "templates" / "codex" / "scripts"
+CLAUDE_SCRIPTS = ROOT / "templates" / "claude" / "scripts"
 
 
 def load(name: str, path: Path):
@@ -21,8 +22,9 @@ def load(name: str, path: Path):
     return module
 
 
-WRITER = load("project_memory_writer_test", SCRIPTS / "project_memory_writer.py")
-RECOVERY = load("project_memory_recovery_test", SCRIPTS / "project_memory_recovery.py")
+CODEX_WRITER = load("codex_project_memory_writer_test", CODEX_SCRIPTS / "project_memory_writer.py")
+CLAUDE_WRITER = load("claude_project_memory_writer_test", CLAUDE_SCRIPTS / "project_memory_writer.py")
+RECOVERY = load("project_memory_recovery_test", CODEX_SCRIPTS / "project_memory_recovery.py")
 
 
 class ProjectMemoryRecoveryTests(unittest.TestCase):
@@ -35,21 +37,51 @@ class ProjectMemoryRecoveryTests(unittest.TestCase):
         scripts = self.root / ".codex" / "scripts"
         scripts.mkdir()
         for name in ("project_memory_writer.py", "project_memory_recovery.py", "memory_rebuild_index.py"):
-            shutil.copy2(SCRIPTS / name, scripts / name)
+            shutil.copy2(CODEX_SCRIPTS / name, scripts / name)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
 
     def test_writer_stays_in_project_and_rebuilds_index(self) -> None:
-        receipt = WRITER.write_project_memory(
+        receipt = CODEX_WRITER.write_project_memory(
             self.root, "engineering/write-boundary.md",
             "---\ncategory: engineering\ndescription: boundary\n---\n\nbody\n",
         )
         self.assertTrue((self.root / ".codex" / "memory" / "engineering" / "write-boundary.md").is_file())
         self.assertIn("engineering/write-boundary.md", (self.root / ".codex" / "memory" / "MEMORY.md").read_text(encoding="utf-8"))
         self.assertEqual(receipt.target, "engineering/write-boundary.md")
-        with self.assertRaises(WRITER.ProjectMemoryWriteError):
-            WRITER.write_project_memory(self.root, "../escape.md", "x")
+        self.assertEqual(receipt.host, "codex")
+        with self.assertRaises(CODEX_WRITER.ProjectMemoryWriteError):
+            CODEX_WRITER.write_project_memory(self.root, "../escape.md", "x")
+
+    def test_markerless_codex_and_claude_writers_are_host_local(self) -> None:
+        content = "---\ncategory: engineering\ndescription: host\n---\n\nbody\n"
+        for host, module, source in (
+            ("codex", CODEX_WRITER, CODEX_SCRIPTS),
+            ("claude", CLAUDE_WRITER, CLAUDE_SCRIPTS),
+        ):
+            with self.subTest(host=host):
+                config = f".{host}"
+                project = Path(self.temp.name) / f"markerless-{host}"
+                memory = project / config / "memory"
+                memory.mkdir(parents=True)
+                (memory / "_stats.json").write_text(
+                    '{"files": {}, "config": {}}', encoding="utf-8"
+                )
+                scripts = project / config / "scripts"
+                scripts.mkdir()
+                for name in ("project_memory_writer.py", "memory_rebuild_index.py"):
+                    shutil.copy2(source / name, scripts / name)
+                self.assertFalse((project / config / ".bridgeforge_version").exists())
+
+                receipt = module.write_project_memory(
+                    project, "engineering/host-boundary.md", content
+                )
+                self.assertEqual(receipt.host, host)
+                self.assertTrue((memory / "engineering" / "host-boundary.md").is_file())
+                self.assertFalse((project / (".claude" if host == "codex" else ".codex")).exists())
+                with self.assertRaises(module.ProjectMemoryWriteError):
+                    module.write_project_memory(project, "../escape.md", "x")
 
     def test_recovery_requires_exact_owner_and_never_deletes_unclassified(self) -> None:
         notes = Path(self.temp.name) / "notes"
@@ -111,8 +143,19 @@ class ProjectMemoryRecoveryTests(unittest.TestCase):
         self.assertFalse(orphan.exists())
 
     def test_scripts_are_dogfood_mirrors(self) -> None:
-        for name in ("project_memory_writer.py", "project_memory_recovery.py"):
-            self.assertEqual((ROOT / ".codex" / "scripts" / name).read_bytes(), (SCRIPTS / name).read_bytes())
+        writer_copies = (
+            CODEX_SCRIPTS / "project_memory_writer.py",
+            CLAUDE_SCRIPTS / "project_memory_writer.py",
+            ROOT / ".codex" / "scripts" / "project_memory_writer.py",
+            ROOT / ".claude" / "scripts" / "project_memory_writer.py",
+        )
+        canonical = writer_copies[0].read_bytes()
+        for path in writer_copies[1:]:
+            self.assertEqual(path.read_bytes(), canonical, path)
+        self.assertEqual(
+            (ROOT / ".codex" / "scripts" / "project_memory_recovery.py").read_bytes(),
+            (CODEX_SCRIPTS / "project_memory_recovery.py").read_bytes(),
+        )
 
 
 if __name__ == "__main__":

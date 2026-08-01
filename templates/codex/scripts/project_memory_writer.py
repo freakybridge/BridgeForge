@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write one verified project memory file and rebuild its deterministic index."""
+"""Write one verified host-local project memory and rebuild its index."""
 from __future__ import annotations
 
 import argparse
@@ -14,9 +14,39 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 INDEX_NAMES = {"MEMORY.md", "MEMORY_COLD.md"}
-MARKER_RELATIVE = Path(".codex") / ".bridgeforge_version"
-MEMORY_RELATIVE = Path(".codex") / "memory"
-REBUILD_RELATIVE = Path(".codex") / "scripts" / "memory_rebuild_index.py"
+
+
+@dataclass(frozen=True)
+class HostLayout:
+    name: str
+    directory: str
+
+    @property
+    def memory_relative(self) -> Path:
+        return Path(self.directory) / "memory"
+
+    @property
+    def rebuild_relative(self) -> Path:
+        return Path(self.directory) / "scripts" / "memory_rebuild_index.py"
+
+    @property
+    def writer_relative(self) -> Path:
+        return Path(self.directory) / "scripts" / "project_memory_writer.py"
+
+
+def _detect_host(script_path: Path) -> HostLayout:
+    """Derive the installed host from ``codex/.codex`` or ``claude/.claude``."""
+    if script_path.parent.name != "scripts":
+        raise RuntimeError(f"writer must live below a scripts directory: {script_path}")
+    owner = script_path.parent.parent.name.lower()
+    if owner in {"codex", ".codex"}:
+        return HostLayout("codex", ".codex")
+    if owner in {"claude", ".claude"}:
+        return HostLayout("claude", ".claude")
+    raise RuntimeError(f"cannot determine writer host from path: {script_path}")
+
+
+HOST = _detect_host(Path(__file__).resolve())
 
 
 class ProjectMemoryWriteError(RuntimeError):
@@ -26,6 +56,7 @@ class ProjectMemoryWriteError(RuntimeError):
 @dataclass(frozen=True)
 class WriteReceipt:
     project_root: str
+    host: str
     target: str
     bytes_written: int
     sha256: str
@@ -104,6 +135,7 @@ def _validate_relative_target(relative_target: str | Path) -> Path:
 @dataclass(frozen=True)
 class _ValidatedPaths:
     project_root: Path
+    host: str
     memory_root: Path
     target_relative: Path
     target: Path
@@ -125,14 +157,16 @@ def validate_write_target(
             f"project root resolves through a link: {project_root}"
         )
 
-    codex = root / ".codex"
-    marker = root / MARKER_RELATIVE
-    memory = root / MEMORY_RELATIVE
-    rebuild = root / REBUILD_RELATIVE
-    _require_plain_directory(codex, "project .codex directory")
-    _require_plain_file(marker, "BridgeForge project marker")
-    _require_plain_directory(memory, "project memory directory")
-    _require_plain_file(rebuild, "project memory index rebuilder")
+    host_directory = root / HOST.directory
+    writer = root / HOST.writer_relative
+    memory = root / HOST.memory_relative
+    rebuild = root / HOST.rebuild_relative
+    _require_plain_directory(
+        host_directory, f"project {HOST.directory} directory"
+    )
+    _require_plain_file(writer, f"project {HOST.name} memory writer")
+    _require_plain_directory(memory, f"project {HOST.name} memory directory")
+    _require_plain_file(rebuild, f"project {HOST.name} memory index rebuilder")
 
     memory_resolved = memory.resolve(strict=True)
     if not _same_path(memory.absolute(), memory_resolved):
@@ -171,7 +205,9 @@ def validate_write_target(
                 f"target parent is not writable: {existing_parent}"
             )
 
-    return _ValidatedPaths(root, memory_resolved, relative, target, rebuild)
+    return _ValidatedPaths(
+        root, HOST.name, memory_resolved, relative, target, rebuild
+    )
 
 
 def _atomic_write(path: Path, payload: bytes) -> None:
@@ -282,6 +318,7 @@ def write_project_memory(
 
     return WriteReceipt(
         project_root=str(paths.project_root),
+        host=paths.host,
         target=paths.target_relative.as_posix(),
         bytes_written=len(payload),
         sha256=hashlib.sha256(payload).hexdigest(),

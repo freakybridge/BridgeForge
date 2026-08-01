@@ -9,9 +9,9 @@ argument: 可选的单条经验描述；有参走快车道，无参批量处理�
 
 ## 定位与边界
 
-把当前下游项目的可移植经验写回 BridgeForge `templates/` 或 `skills/`。
-`summary` 只捕捉候选，`harvest` 负责通用性判断、脱敏、必要 memory 的首次归类
-和上游写入。
+把当前下游项目的可移植经验写回 BridgeForge `templates/` 或 `skills/`。候选来源仅限
+用户通过 `$ARGUMENTS` 显式提供的单条经验，或当前项目已经存在的 harvest inbox；
+`harvest` 负责通用性判断、脱敏、必要 memory 的首次归类和上游写入。
 
 ## 输入
 

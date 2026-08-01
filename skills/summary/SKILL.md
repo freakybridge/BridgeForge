@@ -1,102 +1,141 @@
 ---
 name: summary
-description: 总结当前对话的关键决策、经验、完成项与遗留问题，并首次归类写入通用 memory 或 delivery topic memory，再按价值同步 rules 或 docs；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
+description: 总结当前对话的关键决策、稳定经验、完成项与遗留问题，默认归入当前项目的规范 memory，并按价值同步 rules 或 docs；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
 user_invocable: true
 argument: 可选的本次总结重点提示
 model: sonnet
 ---
 
-# summary — 沉淀对话成果
+# summary — 沉淀当前项目成果
 
 ## 定位与边界
 
-只保留值得跨对话复用的内容，并同步对应索引。会话默认只把 `MEMORY.md`
-作为热区；topic memory 与其他正文按需读取。低频的 rule-memory 对账与已解决事项
-清理按需读取 [`references/deep-steps.md`](references/deep-steps.md)，不要预加载整份参考。
+默认只整理和写入**当前项目**。保留值得跨对话重复检索的当前有效结论；事故经过、实施
+流水、长示例和测试数字留在 delivery 或 Bug 文档。会话只把 `MEMORY.md` 当作热区，其他
+正文按需读取。命中旧碎片整理、rule-memory 对账或归档候选时，只读取
+[`references/deep-steps.md`](references/deep-steps.md) 的对应章节。
 
-### Codex 项目 memory 写入边界（强制）
+## 项目 memory 写入路由（先宿主、再能力、后身份）
 
-当前工作目录存在 `.codex/.bridgeforge_version` 时，这是受 BridgeForge 管理的 Codex
-项目：本次 `$summary` 的唯一默认目标是 `<repo>/.codex/memory/`。不得把“当前
-agent memory”解释为 `~/.codex/memories`，也不得把用户级
-`extensions/ad_hoc/notes` 当作项目写入失败时的回退。
+先确定当前执行 `$summary` 的宿主，再只检查该宿主一行；禁止因为另一宿主的 writer 或
+marker 存在而切换路径：
 
-- 先读取项目 `MEMORY.md` 和候选同主题正文；已有同主题记录时，生成**合并后的完整
-  正文**，不得另建无依据的重复条目。
-- 分类、项目 memory 可写性、junction/路径或目标相对路径任一项不能确认时，报告阻塞并
-  停止对应写入。禁止改写为用户级 note 以伪造完成。
-- 项目 memory 的最终写入只能通过
-  `.codex/scripts/project_memory_writer.py`：传入当前项目根、相对
-  `.codex/memory/` 的目标路径及最终正文。禁止直接 Write/Edit 项目 memory 正文或
-  自动索引；写入器负责路径校验、原子写入、索引重建和收据。
-- 只有用户明确说要沉淀“跨项目 / 全局经验”时，才允许写用户级 memory；该次写入必须
-  在输出中明确标为用户级，不得宣称已写入项目。
+| 当前宿主 | marker | writer | memory 根 | rebuild | lint |
+|---|---|---|---|---|---|
+| Codex | `.codex/.bridgeforge_version` | `.codex/scripts/project_memory_writer.py` | `.codex/memory/` | `.codex/scripts/memory_rebuild_index.py` | `.codex/hooks/memory_lint.py` |
+| Claude | `.claude/.bridgeforge_version` | `.claude/scripts/project_memory_writer.py` | `.claude/memory/` | `.claude/scripts/memory_rebuild_index.py` | `.claude/hooks/memory_lint.py` |
 
-这不是仅靠文字的偏好：下游的 `cross_project_write_guard.py` 还会阻断项目根外的
-隐式写入。配置已存在不等同于运行时已 trust；未完成 `/hooks` review/trust 和新会话
-smoke 时，必须标记为 `runtime trust 未验证`。
+对当前宿主按以下顺序处理：
 
-## 输入
+1. 当前宿主 writer 存在时，必须把最终正文交给它；无论当前宿主 marker 是否存在，都禁止
+   直接 Write/Edit 当前宿主 memory 正文或自动索引。writer 能力本身授权受限的项目内
+   写入；检查收据中的 `host`、目标路径、SHA-256 与索引结果。
+2. 当前宿主 writer 不存在但 marker 存在时，必须 **fail closed**：停止全部项目 memory
+   写入，提示用户执行无参数 `/bridgeforge`。禁止回退到用户级 memory，也禁止跨宿主
+   fallback、伪造或补写 marker。
+3. 当前宿主的 writer 与 marker 都不存在时，只能使用该宿主已经提供、且能确认目标属于
+   当前项目的 memory 机制；无法确认项目目标、分类、路径或可写性时，标记“未验证”并
+   停止对应写入。另一宿主的 writer 不构成当前宿主能力。
 
-- 当前对话中的架构决策及原因、已验证根因、已完成事项和遗留问题。
+项目写入失败、路径不确定或 writer 收据失败，都不得触发用户级回退。配置文件存在也不
+等于 lifecycle hook 已在运行时生效；缺少 `/hooks` review/trust 或新会话 smoke 收据时，
+必须写明 `runtime trust 未验证`。
+
+## 输入与证据
+
+- 当前对话中的已确认事实、决策及原因、遗留问题和用户反馈。
 - `$ARGUMENTS`：用户指定的总结重点。
-- 当前 agent 的 memory、rules、文档索引和 Git 实际状态。
+- 当前项目已有 memory、rules、设计/delivery/Bug 文档及索引。
+- 本轮**已经产生**的测试、审计和 Git 收据；只读这些收据，不重新运行测试、build、审计
+  或 smoke。允许读取实际 `git status` 和相关 diff 以报告工作树状态。
+
+缺少收据时必须标记“未验证”，禁止用代码存在、静态配置、测试缺失或推断替代成功证据。
+
+## Memory 颗粒度门槛
+
+### 分类与 metadata
+
+- 通用长期知识的 `category` 只能是 `architecture`、`engineering`、`domain`、
+  `operations`，目标是当前项目 memory 根下的同名分类目录。
+- delivery topic 的 `category` 必须是 `topic`，并写入 `topic: <exact-slug>`；目标是当前
+  项目 memory 根下的 `topics/<exact-slug>/summary.md`。
+- `status` 只能是 `active`、`completed`、`superseded`，缺省为 `active`；`description`
+  必填，`kind`、`tags`、`related_paths` 按需填写。
+- 分类或 metadata 不能确认时，只展示候选并用一个单题请求用户裁决；确认前禁止写入、
+  创建目录或移动文件。
+
+### Delivery topic
+
+- 每个 topic 只维护一个规范文件：
+  `<project-memory-root>/topics/<topic>/summary.md`。Codex 对应
+  `.codex/memory/topics/<topic>/summary.md`，Claude 对应
+  `.claude/memory/topics/<topic>/summary.md`。
+- 后续总结只更新该 `summary.md`；禁止按日期、单次对话、里程碑子项或子任务新增 topic
+  memory 文件。
+- `status` 只能是 `active`、`completed`、`superseded`。只有全部验收条件满足、用户已
+  试用或明确验收、且没有未解决 blocker 时，才能标记 `completed`。代码、测试、审计或
+  Git 收据不能代替用户验收。
+
+### 通用 memory：新的稳定问题门槛
+
+一个通用 memory 必须回答**一个长期稳定、未来会重复检索的工程问题**。写入前先检索并
+更新已有规范 memory；只有确实出现新的稳定问题时才能新建。
+
+- 正例：“网关重连时怎样恢复订阅并避免重复订单？”、“项目身份与 writer 的选择规则是
+  什么？”、“交互流程在哪些状态必须停下来请求确认？”
+- 反例：“今天的断线事故经过”、“修复某一行参数的小补丁”、“本次 37 项测试数字”、
+  “某个子任务的实施流水”或一条尚未复现的孤立经验。这些不得各自新建通用 memory，
+  应留在对应 delivery 或 Bug 文档。
+- 规范正文只保留当前有效结论、原因、适用范围、例外，以及权威代码/设计文档链接。
+
+不能确定它是否是新问题、是否长期稳定、应更新哪个规范文件，或新旧结论是否冲突时，
+必须停止写入并用一个单题请求用户裁决；禁止为了完成总结而新建文件。
 
 ## 核心流程
 
-1. 回顾本轮，区分已确认事实、推断、已完成和未验证项。
-2. 先查重，再给每条待写 memory 做首次归类：
-   - 通用长期知识的 `category` 只能是 `architecture`、`engineering`、
-     `domain`、`operations`，目标为 `memory/<category>/`。
-   - delivery topic 的 `category` 写 `topic`，同时写
-     `topic: <exact-slug>`，目标为 `memory/topics/<exact-slug>/`。
-   - `status` 只能是 `active`、`completed`、`superseded`，缺省按
-     `active`；`description` 必填，`kind`、`tags`、`related_paths`
-     按需填写。
-   - 首次实际写入时才创建目标目录；禁止预建空分类目录或空 topic 目录。
-3. 分类置信度不足时，只展示候选 `category`；候选含 `topic` 时同时展示
-   `topic` slug。用一个单题选择请求用户决定并结束当前回合；确认前禁止写入
-   frontmatter、创建目录或移动文件。已有 `_inbox/` 条目离开收件箱也遵循同一规则。
-4. 对 BridgeForge Codex 项目：将确认后的最终正文交给项目
-   `.codex/scripts/project_memory_writer.py` 写入唯一目标；检查其成功收据中的目标路径、
-   SHA-256 和索引结果。其他环境才按当前 agent 的既有 memory 机制写入。
-   `completed` / `superseded` topic 仍保留在原 `memory/topics/<topic>/`；
-   只由索引降温，禁止移动到不存在的 `memory/_archive/`。
-5. 检查 rules：只有“必须 / 禁止”的稳定红线才进入 rule；案例进入 memory，长示例进入 doc。与既有约束重叠时合并，保持单一正文和窄 `paths` 触发。
-6. 若本轮修改了 rule，只读取 `references/deep-steps.md` 的“对账”节执行局部 memory 对账。删除候选必须用单题选择式用户确认结束当前回合；未确认前禁止删除。
-7. 按项目 `rules/workflow.md` 的同步映射更新相关设计文档；需要独立流程时调用 `sync-docs`。
-8. 仅当代码已合并且用户明确确认解决时，读取参考文件的“清理”节列出 TODO / pending 文档候选。必须以用户确认结束当前回合；未确认前禁止删条目或归档。
-9. 发现跨项目也成立的经验时，先向用户确认，再把一行候选追加到当前 agent 的 `harvest-inbox.md`；这里只捕捉，不反哺上游。
+1. 回顾本轮，分开记录已确认事实、推断、已完成、未验证和待用户验收事项。
+2. 执行 writer 能力检测；读取项目 `MEMORY.md` 与候选同主题正文，先查重再确定唯一目标。
+3. 按既有四类通用知识或 `topic` 完成首次归类；对 delivery topic 更新唯一
+   `topics/<topic>/summary.md`，对通用知识执行“新的稳定问题”门槛并优先更新已有规范
+   memory。
+4. 高置信、非破坏性的当前项目规范 memory 更新可自动执行；目标、分类、结论或冲突任一
+   不确定时停止并询问。首次实际写入时才创建目标目录，禁止预建空目录。
+5. 只有长期稳定的“必须 / 禁止”红线才能进入 rule；事故与案例留在 memory，方案比较与
+   长示例留在 doc。按路径加载的 rule 必须有机器可解析的 `paths` frontmatter，最多用
+   一行 `Why` 指向支撑 memory。高置信、非破坏且确有必要的 rule 更新自动执行；分类或
+   约束强度不确定时停止并询问。
+6. 发现旧 memory 碎片时，只读取深档的“旧碎片候选”节并输出结构化候选簇。`$summary`
+   禁止自动合并、删除或移动旧碎片；用户确认具体批次后，交给独立整理任务。
+7. 发现已完成 delivery topic 或已解决 Bug 时，只读取深档的“归档候选”节列清单，并
+   提示用户另行调用 `$archive-scan`。本 skill 不调用它、不执行 `git mv`、不更新归档索引。
+8. 高置信、非破坏且确有必要的 docs 同步自动执行；映射或归属不确定时停止并询问。读取
+   实际 `git status` 和相关变更文件，但不发布。
+
+## 用户级 memory
+
+默认零写入用户级 memory。判断某项知识可能跨项目复用时，只列“用户级 memory 候选”及
+理由；只有用户明确批准后才能写入，并在收据中明确标为用户级。项目写入失败不得视为批准。
 
 ## 输出与收据
 
 列出：
 
-- 新增或更新的 memory 路径、`category` / `topic` / `status` 和一句话内容；BridgeForge
-  Codex 项目还必须列出写入器收据中的目标路径与索引结果。
-- 修改的 rules、同步的 docs 与索引。
-- 经用户确认后清理的 memory / TODO / pending 文档。
-- 写入的 harvest 候选。
-- 尚未验证或留待处理的问题。
-
-## 停止条件
-
-- 发现任何删除候选时，呈现候选并等待用户选择，当前回合立即结束。
-- memory 分类置信度不足时，呈现候选并等待用户选择，当前回合立即结束。
-- 没有满足“已合并 + 用户确认”的清理项时跳过清理，不凑数。
-- 缺少写入依据或真实状态无法核验时，标为未验证并停止对应写入。
+- 新增或更新的当前项目 memory 路径、`category` / `topic` / `status` 和一句话结论；使用
+  writer 时附目标路径、SHA-256 与索引收据。
+- 修改的 rules、docs 和索引；未修改也明确说明。
+- 旧碎片的结构化合并候选、delivery/Bug 归档候选及用户级 memory 候选；候选不等于已执行。
+- 已有测试、审计、Git 和 runtime trust 收据；缺失项分别标记“未验证”或
+  `runtime trust 未验证`。
+- `git status` 与相关变更文件，并明确“未暂存、未 commit、未 push”；发布由
+  `$git-sync` 负责。
 
 ## 禁止事项
 
-- 禁止把推断写成已确认事实。
-- 禁止因内容上升为 rule 就机械删除支撑它的 memory。
-- 禁止未确认删除 memory、TODO 或 pending 文档；归档必须使用 `git mv`。
-- 禁止重复写入同一规则、案例或索引条目。
-- 禁止预建空 memory 分类目录，或为完成的 topic 创建 / 移入
-  `memory/_archive/`。
-- 禁止在 BridgeForge Codex 项目中直接 Write/Edit `.codex/memory/` 正文、
-  `MEMORY.md`、`MEMORY_COLD.md` 或 `_stats.json`；必须调用项目 memory 写入器。
-- 禁止在未获用户明确“跨项目 / 全局经验”授权时写入
-  `~/.codex/memories` 或其 `extensions/ad_hoc/notes`。
+- 禁止把推断、缺失收据或静态配置写成已验证事实。
+- 禁止重新运行测试、build、审计或 runtime smoke。
+- 禁止为旧碎片自动合并、删除、移动或创建 memory 内部 archive 副本。
+- 禁止自动调用 `$archive-scan`、执行 `git mv` 或更新归档索引。
+- 禁止未经用户批准写用户级 memory，或在项目写入失败后回退到用户级 memory。
+- 禁止自动 `git add`、commit 或 push。
 
 $ARGUMENTS
