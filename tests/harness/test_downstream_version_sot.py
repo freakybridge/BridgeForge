@@ -234,6 +234,11 @@ class DownstreamVersionSotTests(unittest.TestCase):
         self.assertIn("必须直接且只运行", skill)
         self.assertNotIn("### 3. 标准路径", skill)
         self.assertNotIn("git fetch origin", skill)
+        self.assertIn("根据真实 diff 固化 1-3 条", skill)
+        self.assertIn("代码变动效果", skill)
+        self.assertIn("禁止只罗列文件名", skill)
+        self.assertIn("本轮没有代码变动，仅确认本地与远端已同步", skill)
+        self.assertIn("因提交后 diff 已清空而省略", skill)
 
     def test_confirm_and_develop_enforce_scale_and_budget(self) -> None:
         confirm = (ROOT / "skills" / "confirm" / "SKILL.md").read_text(

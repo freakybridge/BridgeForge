@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在 Windows 项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并从 GitHub main 强制同步受管用户级 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.78.0
+version: 0.79.0
 user_invocable: true
 argument: 仅支持无参数，或 switch claude|codex
 model: sonnet
