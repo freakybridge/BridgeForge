@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.49.0] - 2026-08-02
+
+### Added
+
+- [product] 所有项目统一使用公共/分类模块 memory 与 `topics/<topic>/summary.md` 的单一 schema、writer、索引器和冷热策略；补齐 topic 创建门槛、active 对账、显式改名与完成后冷却规则。`$summary` 普通模式只更新一个主 memory，明确“同意验收”模式才允许在当前交付显式范围内结算并冷却 topic。
+
 ## [0.48.0] - 2026-08-01
 
 ### Removed

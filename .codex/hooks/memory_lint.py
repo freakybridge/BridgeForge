@@ -213,6 +213,27 @@ def organize_cli() -> int:
             print(f"[invalid] {relative}: topic category 缺少合法 topic slug；未修改")
             unresolved = True
             continue
+        if category == "topic":
+            parts = source.relative_to(memory_dir).parts
+            directory_topic = (
+                parts[1]
+                if len(parts) >= 3 and parts[0] == "topics"
+                else ""
+            )
+            metadata_topic = metadata.get("topic", "")
+            if (
+                directory_topic
+                and metadata_topic
+                and directory_topic != metadata_topic
+                and args.topic is None
+            ):
+                print(
+                    f"[invalid] {relative}: directory topic={directory_topic!r} "
+                    f"!= frontmatter topic={metadata_topic!r}；未修改；"
+                    "显式改名需 --category topic --topic <exact-slug>"
+                )
+                unresolved = True
+                continue
 
         target = expected_path(memory_dir, source, category, topic)
         updates: dict[str, str] = {}

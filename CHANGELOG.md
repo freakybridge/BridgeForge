@@ -17,6 +17,10 @@
 
 ---
 
+## [0.81.0] - 2026-08-02
+
+- `[product][repo][meta]` 统一所有项目的 memory schema：公共/分类模块 memory 与 `topics/<topic>/summary.md` 共用同一 writer、索引器和冷热策略；topic 仅在独立目标、独立验收、可独立关闭三项同时满足时创建，active topic 对账防重复，显式改名保留 `created_at` 并同步 pinned，完成态进入冷索引。`$summary` 分为阶段记录与“同意验收”两种受限写入模式。Codex / Claude 模板分别升至 `0.49.0` / `0.35.0`，根版本与 BridgeForge 入口升至 `0.81.0`。
+
 ## [0.80.0] - 2026-08-01
 
 - `[product][repo][meta]` 退役 `$harvest`：删除共享 skill 源及 Codex/Claude 双平台分发条目，Codex 模板与 dogfood 同步移除三段 agent 路由，现行 README、INSTALL 与设计入口不再引导调用该命令；受管用户级副本会在后续 `/bridgeforge` 更新时按账本安全删除，旧 playbook 明确标记为历史记录，历史 CHANGELOG、需求记录与 harvest inbox 保留为追溯证据。Codex / Claude 模板分别升至 `0.48.0` / `0.34.0`，根版本与 BridgeForge 入口升至 `0.80.0`。

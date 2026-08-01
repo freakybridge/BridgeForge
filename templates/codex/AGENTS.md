@@ -94,6 +94,21 @@ memory 纳入项目 git（`.codex/memory/`），系统路径 `~/.codex/projects/
 
 memory 初始只含 `MEMORY.md`。主题目录按首次写入创建：`architecture/`、`engineering/`、`domain/`、`operations/`、`_inbox/` 与 `topics/<topic>/`；离开 `_inbox/` 的记录必须有 `category`。完成 topic 仅从自动加载范围冷却，仍保留在 `topics/<topic>/`，禁止创建 `memory/_archive/` 或物理搬迁。
 
+- 模块 memory 回答“这个模块长期怎样工作”，保存长期稳定、未来会重复检索的架构、接口、
+  约束与工程结论；一次交付的过程不得整份复制进去。
+- Topic memory 回答“这次独立交付为何做、做到哪里、是否关闭”，用
+  `topics/<topic>/summary.md` 保存目标、决策、进度和验收。所有项目使用同一布局。
+- 只有用户已确认且同时具备独立目标、独立验收条件和可独立关闭生命周期的交付才能建
+  topic；普通子任务、一次性排查、小修和里程碑子项不得建。首次合法写入才创建目录，
+  创建前对账 active topic，禁止重复建档或自动拆分、合并、改名、移动、关闭。
+- `$summary` 只更新一个当前主 memory 和索引：当前工作属于既有 topic 时更新该 topic 并
+  保持 active，否则最多更新一个模块 memory；禁止修改 TODO、rules 或 docs，调用本身不代表验收。
+- `$summary 同意验收` 才结算当前交付。已知 blocker 或验收条件未满足时禁止关闭；条件
+  满足时可完成当前 topic；只提炼至多一个模块 memory、结算当前交付 TODO、
+  整理显式关联文档与必要红线。其他 topic 和项目级 TODO 不变，不自动归档。
+- `completed` / `superseded` topic 留在原目录并由同一索引器进入 `MEMORY_COLD.md`。
+  所有项目共用同一 schema、writer、索引器和冷热策略，禁止第二套实现或语义分类器。
+
 ---
 
 ## 6. 换机首次启动 Checklist

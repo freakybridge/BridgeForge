@@ -117,15 +117,18 @@ class SummarySkillContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, self.all_text)
 
-    def test_high_confidence_rules_and_docs_update_automatically(self) -> None:
-        self.assertIn(
-            "高置信、非破坏且确有必要的 rule 更新自动执行",
-            self.skill,
-        )
-        self.assertIn(
-            "高置信、非破坏且确有必要的 docs 同步自动执行",
-            self.skill,
-        )
+    def test_two_modes_have_distinct_and_bounded_write_surfaces(self) -> None:
+        for marker in (
+            "`$summary` | 普通模式",
+            "`$summary 同意验收` | 验收模式",
+            "普通模式禁止修改",
+            "一个当前主 memory + 自动索引",
+            "最多更新一个最相关模块",
+            "其他 topic 与项目级 TODO 不变",
+            "禁止自行创建文档、扩大目录",
+            "不自动归档、不调用 `$archive-scan`",
+        ):
+            self.assertIn(marker, self.skill)
 
     def test_retired_harvest_behavior_is_absent(self) -> None:
         lowered = self.all_text.lower()
