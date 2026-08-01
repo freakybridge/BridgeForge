@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:168af4bbfcb21106740ccb0bcbd54742f6e47cdf8c86164da4f04ff872e69061"
+              "sha256": "sha256:063c295a2a2faf759fa276a78db478e9a199de184ea92917a5b69533216b19b8"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:65b0952fed78d72dea8fa8b6d45f05846fc492c23a8b026c8808547f5febaa7a"
+              "sha256": "sha256:6ef7ef029aa303959303e41ee76945e1ab9a3b9a860fc56e5e7b5c056758393f"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:572c9d329335079dc695b2fbf613d8f4068d2cd00ec707076d06f11597ebf013"
+              "sha256": "sha256:2508e90784a01bd1cfc820ff84252589ea61f506a3f97d1ea23c4f39b09519ff"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -342,17 +342,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:4ce38a384a193eb001c7a74c4ffe4a74bac1e4db706ebe6eac26d9babdd4536c"
+              "sha256": "sha256:9582924a53894d8ef03290566029e81d4147a3eca80761fc23460c87ce2f8812"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:33914b5dea4479f5c64329c1ce9276fadd0ff5060856666001efdcef0c82886e"
+              "sha256": "sha256:46a325137e09d7b383a1db459fe9b41ce0024866c11a53a18cc81be4c9c22f78"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:403524abcb410ab5cc233a383704f253000609405981deda48bf89517dd50250"
+              "sha256": "sha256:b760182a94c463a8b4ee9fc2fce90723df5fa7cfa35413e9b3c80be53a649896"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -637,7 +637,7 @@
             {
               "source": "templates/codex/scripts/codex_git_sync.py",
               "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:0840a8a43a017d9844facbc9a55c0c426292f935dbe12af922e123b799b0d7d2"
+              "sha256": "sha256:a8c1877a499d93d2194b3e3ed8d0a1278b635096ec50caa83ecc1bc93eef5a80"
             },
             {
               "source": "templates/codex/scripts/context_cost_report.py",
@@ -687,7 +687,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:1275226aa059df45ba55fa201a19c7a47e89cd6843341ae0ba1d2b3d07948073"
+              "sha256": "sha256:5e0cd803e23f19338a745eb1d0b698d53f0dde759b9baf07da3135ce66493b10"
             }
           ]
         },
@@ -807,7 +807,7 @@
             {
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:162f63f34885096cef06ae41b920d1c5da4b5ca5bd5d5208b8396ca1365acfca"
+              "sha256": "sha256:e73378fe1a8526987c1fb891f1adeaccb37f9fcf86346b5c99ff0807f598dd58"
             }
           ]
         },
@@ -907,12 +907,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:168af4bbfcb21106740ccb0bcbd54742f6e47cdf8c86164da4f04ff872e69061"
+              "sha256": "sha256:063c295a2a2faf759fa276a78db478e9a199de184ea92917a5b69533216b19b8"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:65b0952fed78d72dea8fa8b6d45f05846fc492c23a8b026c8808547f5febaa7a"
+              "sha256": "sha256:6ef7ef029aa303959303e41ee76945e1ab9a3b9a860fc56e5e7b5c056758393f"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -932,7 +932,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:572c9d329335079dc695b2fbf613d8f4068d2cd00ec707076d06f11597ebf013"
+              "sha256": "sha256:2508e90784a01bd1cfc820ff84252589ea61f506a3f97d1ea23c4f39b09519ff"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1237,17 +1237,17 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:4ce38a384a193eb001c7a74c4ffe4a74bac1e4db706ebe6eac26d9babdd4536c"
+              "sha256": "sha256:9582924a53894d8ef03290566029e81d4147a3eca80761fc23460c87ce2f8812"
             },
             {
               "source": "templates/codex/CHANGELOG.md",
               "target": "templates/codex/CHANGELOG.md",
-              "sha256": "sha256:33914b5dea4479f5c64329c1ce9276fadd0ff5060856666001efdcef0c82886e"
+              "sha256": "sha256:46a325137e09d7b383a1db459fe9b41ce0024866c11a53a18cc81be4c9c22f78"
             },
             {
               "source": "templates/codex/VERSION",
               "target": "templates/codex/VERSION",
-              "sha256": "sha256:403524abcb410ab5cc233a383704f253000609405981deda48bf89517dd50250"
+              "sha256": "sha256:b760182a94c463a8b4ee9fc2fce90723df5fa7cfa35413e9b3c80be53a649896"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1532,7 +1532,7 @@
             {
               "source": "templates/codex/scripts/codex_git_sync.py",
               "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:0840a8a43a017d9844facbc9a55c0c426292f935dbe12af922e123b799b0d7d2"
+              "sha256": "sha256:a8c1877a499d93d2194b3e3ed8d0a1278b635096ec50caa83ecc1bc93eef5a80"
             },
             {
               "source": "templates/codex/scripts/context_cost_report.py",
@@ -1582,7 +1582,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:1275226aa059df45ba55fa201a19c7a47e89cd6843341ae0ba1d2b3d07948073"
+              "sha256": "sha256:5e0cd803e23f19338a745eb1d0b698d53f0dde759b9baf07da3135ce66493b10"
             }
           ]
         },
@@ -1702,7 +1702,7 @@
             {
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:162f63f34885096cef06ae41b920d1c5da4b5ca5bd5d5208b8396ca1365acfca"
+              "sha256": "sha256:e73378fe1a8526987c1fb891f1adeaccb37f9fcf86346b5c99ff0807f598dd58"
             }
           ]
         },

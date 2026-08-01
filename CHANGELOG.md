@@ -17,6 +17,10 @@
 
 ---
 
+## [0.77.0] - 2026-08-01
+
+- `[product][repo][meta]` 优化 `$git-sync` 延迟：主对话完成只读审查后直接运行唯一 repo-local 同步脚本，取消 `mechanical-sync-worker` 中转与手工 Git 旁路；缺 upstream / push target / 提交消息和版本未 bump 在网络操作前失败，runner 不再额外重建 memory 索引，统一由 pre-commit 按宿主重建；成功输出直接包含 commit、实际 push target、是否执行 push、干净工作区与 `ahead=0 behind=0` 完整收据；分叉、冲突、权限与非快进安全边界保持不变。
+
 ## [0.76.1] - 2026-08-01
 
 - `[product][repo][meta]` 修复 Windows 上受保护 `.codex/` 目录使 `hooks_merge.py` 的同目录随机临时文件创建无限重试的问题：合并仍在同一项目文件系统内原子替换目标配置，但临时文件改在项目根 staging；新增回归测试覆盖 staging 目录选择，并同步模板与工厂 dogfood 镜像；补齐 `templates/codex/CHANGELOG.md` 的 0.45.1 发布记录并重建 `shared-skill-manifest.json`，使模板版本记录与分发哈希闭环一致。

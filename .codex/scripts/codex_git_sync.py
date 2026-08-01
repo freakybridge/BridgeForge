@@ -81,6 +81,13 @@ def _upstream() -> str:
     return result.stdout.strip()
 
 
+def _push_target() -> str:
+    result = _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{push}"])
+    if result.returncode != 0:
+        raise SyncStop("no push target; configure the current branch before git-sync", 2)
+    return result.stdout.strip()
+
+
 def _ahead_behind() -> tuple[int, int]:
     result = _git(["rev-list", "--left-right", "--count", "HEAD...@{u}"])
     if result.returncode != 0:
@@ -112,12 +119,12 @@ def _read_message(args: argparse.Namespace) -> str | None:
     return None
 
 
-def _rebuild_memory_index() -> None:
-    script = REPO_ROOT / ".codex" / "scripts" / "memory_rebuild_index.py"
+def _check_factory_version_worktree() -> None:
+    script = REPO_ROOT / ".codex" / "scripts" / "factory_version_check.py"
     if not script.exists():
         return
     result = subprocess.run(
-        [sys.executable, str(script)],
+        [sys.executable, str(script), "--worktree"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -128,7 +135,10 @@ def _rebuild_memory_index() -> None:
     )
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip()
-        raise SyncStop(f"memory_rebuild_index.py failed: {detail}", result.returncode or 1)
+        raise SyncStop(
+            f"factory_version_check.py --worktree failed: {detail}",
+            result.returncode or 1,
+        )
 
 
 def _rebuild_shared_skill_manifest() -> None:
@@ -199,13 +209,23 @@ def sync(args: argparse.Namespace) -> int:
         raise SyncStop(f"not a git repository: {REPO_ROOT}", 1)
 
     _run_git(["rev-parse", "--is-inside-work-tree"], label="git rev-parse")
+    _upstream()
+    push_target = _push_target()
+    dirty = bool(_status())
+    message = None
+    if dirty:
+        message = _read_message(args)
+        if not message:
+            raise SyncStop("commit message is required when local changes exist", 2)
+        _check_factory_version_worktree()
+        _refresh_harness_parity_report()
+        _rebuild_shared_skill_manifest()
+        _check_factory_version_worktree()
+
     if not args.skip_fetch:
         _run_git(["fetch", args.remote], timeout=180, label=f"git fetch {args.remote}")
-    _upstream()
 
     ahead, behind = _ahead_behind()
-    _refresh_harness_parity_report()
-    dirty = bool(_status())
 
     if ahead and behind:
         _print_diverged()
@@ -220,11 +240,8 @@ def sync(args: argparse.Namespace) -> int:
             return 2
 
     if dirty:
-        _rebuild_memory_index()
-        _rebuild_shared_skill_manifest()
         _run_git(["add", "."], label="git add")
         if _has_staged_changes():
-            message = _read_message(args)
             if not message:
                 raise SyncStop("commit message is required when local changes are staged", 2)
             _run_git(["commit", "-m", message], timeout=180, label="git commit")
@@ -239,11 +256,13 @@ def sync(args: argparse.Namespace) -> int:
         return 2
     if behind:
         raise SyncStop("remote advanced during git-sync; rerun after reviewing state", 2)
+    pushed = False
     if ahead:
         if args.skip_push:
             print(f"[git-sync] {ahead} local commit(s) ready; push skipped by --skip-push")
         else:
             _run_git(["push"], timeout=240, label="git push")
+            pushed = True
 
     final_dirty = _status()
     final_ahead, final_behind = _ahead_behind()
@@ -255,7 +274,13 @@ def sync(args: argparse.Namespace) -> int:
             print(f"ahead={final_ahead} behind={final_behind}")
         return 3
 
-    print("[git-sync] synced; working tree clean")
+    commit = _run_git(["rev-parse", "HEAD"], label="git rev-parse HEAD").stdout.strip()
+    print("[git-sync] synced")
+    print(f"commit={commit}")
+    print(f"push_target={push_target}")
+    print(f"push_performed={'true' if pushed else 'false'}")
+    print("working_tree=clean")
+    print("ahead=0 behind=0")
     return 0
 
 

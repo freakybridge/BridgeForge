@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.46.0] - 2026-08-01
+
+### Changed
+
+- [product] `$git-sync` 改为主对话只运行唯一 repo-local 同步脚本，取消机械 agent 中转与手工 Git 旁路；无副作用的本地失败在 fetch 前暴露，memory 索引不再重复重建，成功输出包含 commit、实际 push target、是否执行 push、干净工作区和 `ahead=0 behind=0` 完整收据。
+
 ## [0.45.1] - 2026-08-01
 
 ### Fixed

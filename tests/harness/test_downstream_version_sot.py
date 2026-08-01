@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import shutil
 import subprocess
@@ -26,6 +27,10 @@ SETTINGS = (
     ROOT / ".claude" / "settings.json",
 )
 FACTORY_VERSION_CHECK = ROOT / ".codex" / "scripts" / "factory_version_check.py"
+GIT_SYNC_RUNNERS = (
+    ROOT / ".codex" / "scripts" / "codex_git_sync.py",
+    ROOT / "templates" / "codex" / "scripts" / "codex_git_sync.py",
+)
 SHOW_STATES = (
     ROOT / "templates" / "codex" / "hooks" / "show_state.py",
     ROOT / ".codex" / "hooks" / "show_state.py",
@@ -159,6 +164,14 @@ class DownstreamVersionSotTests(unittest.TestCase):
 
             (repo / "templates" / "codex").mkdir(parents=True)
             (repo / "templates" / "codex" / "AGENTS.md").write_text("changed\n", encoding="utf-8")
+            allowed = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
+            self.assertEqual(allowed.returncode, 0, allowed.stderr)
+            blocked = run(
+                [sys.executable, str(FACTORY_VERSION_CHECK), "--worktree"],
+                repo,
+            )
+            self.assertEqual(blocked.returncode, 2, blocked.stderr)
+
             result = run(["git", "add", "templates/codex/AGENTS.md"], repo)
             self.assertEqual(result.returncode, 0, result.stderr)
             blocked = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
@@ -166,10 +179,61 @@ class DownstreamVersionSotTests(unittest.TestCase):
             self.assertIn("根 VERSION", blocked.stderr)
 
             (repo / "VERSION").write_text("0.72.0\n", encoding="utf-8")
+            blocked = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
+            self.assertEqual(blocked.returncode, 2, blocked.stderr)
+            allowed = run(
+                [sys.executable, str(FACTORY_VERSION_CHECK), "--worktree"],
+                repo,
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stderr)
+
             result = run(["git", "add", "VERSION"], repo)
             self.assertEqual(result.returncode, 0, result.stderr)
             allowed = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
             self.assertEqual(allowed.returncode, 0, allowed.stderr)
+
+            result = run(["git", "commit", "-m", "product baseline"], repo)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            (repo / "templates" / "codex" / "AGENTS.md").write_text(
+                "unstaged product change\n",
+                encoding="utf-8",
+            )
+            allowed = run([sys.executable, str(FACTORY_VERSION_CHECK)], repo)
+            self.assertEqual(allowed.returncode, 0, allowed.stderr)
+            blocked = run(
+                [sys.executable, str(FACTORY_VERSION_CHECK), "--worktree"],
+                repo,
+            )
+            self.assertEqual(blocked.returncode, 2, blocked.stderr)
+
+    def test_git_sync_runner_mirror_has_no_active_memory_rebuild(self) -> None:
+        dogfood = GIT_SYNC_RUNNERS[0].read_text(encoding="utf-8")
+        template = GIT_SYNC_RUNNERS[1].read_text(encoding="utf-8")
+        self.assertEqual(dogfood, template)
+        self.assertNotIn("memory_rebuild_index", dogfood)
+
+    def test_git_sync_routes_directly_through_main(self) -> None:
+        routing_files = (
+            ROOT / ".codex" / "skill-routing.json",
+            ROOT / "templates" / "codex" / "skill-routing.json",
+        )
+        for routing_file in routing_files:
+            with self.subTest(routing=routing_file):
+                routing = json.loads(routing_file.read_text(encoding="utf-8"))
+                route = next(
+                    entry for entry in routing["skills"] if entry["skill"] == "git-sync"
+                )
+                self.assertEqual(route["stage"], "all")
+                self.assertEqual(route["agent"], "main")
+                self.assertEqual(route["mode"], "main")
+
+        skill = (ROOT / "skills" / "git-sync" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("mechanical-sync-worker", skill)
+        self.assertIn("必须直接且只运行", skill)
+        self.assertNotIn("### 3. 标准路径", skill)
+        self.assertNotIn("git fetch origin", skill)
 
     def test_init_reference_keeps_business_version_outside_bridgeforge(self) -> None:
         reference = (ROOT / "skills" / "bridgeforge" / "references" / "init.md").read_text(

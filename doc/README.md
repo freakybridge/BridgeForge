@@ -33,6 +33,7 @@ delivery_layout: flat
 | `cross-project-write-guard`、`non-ascii-shell-guard` | 安全防护；各含 `research/` |
 | `ctx-management`、`token-context-optimization` | 上下文与 token 治理；Stall Warning 已裁定从双宿主骨架及下游更新中移除（2026-07-30） |
 | `doc-unification`、`document-lifecycle` | 文档体系演进 |
+| `git-sync-latency-optimization` | `$git-sync` 单脚本直跑、失败前置、重复重建消除与完整同步收据（2026-08-01） |
 | `memory-rule-organization` | 下游 memory / rule 分类、topic memory 与渐进加载；项目级双宿主 memory junction hook（2026-07-28）；Rule 索引 hook 批次 A 上游增强已采纳（2026-07-29）；Codex hook 单一注册源与全量承载迁移、Summary 职责收口与 memory 颗粒度治理需求已确认（2026-08-01） |
 | `shared-skill-distribution` | 用户级 shared skill 分发 |
 

@@ -2579,6 +2579,10 @@ def check_user_config_write_guard() -> CheckResult:
 def check_codex_git_sync_runner() -> CheckResult:
     fixture = build_codex_fixture()
     _safe_reset_dir(CODEX_GIT_SYNC_REMOTE)
+    shutil.copy2(
+        REPO_ROOT / ".codex" / "scripts" / "factory_version_check.py",
+        fixture / ".codex" / "scripts" / "factory_version_check.py",
+    )
 
     steps = [
         (["git", "config", "user.email", "fixture@example.invalid"], fixture, "config email"),
@@ -2595,6 +2599,106 @@ def check_codex_git_sync_runner() -> CheckResult:
         if result.returncode != 0:
             return CheckResult("codex_git_sync_runner", False, f"{label} failed: {result.stderr.strip()}")
 
+    missing_remote = CODEX_GIT_SYNC_REMOTE.with_name("missing-git-sync-remote.git")
+    unset_upstream = run(["git", "branch", "--unset-upstream"], fixture)
+    remote_unreachable = run(
+        ["git", "remote", "set-url", "origin", str(missing_remote)],
+        fixture,
+    )
+    if unset_upstream.returncode != 0 or remote_unreachable.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            "prepare missing-upstream preflight failed",
+        )
+    missing_upstream = run(
+        [sys.executable, ".codex/scripts/codex_git_sync.py"],
+        fixture,
+        timeout=60,
+    )
+    remote_restored = run(
+        ["git", "remote", "set-url", "origin", str(CODEX_GIT_SYNC_REMOTE)],
+        fixture,
+    )
+    upstream_restored = run(
+        ["git", "branch", "--set-upstream-to=origin/main", "main"],
+        fixture,
+    )
+    if remote_restored.returncode != 0 or upstream_restored.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            "restore upstream after preflight failed",
+        )
+
+    push_disabled = run(["git", "config", "push.default", "nothing"], fixture)
+    remote_unreachable = run(
+        ["git", "remote", "set-url", "origin", str(missing_remote)],
+        fixture,
+    )
+    if push_disabled.returncode != 0 or remote_unreachable.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            "prepare missing-push-target preflight failed",
+        )
+    missing_push_target = run(
+        [sys.executable, ".codex/scripts/codex_git_sync.py"],
+        fixture,
+        timeout=60,
+    )
+    push_default_restored = run(["git", "config", "--unset", "push.default"], fixture)
+    remote_restored = run(
+        ["git", "remote", "set-url", "origin", str(CODEX_GIT_SYNC_REMOTE)],
+        fixture,
+    )
+    if push_default_restored.returncode != 0 or remote_restored.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            "restore push target after preflight failed",
+        )
+
+    product_change = fixture / "templates" / "codex" / "AGENTS.md"
+    product_change.parent.mkdir(parents=True)
+    product_change.write_text("unversioned product change\n", encoding="utf-8")
+    remote_unreachable = run(
+        ["git", "remote", "set-url", "origin", str(missing_remote)],
+        fixture,
+    )
+    if remote_unreachable.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            f"set unreachable remote failed: {remote_unreachable.stderr.strip()}",
+        )
+    message_preflight = run(
+        [sys.executable, ".codex/scripts/codex_git_sync.py"],
+        fixture,
+        timeout=60,
+    )
+    preflight = run(
+        [
+            sys.executable,
+            ".codex/scripts/codex_git_sync.py",
+            "--message",
+            "chore: blocked",
+        ],
+        fixture,
+        timeout=60,
+    )
+    product_change.unlink()
+    remote_restored = run(
+        ["git", "remote", "set-url", "origin", str(CODEX_GIT_SYNC_REMOTE)],
+        fixture,
+    )
+    if remote_restored.returncode != 0:
+        return CheckResult(
+            "codex_git_sync_runner",
+            False,
+            f"restore remote failed: {remote_restored.stderr.strip()}",
+        )
+
     (fixture / "work.txt").write_text("fixture change\n", encoding="utf-8")
     sync = run(
         [sys.executable, ".codex/scripts/codex_git_sync.py", "--message", "chore: fixture sync"],
@@ -2607,21 +2711,59 @@ def check_codex_git_sync_runner() -> CheckResult:
         ["git", "--git-dir", str(CODEX_GIT_SYNC_REMOTE), "log", "--oneline", "--max-count=1", "refs/heads/main"],
         fixture,
     )
+    head = run(["git", "rev-parse", "HEAD"], fixture)
+    missing_upstream_output = missing_upstream.stdout + missing_upstream.stderr
+    missing_push_target_output = missing_push_target.stdout + missing_push_target.stderr
+    message_preflight_output = message_preflight.stdout + message_preflight.stderr
+    preflight_output = preflight.stdout + preflight.stderr
+    runner_text = (CODEX_TEMPLATE / "scripts" / "codex_git_sync.py").read_text(
+        encoding="utf-8"
+    )
+    dogfood_runner_text = (
+        REPO_ROOT / ".codex" / "scripts" / "codex_git_sync.py"
+    ).read_text(encoding="utf-8")
 
     ok = (
-        sync.returncode == 0
+        missing_upstream.returncode == 2
+        and "no upstream branch" in missing_upstream_output
+        and str(missing_remote) not in missing_upstream_output
+        and missing_push_target.returncode == 2
+        and "no push target" in missing_push_target_output
+        and str(missing_remote) not in missing_push_target_output
+        and message_preflight.returncode == 2
+        and "commit message is required" in message_preflight_output
+        and str(missing_remote) not in message_preflight_output
+        and preflight.returncode == 2
+        and "factory_version_check.py --worktree failed" in preflight_output
+        and str(missing_remote) not in preflight_output
+        and sync.returncode == 0
         and status.returncode == 0
         and status.stdout.strip() == ""
         and ahead.returncode == 0
         and ahead.stdout.strip() == "0\t0"
         and "chore: fixture sync" in remote_log.stdout
+        and head.returncode == 0
+        and f"commit={head.stdout.strip()}" in sync.stdout
+        and "push_target=origin/main" in sync.stdout
+        and "push_performed=true" in sync.stdout
+        and "working_tree=clean" in sync.stdout
+        and "ahead=0 behind=0" in sync.stdout
+        and "memory_rebuild_index" not in runner_text
+        and runner_text == dogfood_runner_text
     )
     return CheckResult(
         "codex_git_sync_runner",
         ok,
-        "runner committed, pushed to local bare remote, and left fixture clean"
+        "runner blocked version drift before fetch, emitted complete receipts, pushed, and has no active memory rebuild"
         if ok
         else (
+            f"missing_upstream={missing_upstream.returncode}/"
+            f"{missing_upstream_output.strip()} "
+            f"missing_push_target={missing_push_target.returncode}/"
+            f"{missing_push_target_output.strip()} "
+            f"message_preflight={message_preflight.returncode}/"
+            f"{message_preflight_output.strip()} "
+            f"version_preflight={preflight.returncode}/{preflight_output.strip()} "
             f"sync={sync.returncode} status={status.stdout!r} ahead={ahead.stdout!r} "
             f"remote_log={remote_log.stdout!r} output={(sync.stdout + sync.stderr).strip()}"
         ),
