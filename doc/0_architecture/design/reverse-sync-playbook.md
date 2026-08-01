@@ -188,6 +188,17 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 - **公开技术名豁免**：`cargo` / `deps` / `rlib` / `rmeta` / `hash` / `mtime` / `Defender` 均不脱敏
 - **增量反哺的版本语义**：已反哺 hook 加新 pass = 新功能 = minor bump（0.24→0.25），不是 patch
 
+#### 批次（v0.76.1 / 2026-08-01）— Windows 受保护 `.codex/` 原子写 staging 修复
+
+源：未披露下游项目 → `templates/codex/scripts/hooks_merge.py`
+
+实测应用的 checklist 项：
+
+- **#1 项目名**：用户未提供下游项目名称，记录统一写“未披露下游项目”，不从路径、提交或上下文猜测来源
+- **#6 绝对路径**：上游实现通过目标路径的父级关系定位项目根 staging，不写入下游绝对路径
+- **机制提炼**：下游暴露的问题是 Windows 受保护 `.codex/` 目录不允许创建随机临时文件；上游只提炼为“项目根 staging + 同文件系统 `os.replace` 原子替换”，不携带下游权限配置或目录细节
+- **发布闭环**：Codex 模板 patch 版本、模板 CHANGELOG、根 CHANGELOG、共享分发 manifest 与回归测试同步更新，避免代码已发布但模板版本记录或分发哈希缺失
+
 ### 3.2 实战记录的元规则
 
 - 每次反哺后**当场**写实战记录到 §3.1（不要攒），否则 7 天后细节就忘了
@@ -214,6 +225,7 @@ git diff --cached | Select-String -Pattern "(causis_api|StratusAgent|账户|API.
 
 | 日期 | 源项目 | 目标文件 | 反哺内容（一句话） | 操作人 |
 |------|--------|----------|--------------------|--------|
+| 2026-08-01 | 未披露下游项目 | templates/codex/scripts/hooks_merge.py | Windows 受保护 `.codex/` 下的原子写临时文件改到项目根 staging，并补齐模板 CHANGELOG、共享 manifest 与回归测试发布闭环 | Codex |
 | 2026-07-24 | StratusAgent | skills/explain/SKILL.md | 将下游已验证的白话解释流程写成通用 skill；目标行为按已确认上游规格重写，不伪称复制未定位的下游原文，并排除项目名、路径和量化业务术语 | bridgexue |
 | 2026-07-08 | StratusAgent | templates/claude/hooks/git_add_all_guard.py + settings.json | 新 hook：bulk git add 安全护栏；脱敏项目文案后阻断凭证类文件和 `.runtime/` 临时产物被全量 add | bridgexue |
 | 2026-07-08 | StratusAgent | templates/claude/hooks/memory_dup_check.py + settings.json | 新 hook：新建 memory 前按文件名主题词提示同主题碎片化；脱敏本地 debate/memory 来源记录 | bridgexue |

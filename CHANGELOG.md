@@ -17,6 +17,10 @@
 
 ---
 
+## [0.76.1] - 2026-08-01
+
+- `[product][repo][meta]` 修复 Windows 上受保护 `.codex/` 目录使 `hooks_merge.py` 的同目录随机临时文件创建无限重试的问题：合并仍在同一项目文件系统内原子替换目标配置，但临时文件改在项目根 staging；新增回归测试覆盖 staging 目录选择，并同步模板与工厂 dogfood 镜像；补齐 `templates/codex/CHANGELOG.md` 的 0.45.1 发布记录并重建 `shared-skill-manifest.json`，使模板版本记录与分发哈希闭环一致。
+
 ## [0.76.0] - 2026-08-01
 
 - `[product][meta]` `$summary` 收口为当前项目的知识归纳入口：以项目 writer 能力而非版本戳决定确定性写入，topic 固定维护唯一 `summary.md`，通用 memory 必须围绕可重复检索的稳定问题聚合；既有碎片只输出合并候选，归档交给 `$archive-scan`，用户级 memory 必须另行确认，并移除 harvest 捕捉、测试重跑和 Git 发布职责。

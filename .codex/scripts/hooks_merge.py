@@ -179,7 +179,12 @@ def _diff(path: Path, before: str, after: str) -> str:
 
 def _atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, raw = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
+    # Codex may protect .codex/ from creating arbitrary temporary files even
+    # when replacement of its managed configuration is permitted.  Stage next
+    # to that directory instead: it remains on the same filesystem, so
+    # os.replace keeps its atomic-replacement guarantee on Windows.
+    staging_dir = path.parent.parent if path.parent.name == ".codex" else path.parent
+    fd, raw = tempfile.mkstemp(prefix=path.name + ".", dir=str(staging_dir))
     tmp = Path(raw)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:

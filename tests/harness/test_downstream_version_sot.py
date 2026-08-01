@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import shutil
 import subprocess
 import sys
@@ -53,6 +54,22 @@ def run(command: list[str], cwd: Path, *, input_text: str = "") -> subprocess.Co
 
 
 class DownstreamVersionSotTests(unittest.TestCase):
+    def test_every_template_version_has_a_changelog_section(self) -> None:
+        version_files = sorted((ROOT / "templates").glob("*/VERSION"))
+        self.assertTrue(version_files, "No template VERSION files found")
+
+        for version_file in version_files:
+            with self.subTest(template=version_file.parent.name):
+                version = version_file.read_text(encoding="utf-8-sig").strip()
+                changelog = version_file.with_name("CHANGELOG.md")
+                self.assertTrue(changelog.is_file(), f"Missing {changelog}")
+                changelog_text = changelog.read_text(encoding="utf-8-sig")
+                self.assertRegex(
+                    changelog_text,
+                    rf"(?m)^## \[{re.escape(version)}\](?:\s|$)",
+                    f"{changelog} has no section for VERSION {version}",
+                )
+
     def test_template_and_dogfood_hooks_are_mirrored(self) -> None:
         self.assertEqual(VERSION_CHECKS[0].read_bytes(), VERSION_CHECKS[1].read_bytes())
         self.assertEqual(VERSION_CHECKS[2].read_bytes(), VERSION_CHECKS[3].read_bytes())

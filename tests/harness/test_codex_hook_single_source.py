@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +44,27 @@ def load_module(path: Path, name: str):
 
 
 class HookSingleSourceTest(unittest.TestCase):
+    def test_atomic_write_stages_outside_codex_directory(self) -> None:
+        module = load_module(
+            TEMPLATE / "scripts" / "hooks_merge.py",
+            "hooks_merge_atomic_write_staging",
+        )
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            codex = root / ".codex"
+            codex.mkdir()
+            target = codex / "hooks.json"
+            original_mkstemp = tempfile.mkstemp
+            with mock.patch.object(
+                module.tempfile,
+                "mkstemp",
+                wraps=original_mkstemp,
+            ) as staged:
+                module._atomic_write(target, '{"hooks": {}}\n')
+            self.assertEqual(Path(staged.call_args.kwargs["dir"]), root)
+            self.assertEqual(target.read_text(encoding="utf-8"), '{"hooks": {}}\n')
+            self.assertFalse(list(root.glob("hooks.json.*")))
+
     def test_positive_suite_uses_project_python_311_or_newer(self) -> None:
         self.assertGreaterEqual(sys.version_info, (3, 11))
         self.assertEqual(
