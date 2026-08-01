@@ -48,7 +48,7 @@
 4. **改的是 `templates/codex/hooks/` 或 `templates/codex/settings.json` 吗？那我吃狗粮了吗？（dogfood 镜像，红线）**
    - **凡确认要进产品层的 hook / settings 改动，必须当场镜像进自身 `.codex/`** —— 不能只发给下游、自己不装（§2 dogfood 约定的强制版）。
    - **现已机检硬拦**：`mirror_drift_check.py` 在 `.githooks/pre-commit` 对「缺文件」exit 2、正文差异（归一化 python 前缀后）软提示；漏镜像的 hook 提交时会被拦（细则 → `templates/codex/rules/portability.md §5.1`）。
-   - 镜像时按 dev 仓库约定改 hook 命令：`templates/codex/` 用 `.venv/Scripts/python.exe`，自身 `.codex/settings.json` 用系统 `python`（dev 仓库无 `.venv`）。注意 hook `.py` 正文两侧应逐字一致——前缀差异只在 `settings.json` / `pre-commit` 的命令行，不在 `.py` 里。
+   - 模板与 dogfood 的 Codex hook 命令都必须使用项目 `.venv/Scripts/python.exe`；BridgeForge 与所有下游统一要求 Python ≥3.11。hook `.py` 正文两侧必须逐字一致。
    - 对 bridgeforge 不适用的 hook（如 Rust-only 的 `target_cleanup`）**也要挂上**——它的自门控 no-op 正好用来验证产品承诺，挂着 = 持续 dogfood 测试。
    - 例外：纯下游业务场景的 hook（本 repo 永远跑不到）可豁免，但要在 CHANGELOG 顶部当条加 `[dogfood-exempt: <hook> <因>]` 注明「不 dogfood + 原因」（这也是 `mirror_drift_check.py` 硬拦的豁免开关）。
 
@@ -74,7 +74,7 @@
 | `doc/**` `README.md` | 元文档 | ❌ 描述产品 |
 | `CHANGELOG.md` `VERSION` | 元文档（流水账 / SoT） | ❌ 自己的版本号；模板版本号是 `templates/<agent>/VERSION` |
 
-**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.codex/hooks/*.py` 理论上应与 `templates/codex/hooks/*.py` **逐字一致**（仅 hook 命令前缀按 dev 仓库无 `.venv` 改用系统 `python`）。改了一边就该同步另一边（已提升为 §1 第 4 问红线）。
+**自产自用（dogfood）约定**：bridgeforge 自己也按自己的手册活——`.codex/hooks/*.py` 必须与 `templates/codex/hooks/*.py` **逐字一致**，`.codex/hooks.json` 与模板一样使用项目 `.venv`。改了一边就必须同步另一边（已提升为 §1 第 4 问红线）。
 
 ---
 

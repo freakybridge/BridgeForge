@@ -17,6 +17,11 @@
 
 ---
 
+## [0.75.0] - 2026-08-01
+
+- `[product][repo][meta]` Codex 项目 lifecycle hook 全量迁移到唯一注册源 `.codex/hooks.json`：33 个旧 handler 逐项审计后由单 dispatcher 按真实 payload 串行编排，memory 固定 `encoding → rebuild → lint` 且 rebuild 失败跳过 lint；settings/config 非法双源由健康检查与 pre-commit 硬拦。`/bridgeforge` init/update/adopt 增加保留第三方 hook 的确认式 merge 与版本戳事务边界。Claude 注册方式不变。
+- `[product][repo][meta]` **Breaking baseline**：BridgeForge 与所有下游 hooks 统一要求 Python ≥3.11。`/bridgeforge` 在任何项目写入前锁定本轮唯一解释器；已有 `.venv` 低版本、损坏或缺解释器时禁止 PATH 回退。merge、dispatcher、health 与三套 pre-commit 均 fail closed，Codex dogfood 与模板统一使用项目 `.venv`。
+
 ## [0.74.0] - 2026-07-31
 
 - `[product][repo][meta]` 移除 BridgeForge 对 Codex 模型和思考强度的项目级固定路由：模板与 dogfood 的 `config.toml`、全部 custom agent 不再写 `model` / `model_reasoning_effort`，订阅档位 marker 与路由脚本停止分发，模型策略 hook 不再注册或作为 pre-commit 闸。`$bridgeforge` init/adopt/update 改为保持 Codex 平台默认；named agent 只保留职责边界和 `xhigh` 的用户确认门槛。下游需新会话后生效；已有项目的自主模型覆盖保持由用户决定。

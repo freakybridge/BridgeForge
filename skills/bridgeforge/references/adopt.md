@@ -1,5 +1,8 @@
 # Adopt 收编模式操作手册
 
+进入本手册前必须已通过根入口 Python 3.11+ preflight，并锁定本轮唯一
+`$HOOK_PYTHON`。preflight 失败时禁止 merge、复制、删除或写版本戳。
+
 仅当根 `SKILL.md` 判定“当前 agent 无 `.bridgeforge_version`，但 BridgeForge 衍生指纹至少命中 2 项”时读取。执行前必须完成根入口规定的公共用户级 skill 维护。
 
 ## 核心语义
@@ -12,7 +15,7 @@ Codex 例外仅限根入口 Step 4.5：无订阅档位 marker 时，先由用户
 
 1. 列出实际命中的指纹项。
 2. 告诉用户：“检测到项目像是 BridgeForge 铺过但缺版本戳；建议收编。收编只登记纳管，不改已有文件。”
-3. 用户确认后写当前上游版本：
+3. 用户确认后先执行 Codex hook 承载迁移，再写当前上游版本：
 
 ```bash
 cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
@@ -20,14 +23,21 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 版本戳等于声明“以当前项目现状为最新同步基线”。首次收编默认不补历史增量；从下次运行起，才按 `(此版, 新版]` 处理 `[product]` 更新。
 
-写戳前只读审计当前宿主的项目级 hook 承载面与 memory junction：
+写戳前审计当前宿主的项目级 hook 承载面与 memory junction：
 
-- Codex 的 `SessionStart` 承载面必须是 `.codex/hooks.json`；Claude Code 保持
+- Codex lifecycle hook 的唯一承载面必须是 `.codex/hooks.json`；先把 settings 旧
+  `hooks` 的第三方项合并进去，再删除整个 settings `hooks` 块，按 `command` 身份
+  增补/替换全部受管 dispatcher，并保留 hooks.json 第三方项。Claude Code 保持
   `.claude/settings.json`。
-- adopt 不 merge hook 配置，不复制、合并或删除 memory，也不建立 junction。
-- 若承载面缺失/遗留或 junction 不是已验证的正确目标，记录为“待维护”。
-  写戳后提示无参数运行 `/bridgeforge`；既有项目维护分支即使发现版本相等，也必须处理
-  B 类承载面和 D 类 junction 迁移，不能以“已是最新”提前退出。
+- 受管 hook 已被修改时必须展示 diff 并取得覆盖确认；拒绝或冲突时保持全部文件不变。
+- `.codex/config.toml` 含 `[hooks]`、严格健康检查失败或 hook merge 未完成时，
+  **禁止写版本戳**，转入待维护状态。
+- Codex merge 必须先运行 command bundle 内
+  `& $HOOK_PYTHON templates/codex/scripts/hooks_merge.py --project-root . --template-hooks <模板 hooks.json>`
+  展示 diff；用户确认后才追加 `--apply --confirmed`。禁止手工拼接 JSON。
+- adopt 不复制、合并或删除 memory，也不建立 junction。
+- junction 不是已验证的正确目标时记录为“待维护”；hook 承载必须先完成，不能以
+  “收编只登记”为由把无效 hooks 注册盖上新版本戳。
 - 错误/断裂 junction、路径异常或系统 memory 实目录只报告状态；禁止在
   `SessionStart` 或 adopt 中自动迁移。
 - Codex 若审计发现 `.codex/hooks.json` 新增或变更后没有 trust 与新会话 smoke
@@ -47,7 +57,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 ## 禁止与收据
 
 - 禁止覆盖任何入口文件、rules 或 settings，即使先备份也不行。
-- 禁止改 hook 承载面、memory 或 `doc/`。
+- 禁止静默覆盖 hook；允许按上述确认式 merge 承载面。禁止改 memory 或 `doc/`。
 - 禁止未经用户确认写版本戳。
 - 禁止在 Codex 无有效订阅档位 marker 时完成收编。
 - 禁止把“像 BridgeForge”当成“允许 fresh init 覆盖”。

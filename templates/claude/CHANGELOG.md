@@ -21,6 +21,10 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+### Changed
+
+- [product] **Breaking baseline**：所有 hooks 最低要求 Python 3.11；项目 `.venv` 存在时是唯一解释器，低版本或损坏环境禁止 PATH 回退，pre-commit 在运行任何检查前硬拦。
+
 ## [0.32.0] - 2026-07-30
 
 ### Changed

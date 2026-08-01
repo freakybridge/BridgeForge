@@ -1,13 +1,85 @@
 {
+  "description": "BridgeForge project lifecycle hooks. This is the only managed Codex hook registration source.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" pre-tool",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') pre-tool\"",
+            "comment": "Sequential dispatcher for shell safety guards and apply_patch write boundaries."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-edit",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-edit\"",
+            "comment": "Normalizes apply_patch payloads and runs dependent edit checks in an explicit order."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-shell",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-shell\"",
+            "comment": "Records test-command receipts after shell execution."
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-compact",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-compact\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" stop",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') stop\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" user-prompt",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') user-prompt\"",
+            "comment": "Injects repository state, context budget, clarification, and focus signals."
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$(git rev-parse --show-toplevel)/.codex/hooks/memory_junction_check.py\"",
-            "commandWindows": "powershell -NoProfile -Command \"& python (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/memory_junction_check.py')\"",
-            "comment": "memory junction 项目级守卫：系统路径 ~/.codex/projects/<hash>/memory/ 缺失且项目 .codex/memory/ 存在时建立并验证 junction；正确 junction 静默 no-op；普通路径、错误/断裂 junction 与路径异常 fail-closed，不执行删除迁移。已有系统 memory 的合并/删除仅由经用户确认的 /bridgeforge 更新流程执行。详见 rules/portability.md §2.1。"
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" session-start",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') session-start\"",
+            "comment": "Runs startup health, memory junction/index, repository state, cleanup, and managed-skill checks in dependency order."
           }
         ]
       }

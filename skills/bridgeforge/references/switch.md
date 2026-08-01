@@ -1,6 +1,8 @@
 # Switch 双骨架直接同步手册
 
-仅当根 `SKILL.md` 命中显式 `switch` 时读取本文件。switch 的固定含义是：把另一套项目骨架的当前语义同步为当前宿主可执行的原生资产，然后留在当前宿主继续工作。
+仅当根 `SKILL.md` 命中显式 `switch` 时读取本文件。执行前必须已通过 Python 3.11+
+preflight；本手册只使用本轮锁定的 `$HOOK_PYTHON`。switch 的固定含义是：把另一套
+项目骨架的当前语义同步为当前宿主可执行的原生资产，然后留在当前宿主继续工作。
 
 `.claude/` 与 `.codex/` 是长期共存的项目资产。source 始终保持不变；禁止通过删除、移动或归档 source 来完成 switch。
 
@@ -25,7 +27,7 @@ target 必须等于实际承载本轮对话的宿主：
 主对话按当前宿主执行 command bundle 内对应模板脚本：
 
 ```powershell
-python (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
   $CURRENT_HOST `
   --current-host $CURRENT_HOST `
   --template-root "$BRIDGEFORGE_HOME"

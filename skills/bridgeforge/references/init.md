@@ -1,6 +1,6 @@
 # Init / 既有项目首次接入操作手册
 
-仅当根 `SKILL.md` 判定为全新 init 或“既有项目首次接入”时读取。执行前必须已完成根入口刷新、工厂自检、agent 分流和公共用户级 skill 维护。
+仅当根 `SKILL.md` 判定为全新 init 或“既有项目首次接入”时读取。执行前必须已完成根入口刷新、工厂自检、Python 3.11+ preflight、agent 分流和公共用户级 skill 维护；本手册只使用已锁定的 `$HOOK_PYTHON`。
 
 ## 目录
 
@@ -28,11 +28,21 @@
 - `permissions.defaultMode`：仅用户原配置未设置时写 `acceptEdits`；已设置则保留。
 - 其余字段保持原样。
 
-Codex 的项目级 hook 注册只允许 merge 到 `.codex/hooks.json`；按 `command`
-身份增补或替换受管的 `memory_junction_check` `SessionStart` 项，并保留所有
-第三方事件与 hook。必须从 `.codex/settings.json` 移除旧的
-`memory_junction_check` 注册，其他字段不动。保存前给用户 merge 预览。cwd
-不是目标根时，先询问正确路径。
+Codex 的项目级 hook 注册只允许 merge 到 `.codex/hooks.json`。先把存量
+`.codex/settings.json: hooks` 的第三方事件与 handler 合并进 `hooks.json`，再移除
+整个旧 `hooks` 块；permissions 与其他字段逐字保留。随后按 `command` 身份增补或
+替换全部 BridgeForge 受管 dispatcher，保留 `hooks.json` 中所有第三方事件、handler
+和其他配置。受管 command 已存在但内容与模板不同时，必须展示 diff 并取得覆盖确认；
+拒绝或冲突时文件与旧 `.bridgeforge_version` 均保持不变。`.codex/config.toml` 含
+`[hooks]` 时必须阻断并要求先迁入 `hooks.json`。保存前给用户完整 merge 预览。
+
+Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工拼接 JSON：
+
+```powershell
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\hooks_merge.py") `
+  --project-root . --template-hooks (Join-Path $BRIDGEFORGE_HOME "templates\codex\hooks.json")
+# 用户确认完整 diff 后才追加：--apply --confirmed
+```
 
 ## 2. 一次性收集项目元信息
 
@@ -48,17 +58,20 @@ Codex 的项目级 hook 注册只允许 merge 到 `.codex/hooks.json`；按 `com
 
 BridgeForge 强制铺设 `doc/` 分层，不接受跳过。用户明确不要文档分层时，停止并建议使用其他脚手架。
 
-## 3. Python 硬依赖检查
+## 3. Python 3.11+ preflight 收据
 
-复制 hooks 前确认有 Python ≥3.8：
+根入口 Step 2.25 已在任何项目写入前完成一次性检查并锁定 `$HOOK_PYTHON`：
 
-1. 优先项目 `.venv`：Windows `.venv/Scripts/python.exe`；Unix `.venv/bin/python`。
-2. 否则使用 PATH 中的 `python`。
-3. 两者都没有：停止，要求先安装 Python 后重跑。禁止先跳过 hooks。
+1. 项目 `.venv` 存在时，只接受 `.venv/Scripts/python.exe` 且版本必须 ≥3.11；
+   缺失、损坏或低版本禁止 PATH 回退。
+2. 项目无 `.venv` 时，才允许从 PATH 选择首个 Python ≥3.11。
+3. 失败必须保持项目文件与版本戳不变；禁止先复制无 hook 的半套骨架。
 
 BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都依赖 Python，且适用于 Rust/Node/Go 项目。用户不接受 Python 硬依赖时，停止并改用纯文档脚手架。
 
-缺 Python 时给出对应修复入口：Windows 可用 python.org 或 `winget install Python.Python.3`；macOS 可用 `brew install python`；Linux 用发行版包管理器安装 `python3`。安装后建议在项目根执行 `python -m venv .venv`，再重跑 `/bridgeforge`。
+缺 Python 3.11+ 时给出对应修复入口：Windows 可用 python.org 或
+`winget install Python.Python.3.12`。若已有低版本 `.venv`，必须先由用户自行重建为
+3.11+；BridgeForge 不删除或替换环境。修复后重跑 `/bridgeforge`。
 
 ## 4. 实际复制清单
 
@@ -126,23 +139,30 @@ __pycache__/
 
 裁剪后验证所有 `.md` 中 `OPTIONAL_BEGIN PLATFORM` / `OPTIONAL_BEGIN LANG` 计数为 0。
 
-## 8. Python 路径适配与 hook 验证
+## 8. 锁定解释器投影与 hook 验证
 
 复制 hooks/scripts 后：
 
-1. `.venv` 存在时，settings 的 hook 命令使用对应 `.venv` Python。
-2. 无 `.venv` 但系统 Python 可用时，改用裸 `python`，并在 hook `comment` 尾部提示“建好 .venv 后可改回项目解释器”。
-3. conda 项目使用 conda env 的绝对 Python 路径。
+1. Codex `hooks.json`（Claude 为 settings）的全部受管 hook 命令必须投影为本轮锁定的
+   `$HOOK_PYTHON`，不得再次探测或混用其他解释器。
+2. `.venv` 存在时命令必须引用该项目 `.venv`；无 `.venv` 时使用 preflight 锁定的
+   PATH 解释器。后续创建 `.venv` 必须重新运行 `/bridgeforge` 更新投影。
+3. conda 项目只有在项目无 `.venv` 且该 conda Python 是 preflight 选中的
+   `$HOOK_PYTHON` 时才可使用。
 4. 当前模板若仍使用 `context_warning.py` 的静态 `WINDOW` 常量：1M 专用模型设 `1_000_000`；标准 200k 模型设 `200_000`。若模板已改为从 session 日志动态读取窗口，禁止再手改不存在的常量。
-5. 在目标项目根运行：
+5. Codex 的每条受管命令必须同时提供 `commandWindows`，两者都从
+   `git rev-parse --show-toplevel` 定位项目根；禁止依赖启动 cwd。
+6. 在目标项目根运行：
 
 ```bash
-python "$PROJECT_AGENT_DIR/hooks/session_snapshot.py" manual
+& $HOOK_PYTHON "$PROJECT_AGENT_DIR/hooks/session_snapshot.py" manual
 ```
 
 期望输出 `[session snapshot manual] -> .runtime/session_state/<ts>.md`。失败则检查 Python 路径和 `.runtime/` 权限，不得宣称 hooks 已验证。
 
-Codex 若新增或变更 `.codex/hooks.json`，必须让用户执行 `/hooks`，逐项 review 并
+Codex 保存前必须运行 `config_health_check.py --strict`；settings 仍含 `hooks`、
+config 仍含 `[hooks]`、hooks.json 非法或 merge 冲突时禁止写版本戳。若新增或变更
+`.codex/hooks.json`，必须让用户执行 `/hooks`，逐项 review 并
 trust；随后开启新会话，以实际 `SessionStart` 行为做 smoke。无法在当前流程完成
 新会话 smoke 时，收据只能写“trust 未验证”，禁止把 JSON 可解析或脚本直跑当成
 已信任。Claude 若新增或变更 `.claude/settings.json` 的 hook，保持 Claude Code

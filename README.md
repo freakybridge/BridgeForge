@@ -13,11 +13,15 @@ BridgeForge 将可复用的协作约束、文档生命周期、memory、hooks �
 
 不适合：一次性脚本、短期 demo，或不接受 `doc/` 分层、Python hooks 和项目级协作约束的项目。
 
+BridgeForge 及其下游 hooks 的最低运行版本是 **Python 3.11**。项目存在 `.venv` 时，
+该环境是唯一解释器来源；低版本或损坏的 `.venv` 会阻断 init、adopt、update、switch
+和 pre-commit，不会回退 PATH 生成半套骨架。
+
 ## 快速开始
 
 BridgeForge 当前只支持 Windows。首次安装使用仓库内的安装器，它会从 canonical
 `main` 获取受管 shared skills，并分别安装到 Codex 与 Claude Code 的用户级 skill
-目录：
+目录。运行前必须准备 Python 3.11+；推荐项目根 `.venv`：
 
 ```powershell
 git clone https://github.com/freakybridge/BridgeForge.git D:\tools\BridgeForge

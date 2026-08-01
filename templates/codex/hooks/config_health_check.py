@@ -32,9 +32,32 @@ except Exception:
 USER_SETTINGS = Path.home() / ".codex" / "settings.json"
 PROJECT_SETTINGS = Path(".codex") / "settings.json"          # SessionStart hook cwd = 项目根
 PROJECT_SETTINGS_LOCAL = Path(".codex") / "settings.local.json"
+PROJECT_HOOKS = Path(".codex") / "hooks.json"
+PROJECT_CONFIG = Path(".codex") / "config.toml"
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+try:
+    from hook_config_policy import TomlHeaderError, has_hooks_table
+    POLICY_IMPORT_ERROR = ""
+except Exception as exc:  # strict mode must fail closed when shared policy is unavailable
+    TomlHeaderError = ValueError  # type: ignore[assignment,misc]
+    has_hooks_table = None  # type: ignore[assignment]
+    POLICY_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 
 # --- 各体检项：返回 None=通过，返回字符串=不达标（一行纯 ASCII，含修复提示） ---
+
+def _check_python_version(version_info: object = sys.version_info) -> "str | None":
+    """All BridgeForge hooks require Python 3.11+ and stdlib tomllib."""
+    major = int(getattr(version_info, "major", version_info[0]))  # type: ignore[index]
+    minor = int(getattr(version_info, "minor", version_info[1]))  # type: ignore[index]
+    if (major, minor) >= (3, 11):
+        return None
+    return (
+        f"PYTHON_VERSION: {major}.{minor} is unsupported. "
+        "FIX: create or upgrade the project .venv with Python 3.11+, then rerun /bridgeforge."
+    )
 
 def _check_pythonutf8() -> "str | None":
     """承重柱：UTF-8 Mode 真生效没。查 sys.flags.utf8_mode（事实，不被 stdout.reconfigure 掩盖）。
@@ -70,10 +93,58 @@ def _check_settings_json_valid() -> "str | None":
     return None
 
 
+def _check_single_hook_source() -> "str | None":
+    """BridgeForge projects register lifecycle hooks only in hooks.json."""
+    failures: list[str] = []
+    if POLICY_IMPORT_ERROR or has_hooks_table is None:
+        failures.append(f"shared hook policy unavailable ({POLICY_IMPORT_ERROR})")
+    for label, path in (
+        (".codex/settings.json", PROJECT_SETTINGS),
+        (".codex/settings.local.json", PROJECT_SETTINGS_LOCAL),
+    ):
+        if not path.is_file():
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue  # syntax is owned by settings-json-valid
+        if isinstance(value, dict) and "hooks" in value:
+            failures.append(f"{label} contains hooks")
+
+    if PROJECT_CONFIG.is_file():
+        try:
+            text = PROJECT_CONFIG.read_text(encoding="utf-8")
+        except Exception:
+            text = ""
+        if has_hooks_table is not None:
+            try:
+                if has_hooks_table(text):
+                    failures.append(".codex/config.toml contains a hooks table")
+            except TomlHeaderError as exc:
+                failures.append(f".codex/config.toml table header invalid ({exc})")
+
+    try:
+        hooks = json.loads(PROJECT_HOOKS.read_text(encoding="utf-8"))
+        if not isinstance(hooks, dict) or not isinstance(hooks.get("hooks"), dict):
+            failures.append(".codex/hooks.json has no hooks object")
+    except Exception as exc:
+        failures.append(f".codex/hooks.json invalid JSON ({type(exc).__name__})")
+
+    if not failures:
+        return None
+    return (
+        "Codex hook registration is not single-source: "
+        + "; ".join(failures)
+        + ". FIX: merge project hooks into .codex/hooks.json and remove all other hook blocks."
+    )
+
+
 # 本 hook 亲测 + 报告的项（单一事实源之一）。
 ACTIVE_CHECKS = (
+    ("python-version", _check_python_version),
     ("pythonutf8", _check_pythonutf8),
     ("settings-json-valid", _check_settings_json_valid),
+    ("single-hook-source", _check_single_hook_source),
 )
 
 # 已有专职 hook 保证的必要配置 —— 本 hook **不重复测**（避免双重刷屏 / 时序竞争），仅在此
@@ -87,24 +158,31 @@ DELEGATED = (
 )
 
 
-def main() -> int:
-    failures = []
-    for _name, fn in ACTIVE_CHECKS:
+def main(
+    version_info: object = sys.version_info,
+    strict: bool | None = None,
+) -> int:
+    failures: list[tuple[str, str]] = []
+    for name, fn in ACTIVE_CHECKS:
         try:
-            msg = fn()
+            msg = fn(version_info) if name == "python-version" else fn()
         except Exception:
             continue  # 单项检查异常绝不拖垮启动
         if msg:
-            failures.append(msg)
+            failures.append((name, msg))
 
     if not failures:
         return 0  # 全绿静默
 
     print("[health-check] %d skeleton setting(s) need attention "
           "(check-only, nothing changed):" % len(failures))
-    for msg in failures:
+    for _name, msg in failures:
         print("  - %s" % msg)
-    return 0
+    strict_failures = {"python-version", "settings-json-valid", "single-hook-source"}
+    strict_mode = "--strict" in sys.argv if strict is None else strict
+    return 2 if strict_mode and any(
+        name in strict_failures for name, _msg in failures
+    ) else 0
 
 
 if __name__ == "__main__":

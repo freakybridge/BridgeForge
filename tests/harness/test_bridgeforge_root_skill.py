@@ -32,6 +32,28 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             self.assertIn(marker, init)
             self.assertIn(marker, update)
 
+    def test_python_preflight_precedes_every_project_write_mode(self) -> None:
+        skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
+        preflight = skill.index("Step 2.25：项目 Python 3.11+ 一次性 preflight")
+        legacy_write = skill.index("Step 2.5：当前项目遗留 `.agents/` 硬闸")
+        switch = skill.index("Step 3：显式 switch 优先")
+        self.assertLess(preflight, legacy_write)
+        self.assertLess(preflight, switch)
+        for marker in (
+            "$HOOK_PYTHON",
+            "project .venv must use Python 3.11+",
+            "PATH fallback is forbidden",
+            "禁止复制、删除、merge",
+            "禁止重新探测、切换",
+        ):
+            self.assertIn(marker, skill)
+
+        references = ROOT / "skills" / "bridgeforge" / "references"
+        for name in ("init.md", "adopt.md", "update.md"):
+            text = (references / name).read_text(encoding="utf-8")
+            self.assertIn("$HOOK_PYTHON", text)
+            self.assertIn("Python 3.11+", text)
+
     def test_codex_platform_default_policy_is_main_dialog_and_all_modes(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("Codex 平台默认调度", skill)

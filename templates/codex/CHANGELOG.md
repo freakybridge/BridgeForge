@@ -21,6 +21,13 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.44.0] - 2026-08-01
+
+### Changed
+
+- [product] lifecycle hook 唯一注册源改为 `.codex/hooks.json`；单 dispatcher 适配 apply_patch payload 并显式串行依赖链，settings/config 双源由配置健康检查和 pre-commit 硬拦。
+- [product] **Breaking baseline**：所有 hooks 最低要求 Python 3.11；项目 `.venv` 存在时是唯一解释器，低版本或损坏环境禁止 PATH 回退。dispatcher、merge、health 与 pre-commit 均 fail closed。
+
 ## [0.43.0] - 2026-07-31
 
 ### Changed

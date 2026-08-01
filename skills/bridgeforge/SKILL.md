@@ -1,7 +1,7 @@
 ---
 name: bridgeforge
 description: 在 Windows 项目里铺设或更新标准化的 Claude/Codex 协作骨架（CLAUDE.md 或 AGENTS.md、rules、memory、hooks、doc 分层），并从 GitHub main 强制同步受管用户级 skill。用户提到 bridgeforge、项目骨架初始化、同步上游模板、switch claude/codex、Codex/Claude 入口 /bridgeforge 时使用。
-version: 0.70.2
+version: 0.75.0
 user_invocable: true
 argument: 仅支持无参数，或 switch claude|codex
 model: sonnet
@@ -106,6 +106,46 @@ if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
 
 命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑 `skills/bridgeforge/`、`doc/0_architecture/`、`templates/` 或其他 `skills/`。
 
+## Step 2.25：项目 Python 3.11+ 一次性 preflight（写入前硬闸）
+
+在 `.agents/` 迁移、switch、init、adopt 或 update 的任何项目写入前，只运行一次以下
+preflight，并把本轮唯一解释器锁定为 `$HOOK_PYTHON`：
+
+```powershell
+$projectVenv = Join-Path (Get-Location) ".venv"
+$HOOK_PYTHON = $null
+if (Test-Path -LiteralPath $projectVenv) {
+    $venvPython = Join-Path $projectVenv "Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
+        throw "BLOCKED: project .venv exists but Scripts/python.exe is missing; PATH fallback is forbidden."
+    }
+    & $venvPython -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)"
+    if ($LASTEXITCODE -ne 0) {
+        throw "BLOCKED: project .venv must use Python 3.11+; PATH fallback is forbidden."
+    }
+    $HOOK_PYTHON = (Resolve-Path -LiteralPath $venvPython).Path
+} else {
+    foreach ($name in @("python", "python3")) {
+        $candidate = Get-Command $name -ErrorAction SilentlyContinue
+        if ($null -eq $candidate) { continue }
+        & $candidate.Source -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)"
+        if ($LASTEXITCODE -eq 0) {
+            $HOOK_PYTHON = $candidate.Source
+            break
+        }
+    }
+    if ($null -eq $HOOK_PYTHON) {
+        throw "BLOCKED: Python 3.11+ is required before BridgeForge can modify this project."
+    }
+}
+```
+
+- `.venv` 一旦存在就是唯一候选；缺解释器、损坏或版本 `<3.11` 时禁止回退 PATH。
+- preflight 失败后必须立即停止；禁止复制、删除、merge、迁移 `.agents/`、运行 switch
+  apply 或写 `.bridgeforge_version`。
+- preflight 成功后，本轮所有 Python 命令统一用 `& $HOOK_PYTHON`；禁止重新探测、切换
+  解释器或使用裸 `python`。init、update、adopt 与 switch 手册继承同一个值。
+
 ## Step 2.5：当前项目遗留 `.agents/` 硬闸
 
 工厂自检未命中后，只检查当前工作目录根部是否存在 `.agents/`。若存在，先读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md)，运行专用迁移脚本的 `--dry-run` 并展示完整计划；只有用户确认后才允许 `--apply`。
@@ -124,7 +164,7 @@ if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
 主对话按当前宿主调用 command bundle 内的底层脚本，必须传入入口固定的宿主证据：
 
 ```powershell
-python (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
   $CURRENT_HOST `
   --current-host $CURRENT_HOST `
   --template-root "$BRIDGEFORGE_HOME"
@@ -189,6 +229,7 @@ Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\workflow.md") -PathT
 ```text
 REFRESHED
   ├─ FACTORY_SELF -> STOP
+  ├─ PYTHON PREFLIGHT -> `$HOOK_PYTHON` (3.11+) 或 STOP（零项目写入）
   ├─ LEGACY .agents -> dry-run -> 用户确认 -> apply 或 STOP
   ├─ EXPLICIT SWITCH -> switch 手册 -> DONE
   ├─ UPDATE -> update 手册
@@ -222,7 +263,7 @@ BridgeForge 下沉时按业务专属性分层：
 |---|---|
 | 上游项目 hooks/scripts | 比对后覆盖；存在差异先展示并确认 |
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
-| settings | merge，不覆盖；保留项目 permissions/env/additionalDirectories/自定义 hooks |
+| settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
 | rules、入口文件 | 只 diff，用户逐段决定 |
 | memory | init 只创建 `MEMORY.md`；update 先展示迁移计划，用户补齐低置信分类并明确确认后才 apply |
 | `doc/` | 新项目按模板创建；已有项目仅按 `references/update.md` 展示迁移清单并经用户确认后移动 |

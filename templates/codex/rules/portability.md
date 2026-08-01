@@ -201,12 +201,23 @@ Python `venv` 在 `pyvenv.cfg` + `activate.bat` + `activate` 三处硬编码创�
 
 ## 5. hooks 脚本约束
 
-项目 `.codex/hooks.json` 中引用的 hook 脚本 **必须** 存放在项目内（如
-`.codex/hooks/`），**禁止**硬编码用户目录路径（如
-`C:/Users/<name>/.codex/hooks/`），**禁止**把 Codex hook 注册写入
-`.codex/settings.json`。
+项目 lifecycle hook 的**唯一注册源必须是** `.codex/hooks.json`。
 
-原因：硬编码路径换机即失效，且不同机器用户名可能不同。
+- **禁止**在 `.codex/settings.json`、`.codex/settings.local.json` 注册 `hooks`。
+- **禁止**在 `.codex/config.toml` 注册 `[hooks]`。
+- hook 脚本**必须**位于项目内（如 `.codex/hooks/`），**禁止**硬编码用户目录路径。
+- `command` 与 `commandWindows` **必须**从 `git rev-parse --show-toplevel` 定位项目根；
+  模板优先项目 `.venv`，无 `.venv` 的 BridgeForge dogfood 使用系统 `python`。
+- 同一事件存在依赖的 handler **必须**由单一 dispatcher 显式串行，禁止依赖 JSON
+  排列顺序。memory 写入链固定为 `encoding → memory_rebuild_index → memory_lint`；
+  rebuild 失败必须跳过 lint 并输出可见错误。`SessionStart` rebuild 必须先于 show_state。
+- 更新存量项目时必须 merge `.codex/hooks.json` 并保留第三方事件和 handler；受管
+  handler 内容漂移必须展示 diff 并确认。拒绝覆盖、未解决冲突或非法双源存在时，
+  **禁止**更新 `.bridgeforge_version`。
+- `config_health_check.py --strict` 与 pre-commit **必须**对 settings `hooks` 或
+  config `[hooks]` 返回 exit 2。
+
+**Why**: 单一注册源避免失效配置、重复触发与并发竞态；git-root 定位保证换机可用。
 
 ### 5.1 dogfood 镜像红线（骨架仓库：templates/codex/hooks ↔ .codex/hooks 文件齐全）
 

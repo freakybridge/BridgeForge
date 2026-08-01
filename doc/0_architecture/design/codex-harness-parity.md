@@ -6,17 +6,17 @@
 
 - 状态：`REVIEW`
 - Claude 有但 Codex 缺失：0
-- 未登记的 Codex-only 文件：4
-- 归一化后仍有差异的同名文件：26（未分类：3）
+- 未登记的 Codex-only 文件：7
+- 归一化后仍有差异的同名文件：27（未分类：3）
 - skills 内容检查问题：0
 
 ## Inventory
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 28 | 30 | - | `model_policy_check.py`, `user_config_write_guard.py` |
+| `hooks` | 28 | 31 | - | `hook_dispatcher.py`, `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
-| `scripts` | 5 | 10 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `project_memory_recovery.py`, `project_memory_writer.py` |
+| `scripts` | 5 | 12 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `project_memory_recovery.py`, `project_memory_writer.py` |
 | `memory` | 1 | 1 | - | - |
 | `skills` | 20 | 20 | - | 共享单一源 |
 
@@ -29,6 +29,7 @@
 | `hooks/allow_memory_write.py` | 3 | -3 / +9 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_* fallback |
 | `hooks/cargo_default_run_check.py` | 4 | -6 / +6 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/clarify_reminder.py` | 2 | -3 / +3 | `expected-codex-adapter` | Codex must skip both / commands and $ skills |
+| `hooks/config_health_check.py` | 7 | -4 / +69 | `codex-only` | Codex checks project configuration health at session start |
 | `hooks/context_warning.py` | 16 | -97 / +182 | `expected-codex-adapter` | Codex skill calls use $ and must bypass ctx warning |
 | `hooks/enforce_no_effortlevel.py` | 1 | -2 / +2 | `expected-codex-adapter` | Codex removes only the legacy project effortLevel while leaving user config read-only |
 | `hooks/fallback_smell_check.py` | 3 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
@@ -48,7 +49,7 @@
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
-| `rules/portability.md` | 8 | -9 / +34 | `codex-only` | Codex config.toml and custom-agent portability guidance |
+| `rules/portability.md` | 8 | -11 / +47 | `codex-only` | Codex config.toml and custom-agent portability guidance |
 | `scripts/archive_scan.py` | 1 | -1 / +4 | `needs-review` | new or unclassified semantic difference |
 | `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `needs-review` | new or unclassified semantic difference |
 | `scripts/memory_search.py` | 1 | -2 / +2 | `cleanup-only` | behavior OK; Codex uses neutral host_dir rather than Claude-specific name |

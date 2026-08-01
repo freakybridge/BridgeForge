@@ -129,6 +129,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     for name in ("hooks", "scripts", "rules", "memory"):
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
+    shutil.copy2(CODEX_TEMPLATE / "hooks.json", codex_dir / "hooks.json")
     shutil.copy2(REPO_ROOT / "VERSION", codex_dir / ".bridgeforge_version")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
     shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
@@ -261,37 +262,22 @@ def _matcher_tokens(matcher: str) -> set[str]:
 
 def check_settings_multiedit_matchers() -> CheckResult:
     settings = json.loads((CODEX_TEMPLATE / "settings.json").read_text(encoding="utf-8-sig"))
-    required_commands = {
-        ".codex/scripts/memory_rebuild_index.py --from-hook",
-        ".codex/hooks/memory_lint.py",
-        ".codex/hooks/rule_index_check.py",
-        ".codex/hooks/rule_size_check.py",
-        ".codex/hooks/requirements_check.py",
-        ".codex/hooks/fallback_smell_check.py",
-        ".codex/hooks/encoding_check.py",
-    }
-    missing: list[str] = []
-    for block in settings.get("hooks", {}).get("PostToolUse", []):
-        tokens = _matcher_tokens(block.get("matcher", ""))
-        commands = {
-            hook.get("command", "")
-            for hook in block.get("hooks", [])
-            if isinstance(hook, dict)
-        }
-        matched = {
-            required
-            for required in required_commands
-            if any(command.endswith(required) for command in commands)
-        }
-        if not matched:
-            continue
-        if not {"Edit", "Write", "MultiEdit"}.issubset(tokens):
-            missing.extend(sorted(matched))
-    ok = not missing
+    hooks = json.loads((CODEX_TEMPLATE / "hooks.json").read_text(encoding="utf-8-sig"))
+    post_blocks = hooks.get("hooks", {}).get("PostToolUse", [])
+    edit_dispatchers = [
+        hook
+        for block in post_blocks
+        if {"Edit", "Write"}.issubset(_matcher_tokens(block.get("matcher", "")))
+        for hook in block.get("hooks", [])
+        if isinstance(hook, dict) and "hook_dispatcher.py" in hook.get("command", "")
+    ]
+    ok = "hooks" not in settings and len(edit_dispatchers) == 1
     return CheckResult(
-        "codex_settings_multiedit_matchers",
+        "codex_hooks_edit_dispatcher",
         ok,
-        "all critical PostToolUse hooks include Edit|Write|MultiEdit" if ok else "matcher missing MultiEdit for: " + ", ".join(missing),
+        "settings has no hooks and hooks.json has one Edit|Write PostTool dispatcher"
+        if ok
+        else f"settings_hooks={'hooks' in settings} edit_dispatchers={len(edit_dispatchers)}",
     )
 
 
@@ -308,6 +294,7 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
         '.codex/hooks/encoding_check.py" --pre-commit',
         '.claude/hooks/skill_metadata_check.py" --pre-commit',
         '.codex/hooks/skill_metadata_check.py" --pre-commit',
+        '.codex/hooks/config_health_check.py" --strict',
         'for CONFIG_DIR in .claude .codex; do',
         '$CONFIG_DIR/scripts/memory_rebuild_index.py',
     ]
@@ -330,6 +317,62 @@ def check_root_precommit_dual_agent_gates() -> CheckResult:
     if broken:
         detail += "; quoted script+arg entries still present: " + ", ".join(broken)
     return CheckResult("root_precommit_dual_agent_gates", ok, detail)
+
+
+def check_python_311_hook_baseline() -> CheckResult:
+    errors: list[str] = []
+    precommits = (
+        REPO_ROOT / ".githooks" / "pre-commit",
+        CODEX_TEMPLATE / ".githooks" / "pre-commit",
+        CLAUDE_TEMPLATE / ".githooks" / "pre-commit",
+    )
+    for path in precommits:
+        text = path.read_text(encoding="utf-8")
+        for marker in (
+            "sys.version_info >= (3, 11)",
+            "project .venv must use Python 3.11+",
+            "PATH fallback is forbidden",
+        ):
+            if marker not in text:
+                errors.append(f"{path.relative_to(REPO_ROOT)} missing {marker!r}")
+
+    for path in (
+        CODEX_TEMPLATE / "hooks" / "config_health_check.py",
+        CLAUDE_TEMPLATE / "hooks" / "config_health_check.py",
+    ):
+        text = path.read_text(encoding="utf-8")
+        if '"python-version"' not in text or "Python 3.11+" not in text:
+            errors.append(f"{path.relative_to(REPO_ROOT)} missing Python version health check")
+    for path in (
+        CODEX_TEMPLATE / "scripts" / "hooks_merge.py",
+        CODEX_TEMPLATE / "hooks" / "hook_dispatcher.py",
+    ):
+        if "MIN_PYTHON = (3, 11)" not in path.read_text(encoding="utf-8"):
+            errors.append(f"{path.relative_to(REPO_ROOT)} missing Python 3.11 hard gate")
+
+    template_hooks = json.loads((CODEX_TEMPLATE / "hooks.json").read_text(encoding="utf-8"))
+    dogfood_hooks = json.loads((REPO_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+    if template_hooks != dogfood_hooks:
+        errors.append("Codex dogfood hooks.json must exactly match the template")
+    for blocks in template_hooks.get("hooks", {}).values():
+        for block in blocks:
+            for hook in block.get("hooks", []):
+                if ".venv/Scripts/python.exe" not in hook.get("command", ""):
+                    errors.append("Codex managed hook command does not use project .venv")
+
+    skill = (REPO_ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
+    if skill.index("Step 2.25：项目 Python 3.11+") > skill.index("Step 2.5：当前项目遗留"):
+        errors.append("BridgeForge Python preflight runs after a project write path")
+    for marker in ("$HOOK_PYTHON", "禁止复制、删除、merge"):
+        if marker not in skill:
+            errors.append(f"BridgeForge preflight missing {marker!r}")
+
+    return CheckResult(
+        "python_311_hook_baseline",
+        not errors,
+        "Python 3.11+ is locked before writes across hooks and pre-commit"
+        if not errors else "; ".join(errors),
+    )
 
 
 def check_precommit_shebang_bytes() -> CheckResult:
@@ -423,7 +466,6 @@ def check_non_ascii_shell_guard() -> CheckResult:
 
 def check_non_ascii_shell_guard_settings() -> CheckResult:
     expected = {
-        CODEX_TEMPLATE / "settings.json": ".codex/hooks/non_ascii_shell_guard.py",
         CLAUDE_TEMPLATE / "settings.json": ".claude/hooks/non_ascii_shell_guard.py",
     }
     missing: list[str] = []
@@ -439,10 +481,19 @@ def check_non_ascii_shell_guard_settings() -> CheckResult:
         if not found:
             missing.append(settings_path.relative_to(REPO_ROOT).as_posix())
 
+    codex_hooks = json.loads((CODEX_TEMPLATE / "hooks.json").read_text(encoding="utf-8-sig"))
+    codex_dispatcher = any(
+        isinstance(hook, dict) and "hook_dispatcher.py" in hook.get("command", "")
+        for block in codex_hooks.get("hooks", {}).get("PreToolUse", [])
+        if "Bash" in _matcher_tokens(block.get("matcher", ""))
+        for hook in block.get("hooks", [])
+    )
+    if not codex_dispatcher:
+        missing.append("templates/codex/hooks.json")
     return CheckResult(
         "non_ascii_shell_guard_settings",
         not missing,
-        "Claude and Codex settings register non_ascii_shell_guard.py on PreToolUse Bash"
+        "Claude keeps direct registration and Codex routes the guard through hooks.json dispatcher"
         if not missing
         else "missing guard registration: " + ", ".join(missing),
     )
@@ -2495,15 +2546,11 @@ def check_user_config_write_guard() -> CheckResult:
     blocked_tilde = run_with_input([sys.executable, str(guard)], fixture, tilde_write_payload)
     after = user_config.read_bytes() if user_config.exists() else None
 
-    settings = json.loads((fixture / ".codex" / "settings.json").read_text(encoding="utf-8-sig"))
-    registered = all(
-        any(
-            hook.get("command", "").endswith(".codex/hooks/user_config_write_guard.py")
-            for hook in block.get("hooks", [])
-            if isinstance(hook, dict)
-        )
-        for block in settings.get("hooks", {}).get("PreToolUse", [])
-        if block.get("matcher") in {"Bash", "PowerShell", "Write|Edit|MultiEdit"}
+    hooks = json.loads((fixture / ".codex" / "hooks.json").read_text(encoding="utf-8-sig"))
+    registered = any(
+        isinstance(hook, dict) and "hook_dispatcher.py" in hook.get("command", "")
+        for block in hooks.get("hooks", {}).get("PreToolUse", [])
+        for hook in block.get("hooks", [])
     )
     ok = (
         read.returncode == 0
@@ -2518,7 +2565,7 @@ def check_user_config_write_guard() -> CheckResult:
     return CheckResult(
         "user_config_write_guard",
         ok,
-        "user config reads pass, absolute and variable-path writes are blocked, settings registers the guard, and the user config sentinel is unchanged"
+        "user config reads pass, writes are blocked, hooks.json dispatcher is registered, and the sentinel is unchanged"
         if ok
         else (
             f"read={read.returncode} write={blocked_write.returncode} shell={blocked_shell.returncode} "
@@ -2599,6 +2646,7 @@ CHECKS = {
     "precommit-shebang": check_precommit_shebang_bytes,
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,
+    "python-baseline": check_python_311_hook_baseline,
     "skill-metadata": check_skill_metadata,
     "skill-refs": check_skill_references,
     "user-skill-distribution": check_user_skill_distribution,

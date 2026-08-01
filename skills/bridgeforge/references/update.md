@@ -1,6 +1,6 @@
 # Update 更新模式操作手册
 
-仅当根 `SKILL.md` 检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version` 时读取。执行前必须完成 Windows 平台硬闸、无参数共享 updater、工厂自检、agent 分流和当前项目遗留 `.agents/` 检查。
+仅当根 `SKILL.md` 检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version` 时读取。执行前必须完成 Windows 平台硬闸、无参数共享 updater、工厂自检、Python 3.11+ preflight、agent 分流和当前项目遗留 `.agents/` 检查；本手册只使用已锁定的 `$HOOK_PYTHON`。
 
 机械半场（从已安装 command bundle 读取模板、diff、分类、呈现）由本 skill 执行；判断半场（入口/rules 选择性吸收）必须交给用户。详细边界依据是 `doc/0_architecture/design/sync-from-upstream-playbook.md`。禁止在本模式执行 `git pull` / `git clone`，也禁止从 `~/.bridgeforge`、`~/.agents` 或本地工作副本加载模板。
 
@@ -36,11 +36,20 @@
 | 类 | 文件 | 策略 |
 |---|---|---|
 | A | hooks、scripts；Codex `agents/*.toml`、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查。BridgeForge 不管理模型或思考强度。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
-| B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 按 `command` 身份在 `.codex/hooks.json` 增补/替换受管 `memory_junction_check`，保留第三方事件与 hook，并从 `.codex/settings.json` 移除旧 junction 注册；Claude 保持 `.claude/settings.json` 承载并保留第三方 hook；保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
+| B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 先把 settings 旧 `hooks` 的第三方项迁入 `.codex/hooks.json`，再删除整个旧块；按 `command` 身份增补/替换全部受管 dispatcher，保留第三方事件、handler 与其他配置。受管内容漂移必须展示 diff 并确认；config `[hooks]` 直接阻断。Claude 注册方式不变。保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
 | C | rules、入口文件 | 只 diff；按通用增量/业务补充/上游脱敏减弱三类让用户逐段决定 |
 | D | memory | 分别展示分类计划与 junction 迁移计划；低置信 `category` / `topic` 由用户补齐；任何含复制/删除的 junction 迁移必须明确确认后才 apply |
 | E | `.gitignore` | 按 init 手册的 BridgeForge 机制块幂等补缺，不删项目项 |
 | F | `doc/` 布局 | 检测 `doc/README.md:delivery_layout` 和旧目录；展示迁移清单，用户确认后才 `git mv`，不得静默混用 |
+
+Codex B 类必须用 command bundle 内的确定性工具先只读输出完整 diff；只有用户确认后
+才 apply，禁止手工拼接 JSON 或把 `--confirmed` 当成自动授权：
+
+```powershell
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\hooks_merge.py") `
+  --project-root . --template-hooks (Join-Path $BRIDGEFORGE_HOME "templates\codex\hooks.json")
+# 用户确认完整 diff 后才追加：--apply --confirmed
+```
 
 类 C 判据：
 
@@ -103,7 +112,7 @@
 用户确认，禁止用它绕过计划展示：
 
 ```bash
-python "$PROJECT_AGENT_DIR/hooks/memory_junction_check.py" --mode migrate --confirmed
+& $HOOK_PYTHON "$PROJECT_AGENT_DIR/hooks/memory_junction_check.py" --mode migrate --confirmed
 ```
 
 `SessionStart` 禁止执行上述含复制、合并或删除的迁移。它只允许对正确 junction
@@ -140,20 +149,24 @@ fail-closed 并提示无参数运行 `/bridgeforge`。实目录迁移只能在�
 
 ## U3. 路径适配
 
-更新进入的 hook 命令若引用 `.venv`，而项目没有 `.venv`，改为裸 `python`；
-有 conda/项目解释器则用明确路径。Codex 命令来自 `.codex/hooks.json`，Claude
-命令来自 `.claude/settings.json`。若新模板已动态读取模型上下文窗口，不再修改
-历史静态 `WINDOW` 常量。
+更新进入的所有受管 hook 命令必须投影为根入口 preflight 已锁定的
+`$HOOK_PYTHON`。项目 `.venv` 存在时只能引用它，禁止因损坏或 `<3.11` 回退 PATH；
+项目无 `.venv` 时才使用已锁定的 PATH 解释器。Codex 命令来自
+`.codex/hooks.json`，Claude 命令来自 `.claude/settings.json`。若新模板已动态读取
+模型上下文窗口，不再修改历史静态 `WINDOW` 常量。
+
+Codex 每个受管 handler 的 `command` 与 `commandWindows` 都必须从
+`git rev-parse --show-toplevel` 定位项目根。禁止把模板命令改回依赖 cwd 的相对路径。
 
 ## U4. 验证与收尾
 
 1. 对更新过的 hook 运行实际 smoke test：
 
 ```bash
-python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
+& $HOOK_PYTHON "$PROJECT_AGENT_DIR/hooks/<hook>.py"
 ```
 
-2. settings / hooks / routing 有变更时验证 JSON 可解析，`config.toml` / agents TOML 可解析，routing 引用的 named agent 全部存在，且下游自定义字段与自定义 hook 仍存在；Codex 还必须确认 `.codex/hooks.json` 已含受管 junction 注册，`.codex/settings.json` 已无旧 junction 注册。
+2. settings / hooks / routing 有变更时验证 JSON 可解析，`config.toml` / agents TOML 可解析，routing 引用的 named agent 全部存在，且下游自定义字段与第三方 hook 仍存在；Codex 还必须确认 `.codex/hooks.json` 已含全部受管 dispatcher，`.codex/settings.json` 已无 `hooks`，`.codex/config.toml` 已无 `[hooks]`。
 3. Codex 新增或变更 `.codex/hooks.json` 后，必须让用户执行 `/hooks`，逐项 review
    并 trust，再开启新会话，以实际 `SessionStart` 行为做 smoke。无法在当前流程
    完成新会话 smoke 时，收据只能写“trust 未验证”，禁止把 JSON 可解析或脚本直跑
@@ -161,7 +174,7 @@ python "$PROJECT_AGENT_DIR/hooks/<hook>.py"
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，展示差异并由用户决定是否保留。
 5. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
-6. 仅将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变。
+6. 先运行 `config_health_check.py --strict`。仅当所有 A-D 冲突已解决、受管 hook 覆盖已确认且严格检查 exit 0，才将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。拒绝覆盖、冲突或非法双源时保留旧戳。根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。
 9. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。

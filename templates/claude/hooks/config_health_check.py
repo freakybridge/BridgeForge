@@ -36,6 +36,18 @@ PROJECT_SETTINGS_LOCAL = Path(".claude") / "settings.local.json"
 
 # --- 各体检项：返回 None=通过，返回字符串=不达标（一行纯 ASCII，含修复提示） ---
 
+def _check_python_version(version_info: object = sys.version_info) -> "str | None":
+    """All BridgeForge hooks require Python 3.11+."""
+    major = int(getattr(version_info, "major", version_info[0]))  # type: ignore[index]
+    minor = int(getattr(version_info, "minor", version_info[1]))  # type: ignore[index]
+    if (major, minor) >= (3, 11):
+        return None
+    return (
+        f"PYTHON_VERSION: {major}.{minor} is unsupported. "
+        "FIX: create or upgrade the project .venv with Python 3.11+, then rerun /bridgeforge."
+    )
+
+
 def _check_pythonutf8() -> "str | None":
     """承重柱：UTF-8 Mode 真生效没。查 sys.flags.utf8_mode（事实，不被 stdout.reconfigure 掩盖）。
 
@@ -72,6 +84,7 @@ def _check_settings_json_valid() -> "str | None":
 
 # 本 hook 亲测 + 报告的项（单一事实源之一）。
 ACTIVE_CHECKS = (
+    ("python-version", _check_python_version),
     ("pythonutf8", _check_pythonutf8),
     ("settings-json-valid", _check_settings_json_valid),
 )
@@ -87,24 +100,24 @@ DELEGATED = (
 )
 
 
-def main() -> int:
-    failures = []
-    for _name, fn in ACTIVE_CHECKS:
+def main(version_info: object = sys.version_info) -> int:
+    failures: list[tuple[str, str]] = []
+    for name, fn in ACTIVE_CHECKS:
         try:
-            msg = fn()
+            msg = fn(version_info) if name == "python-version" else fn()
         except Exception:
             continue  # 单项检查异常绝不拖垮启动
         if msg:
-            failures.append(msg)
+            failures.append((name, msg))
 
     if not failures:
         return 0  # 全绿静默
 
     print("[health-check] %d skeleton setting(s) need attention "
           "(check-only, nothing changed):" % len(failures))
-    for msg in failures:
+    for _name, msg in failures:
         print("  - %s" % msg)
-    return 0
+    return 2 if any(name == "python-version" for name, _msg in failures) else 0
 
 
 if __name__ == "__main__":

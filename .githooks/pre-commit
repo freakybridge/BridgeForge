@@ -12,16 +12,33 @@
 #   · exit 2 段必须置于末行 exit 0 之前，否则被吞(硬伤2)。镜像闸置最前。
 #   · 规则闸豁免走 CHANGELOG.md 顶部 [skip-rule-size]; 镜像闸豁免走 [dogfood-exempt: <hook> <因>]。
 #     (pre-commit 在 commit message 生成前触发，读不到 message，故豁免走已 staged 的 CHANGELOG 顶部)。
-# python 自动探测: 下游优先 .venv, bridgeforge 自身回退系统 python → 两层脚本逐字一致。
+# Python 3.11+ hard gate: an existing project .venv is authoritative and never falls back to PATH.
 find_py() {
-  for PY in .venv/Scripts/python.exe .venv/bin/python python3 python; do
-    if { [ -x "$PY" ] || command -v "$PY" >/dev/null 2>&1; } && "$PY" -c "" >/dev/null 2>&1; then
-      echo "$PY"; return 0
+  if [ -e .venv ]; then
+    for CANDIDATE in .venv/Scripts/python.exe .venv/bin/python; do
+      if [ -f "$CANDIDATE" ]; then
+        if "$CANDIDATE" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)' >/dev/null 2>&1; then
+          echo "$CANDIDATE"; return 0
+        fi
+        echo "[pre-commit] BLOCKED: project .venv must use Python 3.11+; PATH fallback is forbidden." >&2
+        return 2
+      fi
+    done
+    echo "[pre-commit] BLOCKED: project .venv exists but has no Python interpreter." >&2
+    return 2
+  fi
+  for CANDIDATE in python3 python; do
+    if command -v "$CANDIDATE" >/dev/null 2>&1 &&
+       "$CANDIDATE" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)' >/dev/null 2>&1; then
+      echo "$CANDIDATE"; return 0
     fi
   done
-  return 1
+  echo "[pre-commit] BLOCKED: Python 3.11+ is required." >&2
+  return 2
 }
 PY="$(find_py)"
+PY_RC=$?
+[ "$PY_RC" = 2 ] && exit 2
 
 run_exit2_hook() {
   SCRIPT="$1"
@@ -36,6 +53,9 @@ run_exit2_hook() {
 # ── [D8] dogfood 镜像闸(缺文件硬拦 exit 2; 正文差异只 stderr 软提示不阻断) ──
 run_exit2_hook ".claude/hooks/mirror_drift_check.py"
 run_exit2_hook ".codex/hooks/mirror_drift_check.py"
+
+# ── [hooks-source] Codex lifecycle hook 唯一注册源硬闸 ──
+run_exit2_hook ".codex/hooks/config_health_check.py" --strict
 
 # ── [factory-version] 仅 BridgeForge 工厂自身要求产品版本 bump；禁止下沉到模板 ──
 run_exit2_hook ".codex/scripts/factory_version_check.py"
