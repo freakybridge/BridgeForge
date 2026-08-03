@@ -1,4 +1,5 @@
 #!/bin/sh
+# >>> BRIDGEFORGE_MANAGED_BEGIN
 # bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
 #   [factory-version] 工厂产品版本闸: templates/** 或 skills/** 有暂存改动时，根 VERSION 必须同次暂存
 #   [D8] dogfood 镜像闸: templates/<agent>/hooks/*.py 缺 .<agent>/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
@@ -9,7 +10,7 @@
 #          —— 卫生段，永 exit 0 兜底。杜绝"花名册欠账"溜过任意提交路径(git-sync/手动/IDE 都拦得住)。
 #
 # 硬闸原则: 只有明确判出违规才 exit 2; 脚本自身异常一律放行(宁漏不误伤)。
-#   · exit 2 段必须置于末行 exit 0 之前，否则被吞(硬伤2)。镜像闸置最前。
+#   · exit 2 段必须在受管区块内立即退出；项目扩展位于受管区块之后，保留其原有退出码。
 #   · 规则闸豁免走 CHANGELOG.md 顶部 [skip-rule-size]; 镜像闸豁免走 [dogfood-exempt: <hook> <因>]。
 #     (pre-commit 在 commit message 生成前触发，读不到 message，故豁免走已 staged 的 CHANGELOG 顶部)。
 # Python 3.11+ hard gate: an existing project .venv is authoritative and never falls back to PATH.
@@ -82,4 +83,7 @@ for CONFIG_DIR in .claude .codex; do
     git add "$CONFIG_DIR/memory/_stats.json" "$CONFIG_DIR/memory/MEMORY.md" "$CONFIG_DIR/memory/MEMORY_COLD.md" 2>/dev/null || true
   fi
 done
-exit 0
+# <<< BRIDGEFORGE_MANAGED_END
+
+# >>> PROJECT_EXTENSION_BEGIN
+# <<< PROJECT_EXTENSION_END

@@ -51,6 +51,17 @@ Codex B 类必须用 command bundle 内的确定性工具先只读输出完整 d
 # 用户确认完整 diff 后才追加：--apply --confirmed
 ```
 
+`.githooks/pre-commit` 的 B 类 merge 必须改用当前宿主模板内的
+`scripts/precommit_merge.py`。它只替换 `BRIDGEFORGE_MANAGED` 区块，并输出
+`PROJECT_EXTENSION` 的 SHA-256 作为保留收据；缺标记、损坏标记、区块外项目代码或
+apply 前漂移都必须 exit 2 且零写入。严禁把模板 pre-commit 整份复制到下游：
+
+```powershell
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `
+  --project-root . --template-precommit (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\.githooks\pre-commit")
+# 用户确认完整 diff 后才追加：--apply --confirmed
+```
+
 类 C 判据：
 
 - 上游新增通用增量：建议吸收。
@@ -173,7 +184,7 @@ Codex 每个受管 handler 的 `command` 与 `commandWindows` 都必须从
    当成已信任。Claude hook 配置变更保持对应的配置 review / trust 与新会话 smoke
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，展示差异并由用户决定是否保留。
-5. `.githooks/pre-commit` 有变更时确认原有项目检查仍在，并实际运行一次无暂存改动的 no-op 路径。
+5. `.githooks/pre-commit` 有变更时确认 `PROJECT_EXTENSION` hash 与 merge 前一致，并实际运行一次无暂存改动的 no-op 路径。
 6. 先运行 `config_health_check.py --strict`。仅当所有 A-D 冲突已解决、受管 hook 覆盖已确认且严格检查 exit 0，才将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。拒绝覆盖、冲突或非法双源时保留旧戳。根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。

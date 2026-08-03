@@ -1741,6 +1741,94 @@ def check_switch_direct_script_mirrors() -> CheckResult:
     )
 
 
+def check_precommit_merge_preserves_project_extension() -> CheckResult:
+    fixture = RUNTIME_ROOT / "precommit-merge"
+    _safe_reset_dir(fixture)
+    template = CODEX_TEMPLATE / ".githooks" / "pre-commit"
+    merger = CODEX_TEMPLATE / "scripts" / "precommit_merge.py"
+    target = fixture / ".githooks" / "pre-commit"
+    target.parent.mkdir(parents=True)
+
+    managed_begin = b"# >>> BRIDGEFORGE_MANAGED_BEGIN\n"
+    managed_end = b"# <<< BRIDGEFORGE_MANAGED_END\n"
+    extension_begin = b"# >>> PROJECT_EXTENSION_BEGIN\n"
+    extension_end = b"# <<< PROJECT_EXTENSION_END\n"
+    template_bytes = template.read_bytes()
+    managed_start = template_bytes.index(managed_begin) + len(managed_begin)
+    managed_end_start = template_bytes.index(managed_end, managed_start)
+    legacy = (
+        template_bytes[:managed_start]
+        + b"# legacy BridgeForge managed block\nexit 0\n"
+        + template_bytes[managed_end_start:]
+    )
+    extension_start = legacy.index(extension_begin) + len(extension_begin)
+    extension_end_start = legacy.index(extension_end, extension_start)
+    extension = b"\r\n# downstream version policy\r\npython scripts/bump_version.py\r\n"
+    target.write_bytes(legacy[:extension_start] + extension + legacy[extension_end_start:])
+
+    base_command = [
+        sys.executable,
+        str(merger),
+        "--project-root",
+        str(fixture),
+        "--template-precommit",
+        str(template),
+    ]
+    preview = run(base_command, REPO_ROOT)
+    applied = run([*base_command, "--apply", "--confirmed"], REPO_ROOT)
+    after = target.read_bytes()
+    after_extension_start = after.index(extension_begin) + len(extension_begin)
+    after_extension_end = after.index(extension_end, after_extension_start)
+
+    target.write_bytes(b"#!/bin/sh\npython scripts/bump_version.py\n")
+    unmarked_before = target.read_bytes()
+    blocked = run(base_command, REPO_ROOT)
+
+    switch_fixture = _build_direct_switch_fixture()
+    switch_hook = switch_fixture / ".githooks" / "pre-commit"
+    switch_hook.parent.mkdir()
+    switch_hook.write_bytes(b"#!/bin/sh\n# downstream hook must survive switch\n")
+    switch_before = switch_hook.read_bytes()
+    switch_result = _run_direct_switch(switch_fixture, "codex")
+
+    mirrors = [
+        CLAUDE_TEMPLATE / "scripts" / "precommit_merge.py",
+        CODEX_TEMPLATE / "scripts" / "precommit_merge.py",
+    ]
+    marker_paths = [
+        REPO_ROOT / ".githooks" / "pre-commit",
+        CLAUDE_TEMPLATE / ".githooks" / "pre-commit",
+        CODEX_TEMPLATE / ".githooks" / "pre-commit",
+    ]
+    output = preview.stdout + preview.stderr + applied.stdout + applied.stderr
+    ok = (
+        preview.returncode == 0
+        and applied.returncode == 0
+        and after[after_extension_start:after_extension_end] == extension
+        and b"legacy BridgeForge managed block" not in after
+        and blocked.returncode == 2
+        and target.read_bytes() == unmarked_before
+        and switch_result.returncode == 0
+        and switch_hook.read_bytes() == switch_before
+        and mirrors[0].read_bytes() == mirrors[1].read_bytes()
+        and all(
+            managed_begin in path.read_bytes()
+            and managed_end in path.read_bytes()
+            and extension_begin in path.read_bytes()
+            and extension_end in path.read_bytes()
+            and b"exit 0\n# <<< BRIDGEFORGE_MANAGED_END" not in path.read_bytes()
+            for path in marker_paths
+        )
+    )
+    return CheckResult(
+        "precommit_merge_preserves_project_extension",
+        ok,
+        "managed block updates, project extension bytes survive, malformed legacy hooks block, and switch leaves root hook unchanged"
+        if ok
+        else f"pre-commit merge contract failed: {output.strip()} / switch={switch_result.stdout.strip()} {switch_result.stderr.strip()}",
+    )
+
+
 def _build_layout_migration_fixture(platform: str = "codex") -> Path:
     _safe_reset_dir(LAYOUT_MIGRATION_FIXTURE)
     fixture = LAYOUT_MIGRATION_FIXTURE
@@ -2785,6 +2873,7 @@ CHECKS = {
     "rule-size": check_rule_size_over_limit,
     "mirror-missing": check_mirror_missing_hook,
     "mirror-noop": check_mirror_no_templates_noop,
+    "precommit-merge": check_precommit_merge_preserves_project_extension,
     "precommit-shebang": check_precommit_shebang_bytes,
     "settings-matchers": check_settings_multiedit_matchers,
     "root-precommit": check_root_precommit_dual_agent_gates,

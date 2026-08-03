@@ -44,6 +44,20 @@ Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工�
 # 用户确认完整 diff 后才追加：--apply --confirmed
 ```
 
+`.githooks/pre-commit` 同样只能用受管区块合并，禁止整份复制或覆盖。模板中的
+`BRIDGEFORGE_MANAGED` 是上游唯一可改区；`PROJECT_EXTENSION` 是项目专属检查、
+版本策略和发布步骤的唯一保留区。已有文件缺标记、标记重复/损坏或代码落在区块外时，
+工具必须 exit 2 且零写入；不得猜测或吞掉项目逻辑。先运行：
+
+```powershell
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `
+  --project-root . --template-precommit (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\.githooks\pre-commit")
+# 用户确认完整 diff 后才追加：--apply --confirmed
+```
+
+全新且不存在 `.githooks/pre-commit` 的项目可由该工具创建模板文件；已有未标记 hook
+必须保持原样并报告冲突，交由用户先明确划分项目扩展区后再维护。
+
 ## 2. 一次性收集项目元信息
 
 一次问齐：

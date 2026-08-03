@@ -49,6 +49,8 @@ cwd 是唯一项目根。若 cwd 是 BridgeForge 源头仓库，立即拒绝。s
 
 根 `CLAUDE.md` 与 `AGENTS.md` 不属于 direct-sync 自动写入表面：盘点到的根入口语义只报告为已保留或 `untranslated`，不得自动覆盖另一根入口。它们继续由各宿主的 init/adopt/update 流程维护。
 
+根 `.githooks/pre-commit` 同样不属于 direct-sync 表面。switch 前后必须保持其字节哈希不变；项目专属提交检查只能由 init/adopt/update 的受管区块合并流程维护。
+
 target map 固定放在目标骨架内：
 
 ```text

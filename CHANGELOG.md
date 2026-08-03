@@ -17,6 +17,10 @@
 
 ---
 
+## [0.82.0] - 2026-08-03
+
+- `[product][repo][meta]` 下游 `.githooks/pre-commit` 改为显式受管区块合并：BridgeForge 只更新 `BRIDGEFORGE_MANAGED`，项目的 `PROJECT_EXTENSION` 保持逐字不变；缺失、重复、损坏标记或区块外项目代码一律阻断且零写入。init/adopt/update 统一要求先预览、确认后 apply，direct switch 明确保持根 hook 哈希不变；新增下游回归覆盖版本递增扩展保留、旧未标记 hook 阻断和 switch 非触碰边界。Codex / Claude 模板升至 `0.50.0` / `0.36.0`，根版本与 BridgeForge 入口升至 `0.82.0`。
+
 ## [0.81.0] - 2026-08-02
 
 - `[product][repo][meta]` 统一所有项目的 memory schema：公共/分类模块 memory 与 `topics/<topic>/summary.md` 共用同一 writer、索引器和冷热策略；topic 仅在独立目标、独立验收、可独立关闭三项同时满足时创建，active topic 对账防重复，显式改名保留 `created_at` 并同步 pinned，完成态进入冷索引。`$summary` 分为阶段记录与“同意验收”两种受限写入模式。Codex / Claude 模板分别升至 `0.49.0` / `0.35.0`，根版本与 BridgeForge 入口升至 `0.81.0`。

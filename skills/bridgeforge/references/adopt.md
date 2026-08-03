@@ -35,6 +35,11 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - Codex merge 必须先运行 command bundle 内
   `& $HOOK_PYTHON templates/codex/scripts/hooks_merge.py --project-root . --template-hooks <模板 hooks.json>`
   展示 diff；用户确认后才追加 `--apply --confirmed`。禁止手工拼接 JSON。
+- `.githooks/pre-commit` 存在时，必须先用当前宿主模板的
+  `scripts/precommit_merge.py --project-root . --template-precommit <模板 pre-commit>`
+  做只读预览。仅 `BRIDGEFORGE_MANAGED` 可更新；`PROJECT_EXTENSION` 必须逐字保留。
+  缺标记、标记损坏或区块外自定义代码一律阻断版本戳，禁止整份覆盖；用户确认 diff
+  后才允许追加 `--apply --confirmed`。
 - adopt 不复制、合并或删除 memory，也不建立 junction。
 - junction 不是已验证的正确目标时记录为“待维护”；hook 承载必须先完成，不能以
   “收编只登记”为由把无效 hooks 注册盖上新版本戳。

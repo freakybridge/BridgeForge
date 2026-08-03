@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.36.0] - 2026-08-03
+
+### Fixed
+
+- [product] `.githooks/pre-commit` 使用显式 `BRIDGEFORGE_MANAGED` 与 `PROJECT_EXTENSION` 区块；`precommit_merge.py` 只更新前者，逐字保留项目自己的版本递增和发布检查。旧 hook 无法证明边界时硬阻断，禁止整份覆盖。
+
 ## [0.35.0] - 2026-08-02
 
 ### Added
