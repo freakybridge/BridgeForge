@@ -53,8 +53,11 @@ Codex B 类必须用 command bundle 内的确定性工具先只读输出完整 d
 
 `.githooks/pre-commit` 的 B 类 merge 必须改用当前宿主模板内的
 `scripts/precommit_merge.py`。它只替换 `BRIDGEFORGE_MANAGED` 区块，并输出
-`PROJECT_EXTENSION` 的 SHA-256 作为保留收据；缺标记、损坏标记、区块外项目代码或
-apply 前漂移都必须 exit 2 且零写入。严禁把模板 pre-commit 整份复制到下游：
+`PROJECT_EXTENSION` 的 SHA-256 作为保留收据。仅当无标记旧 hook 同时含历史
+`Step 2: VERSION bump`、`scripts/bump_version.py`、末尾 `git add VERSION`，且此前缀
+SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时，允许一次性转换为边界格式并逐字保留该段；其余缺标记、
+前缀改动、损坏标记、区块外项目代码或 apply 前漂移都必须 exit 2 且零写入。严禁把模板
+pre-commit 整份复制到下游：
 
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `

@@ -21,6 +21,18 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.50.2] - 2026-08-03
+
+### Fixed
+
+- [product] 收紧无边界历史 hook 的一次性转换：只有完整受管前缀 SHA-256 匹配冻结的 0.81 Codex / Claude 模板才迁移；前缀含任何项目自定义内容、增删行或改写时一律阻断并零写入。
+
+## [0.50.1] - 2026-08-03
+
+### Fixed
+
+- [product] 仅对带历史 `Step 2: VERSION bump`、`scripts/bump_version.py`、`git add VERSION` 与 BridgeForge memory 签名的无边界 hook 执行一次性迁移，并逐字保留该项目扩展；其他无边界 hook 继续阻断。
+
 ## [0.50.0] - 2026-08-03
 
 ### Fixed

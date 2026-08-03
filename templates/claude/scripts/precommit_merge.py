@@ -23,6 +23,19 @@ MANAGED_END = b"# <<< BRIDGEFORGE_MANAGED_END"
 EXTENSION_BEGIN = b"# >>> PROJECT_EXTENSION_BEGIN"
 EXTENSION_END = b"# <<< PROJECT_EXTENSION_END"
 MARKERS = (MANAGED_BEGIN, MANAGED_END, EXTENSION_BEGIN, EXTENSION_END)
+LEGACY_VERSION_BUMP_BEGIN = b"# === Step 2: VERSION bump"
+LEGACY_VERSION_BUMP_COMMAND = b"scripts/bump_version.py"
+LEGACY_VERSION_BUMP_STAGE = b"git add VERSION"
+# SHA-256 values of the complete, marker-free BridgeForge managed hooks from
+# the last release before PROJECT_EXTENSION boundaries were introduced.  A
+# legacy migration is safe only when its whole prefix matches one of these
+# frozen artifacts byte-for-byte; substring signatures are not ownership.
+KNOWN_LEGACY_MANAGED_SHA256 = frozenset(
+    {
+        "e66c52daa9d5ef7c2cbb10d99a3f5544e5cc3b784a79b3e682d11e76724e7773",
+        "404b4b0754e6d4b9a2e1f27278d191c5533259049a96b49bc7f5d376d870c345",
+    }
+)
 
 
 class MergeBlocked(RuntimeError):
@@ -43,6 +56,7 @@ class MergePlan:
     before: bytes | None
     after: bytes
     extension_sha256: str | None
+    legacy_version_extension_migrated: bool = False
 
 
 def _marker_lines(payload: bytes, path: Path) -> dict[bytes, tuple[int, int]]:
@@ -91,6 +105,39 @@ def parse_layout(payload: bytes, path: Path, *, template: bool = False) -> Layou
     return layout
 
 
+def _legacy_version_extension(payload: bytes) -> bytes | None:
+    """Return the one historical project-owned VERSION section, if proven.
+
+    Before explicit ownership markers existed, BridgeForge's published hook put
+    the project version-bump section after a stable ``Step 2`` heading.  The
+    preceding managed bytes must exactly match a frozen historical template;
+    every other unmarked hook remains blocked rather than guessed at.
+    """
+    if any(marker in payload for marker in MARKERS):
+        return None
+    if not payload.startswith((b"#!/bin/sh\n", b"#!/bin/sh\r\n")):
+        return None
+    if payload.count(LEGACY_VERSION_BUMP_BEGIN) != 1:
+        return None
+    extension_start = payload.index(LEGACY_VERSION_BUMP_BEGIN)
+    # The historical section was separated from the managed body by one blank
+    # line.  Preserve that separator as part of the project-owned bytes,
+    # including legacy files with mixed LF/CRLF line endings.
+    if payload[:extension_start].endswith((b"\r\n\r\n", b"\n\r\n")):
+        extension_start -= 2
+    elif payload[:extension_start].endswith(b"\n\n"):
+        extension_start -= 1
+    managed = payload[:extension_start]
+    extension = payload[extension_start:]
+    if (
+        hashlib.sha256(managed).hexdigest() not in KNOWN_LEGACY_MANAGED_SHA256
+        or LEGACY_VERSION_BUMP_COMMAND not in extension
+        or not extension.rstrip(b"\r\n").endswith(LEGACY_VERSION_BUMP_STAGE)
+    ):
+        return None
+    return extension
+
+
 def build_plan(project_root: Path, template_path: Path) -> MergePlan:
     template = template_path.read_bytes()
     template_layout = parse_layout(template, template_path, template=True)
@@ -100,7 +147,24 @@ def build_plan(project_root: Path, template_path: Path) -> MergePlan:
     if not target.is_file():
         raise MergeBlocked(f"{target}: pre-commit is not a regular file")
     before = target.read_bytes()
-    target_layout = parse_layout(before, target)
+    try:
+        target_layout = parse_layout(before, target)
+    except MergeBlocked:
+        extension = _legacy_version_extension(before)
+        if extension is None:
+            raise
+        after = (
+            template[:template_layout.extension_body_start]
+            + extension
+            + template[template_layout.extension_body_end:]
+        )
+        return MergePlan(
+            target,
+            before,
+            after,
+            hashlib.sha256(extension).hexdigest(),
+            legacy_version_extension_migrated=True,
+        )
     extension = before[target_layout.extension_body_start:target_layout.extension_body_end]
     after = (
         before[:target_layout.managed_start]
@@ -158,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
         print(_render_diff(plan.target, before, plan.after), end="")
         if plan.extension_sha256:
             print(f"project_extension_sha256={plan.extension_sha256}")
+        if plan.legacy_version_extension_migrated:
+            print("legacy_version_extension_migrated=true")
         if not args.apply:
             return 0
         if not args.confirmed:

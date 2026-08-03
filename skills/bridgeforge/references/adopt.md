@@ -38,8 +38,10 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - `.githooks/pre-commit` 存在时，必须先用当前宿主模板的
   `scripts/precommit_merge.py --project-root . --template-precommit <模板 pre-commit>`
   做只读预览。仅 `BRIDGEFORGE_MANAGED` 可更新；`PROJECT_EXTENSION` 必须逐字保留。
-  缺标记、标记损坏或区块外自定义代码一律阻断版本戳，禁止整份覆盖；用户确认 diff
-  后才允许追加 `--apply --confirmed`。
+  仅当历史 `Step 2: VERSION bump`、`scripts/bump_version.py`、末尾 `git add VERSION`
+  均存在，且其前缀 SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时，无标记旧 hook 才可转换；
+  其他缺标记、前缀改动、标记损坏或区块外自定义代码一律阻断版本戳，禁止整份覆盖；用户确认 diff 后才允许
+  追加 `--apply --confirmed`。
 - adopt 不复制、合并或删除 memory，也不建立 junction。
 - junction 不是已验证的正确目标时记录为“待维护”；hook 承载必须先完成，不能以
   “收编只登记”为由把无效 hooks 注册盖上新版本戳。

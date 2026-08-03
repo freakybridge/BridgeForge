@@ -46,8 +46,10 @@ Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工�
 
 `.githooks/pre-commit` 同样只能用受管区块合并，禁止整份复制或覆盖。模板中的
 `BRIDGEFORGE_MANAGED` 是上游唯一可改区；`PROJECT_EXTENSION` 是项目专属检查、
-版本策略和发布步骤的唯一保留区。已有文件缺标记、标记重复/损坏或代码落在区块外时，
-工具必须 exit 2 且零写入；不得猜测或吞掉项目逻辑。先运行：
+版本策略和发布步骤的唯一保留区。已有文件缺标记时，只有同时含历史
+`Step 2: VERSION bump`、`scripts/bump_version.py`、末尾 `git add VERSION`，且其此前
+受管前缀 SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时，旧 hook 才可一次性转换；
+前缀存在任何项目改动、标记重复/损坏或其他区块外代码时，必须 exit 2 且零写入，不得猜测或吞掉项目逻辑。先运行：
 
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `

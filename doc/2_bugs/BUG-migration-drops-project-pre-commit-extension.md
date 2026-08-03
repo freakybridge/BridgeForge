@@ -1,5 +1,5 @@
 ---
-status: open
+status: source-fixed-downstream-remediation-pending
 scope: bridgeforge migration and downstream pre-commit extension preservation
 ---
 
@@ -42,17 +42,53 @@ BridgeForge 模板管理”的版本递增步骤。结果是后续 `$git-sync` �
 白话说：BridgeForge 更换了下游的总闸门，但没有把门后面项目自己加装的编号器
 一起迁过去；闸门仍在工作，编号器却不再接电。
 
+## 已实施的源码修复（2026-08-03）
+
+BridgeForge `0.82.2` 已在 Codex 与 Claude 两套模板的
+`scripts/precommit_merge.py` 中实现受限的历史迁移：仅当无标记旧 hook 同时具备
+以下证据时，才允许一次性转换为 `BRIDGEFORGE_MANAGED` /
+`PROJECT_EXTENSION` 边界格式。
+
+1. 历史段以 `Step 2: VERSION bump` 开始。
+2. 段内调用 `scripts/bump_version.py`。
+3. 段末为 `git add VERSION`。
+4. `Step 2` 之前的完整受管前缀 SHA-256 逐字匹配冻结的 0.81 Codex 或 Claude 模板。
+
+转换时，项目版本递增段按字节原样保留；新模板只替换受管通用段。任何前缀多出、
+缺少或改写一个字节的无标记 hook，以及损坏标记或区块外自定义代码，仍会 `exit 2`
+且零写入，避免把未知项目逻辑误认成可迁移内容。
+
+同时已更新根产品版本 `0.82.2`、Codex/Claude 模板版本、CHANGELOG、BridgeForge
+技能运行手册和回归夹具。
+
+## 验证收据
+
+- 两份 `precommit_merge.py` 均通过内存编译检查，且 SHA-256 完全相同。
+- `tests/harness/run_downstream_fixture.py --case precommit-merge` 通过：带显式边界的
+  扩展与受管前缀逐字匹配的历史版本递增段均逐字保留；未知无标记 hook 和历史段前
+  插入项目命令的混合 hook 都被阻断；switch 不改根 hook。
+- `tests/harness/run_downstream_fixture.py --case skill-refs` 通过：技能引用没有高置信
+  缺失。
+- `git diff --check` 通过。
+
+## 仍待下游处理
+
+该源码修复只能迁移“仍存在”的历史版本递增段，不能凭空还原已被旧迁移删除的项目
+逻辑。CausisRiskSuite 当前 `.githooks/pre-commit` 不含旧段，也不含新边界标记，因此
+不能自动恢复其版本递增行为。需要在该项目另行确认并恢复项目专属
+`PROJECT_EXTENSION` 后，才可验证真实提交是否再次递增 `VERSION`。
+
 ## 修复要求
 
-1. 为 `pre-commit` 定义机器可识别的项目扩展区，例如
+1. 已完成：为 `pre-commit` 定义机器可识别的项目扩展区，例如
    `PROJECT_EXTENSION_BEGIN` / `PROJECT_EXTENSION_END`。
-2. init、adopt、update 和 Claude/Codex switch 都必须保留该扩展区原文；没有可识别
+2. 已完成：init、adopt、update 和 Claude/Codex switch 都必须保留该扩展区原文；没有可识别
    边界时，停止并报告冲突，禁止静默覆盖。
-3. BridgeForge 模板只维护通用段，不得把下游的版本策略、发布策略或其他业务 hook
+3. 已完成：BridgeForge 模板只维护通用段，不得把下游的版本策略、发布策略或其他业务 hook
    逻辑收编进通用模板。
-4. 为迁移脚本补回归测试：输入带项目扩展的 pre-commit，迁移后必须逐字保留扩展；
+4. 已完成：为迁移脚本补回归测试：输入带项目扩展的 pre-commit，迁移后必须逐字保留扩展；
    输入无法识别的自定义内容时必须阻断。
-5. 在 CHANGELOG 中将该修复标为 `[product]`，并提升 BridgeForge 产品版本，使下游
+5. 已完成：在 CHANGELOG 中将该修复标为 `[product]`，并提升 BridgeForge 产品版本，使下游
    能识别到需要更新。
 
 ## 验收场景

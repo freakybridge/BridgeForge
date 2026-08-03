@@ -1780,6 +1780,37 @@ def check_precommit_merge_preserves_project_extension() -> CheckResult:
     after_extension_start = after.index(extension_begin) + len(extension_begin)
     after_extension_end = after.index(extension_end, after_extension_start)
 
+    legacy_managed = (
+        template_bytes[:template_bytes.index(managed_begin)]
+        + template_bytes[managed_start:managed_end_start].replace(
+            b"#   \xc2\xb7 exit 2 \xe6\xae\xb5\xe5\xbf\x85\xe9\xa1\xbb\xe5\x9c\xa8\xe5\x8f\x97\xe7\xae\xa1\xe5\x8c\xba\xe5\x9d\x97\xe5\x86\x85\xe7\xab\x8b\xe5\x8d\xb3\xe9\x80\x80\xe5\x87\xba\xef\xbc\x9b\xe9\xa1\xb9\xe7\x9b\xae\xe6\x89\xa9\xe5\xb1\x95\xe4\xbd\x8d\xe4\xba\x8e\xe5\x8f\x97\xe7\xae\xa1\xe5\x8c\xba\xe5\x9d\x97\xe4\xb9\x8b\xe5\x90\x8e\xef\xbc\x8c\xe4\xbf\x9d\xe7\x95\x99\xe5\x85\xb6\xe5\x8e\x9f\xe6\x9c\x89\xe9\x80\x80\xe5\x87\xba\xe7\xa0\x81\xe3\x80\x82\n",
+            b"#   \xc2\xb7 exit 2 \xe6\xae\xb5\xe5\xbf\x85\xe9\xa1\xbb\xe7\xbd\xae\xe4\xba\x8e\xe6\x9c\xab\xe8\xa1\x8c exit 0 \xe4\xb9\x8b\xe5\x89\x8d\xef\xbc\x8c\xe5\x90\xa6\xe5\x88\x99\xe8\xa2\xab\xe5\x90\x9e(\xe7\xa1\xac\xe4\xbc\xa42)\xe3\x80\x82\xe9\x95\x9c\xe5\x83\x8f\xe9\x97\xb8\xe7\xbd\xae\xe6\x9c\x80\xe5\x89\x8d\xe3\x80\x82\n",
+        )
+        + b"exit 0\n"
+    )
+    legacy_extension = (
+        b"\r\n# === Step 2: VERSION bump (project extension) ===\r\n"
+        b"set -e\r\n"
+        b"python scripts/bump_version.py .git/COMMIT_EDITMSG\r\n"
+        b"git add VERSION\r\n"
+    )
+    target.write_bytes(legacy_managed + legacy_extension)
+    legacy_preview = run(base_command, REPO_ROOT)
+    legacy_applied = run([*base_command, "--apply", "--confirmed"], REPO_ROOT)
+    legacy_after = target.read_bytes()
+    legacy_after_extension_start = legacy_after.index(extension_begin) + len(extension_begin)
+    legacy_after_extension_end = legacy_after.index(extension_end, legacy_after_extension_start)
+
+    target.write_bytes(
+        legacy_managed.replace(
+            b"exit 0\n", b"echo project-only-pre-step\nexit 0\n"
+        )
+        + legacy_extension
+    )
+    mixed_before = target.read_bytes()
+    mixed_blocked = run(base_command, REPO_ROOT)
+    mixed_preserved = target.read_bytes() == mixed_before
+
     target.write_bytes(b"#!/bin/sh\npython scripts/bump_version.py\n")
     unmarked_before = target.read_bytes()
     blocked = run(base_command, REPO_ROOT)
@@ -1806,6 +1837,12 @@ def check_precommit_merge_preserves_project_extension() -> CheckResult:
         and applied.returncode == 0
         and after[after_extension_start:after_extension_end] == extension
         and b"legacy BridgeForge managed block" not in after
+        and legacy_preview.returncode == 0
+        and legacy_applied.returncode == 0
+        and legacy_after[legacy_after_extension_start:legacy_after_extension_end] == legacy_extension
+        and b"legacy_version_extension_migrated=true" in (legacy_preview.stdout + legacy_preview.stderr).encode()
+        and mixed_blocked.returncode == 2
+        and mixed_preserved
         and blocked.returncode == 2
         and target.read_bytes() == unmarked_before
         and switch_result.returncode == 0
@@ -1823,7 +1860,7 @@ def check_precommit_merge_preserves_project_extension() -> CheckResult:
     return CheckResult(
         "precommit_merge_preserves_project_extension",
         ok,
-        "managed block updates, project extension bytes survive, malformed legacy hooks block, and switch leaves root hook unchanged"
+        "managed block updates, marked and exact historical version extensions survive byte-for-byte, altered legacy hooks block, and switch leaves root hook unchanged"
         if ok
         else f"pre-commit merge contract failed: {output.strip()} / switch={switch_result.stdout.strip()} {switch_result.stderr.strip()}",
     )

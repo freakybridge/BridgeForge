@@ -17,6 +17,14 @@
 
 ---
 
+## [0.82.2] - 2026-08-03
+
+- `[product][repo][meta]` 收紧 0.82.1 的历史无边界 pre-commit 迁移：不再以 `Step 2`、版本命令和 memory 关键字推断受管前缀；仅当该前缀的 SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时才转换。任何多出、缺少或改写的前缀都 exit 2 且零写入，新增“旧段前插入项目命令”回归。Codex / Claude 模板升至 `0.50.2` / `0.36.2`，根版本与 BridgeForge 入口升至 `0.82.2`。
+
+## [0.82.1] - 2026-08-03
+
+- `[product][repo][meta]` 修复 0.82.0 无法接管历史无边界 pre-commit 的迁移缺口：仅当旧 hook 同时含历史 `Step 2: VERSION bump` 起始标记、`scripts/bump_version.py` 调用、末尾 `git add VERSION` 以及 BridgeForge memory 管理签名时，才将该段逐字迁入 `PROJECT_EXTENSION`；任何其他无标记或混合内容仍硬阻断且零写入。新增 Codex / Claude 镜像回归覆盖字节保留与未知 hook 阻断。Codex / Claude 模板升至 `0.50.1` / `0.36.1`，根版本与 BridgeForge 入口升至 `0.82.1`。
+
 ## [0.82.0] - 2026-08-03
 
 - `[product][repo][meta]` 下游 `.githooks/pre-commit` 改为显式受管区块合并：BridgeForge 只更新 `BRIDGEFORGE_MANAGED`，项目的 `PROJECT_EXTENSION` 保持逐字不变；缺失、重复、损坏标记或区块外项目代码一律阻断且零写入。init/adopt/update 统一要求先预览、确认后 apply，direct switch 明确保持根 hook 哈希不变；新增下游回归覆盖版本递增扩展保留、旧未标记 hook 阻断和 switch 非触碰边界。Codex / Claude 模板升至 `0.50.0` / `0.36.0`，根版本与 BridgeForge 入口升至 `0.82.0`。
