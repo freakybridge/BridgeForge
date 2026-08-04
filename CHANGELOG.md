@@ -17,6 +17,10 @@
 
 ---
 
+## [0.82.3] - 2026-08-04
+
+- `[product][repo][meta]` 封堵 Windows PowerShell 污染 project memory 正文的 stdin 旁路：Codex / Claude writer 禁止 `--content-file -`，只从显式内容文件读取原始字节，拒绝 UTF-8 BOM、非法 UTF-8 与 API 层 BOM，并保持中文、emoji、特殊标点和 CRLF 字节不变；`$summary` 与 portability rule 强制使用项目 `.runtime/` 下由非 shell 编辑工具创建的无 BOM UTF-8 临时文件。新增双宿主回归，验证失败发生在任何项目写入前、目标和索引不变；Codex / Claude 模板升至 `0.50.3` / `0.36.3`，根版本与 BridgeForge 入口升至 `0.82.3`。
+
 ## [0.82.2] - 2026-08-03
 
 - `[product][repo][meta]` 收紧 0.82.1 的历史无边界 pre-commit 迁移：不再以 `Step 2`、版本命令和 memory 关键字推断受管前缀；仅当该前缀的 SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时才转换。任何多出、缺少或改写的前缀都 exit 2 且零写入，新增“旧段前插入项目命令”回归。Codex / Claude 模板升至 `0.50.2` / `0.36.2`，根版本与 BridgeForge 入口升至 `0.82.2`。

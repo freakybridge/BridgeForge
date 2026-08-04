@@ -269,8 +269,13 @@ def write_project_memory(
     """Write caller-supplied final content; this function never merges text."""
     if not isinstance(final_content, str):
         raise ProjectMemoryWriteError("final_content must be text")
+    if final_content.startswith("\ufeff"):
+        raise ProjectMemoryWriteError("final_content must be UTF-8 without BOM")
     paths = validate_write_target(project_root, relative_target)
-    payload = final_content.encode("utf-8")
+    try:
+        payload = final_content.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ProjectMemoryWriteError("final_content must be valid Unicode text") from exc
 
     existed = _lexists(paths.target)
     previous = paths.target.read_bytes() if existed else None
@@ -329,8 +334,21 @@ def write_project_memory(
 
 def _read_content_file(value: str) -> str:
     if value == "-":
-        return sys.stdin.read()
-    return Path(value).read_text(encoding="utf-8")
+        raise ProjectMemoryWriteError(
+            "stdin content is forbidden; provide a UTF-8 file without BOM via --content-file"
+        )
+    path = Path(value)
+    payload = path.read_bytes()
+    if payload.startswith(b"\xef\xbb\xbf"):
+        raise ProjectMemoryWriteError(
+            f"content file must be UTF-8 without BOM: {path}"
+        )
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ProjectMemoryWriteError(
+            f"content file must be valid UTF-8 without BOM: {path}"
+        ) from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -340,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--content-file",
         required=True,
-        help="UTF-8 final merged body, or - to read stdin",
+        help="UTF-8 final merged body from an explicit BOM-free file; stdin is forbidden",
     )
     args = parser.parse_args(argv)
     try:

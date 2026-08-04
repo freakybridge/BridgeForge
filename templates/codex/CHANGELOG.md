@@ -21,6 +21,12 @@
 
 <!-- 新改动先记在这里；下次 commit 时挪到对应版本号 section 下 -->
 
+## [0.50.3] - 2026-08-04
+
+### Fixed
+
+- [product] Project memory writer 禁止 stdin 正文输入，仅接受显式的无 BOM UTF-8 内容文件；读取使用原始字节并严格解码，拒绝 BOM 与非法 UTF-8，保持中文、emoji、特殊标点和 CRLF 字节不变，失败时不触发目标或索引写入。
+
 ## [0.50.2] - 2026-08-03
 
 ### Fixed

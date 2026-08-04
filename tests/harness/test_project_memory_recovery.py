@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import io
 import importlib.util
 import shutil
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +85,90 @@ class ProjectMemoryRecoveryTests(unittest.TestCase):
                 self.assertFalse((project / (".claude" if host == "codex" else ".codex")).exists())
                 with self.assertRaises(module.ProjectMemoryWriteError):
                     module.write_project_memory(project, "../escape.md", "x")
+
+    def test_writer_content_file_is_bom_free_utf8_and_byte_preserving(self) -> None:
+        valid = "---\r\ncategory: engineering\r\ndescription: 中文🚦\r\n---\r\n\r\n正文—ok\r\n".encode("utf-8")
+        content = Path(self.temp.name) / "content.md"
+        bom = Path(self.temp.name) / "bom.md"
+        invalid = Path(self.temp.name) / "invalid.md"
+        content.write_bytes(valid)
+        bom.write_bytes(b"\xef\xbb\xbf" + valid)
+        invalid.write_bytes(b"\xff\xfe\x00")
+
+        for host, module in (("codex", CODEX_WRITER), ("claude", CLAUDE_WRITER)):
+            with self.subTest(host=host):
+                decoded = module._read_content_file(str(content))
+                self.assertEqual(decoded.encode("utf-8"), valid)
+                with self.assertRaisesRegex(
+                    module.ProjectMemoryWriteError, "stdin content is forbidden"
+                ):
+                    module._read_content_file("-")
+                with self.assertRaisesRegex(
+                    module.ProjectMemoryWriteError, "without BOM"
+                ):
+                    module._read_content_file(str(bom))
+                with self.assertRaisesRegex(
+                    module.ProjectMemoryWriteError, "valid UTF-8"
+                ):
+                    module._read_content_file(str(invalid))
+
+                config = f".{host}"
+                project = Path(self.temp.name) / f"roundtrip-{host}"
+                memory = project / config / "memory"
+                memory.mkdir(parents=True)
+                (memory / "_stats.json").write_text(
+                    '{"files": {}, "config": {}}', encoding="utf-8"
+                )
+                scripts = project / config / "scripts"
+                scripts.mkdir()
+                source = CODEX_SCRIPTS if host == "codex" else CLAUDE_SCRIPTS
+                for name in ("project_memory_writer.py", "memory_rebuild_index.py"):
+                    shutil.copy2(source / name, scripts / name)
+
+                receipt = module.write_project_memory(
+                    project,
+                    "engineering/encoding-roundtrip.md",
+                    decoded,
+                )
+                target = memory / "engineering" / "encoding-roundtrip.md"
+                self.assertEqual(target.read_bytes(), valid)
+                self.assertEqual(receipt.bytes_written, len(valid))
+                self.assertIn(
+                    "中文🚦",
+                    (memory / "MEMORY.md").read_text(encoding="utf-8"),
+                )
+
+    def test_writer_cli_rejects_stdin_before_any_project_write(self) -> None:
+        for host, module in (("codex", CODEX_WRITER), ("claude", CLAUDE_WRITER)):
+            output = io.StringIO()
+            with self.subTest(host=host), patch.object(
+                module, "write_project_memory"
+            ) as write_mock, redirect_stdout(output):
+                result = module.main(
+                    [
+                        "--project-root",
+                        str(self.root),
+                        "--target",
+                        "engineering/stdin.md",
+                        "--content-file",
+                        "-",
+                    ]
+                )
+                self.assertEqual(result, 1)
+                write_mock.assert_not_called()
+                self.assertIn("stdin content is forbidden", output.getvalue())
+
+    def test_writer_api_rejects_bom_before_target_creation(self) -> None:
+        target = self.root / ".codex" / "memory" / "engineering" / "bom.md"
+        with self.assertRaisesRegex(
+            CODEX_WRITER.ProjectMemoryWriteError, "UTF-8 without BOM"
+        ):
+            CODEX_WRITER.write_project_memory(
+                self.root,
+                "engineering/bom.md",
+                "\ufeff---\ncategory: engineering\ndescription: bom\n---\n",
+            )
+        self.assertFalse(target.exists())
 
     def test_recovery_requires_exact_owner_and_never_deletes_unclassified(self) -> None:
         notes = Path(self.temp.name) / "notes"

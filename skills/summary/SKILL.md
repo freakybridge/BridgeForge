@@ -34,6 +34,12 @@ marker 存在而切换路径：
 | Codex | `.codex/.bridgeforge_version` | `.codex/scripts/project_memory_writer.py` | `.codex/memory/` | `.codex/scripts/memory_rebuild_index.py` | `.codex/hooks/memory_lint.py` |
 | Claude | `.claude/.bridgeforge_version` | `.claude/scripts/project_memory_writer.py` | `.claude/memory/` | `.claude/scripts/memory_rebuild_index.py` | `.claude/hooks/memory_lint.py` |
 
+向 writer 交付最终正文时，必须先用当前宿主的非 shell 文件编辑工具创建项目 `.runtime/`
+下的无 BOM UTF-8 临时内容文件，再把显式文件路径传给 `--content-file`；writer 调用结束后
+必须删除临时文件，只有成功收据才允许继续。禁止传 `--content-file -`，也禁止用 stdin、
+here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 stdin、BOM 或非法 UTF-8
+时必须停止，禁止改走直接写入。
+
 对当前宿主按以下顺序处理：
 
 1. 当前宿主 writer 存在时，必须把最终正文交给它；无论 marker 是否存在，都禁止直接 Write/Edit 当前宿主 memory

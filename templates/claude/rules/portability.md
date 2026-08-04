@@ -116,6 +116,8 @@ mypackage==1.0.0
 
 **必须**改用 `apply_patch`、Edit/Write/MultiEdit、复制已存在 UTF-8 文件，或让脚本源码保持 ASCII 并显式读取 UTF-8 输入文件后写入。
 
+**接收最终正文的项目写入器必须只接受显式的无 BOM UTF-8 内容文件，并禁止 stdin 正文输入。**
+
 <!-- OPTIONAL_BEGIN LANG: python -->
 ### 4.3 venv 不可移植，目录改名 / 移位后必须重建（红线）
 
