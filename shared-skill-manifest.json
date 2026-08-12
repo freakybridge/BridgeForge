@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:e736d7ea0caac884c9bc8f56dede0b7a9a25cd19a8092787a59db3f6c469996f"
+              "sha256": "sha256:2aa87678f59a784453f7f9a701c319a80a1295664bc05594d2e855bc522b4318"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:fe1b8209d81db1e7bc3b2f44a5111d5a979dc072c662f4f5f05d0e6bc3764cf5"
+              "sha256": "sha256:668cc5102831d65120e07c8f68e70f00655fdfdc2eb4ae951a7f426d3a7d85c3"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -247,7 +247,7 @@
             {
               "source": "templates/claude/managed-skeleton.json",
               "target": "templates/claude/managed-skeleton.json",
-              "sha256": "sha256:342d9e8382957da34db8979c29ee450389792f22d6fbd6cb29aa7da3e264d938"
+              "sha256": "sha256:d269dcf6c57dbae961ccf6b40db07476569a579e513d6772a746b47a21fc9d40"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
@@ -337,7 +337,7 @@
             {
               "source": "templates/claude/scripts/version_release.py",
               "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:d6c8dfd4434f662d40744fefcdfb89956553bae0b08df24d81bf8262a75619cd"
+              "sha256": "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
             },
             {
               "source": "templates/claude/settings.json",
@@ -577,7 +577,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:9b7c083f4793cfc27ed2d6f753227171cf873ddbf5c7fdf7489376a061a707c4"
+              "sha256": "sha256:1bab608c463ab3b29d71105f22302e7eb0af2804df46f78970c665736a169619"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -692,7 +692,7 @@
             {
               "source": "templates/codex/scripts/version_release.py",
               "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:d6c8dfd4434f662d40744fefcdfb89956553bae0b08df24d81bf8262a75619cd"
+              "sha256": "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
             },
             {
               "source": "templates/codex/settings.json",
@@ -912,12 +912,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:e736d7ea0caac884c9bc8f56dede0b7a9a25cd19a8092787a59db3f6c469996f"
+              "sha256": "sha256:2aa87678f59a784453f7f9a701c319a80a1295664bc05594d2e855bc522b4318"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:fe1b8209d81db1e7bc3b2f44a5111d5a979dc072c662f4f5f05d0e6bc3764cf5"
+              "sha256": "sha256:668cc5102831d65120e07c8f68e70f00655fdfdc2eb4ae951a7f426d3a7d85c3"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -1147,7 +1147,7 @@
             {
               "source": "templates/claude/managed-skeleton.json",
               "target": "templates/claude/managed-skeleton.json",
-              "sha256": "sha256:342d9e8382957da34db8979c29ee450389792f22d6fbd6cb29aa7da3e264d938"
+              "sha256": "sha256:d269dcf6c57dbae961ccf6b40db07476569a579e513d6772a746b47a21fc9d40"
             },
             {
               "source": "templates/claude/memory/MEMORY.md",
@@ -1237,7 +1237,7 @@
             {
               "source": "templates/claude/scripts/version_release.py",
               "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:d6c8dfd4434f662d40744fefcdfb89956553bae0b08df24d81bf8262a75619cd"
+              "sha256": "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
             },
             {
               "source": "templates/claude/settings.json",
@@ -1477,7 +1477,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:9b7c083f4793cfc27ed2d6f753227171cf873ddbf5c7fdf7489376a061a707c4"
+              "sha256": "sha256:1bab608c463ab3b29d71105f22302e7eb0af2804df46f78970c665736a169619"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -1592,7 +1592,7 @@
             {
               "source": "templates/codex/scripts/version_release.py",
               "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:d6c8dfd4434f662d40744fefcdfb89956553bae0b08df24d81bf8262a75619cd"
+              "sha256": "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
             },
             {
               "source": "templates/codex/settings.json",

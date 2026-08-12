@@ -7,7 +7,6 @@
     ".codex/managed-skeleton.json",
     ".codex/hooks/*.py",
     ".codex/scripts/*.py",
-    ".codex/rules/*.md",
     ".codex/agents/*.toml",
     ".codex/hooks.json",
     ".codex/settings.json",

@@ -130,29 +130,29 @@ class VersionReleaseTests(unittest.TestCase):
             repo = Path(raw)
             init_repo(repo)
             host = repo / ".codex"
-            (host / "rules").mkdir(parents=True)
+            (host / "hooks").mkdir(parents=True)
             (host / "managed-skeleton.json").write_text(
                 json.dumps(
                     {
                         "schema_version": 1,
                         "stamp": ".codex/.bridgeforge_version",
-                        "whole_files": [".codex/rules/*.md", ".codex/.bridgeforge_version"],
+                        "whole_files": [".codex/hooks/*.py", ".codex/.bridgeforge_version"],
                         "managed_regions": [],
                     }
                 ),
                 encoding="utf-8",
             )
-            (host / "rules" / "workflow.md").write_text("old\n", encoding="utf-8")
+            (host / "hooks" / "guard.py").write_text("old\n", encoding="utf-8")
             (host / ".bridgeforge_version").write_text("0.82.0\n", encoding="utf-8")
             (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
             git(repo, "add", ".")
             git(repo, "commit", "-m", "baseline")
-            (host / "rules" / "workflow.md").write_text("new\n", encoding="utf-8")
+            (host / "hooks" / "guard.py").write_text("new\n", encoding="utf-8")
             (host / ".bridgeforge_version").write_text("0.83.0\n", encoding="utf-8")
             plan = VERSION_RELEASE.build_release_plan(
                 repo,
                 "chore: 更新骨架",
-                {".codex/rules/workflow.md", ".codex/.bridgeforge_version"},
+                {".codex/hooks/guard.py", ".codex/.bridgeforge_version"},
             )
             self.assertIsNone(plan)
             (repo / "work.txt").write_text("project change\n", encoding="utf-8")
@@ -160,7 +160,7 @@ class VersionReleaseTests(unittest.TestCase):
                 repo,
                 "fix: 同时修改项目",
                 {
-                    ".codex/rules/workflow.md",
+                    ".codex/hooks/guard.py",
                     ".codex/.bridgeforge_version",
                     "work.txt",
                 },
@@ -173,28 +173,130 @@ class VersionReleaseTests(unittest.TestCase):
             repo = Path(raw)
             init_repo(repo)
             host = repo / ".codex"
-            (host / "rules").mkdir(parents=True)
+            (host / "hooks").mkdir(parents=True)
             (host / "managed-skeleton.json").write_text(
                 json.dumps(
                     {
                         "schema_version": 1,
                         "stamp": ".codex/.bridgeforge_version",
-                        "whole_files": [".codex/rules/*.md", ".codex/.bridgeforge_version"],
+                        "whole_files": [".codex/hooks/*.py", ".codex/.bridgeforge_version"],
                         "managed_regions": [],
                     }
                 ),
                 encoding="utf-8",
             )
-            (host / "rules" / "workflow.md").write_text("old\n", encoding="utf-8")
+            (host / "hooks" / "guard.py").write_text("old\n", encoding="utf-8")
             (host / ".bridgeforge_version").write_text("0.82.0\n", encoding="utf-8")
             (repo / "VERSION").write_text("1.0.0\n", encoding="utf-8")
             git(repo, "add", ".")
             git(repo, "commit", "-m", "baseline")
-            (host / "rules" / "workflow.md").write_text("unauthorized\n", encoding="utf-8")
+            (host / "hooks" / "guard.py").write_text("unauthorized\n", encoding="utf-8")
             with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
                 VERSION_RELEASE.build_release_plan(
-                    repo, "fix: 不允许", {".codex/rules/workflow.md"}
+                    repo, "fix: 不允许", {".codex/hooks/guard.py"}
                 )
+
+    def test_project_rules_do_not_require_skeleton_stamp(self) -> None:
+        for host_name in (".codex", ".claude"):
+            with self.subTest(host=host_name), tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                host = repo / host_name
+                (host / "rules").mkdir(parents=True)
+                stamp = f"{host_name}/.bridgeforge_version"
+                (host / "managed-skeleton.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "stamp": stamp,
+                            "whole_files": [stamp, f"{host_name}/hooks/*.py"],
+                            "managed_regions": [],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                for name in ("app_layer.md", "database.md", "modules.md", "time.md"):
+                    (host / "rules" / name).write_text("old\n", encoding="utf-8")
+                (host / ".bridgeforge_version").write_text("0.84.0\n", encoding="utf-8")
+                (repo / "VERSION").write_text("1.0.0\n", encoding="utf-8")
+                git(repo, "add", ".")
+                git(repo, "commit", "-m", "baseline")
+                changed = set()
+                for name in ("app_layer.md", "database.md", "modules.md", "time.md"):
+                    (host / "rules" / name).write_text("project update\n", encoding="utf-8")
+                    changed.add(f"{host_name}/rules/{name}")
+                plan = VERSION_RELEASE.build_release_plan(repo, "fix: 更新项目规则", changed)
+                self.assertEqual(plan.classification, "project")
+
+    def test_managed_region_tracks_inside_and_outside_changes_independently(self) -> None:
+        begin = "# >>> BRIDGEFORGE_MANAGED_BEGIN"
+        end = "# <<< BRIDGEFORGE_MANAGED_END"
+        baseline = f"project old\n{begin}\nmanaged old\n{end}\nproject tail\n"
+
+        def prepare(repo: Path) -> tuple[Path, Path]:
+            init_repo(repo)
+            host = repo / ".codex"
+            hook = repo / ".githooks" / "pre-commit"
+            hook.parent.mkdir(parents=True)
+            host.mkdir(parents=True)
+            (host / "managed-skeleton.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "stamp": ".codex/.bridgeforge_version",
+                        "whole_files": [".codex/.bridgeforge_version"],
+                        "managed_regions": [
+                            {"path": ".githooks/pre-commit", "begin": begin, "end": end}
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (host / ".bridgeforge_version").write_text("0.84.0\n", encoding="utf-8")
+            (repo / "VERSION").write_text("1.0.0\n", encoding="utf-8")
+            hook.write_text(baseline, encoding="utf-8")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "baseline")
+            return host, hook
+
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            _host, hook = prepare(repo)
+            hook.write_text(baseline.replace("project old", "project new"), encoding="utf-8")
+            plan = VERSION_RELEASE.build_release_plan(
+                repo, "fix: 更新项目 hook", {".githooks/pre-commit"}
+            )
+            self.assertEqual(plan.classification, "project")
+
+        for change in ("managed only", "managed and project"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                _host, hook = prepare(repo)
+                updated = baseline.replace("managed old", "managed new")
+                if change == "managed and project":
+                    updated = updated.replace("project old", "project new")
+                hook.write_text(updated, encoding="utf-8")
+                with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+                    VERSION_RELEASE.build_release_plan(
+                        repo, "fix: 不允许受管旁路", {".githooks/pre-commit"}
+                    )
+
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            host, hook = prepare(repo)
+            hook.write_text(
+                baseline.replace("managed old", "managed new").replace(
+                    "project old", "project new"
+                ),
+                encoding="utf-8",
+            )
+            (host / ".bridgeforge_version").write_text("0.84.1\n", encoding="utf-8")
+            plan = VERSION_RELEASE.build_release_plan(
+                repo,
+                "fix: 同步更新骨架与项目 hook",
+                {".githooks/pre-commit", ".codex/.bridgeforge_version"},
+            )
+            self.assertEqual(plan.classification, "mixed")
 
 
 if __name__ == "__main__":

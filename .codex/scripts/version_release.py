@@ -110,16 +110,20 @@ def _path_matches(path: str, pattern: str) -> bool:
     return fnmatch.fnmatchcase(path, pattern) or PurePosixPath(path).match(pattern)
 
 
-def _outside_region(payload: bytes | None, begin: str, end: str) -> bytes | None:
+def _region_parts(
+    payload: bytes | None, begin: str, end: str
+) -> tuple[bytes | None, bytes | None]:
     if payload is None:
-        return None
+        return None, None
+    payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     begin_bytes = begin.encode("utf-8")
     end_bytes = end.encode("utf-8")
     if payload.count(begin_bytes) != 1 or payload.count(end_bytes) != 1:
         raise ReleaseError(f"managed region markers are missing or ambiguous: {begin} / {end}")
     start = payload.index(begin_bytes)
     finish = payload.index(end_bytes, start) + len(end_bytes)
-    return payload[:start] + b"<BRIDGEFORGE_MANAGED_REGION>" + payload[finish:]
+    outside = payload[:start] + b"<BRIDGEFORGE_MANAGED_REGION>" + payload[finish:]
+    return payload[start:finish], outside
 
 
 def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
@@ -138,16 +142,16 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
     return configs
 
 
-def _managed_owner(
+def _change_ownership(
     repo: Path, path: str, configs: list[tuple[Path, dict[str, object]]]
-) -> tuple[Path, str] | None:
+) -> tuple[Path | None, bool, bool]:
     current_path = repo / path
     current = current_path.read_bytes() if current_path.is_file() else None
     before = _head_bytes(repo, path)
     for config_path, config in configs:
         for pattern in config.get("whole_files", []):  # type: ignore[union-attr]
             if isinstance(pattern, str) and _path_matches(path, pattern):
-                return config_path, "whole-file"
+                return config_path, True, False
         for raw_region in config.get("managed_regions", []):  # type: ignore[union-attr]
             if not isinstance(raw_region, dict) or raw_region.get("path") != path:
                 continue
@@ -155,10 +159,14 @@ def _managed_owner(
             end = raw_region.get("end")
             if not isinstance(begin, str) or not isinstance(end, str):
                 raise ReleaseError(f"invalid managed region in {config_path}")
-            if _outside_region(before, begin, end) == _outside_region(current, begin, end):
-                return config_path, "managed-region"
-            return None
-    return None
+            before_managed, before_project = _region_parts(before, begin, end)
+            current_managed, current_project = _region_parts(current, begin, end)
+            return (
+                config_path,
+                before_managed != current_managed,
+                before_project != current_project,
+            )
+    return None, False, True
 
 
 def is_bridgeforge_factory(repo: Path) -> bool:
@@ -186,12 +194,13 @@ def classify_changes(repo: Path, changed_paths: set[str]) -> str:
     project: set[str] = set()
     owners_with_changes: set[Path] = set()
     for path in changed_paths:
-        owner = _managed_owner(repo, path, configs)
-        if owner is None:
-            project.add(path)
-        else:
+        owner, managed_changed, project_changed = _change_ownership(repo, path, configs)
+        if managed_changed:
             managed.add(path)
-            owners_with_changes.add(owner[0])
+            if owner is not None:
+                owners_with_changes.add(owner)
+        if project_changed:
+            project.add(path)
 
     unauthorized = owners_with_changes - changed_stamps
     if unauthorized:

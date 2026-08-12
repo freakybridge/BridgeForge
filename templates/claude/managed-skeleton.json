@@ -7,7 +7,6 @@
     ".claude/managed-skeleton.json",
     ".claude/hooks/*.py",
     ".claude/scripts/*.py",
-    ".claude/rules/*.md",
     ".claude/settings.json"
   ],
   "managed_regions": [
