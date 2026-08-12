@@ -594,6 +594,70 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertEqual(health.returncode, 2)
             self.assertIn("table header invalid", health.stdout)
 
+    def test_target_cleanup_finds_all_sibling_rust_workspaces(self) -> None:
+        module = load_module(
+            TEMPLATE / "hooks" / "target_cleanup.py",
+            "target_cleanup_sibling_workspaces",
+        )
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            scripts = root / "scripts"
+            stratus = root / "stratus"
+            scripts.mkdir()
+            stratus.mkdir()
+            (scripts / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
+            (stratus / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
+
+            with mock.patch.object(module, "PROJECT_ROOT", root):
+                self.assertEqual(module.find_workspaces(), [scripts, stratus])
+
+    def test_target_cleanup_root_workspace_takes_precedence(self) -> None:
+        module = load_module(
+            TEMPLATE / "hooks" / "target_cleanup.py",
+            "target_cleanup_root_workspace",
+        )
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            child = root / "child"
+            child.mkdir()
+            (root / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
+            (child / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
+
+            with mock.patch.object(module, "PROJECT_ROOT", root):
+                self.assertEqual(module.find_workspaces(), [root])
+
+    def test_target_cleanup_worker_processes_every_workspace(self) -> None:
+        module = load_module(
+            TEMPLATE / "hooks" / "target_cleanup.py",
+            "target_cleanup_worker_workspaces",
+        )
+        workspaces = [Path("scripts"), Path("stratus")]
+        with (
+            mock.patch.object(module, "find_workspaces", return_value=workspaces),
+            mock.patch.object(module, "_incremental_pass", return_value=True) as incremental,
+            mock.patch.object(module, "_deps_pass") as deps,
+            mock.patch.object(module, "stamp_now") as stamp,
+        ):
+            module.run_worker()
+
+        self.assertEqual(
+            incremental.call_args_list,
+            [mock.call(workspaces[0], False), mock.call(workspaces[1], False)],
+        )
+        self.assertEqual(
+            deps.call_args_list,
+            [mock.call(workspaces[0], False), mock.call(workspaces[1], False)],
+        )
+        stamp.assert_called_once_with()
+
+    def test_target_cleanup_templates_match_dogfood_hooks(self) -> None:
+        for host in ("codex", "claude"):
+            with self.subTest(host=host):
+                self.assertEqual(
+                    (ROOT / "templates" / host / "hooks" / "target_cleanup.py").read_bytes(),
+                    (ROOT / f".{host}" / "hooks" / "target_cleanup.py").read_bytes(),
+                )
+
     def test_python_310_merge_dispatcher_and_health_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

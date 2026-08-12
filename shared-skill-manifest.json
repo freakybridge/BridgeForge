@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:32f0fe2e8f4fad35b7da10fdcdc49640af1753377bc2eb5106dbce754e5613f8"
+              "sha256": "sha256:f1d9dc230f8afcbcdee123382e39a58260407b7b4dbb4a1345a26e184378beee"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:1c86af1e515cd3aeee66d78263da4fa5f5d2b1316287da17b937851ba020ad23"
+              "sha256": "sha256:e470244f5d207065cacf7314a910c7cff5fc8334840dc42426d62da3e661f580"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -232,7 +232,7 @@
             {
               "source": "templates/claude/hooks/target_cleanup.py",
               "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:ad9ed89b54eb0ad332762618401abc4e4b53afa0d28981cabe4fd5843a450594"
+              "sha256": "sha256:49f144da4ec775ac39ff9b5c0c790cb04a6c07a398a0c32c2485565920c54556"
             },
             {
               "source": "templates/claude/hooks/test_receipt.py",
@@ -557,7 +557,7 @@
             {
               "source": "templates/codex/hooks/target_cleanup.py",
               "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:f610872db632b36e1743336658c5d78bee4266d6e0e287fd4a55068a05829df0"
+              "sha256": "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c"
             },
             {
               "source": "templates/codex/hooks/test_receipt.py",
@@ -912,12 +912,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:32f0fe2e8f4fad35b7da10fdcdc49640af1753377bc2eb5106dbce754e5613f8"
+              "sha256": "sha256:f1d9dc230f8afcbcdee123382e39a58260407b7b4dbb4a1345a26e184378beee"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:1c86af1e515cd3aeee66d78263da4fa5f5d2b1316287da17b937851ba020ad23"
+              "sha256": "sha256:e470244f5d207065cacf7314a910c7cff5fc8334840dc42426d62da3e661f580"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -1132,7 +1132,7 @@
             {
               "source": "templates/claude/hooks/target_cleanup.py",
               "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:ad9ed89b54eb0ad332762618401abc4e4b53afa0d28981cabe4fd5843a450594"
+              "sha256": "sha256:49f144da4ec775ac39ff9b5c0c790cb04a6c07a398a0c32c2485565920c54556"
             },
             {
               "source": "templates/claude/hooks/test_receipt.py",
@@ -1457,7 +1457,7 @@
             {
               "source": "templates/codex/hooks/target_cleanup.py",
               "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:f610872db632b36e1743336658c5d78bee4266d6e0e287fd4a55068a05829df0"
+              "sha256": "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c"
             },
             {
               "source": "templates/codex/hooks/test_receipt.py",
