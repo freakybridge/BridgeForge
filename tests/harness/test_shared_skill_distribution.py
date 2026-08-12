@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -16,6 +17,13 @@ UPDATER = ROOT / "scripts" / "bridgeforge_shared_update.ps1"
 INSTALLER = ROOT / "scripts" / "install-shared-skills.ps1"
 MANIFEST_REBUILDER = ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
 CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForge.git"
+BRIDGEFORGE_REFERENCES = (
+    "adopt.md",
+    "init.md",
+    "switch.md",
+    "update.md",
+    "user-skill-maintenance.md",
+)
 
 
 def sha256(path: Path) -> str:
@@ -68,6 +76,10 @@ class SharedSkillDistributionTests(unittest.TestCase):
     ) -> None:
         (self.source / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
         (self.source / "entry.md").write_text(bridgeforge_text, encoding="utf-8")
+        references = self.source / "skills" / "bridgeforge" / "references"
+        references.mkdir(parents=True, exist_ok=True)
+        for name in BRIDGEFORGE_REFERENCES:
+            (references / name).write_bytes(f"{name}\n".encode("utf-8"))
         common = self.source / "skills" / "common"
         common.mkdir(parents=True, exist_ok=True)
         (common / "SKILL.md").write_text(common_text, encoding="utf-8")
@@ -82,7 +94,15 @@ class SharedSkillDistributionTests(unittest.TestCase):
                     "source": "entry.md",
                     "target": "SKILL.md",
                     "sha256": f"sha256:{sha256(self.source / 'entry.md')}",
-                }
+                },
+                *(
+                    {
+                        "source": f"skills/bridgeforge/references/{name}",
+                        "target": f"references/{name}",
+                        "sha256": f"sha256:{sha256(references / name)}",
+                    }
+                    for name in BRIDGEFORGE_REFERENCES
+                ),
             ],
         }
         common_skill = {
@@ -146,20 +166,23 @@ class SharedSkillDistributionTests(unittest.TestCase):
         env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         return run(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(UPDATER),
-                "-SourceRepositoryRoot",
-                str(self.source),
-                *extra_arguments,
-            ],
+            self.updater_command(*extra_arguments),
             ROOT,
             env=env or self.env,
         )
+
+    def updater_command(self, *extra_arguments: str) -> list[str]:
+        return [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(UPDATER),
+            "-SourceRepositoryRoot",
+            str(self.source),
+            *extra_arguments,
+        ]
 
     def invoke_installer(
         self,
@@ -331,6 +354,11 @@ class SharedSkillDistributionTests(unittest.TestCase):
         for platform in ("codex", "claude"):
             skills = self.profile / f".{platform}" / "skills"
             self.assertEqual((skills / "bridgeforge" / "SKILL.md").read_text(), "bridgeforge-v1")
+            for name in BRIDGEFORGE_REFERENCES:
+                self.assertEqual(
+                    (skills / "bridgeforge" / "references" / name).read_text(),
+                    f"{name}\n",
+                )
             self.assertEqual((skills / "common" / "SKILL.md").read_text(), "common-v1")
             self.assertEqual((skills / "third-party" / "SKILL.md").read_text(), "keep")
             ledger = self.ledger(platform)
@@ -340,6 +368,48 @@ class SharedSkillDistributionTests(unittest.TestCase):
             self.assertTrue(
                 all(record["source_commit"] == commit for record in ledger["records"].values())
             )
+        self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
+
+    def test_identical_rerun_skips_all_bundle_swaps(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke_updater()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+
+        second = self.invoke_updater("-TestFailAfterSwap", "codex:1")
+
+        self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+        for platform in ("codex", "claude"):
+            bundle = self.profile / f".{platform}" / "skills" / "bridgeforge"
+            self.assertEqual((bundle / "SKILL.md").read_text(), "bridgeforge-v1")
+            self.assertTrue((bundle / "references" / "user-skill-maintenance.md").is_file())
+        self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
+
+    def test_concurrent_update_is_rejected_before_transaction_writes(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = subprocess.Popen(
+            self.updater_command("-TestHoldLockMilliseconds", "1500"),
+            cwd=ROOT,
+            env=self.env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            time.sleep(0.3)
+            blocked = self.invoke_updater()
+            stdout, stderr = first.communicate(timeout=30)
+        finally:
+            if first.poll() is None:
+                first.kill()
+                first.communicate()
+
+        self.assertEqual(first.returncode, 0, stderr + stdout)
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("already running", blocked.stderr + blocked.stdout)
         self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
 
     def test_hash_mismatch_has_no_managed_target_writes(self) -> None:
@@ -478,6 +548,39 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 for path in (self.profile / ".codex" / "skills").iterdir()
             )
         )
+
+    def test_corrupt_backup_blocks_recovery_without_erasing_current_target(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke_updater()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        self.write_source(bridgeforge_text="bridgeforge-v2", common_text="common-v2")
+        self.commit_source("second")
+
+        crashed = self.invoke_updater("-TestCrashAfterActionCount", "1")
+        self.assertEqual(crashed.returncode, 91, crashed.stderr + crashed.stdout)
+        log_path = self.profile / ".bridgeforge-shared-update.json"
+        log = json.loads(log_path.read_text(encoding="utf-8-sig"))
+        completed = next(
+            action
+            for action in log["platforms"][0]["actions"]
+            if action["status"] == "complete"
+        )
+        backup = Path(completed["backup"])
+        shutil.rmtree(backup)
+        backup.mkdir()
+
+        recovery = self.invoke_updater()
+
+        self.assertNotEqual(recovery.returncode, 0)
+        output = recovery.stderr + recovery.stdout
+        self.assertIn("Recovery backup", output)
+        self.assertIn("verification", output)
+        self.assertEqual(
+            (Path(completed["target"]) / "SKILL.md").read_text(),
+            "common-v2",
+        )
+        self.assertTrue(log_path.exists())
 
     def test_claude_first_swap_failure_rolls_back_after_codex_completed(self) -> None:
         self.write_source()

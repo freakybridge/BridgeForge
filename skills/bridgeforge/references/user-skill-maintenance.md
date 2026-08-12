@@ -10,6 +10,10 @@
 - 共享更新只允许修改 manifest 管理且已登记的 BridgeForge skill。未登记的同名目录必须阻断；其他来源的 skill 必须保持不变。
 - 受管 skill 的本地改动不保留、不备份、不跳过。通用改动必须进入 GitHub `main`。
 - 禁止从 `~/.agents`、`~/.bridgeforge`、本地 clone、当前工作副本或项目目录读取共享 skill 内容。
+- 同一用户同一时刻只允许一个 updater 实例；并发调用必须在创建事务日志或写入受管目录前失败。
+- 同一 commit 且实际目录与 manifest hash 完全一致时跳过该 skill 的换包；账本一致但目录缺失、增删或 hash 不符时必须重装。
+- 每个 skill 必须先在 stage 验证完整目录 hash，再原子换包，并在写账本前重新验证 Codex / Claude 的全部实际目标。
+- 中断恢复只能使用与事务开始时目录 hash 一致的 backup；backup 缺失或损坏时必须保留当前目标并停止，禁止用空目录或未验证内容回滚。
 
 ## 2. 无参数更新收据
 
@@ -18,6 +22,7 @@
 - updater 退出码、成功输出中的目标完整 commit SHA；
 - Codex 与 Claude 托管账本中各 skill 的 `source_commit`、`content_hash` 与 `installed_at`；
 - 两个平台托管账本是否全部收敛到同一 commit；
+- Codex 与 Claude 实际受管目录是否均与 manifest 的完整文件集合和 hash 一致；
 - 未登记同名冲突、恢复日志或可写性错误；
 - 非 BridgeForge skill 未被修改。
 

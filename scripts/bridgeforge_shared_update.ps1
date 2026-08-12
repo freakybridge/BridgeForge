@@ -11,7 +11,10 @@ param(
     [int]$TestCrashAfterActionCount = 0,
 
     [Parameter(DontShow = $true)]
-    [string]$TestFailAfterSwap
+    [string]$TestFailAfterSwap,
+
+    [Parameter(DontShow = $true)]
+    [int]$TestHoldLockMilliseconds = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,6 +145,52 @@ function Get-SkillContentHash {
         $lines += "$target`n$hash"
     }
     return "sha256:$(Get-TextSha256 -Text (($lines -join "`n") + "`n"))"
+}
+
+function Get-DirectoryContentHash {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    if (-not (Test-Path -LiteralPath $Root -PathType Container) -or (Test-ReparsePoint -Path $Root)) {
+        throw "Managed skill directory is missing or is a reparse point: $Root"
+    }
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd("\", "/")
+    $lines = @()
+    foreach ($file in @(Get-ChildItem -LiteralPath $rootFull -File -Recurse -Force)) {
+        if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Managed skill file may not be a reparse point: $($file.FullName)"
+        }
+        $relative = $file.FullName.Substring($rootFull.Length + 1).Replace("\", "/")
+        $lines += "$relative`n$(Get-Sha256 -Path $file.FullName)"
+    }
+    [Array]::Sort($lines, [StringComparer]::Ordinal)
+    return "sha256:$(Get-TextSha256 -Text (($lines -join "`n") + "`n"))"
+}
+
+function Assert-DirectoryContentHash {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Expected,
+        [Parameter(Mandatory = $true)][string]$Context
+    )
+    if ((Get-DirectoryContentHash -Root $Path) -ne $Expected.ToLowerInvariant()) {
+        throw "$Context content verification failed: $Path"
+    }
+}
+
+function Enter-UpdateMutex {
+    param([Parameter(Mandatory = $true)][string]$UserProfile)
+    $name = "Local\BridgeForge.SharedSkillUpdate.$(Get-TextSha256 -Text $UserProfile)"
+    $mutex = New-Object Threading.Mutex($false, $name)
+    try {
+        $acquired = $mutex.WaitOne(0)
+    }
+    catch [Threading.AbandonedMutexException] {
+        $acquired = $true
+    }
+    if (-not $acquired) {
+        $mutex.Dispose()
+        throw "Another BridgeForge shared-skill update is already running for this user."
+    }
+    return $mutex
 }
 
 function Read-JsonFile {
@@ -437,11 +486,24 @@ function Get-LedgerNames {
     return @($Ledger.records.PSObject.Properties | ForEach-Object { $_.Name })
 }
 
+function Get-LedgerRecord {
+    param($Ledger, [Parameter(Mandatory = $true)][string]$Name)
+    if ($null -eq $Ledger) {
+        return $null
+    }
+    $property = @($Ledger.records.PSObject.Properties | Where-Object { $_.Name -ieq $Name })
+    if ($property.Count -eq 0) {
+        return $null
+    }
+    return $property[0].Value
+}
+
 function New-UpdatePlan {
     param(
         [Parameter(Mandatory = $true)]$Manifest,
         [Parameter(Mandatory = $true)][string]$UserProfile,
-        [Parameter(Mandatory = $true)][string]$OperationId
+        [Parameter(Mandatory = $true)][string]$OperationId,
+        [Parameter(Mandatory = $true)][string]$Commit
     )
     $platformPlans = @()
     foreach ($platform in @("codex", "claude")) {
@@ -472,13 +534,15 @@ function New-UpdatePlan {
                 if ((Test-Path -LiteralPath $target) -and (Test-ReparsePoint -Path $target)) {
                     throw "Managed skill target may not be a junction or symbolic link: $target"
                 }
+                $hadOriginal = [bool](Test-Path -LiteralPath $target)
                 $actions += [ordered]@{
                     kind = "remove"
                     name = $name
                     target = $target
                     stage = $null
                     backup = Join-Path $config.skills_root ".$name.bridgeforge-backup-$OperationId"
-                    had_original = [bool](Test-Path -LiteralPath $target)
+                    had_original = $hadOriginal
+                    original_content_hash = if ($hadOriginal) { Get-DirectoryContentHash -Root $target } else { $null }
                     status = "pending"
                 }
             }
@@ -487,13 +551,24 @@ function New-UpdatePlan {
         foreach ($skill in $upserts) {
             $name = [string]$skill.name
             $target = Join-Path $config.skills_root $name
+            $hadOriginal = [bool](Test-Path -LiteralPath $target)
+            $originalHash = if ($hadOriginal) { Get-DirectoryContentHash -Root $target } else { $null }
+            $desiredHash = Get-SkillContentHash -Skill $skill
+            $ledgerRecord = Get-LedgerRecord -Ledger $ledger -Name $name
+            if ($hadOriginal -and $null -ne $ledgerRecord -and
+                [string]$ledgerRecord.source_commit -eq $Commit -and
+                [string]$ledgerRecord.content_hash -eq $desiredHash -and
+                $originalHash -eq $desiredHash) {
+                continue
+            }
             $actions += [ordered]@{
                 kind = "upsert"
                 name = $name
                 target = $target
                 stage = Join-Path $config.skills_root ".$name.bridgeforge-stage-$OperationId"
                 backup = Join-Path $config.skills_root ".$name.bridgeforge-backup-$OperationId"
-                had_original = [bool](Test-Path -LiteralPath $target)
+                had_original = $hadOriginal
+                original_content_hash = $originalHash
                 status = "pending"
             }
         }
@@ -589,6 +664,11 @@ function Restore-InterruptedOperation {
                 [string]$action.stage -ne [string]$expectedStage) {
                 throw "Recovery log contains unexpected paths for '$platform/$name'."
             }
+            $originalHash = [string]$action.original_content_hash
+            if (([bool]$action.had_original -and $originalHash -notmatch "^sha256:[0-9a-f]{64}$") -or
+                (-not [bool]$action.had_original -and -not [string]::IsNullOrWhiteSpace($originalHash))) {
+                throw "Recovery log lacks a valid original content hash for '$platform/$name'."
+            }
         }
         if ([bool]$log.committed) {
             foreach ($action in @($platformPlan.actions)) {
@@ -619,8 +699,16 @@ function Restore-InterruptedOperation {
             }
             if ([bool]$action.had_original) {
                 if (Test-Path -LiteralPath ([string]$action.backup)) {
+                    Assert-DirectoryContentHash `
+                        -Path ([string]$action.backup) `
+                        -Expected ([string]$action.original_content_hash) `
+                        -Context "Recovery backup for $platform/$([string]$action.name)"
                     Remove-SafeTree -Path ([string]$action.target)
                     Move-Item -LiteralPath ([string]$action.backup) -Destination ([string]$action.target)
+                }
+                elseif (-not (Test-Path -LiteralPath ([string]$action.target) -PathType Container) -or
+                    (Get-DirectoryContentHash -Root ([string]$action.target)) -ne [string]$action.original_content_hash) {
+                    throw "Recovery backup is missing and the original target cannot be verified for $platform/$([string]$action.name)."
                 }
             }
             else {
@@ -667,12 +755,24 @@ function Copy-SkillToStage {
         }
         Copy-Item -LiteralPath $source -Destination $target
     }
-    foreach ($file in @($Skill.files)) {
-        $target = Get-PathUnderRoot -Root $Stage -RelativePath ([string]$file.target)
-        $expected = ([string]$file.sha256).ToLowerInvariant().Replace("sha256:", "")
-        if ((Get-Sha256 -Path $target) -ne $expected) {
-            throw "Staged content verification failed for $($Skill.name)/$($file.target)."
-        }
+    Assert-DirectoryContentHash `
+        -Path $Stage `
+        -Expected (Get-SkillContentHash -Skill $Skill) `
+        -Context "Staged content for $($Skill.name)"
+}
+
+function Assert-PlatformTargets {
+    param(
+        [Parameter(Mandatory = $true)]$PlatformManifest,
+        [Parameter(Mandatory = $true)][string]$SkillsRoot,
+        [Parameter(Mandatory = $true)][string]$Platform
+    )
+    foreach ($skill in @($PlatformManifest.skills)) {
+        $target = Join-Path $SkillsRoot ([string]$skill.name)
+        Assert-DirectoryContentHash `
+            -Path $target `
+            -Expected (Get-SkillContentHash -Skill $skill) `
+            -Context "Installed content for $Platform/$([string]$skill.name)"
     }
 }
 
@@ -708,7 +808,13 @@ function Invoke-UpdateTransaction {
         [Parameter(Mandatory = $true)][string]$LogPath
     )
     $operationId = [Guid]::NewGuid().ToString("N")
-    $platformPlans = @(New-UpdatePlan -Manifest $Manifest -UserProfile $UserProfile -OperationId $operationId)
+    $platformPlans = @(
+        New-UpdatePlan `
+            -Manifest $Manifest `
+            -UserProfile $UserProfile `
+            -OperationId $operationId `
+            -Commit $Commit
+    )
     $log = [ordered]@{
         schema_version = 1
         operation_id = $operationId
@@ -740,11 +846,27 @@ function Invoke-UpdateTransaction {
                 if (Test-Path -LiteralPath ([string]$action.backup)) {
                     throw "Unexpected transaction backup already exists: $($action.backup)"
                 }
-                if (Test-Path -LiteralPath ([string]$action.target)) {
+                $targetExists = [bool](Test-Path -LiteralPath ([string]$action.target) -PathType Container)
+                if ($targetExists -ne [bool]$action.had_original) {
+                    throw "Managed target changed after planning: $($action.target)"
+                }
+                if ([bool]$action.had_original) {
+                    Assert-DirectoryContentHash `
+                        -Path ([string]$action.target) `
+                        -Expected ([string]$action.original_content_hash) `
+                        -Context "Pre-swap target for $([string]$platformPlan.platform)/$([string]$action.name)"
                     Move-Item -LiteralPath ([string]$action.target) -Destination ([string]$action.backup)
+                    Assert-DirectoryContentHash `
+                        -Path ([string]$action.backup) `
+                        -Expected ([string]$action.original_content_hash) `
+                        -Context "Transaction backup for $([string]$platformPlan.platform)/$([string]$action.name)"
                 }
                 if ([string]$action.kind -eq "upsert") {
                     Move-Item -LiteralPath ([string]$action.stage) -Destination ([string]$action.target)
+                    Assert-DirectoryContentHash `
+                        -Path ([string]$action.target) `
+                        -Expected (Get-SkillContentHash -Skill $skillByName[[string]$action.name]) `
+                        -Context "Post-swap target for $([string]$platformPlan.platform)/$([string]$action.name)"
                 }
                 $action.status = "complete"
                 Write-JsonAtomic -Path $LogPath -Value $log
@@ -774,6 +896,13 @@ function Invoke-UpdateTransaction {
             Move-Item -LiteralPath ([string]$platformPlan.ledger_stage) -Destination ([string]$platformPlan.ledger)
             $platformPlan.ledger_status = "complete"
             Write-JsonAtomic -Path $LogPath -Value $log
+        }
+        foreach ($platformPlan in $platformPlans) {
+            $platform = [string]$platformPlan.platform
+            Assert-PlatformTargets `
+                -PlatformManifest (Get-PlatformManifest -Manifest $Manifest -Platform $platform) `
+                -SkillsRoot ([string]$platformPlan.skills_root) `
+                -Platform $platform
         }
         $log.committed = $true
         Write-JsonAtomic -Path $LogPath -Value $log
@@ -811,33 +940,43 @@ function Invoke-Main {
     if ([string]::IsNullOrWhiteSpace($userProfile) -or -not (Test-Path -LiteralPath $userProfile -PathType Container)) {
         throw "USERPROFILE is not a valid existing directory."
     }
-    $logPath = Join-Path $userProfile $OperationLogName
-    Restore-InterruptedOperation -LogPath $logPath -UserProfile $userProfile
-
-    $cloneRoot = $null
+    $mutex = Enter-UpdateMutex -UserProfile $userProfile
     try {
-        if ([string]::IsNullOrWhiteSpace($SourceRepositoryRoot)) {
-            $cloneRoot = New-CanonicalClone
-            $repositoryRoot = $cloneRoot
+        if ($TestHoldLockMilliseconds -gt 0) {
+            Start-Sleep -Milliseconds $TestHoldLockMilliseconds
         }
-        else {
-            $repositoryRoot = [IO.Path]::GetFullPath($SourceRepositoryRoot)
+        $logPath = Join-Path $userProfile $OperationLogName
+        Restore-InterruptedOperation -LogPath $logPath -UserProfile $userProfile
+
+        $cloneRoot = $null
+        try {
+            if ([string]::IsNullOrWhiteSpace($SourceRepositoryRoot)) {
+                $cloneRoot = New-CanonicalClone
+                $repositoryRoot = $cloneRoot
+            }
+            else {
+                $repositoryRoot = [IO.Path]::GetFullPath($SourceRepositoryRoot)
+            }
+            $commit = Assert-Repository -Root $repositoryRoot
+            $manifestResult = Assert-Manifest -RepositoryRoot $repositoryRoot -UserProfile $userProfile
+            Invoke-UpdateTransaction `
+                -RepositoryRoot $repositoryRoot `
+                -Manifest $manifestResult.value `
+                -Commit $commit `
+                -ManifestHash $manifestResult.hash `
+                -UserProfile $userProfile `
+                -LogPath $logPath
+            Write-Host "BridgeForge shared skills updated to commit $commit."
         }
-        $commit = Assert-Repository -Root $repositoryRoot
-        $manifestResult = Assert-Manifest -RepositoryRoot $repositoryRoot -UserProfile $userProfile
-        Invoke-UpdateTransaction `
-            -RepositoryRoot $repositoryRoot `
-            -Manifest $manifestResult.value `
-            -Commit $commit `
-            -ManifestHash $manifestResult.hash `
-            -UserProfile $userProfile `
-            -LogPath $logPath
-        Write-Host "BridgeForge shared skills updated to commit $commit."
+        finally {
+            if ($cloneRoot -and (Test-Path -LiteralPath $cloneRoot)) {
+                Remove-SafeTree -Path $cloneRoot
+            }
+        }
     }
     finally {
-        if ($cloneRoot -and (Test-Path -LiteralPath $cloneRoot)) {
-            Remove-SafeTree -Path $cloneRoot
-        }
+        $mutex.ReleaseMutex()
+        $mutex.Dispose()
     }
 }
 

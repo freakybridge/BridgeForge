@@ -49,6 +49,7 @@ delivery_layout: flat
 - [`BUG-summary-writes-global-memory-instead-of-project-memory.md`](2_bugs/BUG-summary-writes-global-memory-instead-of-project-memory.md)
 - [`BUG-migration-drops-project-pre-commit-extension.md`](2_bugs/BUG-migration-drops-project-pre-commit-extension.md)
 - [`BUG-downstream-business-version-rule-without-enforcement.md`](2_bugs/BUG-downstream-business-version-rule-without-enforcement.md)
+- [`BUG-bridgeforge-references-omitted-from-user-skill.md`](2_bugs/BUG-bridgeforge-references-omitted-from-user-skill.md)
 
 ## 归档与参考
 
