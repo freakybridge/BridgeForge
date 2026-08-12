@@ -188,7 +188,7 @@ Codex 每个受管 handler 的 `command` 与 `commandWindows` 都必须从
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，展示差异并由用户决定是否保留。
 5. `.githooks/pre-commit` 有变更时确认 `PROJECT_EXTENSION` hash 与 merge 前一致，并实际运行一次无暂存改动的 no-op 路径。
-6. 先运行 `config_health_check.py --strict`。仅当所有 A-D 冲突已解决、受管 hook 覆盖已确认且严格检查 exit 0，才将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。拒绝覆盖、冲突或非法双源时保留旧戳。根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变。
+6. 先运行 `config_health_check.py --strict`。仅当所有 A-D 冲突已解决、受管 hook 覆盖已确认且严格检查 exit 0，才将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。拒绝覆盖、冲突或非法双源时保留旧戳。根 `VERSION`、项目 `CHANGELOG.md`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变；`managed-skeleton.json` 属于受管骨架，随上游更新。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。
 9. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。

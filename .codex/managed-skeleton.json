@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "stamp": ".codex/.bridgeforge_version",
+  "whole_files": [
+    "AGENTS.md",
+    ".codex/.bridgeforge_version",
+    ".codex/managed-skeleton.json",
+    ".codex/hooks/*.py",
+    ".codex/scripts/*.py",
+    ".codex/rules/*.md",
+    ".codex/agents/*.toml",
+    ".codex/hooks.json",
+    ".codex/settings.json",
+    ".codex/config.toml",
+    ".codex/skill-routing.json"
+  ],
+  "managed_regions": [
+    {
+      "path": ".githooks/pre-commit",
+      "begin": "# >>> BRIDGEFORGE_MANAGED_BEGIN",
+      "end": "# <<< BRIDGEFORGE_MANAGED_END"
+    }
+  ]
+}

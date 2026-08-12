@@ -142,7 +142,7 @@ paths:
 
 ## 9. 版本域隔离（红线）
 
-下游业务版本由项目自行定义和维护：可使用根 `VERSION`、原生 manifest 或项目另行约定的来源。BridgeForge **禁止**创建、改写、展示或检查该业务版本。
+下游业务版本必须以根 `VERSION` 为唯一事实源。项目可以保留原生 manifest 版本字段，但必须由 `$git-sync` 与根 `VERSION` 同步；日常修改禁止改动 BridgeForge 受管骨架，骨架更新只允许通过 `/bridgeforge`。
 
 BridgeForge 骨架版本只写当前宿主的 `.<host>/.bridgeforge_version`，仅由 `/bridgeforge init` 与 `/bridgeforge update` 写入。下游业务提交和本地骨架定制都**禁止**修改该版本戳。
 

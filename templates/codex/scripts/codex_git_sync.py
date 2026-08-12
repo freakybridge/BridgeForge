@@ -16,7 +16,10 @@ import argparse
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+
+from version_release import ReleaseError, ReleasePlan, apply_release_plan, build_release_plan
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -67,6 +70,76 @@ def _run_git(args: list[str], *, timeout: int = 120, label: str | None = None) -
 
 def _status() -> str:
     return _run_git(["status", "--porcelain=v1"], label="git status").stdout.strip()
+
+
+def _changed_paths() -> set[str]:
+    paths: set[str] = set()
+    commands = (
+        ["diff", "--name-only"],
+        ["diff", "--cached", "--name-only"],
+        ["ls-files", "--others", "--exclude-standard"],
+    )
+    for command in commands:
+        output = _run_git(command, label="git changed-path scan").stdout
+        paths.update(line.strip().replace("\\", "/") for line in output.splitlines() if line.strip())
+    return paths
+
+
+@dataclass(frozen=True)
+class _FileSnapshot:
+    worktree: bytes | None
+    index_entry: tuple[str, str] | None
+
+
+def _snapshot_release_files(plan: ReleasePlan) -> dict[Path, _FileSnapshot]:
+    snapshots: dict[Path, _FileSnapshot] = {}
+    for path in plan.writes:
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        worktree = path.read_bytes() if path.is_file() else None
+        entry = _git(["ls-files", "--stage", "--", relative])
+        if entry.returncode != 0:
+            detail = (entry.stderr or entry.stdout).strip()
+            raise SyncStop(f"cannot snapshot index entry for {relative}: {detail}", 1)
+        parsed: tuple[str, str] | None = None
+        if entry.stdout.strip():
+            metadata = entry.stdout.split("\t", 1)[0].split()
+            if len(metadata) != 3 or metadata[2] != "0":
+                raise SyncStop(f"cannot snapshot conflicted index entry for {relative}", 2)
+            parsed = (metadata[0], metadata[1])
+        snapshots[path] = _FileSnapshot(worktree, parsed)
+    return snapshots
+
+
+def _restore_release_files(
+    plan: ReleasePlan, snapshots: dict[Path, _FileSnapshot]
+) -> None:
+    conflicts: list[str] = []
+    for path, snapshot in snapshots.items():
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        current = path.read_bytes() if path.is_file() else None
+        if current == plan.writes[path]:
+            if snapshot.worktree is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(snapshot.worktree)
+        elif current != snapshot.worktree:
+            conflicts.append(relative)
+            continue
+        if snapshot.index_entry is None:
+            result = _git(["rm", "--cached", "--ignore-unmatch", "--", relative])
+        else:
+            mode, object_id = snapshot.index_entry
+            result = _git(["update-index", "--cacheinfo", f"{mode},{object_id},{relative}"])
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            raise SyncStop(f"failed to restore release index entry {relative}: {detail}", 1)
+    if conflicts:
+        raise SyncStop(
+            "release rollback stopped because these auto-managed files changed concurrently: "
+            + ", ".join(conflicts),
+            2,
+        )
 
 
 def _has_staged_changes() -> bool:
@@ -217,10 +290,6 @@ def sync(args: argparse.Namespace) -> int:
         message = _read_message(args)
         if not message:
             raise SyncStop("commit message is required when local changes exist", 2)
-        _check_factory_version_worktree()
-        _refresh_harness_parity_report()
-        _rebuild_shared_skill_manifest()
-        _check_factory_version_worktree()
 
     if not args.skip_fetch:
         _run_git(["fetch", args.remote], timeout=180, label=f"git fetch {args.remote}")
@@ -240,15 +309,39 @@ def sync(args: argparse.Namespace) -> int:
             return 2
 
     if dirty:
-        _run_git(["add", "."], label="git add")
-        if _has_staged_changes():
-            if not message:
-                raise SyncStop("commit message is required when local changes are staged", 2)
-            _run_git(["commit", "-m", message], timeout=180, label="git commit")
-            ahead, behind = _ahead_behind()
-            if ahead and behind:
-                _print_diverged()
-                return 2
+        if not message:
+            raise SyncStop("commit message is required when local changes are staged", 2)
+        try:
+            plan = build_release_plan(REPO_ROOT, message, _changed_paths())
+        except ReleaseError as exc:
+            raise SyncStop(f"automatic version release blocked: {exc}", 2) from exc
+        snapshots = _snapshot_release_files(plan) if plan is not None else {}
+        committed = False
+        try:
+            if plan is not None:
+                apply_release_plan(plan)
+                print(
+                    f"[git-sync] version {plan.old_version} -> {plan.new_version} "
+                    f"({plan.classification})"
+                )
+            _refresh_harness_parity_report()
+            _rebuild_shared_skill_manifest()
+            _check_factory_version_worktree()
+            _run_git(["add", "."], label="git add")
+            if _has_staged_changes():
+                _run_git(["commit", "-m", message], timeout=180, label="git commit")
+                committed = True
+                ahead, behind = _ahead_behind()
+                if ahead and behind:
+                    _print_diverged()
+                    return 2
+        except Exception as exc:
+            if plan is not None and not committed:
+                _restore_release_files(plan, snapshots)
+                print("[git-sync] automatic version files rolled back; original project edits were kept")
+            if isinstance(exc, SyncStop):
+                raise
+            raise SyncStop(f"automatic version release failed: {exc}", 1) from exc
 
     ahead, behind = _ahead_behind()
     if ahead and behind:

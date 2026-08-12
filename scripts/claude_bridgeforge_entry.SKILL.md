@@ -1,7 +1,6 @@
 ---
 name: bridgeforge
 description: 将旧 Claude /bridgeforge 入口转交给已安装在用户级 Claude skills 目录的完整 BridgeForge command bundle。
-version: 0.66.0
 user_invocable: true
 user-invocable: true
 argument: 仅支持无参数，或 switch claude

@@ -78,7 +78,7 @@ BridgeForge 不在 `.codex/config.toml` 或 `.codex/agents/*.toml` 固定模型�
 - 调用已登记 skill 时，先读 manifest 并判断实际进入的阶段；非 `main` 阶段**必须显式 spawn**该行的 named custom agent，等待其有限证据摘要，主对话不得自行重做该阶段。`develop` 必须先执行主对话规模预算闸，只有 L 级或满足 M 级独立审计条件时才进入相应非 `main` 阶段。
 - 子 agent prompt 必须包含：agent 名称、阶段目标、文件 / 工具边界、只读或写入约束和回传格式。用户提问、审批、跨阶段整合与 manifest 的 `root_must_do` 始终留在主对话。
 - `light-explorer` 只能执行 `read-only` 行；`implementation-worker` 只能执行 `implementation` 行；`review-auditor` 只能执行 `audit` 行。不得把写入、用户确认或独立审计降到 Luna。
-- 用户显式 `$git-sync` 时，主对话完成只读审查后直接且只运行 `.codex/scripts/codex_git_sync.py`；禁止拆成手工 Git 命令或再次委派，分叉、冲突、失败和任何决策仍留在主对话。
+- 用户显式 `$git-sync` 时，主对话完成只读审查后直接且只运行当前宿主的 `.<host>/scripts/codex_git_sync.py`；禁止拆成手工 Git 命令或再次委派，分叉、冲突、失败和任何决策仍留在主对话。
 - manifest 不得自动路由到 `xhigh-auditor`。`xhigh` 仍须本次请求中用户明确确认。
 - 这是工作流指令契约，不是 Codex 平台级 runtime router；实际 named-agent 分派须通过运行时 smoke test 留证。
 

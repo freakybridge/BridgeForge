@@ -96,6 +96,7 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | 模板 | 目标 | 条件 |
 |---|---|---|
 | `$PROJECT_ENTRY_FILE` | 项目根同名文件 | 总是；冲突按 §1 |
+| `managed-skeleton.json` | `$PROJECT_AGENT_DIR/managed-skeleton.json` | 总是；供 `$git-sync` 识别受管骨架边界 |
 | `rules/*.md` | `$PROJECT_AGENT_DIR/rules/` | 总是 |
 | `memory/MEMORY.md` | `$PROJECT_AGENT_DIR/memory/MEMORY.md` | 总是 |
 | `hooks/*.py` | `$PROJECT_AGENT_DIR/hooks/` | 总是 |
@@ -107,7 +108,6 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `skill-routing.json` | `.codex/skill-routing.json` | 仅 Codex；与 agents 一起复制并验证引用完整 |
 | `.githooks/pre-commit` | 项目根 `.githooks/pre-commit` | 仅模板存在时；已有文件只合并 BridgeForge 检查段 |
 | `doc/README.md` | `doc/README.md` | 总是；将 `delivery_layout` 替换为用户选择 |
-| `CHANGELOG.md` | 项目根 `CHANGELOG.md` | 总是 |
 | `.bridgeforge_version` | `$PROJECT_AGENT_DIR/.bridgeforge_version` | Step 9 最后写 |
 | doc 目录 | `doc/{0_architecture,1_delivery,2_bugs,3_reference,4_archive}/` | 总是 |
 | BridgeForge ignore 块 | 项目根 `.gitignore` | 总是，幂等 merge |
@@ -137,7 +137,7 @@ __pycache__/
 
 `$PROJECT_AGENT_DIR/.bridgeforge_version` 是唯一受 BridgeForge 管理的骨架版本戳，内容直接复制 `$BRIDGEFORGE_HOME/VERSION`。初始化只在所有前置步骤成功后写入该戳。
 
-根 `VERSION`、`package.json`、`pyproject.toml`、`Cargo.toml` 等均属于下游业务版本域。BridgeForge **禁止**创建、改写、展示或检查它们；初始化始终复制 `CHANGELOG.md`。
+根 `VERSION` 是下游业务版本唯一事实源；`package.json`、`pyproject.toml`、`Cargo.toml` 等原生版本字段是同步副本。BridgeForge 初始化不借用骨架版本创建业务版本；下游首次执行 `$git-sync` 时，从唯一明确的原生版本创建根 `VERSION` 并创建项目 `CHANGELOG.md`。找不到唯一版本时必须阻断。
 
 ## 7. OPTIONAL 段裁剪
 
@@ -254,7 +254,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 | `.githooks/pre-commit` | 提交前聚合硬闸；已有项目只 merge BridgeForge 检查段 |
 | `memory/MEMORY.md` | 初始唯一文件；分类与 topic 目录在首次真实写入时创建 |
 | `doc/README.md` | 分层唯一索引 |
-| `CHANGELOG.md` | BridgeForge 产品更新说明；不定义下游业务版本 |
+| `managed-skeleton.json` | `$git-sync` 用于区分纯 `/bridgeforge` 更新与项目改动 |
 | `.bridgeforge_version` | 唯一骨架版本戳，也是下次路由 update 的同步基线 |
 
 ## 14. 停止条件

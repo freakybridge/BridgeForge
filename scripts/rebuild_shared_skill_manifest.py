@@ -53,8 +53,41 @@ def rebuild_manifest(manifest_path: Path) -> bool:
     manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
     changed = False
 
+    reconcile_inventory = manifest_path == DEFAULT_MANIFEST.resolve()
+    expected_bundle: set[str] = set()
+    if reconcile_inventory:
+        expected_bundle.update(
+            {
+                "VERSION",
+                "CHANGELOG.md",
+                "skills/bridgeforge/SKILL.md",
+                "skills/bridgeforge/references/adopt.md",
+                "skills/bridgeforge/references/init.md",
+                "skills/bridgeforge/references/switch.md",
+                "skills/bridgeforge/references/update.md",
+                "skills/bridgeforge/references/user-skill-maintenance.md",
+                "scripts/bridgeforge_switch.py",
+                "scripts/bridgeforge_migrate_layout.py",
+                "scripts/bridgeforge_shared_update.ps1",
+            }
+        )
+        expected_bundle.update(
+            path.relative_to(repository_root).as_posix()
+            for path in (repository_root / "templates").rglob("*")
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+        )
     for platform in manifest["platforms"].values():
         for skill in platform["skills"]:
+            if reconcile_inventory and skill.get("name") == "bridgeforge":
+                current = {item["source"]: item for item in skill["files"]}
+                rebuilt = []
+                for source in sorted(expected_bundle):
+                    item = current.get(source, {"source": source, "target": source})
+                    item["target"] = source if source.startswith(("templates/", "scripts/")) else item["target"]
+                    rebuilt.append(item)
+                if rebuilt != skill["files"]:
+                    skill["files"] = rebuilt
+                    changed = True
             for item in skill["files"]:
                 expected = manifest_sha256(_source_path(repository_root, item["source"]))
                 if item.get("sha256") != expected:

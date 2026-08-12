@@ -16,7 +16,7 @@
 |---|---:|---:|---|---|
 | `hooks` | 28 | 31 | - | `hook_dispatcher.py`, `model_policy_check.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
-| `scripts` | 7 | 13 | - | `codex_git_sync.py`, `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `project_memory_recovery.py` |
+| `scripts` | 9 | 14 | - | `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `project_memory_recovery.py` |
 | `memory` | 1 | 1 | - | - |
 | `skills` | 19 | 19 | - | 共享单一源 |
 

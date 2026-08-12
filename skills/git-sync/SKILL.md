@@ -16,7 +16,7 @@ model: sonnet
 
 - 当前仓库、分支、upstream、工作区与暂存区状态。
 - `git diff` / `git diff --cached` 的真实变更。
-- 项目内 `.codex/scripts/codex_git_sync.py` 及相关刷新脚本（存在时）。
+- 当前宿主目录内 `.<host>/scripts/codex_git_sync.py` 及相关刷新脚本（存在时）。
 
 ## 核心流程
 
@@ -26,15 +26,15 @@ model: sonnet
 2. 在运行同步脚本前，根据真实 diff 固化 1-3 条“代码变动效果”：说明增加的功能、修复的问题或改变的系统行为，以及它们带来的实际结果；禁止只罗列文件名、提交类型或“更新了代码”等空话。无法可靠判断时明确标记“未能从 diff 可靠判定”，禁止猜测。
 3. 生成简洁的简体中文消息：`<类型>: <描述>`；类型限 `feat`、`fix`、`refactor`、`perf`、`docs`、`chore`。
 
-### 2. Codex 确定性脚本路径
+### 2. 当前宿主确定性脚本路径
 
-项目存在 `.codex/scripts/codex_git_sync.py` 时，主 agent 完成只读范围审查和提交消息决策后，必须直接且只运行：
+Codex 项目使用 `.codex/scripts/codex_git_sync.py`，Claude 项目使用 `.claude/scripts/codex_git_sync.py`。当前宿主脚本存在时，主 agent 完成只读范围审查和提交消息决策后，必须直接且只运行对应脚本：
 
 ```text
-python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
+python .<host>/scripts/codex_git_sync.py --message "<类型>: <描述>"
 ```
 
-需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、衍生产物刷新、add、commit、push 和最终检查。
+需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、自动版本升级与原生版本同步、CHANGELOG 和衍生产物刷新、add、commit、push 和最终检查。它只在创建新提交时升级版本；纯 `/bridgeforge` 骨架更新不升级项目版本。
 
 若首次运行在 `git fetch`、`.git/FETCH_HEAD`、`Permission denied` 或 `Access is denied` 阶段失败，主 agent 必须立即以**完全相同的 repo-local 脚本命令**、`require_escalated` 重试。审批说明仅限：允许 Git 更新当前项目的 `.git/FETCH_HEAD` 等元数据，以完成用户已授权的同步。不得改走手工 Git 命令、修改 `.git` ACL 或扩大到无关目录。重试仍失败时保留原始错误与现场并停止；不得把网络、分叉或凭据错误伪报为权限恢复成功。
 

@@ -30,6 +30,14 @@ FACTORY_VERSION_CHECK = ROOT / ".codex" / "scripts" / "factory_version_check.py"
 GIT_SYNC_RUNNERS = (
     ROOT / ".codex" / "scripts" / "codex_git_sync.py",
     ROOT / "templates" / "codex" / "scripts" / "codex_git_sync.py",
+    ROOT / ".claude" / "scripts" / "codex_git_sync.py",
+    ROOT / "templates" / "claude" / "scripts" / "codex_git_sync.py",
+)
+VERSION_RELEASES = (
+    ROOT / ".codex" / "scripts" / "version_release.py",
+    ROOT / "templates" / "codex" / "scripts" / "version_release.py",
+    ROOT / ".claude" / "scripts" / "version_release.py",
+    ROOT / "templates" / "claude" / "scripts" / "version_release.py",
 )
 SHOW_STATES = (
     ROOT / "templates" / "codex" / "hooks" / "show_state.py",
@@ -59,21 +67,14 @@ def run(command: list[str], cwd: Path, *, input_text: str = "") -> subprocess.Co
 
 
 class DownstreamVersionSotTests(unittest.TestCase):
-    def test_every_template_version_has_a_changelog_section(self) -> None:
-        version_files = sorted((ROOT / "templates").glob("*/VERSION"))
-        self.assertTrue(version_files, "No template VERSION files found")
-
-        for version_file in version_files:
-            with self.subTest(template=version_file.parent.name):
-                version = version_file.read_text(encoding="utf-8-sig").strip()
-                changelog = version_file.with_name("CHANGELOG.md")
-                self.assertTrue(changelog.is_file(), f"Missing {changelog}")
-                changelog_text = changelog.read_text(encoding="utf-8-sig")
-                self.assertRegex(
-                    changelog_text,
-                    rf"(?m)^## \[{re.escape(version)}\](?:\s|$)",
-                    f"{changelog} has no section for VERSION {version}",
-                )
+    def test_factory_has_one_version_and_one_changelog(self) -> None:
+        version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8-sig")
+        self.assertRegex(changelog, rf"(?m)^## \[{re.escape(version)}\](?:\s|$)")
+        for host in ("codex", "claude"):
+            self.assertFalse((ROOT / "templates" / host / "VERSION").exists())
+            self.assertFalse((ROOT / "templates" / host / "CHANGELOG.md").exists())
 
     def test_template_and_dogfood_hooks_are_mirrored(self) -> None:
         self.assertEqual(VERSION_CHECKS[0].read_bytes(), VERSION_CHECKS[1].read_bytes())
@@ -207,10 +208,13 @@ class DownstreamVersionSotTests(unittest.TestCase):
             self.assertEqual(blocked.returncode, 2, blocked.stderr)
 
     def test_git_sync_runner_mirror_has_no_active_memory_rebuild(self) -> None:
-        dogfood = GIT_SYNC_RUNNERS[0].read_text(encoding="utf-8")
-        template = GIT_SYNC_RUNNERS[1].read_text(encoding="utf-8")
-        self.assertEqual(dogfood, template)
-        self.assertNotIn("memory_rebuild_index", dogfood)
+        canonical = GIT_SYNC_RUNNERS[1].read_bytes()
+        for runner in GIT_SYNC_RUNNERS:
+            self.assertEqual(runner.read_bytes(), canonical)
+            self.assertNotIn("memory_rebuild_index", runner.read_text(encoding="utf-8"))
+        release = VERSION_RELEASES[1].read_bytes()
+        for implementation in VERSION_RELEASES:
+            self.assertEqual(implementation.read_bytes(), release)
 
     def test_git_sync_routes_directly_through_main(self) -> None:
         routing_files = (
@@ -282,9 +286,9 @@ class DownstreamVersionSotTests(unittest.TestCase):
         reference = (ROOT / "skills" / "bridgeforge" / "references" / "init.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("$BRIDGEFORGE_HOME/VERSION", reference)
+        self.assertIn("根 `VERSION` 是下游业务版本唯一事实源", reference)
         self.assertIn("$PROJECT_AGENT_DIR/.bridgeforge_version", reference)
-        self.assertIn("BridgeForge **禁止**创建、改写、展示或检查", reference)
+        self.assertIn("首次执行 `$git-sync`", reference)
 
     def test_downstream_fixture_separates_business_and_skeleton_versions(self) -> None:
         script = ROOT / "tests" / "harness" / "run_downstream_fixture.py"

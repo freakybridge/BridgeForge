@@ -12,7 +12,7 @@ delivery_layout: flat
 |---|---|---|
 | `0_architecture/` | 架构与设计依据 | `design/` |
 | `1_delivery/` | 需求确认、计划、验收、协作与专题讨论 | 见下方 topic 索引 |
-| `2_bugs/` | 已知故障及其修复记录 | 3 条故障记录 |
+| `2_bugs/` | 已知故障及其修复记录 | 6 条故障记录 |
 | `3_reference/` | 外部资料与可复用参考实现 | `examples/antifab-deny-hook.py` |
 | `4_archive/` | 已完成或已失效的历史材料 | 既有历史档案；后续按 `delivery/`、`bugs/` 分类归档 |
 
@@ -34,6 +34,7 @@ delivery_layout: flat
 | `ctx-management`、`token-context-optimization` | 上下文与 token 治理；Stall Warning 已裁定从双宿主骨架及下游更新中移除（2026-07-30） |
 | `doc-unification`、`document-lifecycle` | 文档体系演进 |
 | `git-sync-latency-optimization` | `$git-sync` 单脚本直跑、失败前置、重复重建消除与完整同步收据（2026-08-01） |
+| `git-sync-version-automation` | BridgeForge 与下游项目双版本域的 `$git-sync` 自动 bump、原生字段同步与统一 CHANGELOG 需求（2026-08-12） |
 | `memory-lifecycle-governance` | 统一 memory schema、模块/topic 分工、`$summary` 双模式与 topic 生命周期治理（2026-08-02） |
 | `memory-rule-organization` | 下游 memory / rule 分类、topic memory 与渐进加载；项目级双宿主 memory junction hook（2026-07-28）；Rule 索引 hook 批次 A 上游增强已采纳（2026-07-29）；Codex hook 单一注册源与全量承载迁移、Summary 职责收口与 memory 颗粒度治理需求已确认（2026-08-01） |
 | `shared-skill-distribution` | 用户级 shared skill 分发 |
@@ -47,6 +48,7 @@ delivery_layout: flat
 - [`BUG-shared-skill-manifest-line-endings.md`](2_bugs/BUG-shared-skill-manifest-line-endings.md)
 - [`BUG-summary-writes-global-memory-instead-of-project-memory.md`](2_bugs/BUG-summary-writes-global-memory-instead-of-project-memory.md)
 - [`BUG-migration-drops-project-pre-commit-extension.md`](2_bugs/BUG-migration-drops-project-pre-commit-extension.md)
+- [`BUG-downstream-business-version-rule-without-enforcement.md`](2_bugs/BUG-downstream-business-version-rule-without-enforcement.md)
 
 ## 归档与参考
 

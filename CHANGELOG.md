@@ -15,6 +15,23 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.84.0] - 2026-08-12
+
+### Added
+
+- [product][repo][meta] 自动化 git-sync 版本发布
+
+## [0.83.0] - 2026-08-12
+
+### Added
+
+- [product][repo][meta] `$git-sync` 在确实创建新提交时按 Conventional Commits 自动升级版本：`feat` 升 minor，breaking change 升 major，`fix/docs/refactor/chore/perf` 升 patch；同步根 `VERSION`、受支持的原生 manifest/lock 与根 `CHANGELOG.md`，歧义时安全阻断。
+- [product][repo][meta] 下游项目正式以根 `VERSION` 作为业务版本唯一事实源；纯 `/bridgeforge` 骨架更新不升级项目版本，骨架与项目混合变更则升级项目版本。
+
+### Changed
+
+- [product][repo][meta] BridgeForge 骨架版本统一为根 `VERSION`，删除 Codex/Claude 模板各自的 VERSION 与 CHANGELOG；旧模板历史已按功能主题去重纳入上方根发布记录，迁移边界为 Codex `0.1.0-0.50.3`、Claude `0.1.0-0.36.3`。
+
 ---
 
 ## [0.82.3] - 2026-08-04

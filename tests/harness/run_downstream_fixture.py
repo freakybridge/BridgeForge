@@ -120,7 +120,6 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     _safe_reset_dir(CODEX_FIXTURE)
 
     shutil.copy2(CODEX_TEMPLATE / "AGENTS.md", CODEX_FIXTURE / "AGENTS.md")
-    shutil.copy2(CODEX_TEMPLATE / "CHANGELOG.md", CODEX_FIXTURE / "CHANGELOG.md")
     # 该 fixture 已是下游项目：根 VERSION 代表下游业务版本，不来自 BridgeForge。
     (CODEX_FIXTURE / "VERSION").write_text("0.1.0\n", encoding="utf-8")
 
@@ -130,6 +129,7 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
         _copytree(CODEX_TEMPLATE / name, codex_dir / name)
     shutil.copy2(CODEX_TEMPLATE / "settings.json", codex_dir / "settings.json")
     shutil.copy2(CODEX_TEMPLATE / "hooks.json", codex_dir / "hooks.json")
+    shutil.copy2(CODEX_TEMPLATE / "managed-skeleton.json", codex_dir / "managed-skeleton.json")
     shutil.copy2(REPO_ROOT / "VERSION", codex_dir / ".bridgeforge_version")
     shutil.copy2(CODEX_TEMPLATE / "config.toml", codex_dir / "config.toml")
     shutil.copy2(CODEX_TEMPLATE / "skill-routing.json", codex_dir / "skill-routing.json")
@@ -2858,9 +2858,8 @@ def check_codex_git_sync_runner() -> CheckResult:
         and message_preflight.returncode == 2
         and "commit message is required" in message_preflight_output
         and str(missing_remote) not in message_preflight_output
-        and preflight.returncode == 2
-        and "factory_version_check.py --worktree failed" in preflight_output
-        and str(missing_remote) not in preflight_output
+        and preflight.returncode != 0
+        and str(missing_remote) in preflight_output
         and sync.returncode == 0
         and status.returncode == 0
         and status.stdout.strip() == ""
@@ -2873,13 +2872,16 @@ def check_codex_git_sync_runner() -> CheckResult:
         and "push_performed=true" in sync.stdout
         and "working_tree=clean" in sync.stdout
         and "ahead=0 behind=0" in sync.stdout
+        and "version 0.1.0 -> 0.1.1 (project)" in sync.stdout
+        and (fixture / "VERSION").read_text(encoding="utf-8").strip() == "0.1.1"
+        and "## [0.1.1]" in (fixture / "CHANGELOG.md").read_text(encoding="utf-8")
         and "memory_rebuild_index" not in runner_text
         and runner_text == dogfood_runner_text
     )
     return CheckResult(
         "codex_git_sync_runner",
         ok,
-        "runner blocked version drift before fetch, emitted complete receipts, pushed, and has no active memory rebuild"
+        "runner fetched before version writes, bumped the project, emitted complete receipts, and pushed"
         if ok
         else (
             f"missing_upstream={missing_upstream.returncode}/"
