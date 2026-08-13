@@ -62,13 +62,11 @@ DEPS_MIN_FREE_GB = 5     # deps 可回收量低于此则跳过,避免频繁扰�
 DEPS_RE = re.compile(r"^(?:lib)?(.+)-([0-9a-f]{16})(?:\.[0-9A-Za-z.]+)?$")
 
 
-def find_workspace():
-    """返回含 Cargo.toml 的目录 (项目根优先,再扫一层子目录)。非 Rust 项目返回 None。"""
+def find_workspaces():
+    """返回待治理的 Rust workspace；根 workspace 存在时优先且唯一。"""
     if (PROJECT_ROOT / "Cargo.toml").exists():
-        return PROJECT_ROOT
-    for sub in sorted(PROJECT_ROOT.glob("*/Cargo.toml")):
-        return sub.parent
-    return None
+        return [PROJECT_ROOT]
+    return [sub.parent for sub in sorted(PROJECT_ROOT.glob("*/Cargo.toml"))]
 
 
 def incremental_dirs(ws):
@@ -250,14 +248,17 @@ def _deps_pass(ws, dry):
 
 
 def run_worker(dry=False):
-    ws = find_workspace()
-    if ws is None:
+    workspaces = find_workspaces()
+    if not workspaces:
         if dry:
             print("[target-cleanup] 非 Rust 项目 (无 Cargo.toml),跳过")
         return
 
-    clean = _incremental_pass(ws, dry)
-    _deps_pass(ws, dry)
+    clean = True
+    for workspace in workspaces:
+        workspace_clean = _incremental_pass(workspace, dry)
+        clean = workspace_clean and clean
+        _deps_pass(workspace, dry)
 
     if not dry and clean:
         stamp_now()
@@ -272,8 +273,8 @@ def main():
         return
 
     # 生产路径 (SessionStart 无参): 快速节流检查 -> spawn 后台 worker -> 立即返回
-    ws = find_workspace()
-    if ws is None:
+    workspaces = find_workspaces()
+    if not workspaces:
         return
     if not due():
         return
