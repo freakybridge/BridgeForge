@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.86.6] - 2026-08-15
+
+### Fixed
+
+- [product][repo] 退役存量 memory 重复 hook
+
+## [0.86.5] - 2026-08-15
+
+### Fixed
+
+- [product][repo][meta] 修复 Codex 存量下游升级时把已由 dispatcher 取代的 `memory_rebuild_then_lint.py` 误判为第三方 hook 并保留，导致新旧 memory 链重复执行；merge 仅退役 `.codex/hooks/` 与 `.codex/scripts/` 下的历史受管命令，同名项目工具继续保留，并补充 apply 级回归。
+
 ## [0.86.4] - 2026-08-15
 
 ### Fixed

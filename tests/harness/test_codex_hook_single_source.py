@@ -425,9 +425,14 @@ class HookSingleSourceTest(unittest.TestCase):
                 "python vendor/show_state.py",
                 "python .codex/hooks/vendor/show_state.py",
                 "python show_state.py",
+                "python tools/memory_rebuild_then_lint.py",
             ]
             legacy_junction = "python .codex/hooks/memory_junction_check.py"
-            (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, {"type": "command", "command": legacy_junction}, *[{"type": "command", "command": item} for item in collision_commands]]}]}}), encoding="utf-8")
+            retired_memory_chain = [
+                "python .codex/hooks/memory_rebuild_then_lint.py",
+                "python .codex/scripts/memory_rebuild_then_lint.py",
+            ]
+            (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, {"type": "command", "command": legacy_junction}, *[{"type": "command", "command": item} for item in collision_commands], *[{"type": "command", "command": item} for item in retired_memory_chain]]}]}}), encoding="utf-8")
             (codex / "settings.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}, "hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "third-party-prompt"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "python .codex/hooks/show_state.py session-start", "comment": "locally changed"}]}]}}), encoding="utf-8")
             stamp = codex / ".bridgeforge_version"
             stamp.write_text("old\n", encoding="utf-8")
@@ -448,6 +453,8 @@ class HookSingleSourceTest(unittest.TestCase):
             for command in collision_commands:
                 self.assertIn(command, serialized)
             self.assertNotIn(legacy_junction, serialized)
+            for command in retired_memory_chain:
+                self.assertNotIn(command, serialized)
             self.assertNotIn("locally changed", serialized)
             self.assertEqual(hooks["custom"], 1)
             self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")

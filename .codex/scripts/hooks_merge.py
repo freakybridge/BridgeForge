@@ -37,6 +37,10 @@ MANAGED_HOOK_NAMES = (
 )
 MANAGED_PATHS = tuple(f"hooks/{name}" for name in MANAGED_HOOK_NAMES) + (
     "scripts/memory_rebuild_index.py",
+    # Historical BridgeForge wrapper retired by the single dispatcher.  Keep
+    # both former managed locations narrow so same-named project tools survive.
+    "hooks/memory_rebuild_then_lint.py",
+    "scripts/memory_rebuild_then_lint.py",
 )
 MIN_PYTHON = (3, 11)
 

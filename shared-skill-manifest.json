@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:a1c45ccdb294278dfaa96e886eb38730dce7ac9bb5d5a0f6156774e5e475a00c"
+              "sha256": "sha256:b32a9d25939781709d3a677255f4adbea9936c26aeaf43d4986a7f0969558a2d"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:4a816d667f15c5021e7343ac8653cf25897cf2321ffcfcb402359ef364936856"
+              "sha256": "sha256:ccadfeb2d6c503ee6d4edf89668d54020c6e6f2b3d7d271aaff95be648523b64"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -667,7 +667,7 @@
             {
               "source": "templates/codex/scripts/hooks_merge.py",
               "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:8b67d0683be8ac43e0590bd10dca46298e53249e3f9dacd5f2e5bccb16660633"
+              "sha256": "sha256:45cabec9b938c4b2e298fe51c7d92d6aed67e48495027a0817f9d0b79819af00"
             },
             {
               "source": "templates/codex/scripts/memory_context.py",
@@ -932,12 +932,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:a1c45ccdb294278dfaa96e886eb38730dce7ac9bb5d5a0f6156774e5e475a00c"
+              "sha256": "sha256:b32a9d25939781709d3a677255f4adbea9936c26aeaf43d4986a7f0969558a2d"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:4a816d667f15c5021e7343ac8653cf25897cf2321ffcfcb402359ef364936856"
+              "sha256": "sha256:ccadfeb2d6c503ee6d4edf89668d54020c6e6f2b3d7d271aaff95be648523b64"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -1587,7 +1587,7 @@
             {
               "source": "templates/codex/scripts/hooks_merge.py",
               "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:8b67d0683be8ac43e0590bd10dca46298e53249e3f9dacd5f2e5bccb16660633"
+              "sha256": "sha256:45cabec9b938c4b2e298fe51c7d92d6aed67e48495027a0817f9d0b79819af00"
             },
             {
               "source": "templates/codex/scripts/memory_context.py",
