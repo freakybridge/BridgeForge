@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
@@ -8,10 +9,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
 FINALIZER = ROOT / "scripts/bridgeforge_project_finalize.py"
+SPEC = importlib.util.spec_from_file_location("bridgeforge_project_finalize", FINALIZER)
+assert SPEC is not None and SPEC.loader is not None
+finalizer = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(finalizer)
 
 
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -30,6 +36,58 @@ def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 
 
 class BridgeForgeProjectFinalizeTests(unittest.TestCase):
+    def test_atomic_write_stages_in_project_root_for_both_hosts(self) -> None:
+        real_mkstemp = tempfile.mkstemp
+        for host in ("codex", "claude"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                host_dir = root / f".{host}"
+                host_dir.mkdir()
+                stamp = host_dir / ".bridgeforge_version"
+
+                def guarded_mkstemp(*args: object, **kwargs: object) -> tuple[int, str]:
+                    directory = Path(str(kwargs["dir"])).resolve()
+                    if directory == host_dir.resolve():
+                        raise PermissionError("protected host directory")
+                    return real_mkstemp(*args, **kwargs)
+
+                with mock.patch.object(
+                    finalizer.tempfile,
+                    "mkstemp",
+                    side_effect=guarded_mkstemp,
+                ) as mkstemp:
+                    finalizer._atomic_write(
+                        stamp,
+                        "0.86.2\n",
+                        staging_dir=root,
+                    )
+                self.assertEqual(
+                    Path(mkstemp.call_args.kwargs["dir"]).resolve(),
+                    root.resolve(),
+                )
+                self.assertEqual(stamp.read_text(encoding="utf-8"), "0.86.2\n")
+                self.assertEqual(list(root.glob(".bridgeforge_version.*")), [])
+
+    def test_atomic_write_cleans_root_staging_file_after_replace_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            host_dir = root / ".codex"
+            host_dir.mkdir()
+            stamp = host_dir / ".bridgeforge_version"
+            with mock.patch.object(
+                finalizer.os,
+                "replace",
+                side_effect=PermissionError("protected target"),
+            ):
+                with self.assertRaises(PermissionError):
+                    finalizer._atomic_write(
+                        stamp,
+                        "0.86.2\n",
+                        staging_dir=root,
+                    )
+            self.assertFalse(stamp.exists())
+            self.assertEqual(list(root.glob(".bridgeforge_version.*")), [])
+
     def _project(self, root: Path, host: str, *, valid_memory: bool = True) -> Path:
         host_dir = root / f".{host}"
         hooks = host_dir / "hooks"

@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:b32a9d25939781709d3a677255f4adbea9936c26aeaf43d4986a7f0969558a2d"
+              "sha256": "sha256:8d39da40bcc9ba9363ccca1c16fc74567f0dc5e3d6865ff24e4a88af88d55913"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:ccadfeb2d6c503ee6d4edf89668d54020c6e6f2b3d7d271aaff95be648523b64"
+              "sha256": "sha256:b45c12e462f5ebe18ac0d5c4f2d3f3d6a1cdf0af1a5628323e14e78c7ebe4f67"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -27,7 +27,7 @@
             {
               "source": "scripts/bridgeforge_project_finalize.py",
               "target": "scripts/bridgeforge_project_finalize.py",
-              "sha256": "sha256:2082b9bf3cb66f4f5a4a3d907d7e768550ef690d6b3e59183235b617b14a5209"
+              "sha256": "sha256:d260393f6eee387f1f2915f667f632741e7f13f12b99ac2c270d6fea860d4d34"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -932,12 +932,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:b32a9d25939781709d3a677255f4adbea9936c26aeaf43d4986a7f0969558a2d"
+              "sha256": "sha256:8d39da40bcc9ba9363ccca1c16fc74567f0dc5e3d6865ff24e4a88af88d55913"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:ccadfeb2d6c503ee6d4edf89668d54020c6e6f2b3d7d271aaff95be648523b64"
+              "sha256": "sha256:b45c12e462f5ebe18ac0d5c4f2d3f3d6a1cdf0af1a5628323e14e78c7ebe4f67"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -947,7 +947,7 @@
             {
               "source": "scripts/bridgeforge_project_finalize.py",
               "target": "scripts/bridgeforge_project_finalize.py",
-              "sha256": "sha256:2082b9bf3cb66f4f5a4a3d907d7e768550ef690d6b3e59183235b617b14a5209"
+              "sha256": "sha256:d260393f6eee387f1f2915f667f632741e7f13f12b99ac2c270d6fea860d4d34"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",

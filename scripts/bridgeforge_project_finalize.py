@@ -42,9 +42,9 @@ def _run_check(command: list[str], cwd: Path, label: str) -> None:
         raise FinalizeBlocked(f"{label} failed with exit code {result.returncode}")
 
 
-def _atomic_write(path: Path, text: str) -> None:
+def _atomic_write(path: Path, text: str, *, staging_dir: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, raw = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
+    fd, raw = tempfile.mkstemp(prefix=path.name + ".", dir=str(staging_dir))
     temporary = Path(raw)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             project_root,
             "version stamp",
         )
-        _atomic_write(stamp, version + "\n")
+        _atomic_write(stamp, version + "\n", staging_dir=project_root)
     except FinalizeBlocked as exc:
         print(f"BLOCKED: {exc}; version stamp was not changed", file=sys.stderr)
         return 2
