@@ -11,9 +11,8 @@ memory 在 `.codex/memory/` 下被连带保护，导致每次保存记忆都弹�
 本 hook 在权限弹窗之前介入，识别"写 memory 目录的 .md 文件"并直接 allow，
 其它 `.codex/` 文件（settings/hooks 本体）不放行，安全边界不破。
 
-匹配三种路径形态（兼容 junction + 可移植）：
+只匹配项目内 `.codex/memory/` 路径：
 - 项目真身    : <proj>/.codex/memory/xxx.md
-- 系统 junction: ~/.codex/projects/<hash>/memory/xxx.md
 - 相对路径    : .codex/memory/xxx.md
 
 输出 stdout JSON: permissionDecision=allow 绕过弹窗。
@@ -38,9 +37,6 @@ def is_memory_md(file_path: str) -> bool:
         return False
     # 形态 1/3：项目真身 + 相对路径
     if "/.codex/memory/" in norm or norm.startswith(".codex/memory/"):
-        return True
-    # 形态 2：系统 junction（~/.codex/projects/<hash>/memory/）
-    if "/.codex/projects/" in norm and "/memory/" in norm:
         return True
     return False
 

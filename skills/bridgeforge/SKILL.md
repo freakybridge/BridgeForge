@@ -105,6 +105,23 @@ if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
 
 命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑 `skills/bridgeforge/`、`doc/0_architecture/`、`templates/` 或其他 `skills/`。
 
+## Step 2.1：Codex 原生 memories 配置与补同步
+
+仅无参数且当前宿主为 Codex 时执行。先从 PATH 的 `python`、`python3` 中锁定首个
+Python 3.11+ 为 `$MEMORY_SYNC_PYTHON`；禁止使用项目 `.venv`，因为用户级 hook 必须在
+离开项目后仍可运行。没有合格的全局解释器时只报告本次原生 memories 配置未完成，
+继续项目骨架维护。随后用该解释器运行 `scripts/codex_memory_sync.py status`。三个开关
+未全开时每次提示；拒绝则零配置写入、跳过本次原生同步并继续项目维护，同意才给
+`setup` 追加 `--confirmed-enable`。三个开关已全开时也必须无参数运行一次 `setup`，用来
+检查并修复仓库状态和受管 hook 漂移，禁止只因 `hooks.json` 文件存在就跳过。`gh` 缺失
+或未登录时停止本次 memories 配置且禁止自动登录。同名仓库不存在时创建 private，
+private 时复用，public 时必须另取明确确认才追加 `--confirmed-public-to-private`。
+setup 幂等 merge 用户 hooks 并保留第三方字段；用户仍须 `/hooks` review/trust。最后运行
+`reconcile --trigger bridgeforge` 补同步。
+SessionEnd 最多 3 秒内落待同步标记并启动脱离会话的后台 reconciliation，不等待
+GitHub 成功回执；最终一致仍由 Stop、下次 SessionStart 或本步骤补齐。关闭任一开关后
+已有仓库/hook 保留且 hook no-op。
+
 ## Step 2.25：项目 Python 3.11+ 一次性 preflight（写入前硬闸）
 
 在 `.agents/` 迁移、switch、init、adopt 或 update 的任何项目写入前，只运行一次以下
@@ -264,7 +281,7 @@ BridgeForge 下沉时按业务专属性分层：
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
 | rules、入口文件 | 只 diff，用户逐段决定 |
-| memory | init 只创建 `MEMORY.md`；update 先展示迁移计划，用户补齐低置信分类并明确确认后才 apply |
+| memory | init 只创建 `MEMORY.md`；update 先展示分类计划；Codex 项目 memory 不建用户级 junction |
 | `doc/` | 新项目按模板创建；已有项目仅按 `references/update.md` 展示迁移清单并经用户确认后移动 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
 
@@ -275,7 +292,7 @@ BridgeForge 下沉时按业务专属性分层：
 - 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill。
 - 禁止批量/静默删除项目级重复 skill、用户级扁平 shadow 或退役 skill；每项单独确认。
 - 禁止代编架构红线、快速命令和项目结构。
-- 禁止跳过 doc 分层、Python 硬依赖或 memory junction。
+- 禁止跳过 doc 分层、Python 硬依赖或项目 memory 的 context/router；Claude junction 规则保持不变。
 - 禁止在 BridgeForge 源头仓库自身运行 bootstrap/update/adopt/switch。
 - 禁止自动 `git commit` / `git push`；真实 switch 同样只改工作区。
 - 禁止在未解决冲突、未完成验证时写新版本戳。
@@ -291,7 +308,7 @@ BridgeForge 下沉时按业务专属性分层：
 | 模式 | 最低收据 |
 |---|---|
 | switch | 脚本真实调用与退出码；target/current-host 匹配；source hash 前后不变；目标 map 路径与确定性内容；目标原生 projection；未原样复制宿主专属资产；`status` / `readiness` / gaps / conflicts；旧根 `.bridgeforge/` 未读写删；可捕获异常回滚或硬中断后的保守冲突 |
-| init | 复制/merge 清单；memory 初始仅含 `MEMORY.md`；OPTIONAL 残留检查；snapshot smoke test；memory junction；版本戳 |
+| init | 复制/merge 清单；memory 初始仅含 `MEMORY.md`；OPTIONAL 残留检查；snapshot smoke test；Codex context/router 或 Claude junction；版本戳 |
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
 | update | 版本区间与 `[product]`；A-F 分类；memory plan / 用户确认 / apply 状态；hook smoke test；新版本戳；git diff |
 | 用户级 skill 更新 | updater 退出码；目标 commit；Codex/Claude 托管账本结果；第三方 skill 未触碰 |

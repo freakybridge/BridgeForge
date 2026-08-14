@@ -23,6 +23,8 @@ if str(SCRIPT_DIR) not in sys.path:
 from hook_config_policy import TomlHeaderError, has_hooks_table
 
 MANAGED_HOOK_NAMES = (
+    # memory_junction_check.py remains an ownership marker only so migrations
+    # remove legacy direct registrations after the Codex runtime is retired.
     "hook_dispatcher.py", "memory_junction_check.py", "find_doc_reminder.py",
     "git_add_all_guard.py", "non_ascii_shell_guard.py", "cross_project_write_guard.py",
     "user_config_write_guard.py", "allow_memory_write.py", "memory_dup_check.py",

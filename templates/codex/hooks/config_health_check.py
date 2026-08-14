@@ -151,7 +151,7 @@ ACTIVE_CHECKS = (
 # 登记备查，让本文件成为「骨架要求哪些配置 + 谁来保证」的完整单一事实源。新增「已有 owner」
 # 的必要配置登记到这；若要本 hook 亲测，则改放 ACTIVE_CHECKS。
 DELEGATED = (
-    ("memory-junction-intact", "memory_junction_check.py (self-heals + reports on action)"),
+    ("project-memory-context", "memory_context.py after memory_rebuild_index.py"),
     ("no-project-effortlevel", "enforce_no_effortlevel.py (strips + reports on action)"),
     ("user-skill-sync", "skill_sync_check.py (reports drift)"),
     ("hooks-mirror-intact", "mirror_drift_check.py (pre-commit; exit 2 on missing dogfood mirror)"),

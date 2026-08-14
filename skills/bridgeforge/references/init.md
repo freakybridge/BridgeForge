@@ -6,7 +6,7 @@
 
 - 1-3：cwd 冲突、元信息、Python 硬依赖
 - 4-8：复制清单、ignore、版本、裁剪、hook 适配
-- 9-12：占位符、memory junction、Git、版本戳
+- 9-12：占位符、memory 加载机制、Git、版本戳
 - 13-14：能力速查与停止条件
 
 ## 1. 核对 cwd 与冲突
@@ -129,6 +129,8 @@ __pycache__/
 .runtime/session_state/
 .runtime/focus/
 .runtime/*.log
+.runtime/memory_usage.jsonl
+.runtime/.memory_usage.lock
 ```
 
 只维护 BridgeForge 自身机制生成物，不替项目决定 `target/`、`node_modules/` 等语言相关规则。
@@ -198,23 +200,27 @@ trust；随后开启新会话，以实际 `SessionStart` 行为做 smoke。无�
 
 架构红线、快速命令、项目结构等 `<!-- TODO: ... -->` 留给用户，禁止代编。
 
-## 10. 建 memory junction
+## 10. 安装项目 memory 加载机制
 
 只处理当前宿主，不读取或修改另一套骨架。路径映射：
 
 | 宿主 | 系统 memory | 项目唯一事实源 | SessionStart 承载 |
 |---|---|---|---|
-| Codex | `~/.codex/projects/<project-hash>/memory/` | `.codex/memory/` | `.codex/hooks.json` |
+| Codex | 无系统 junction；与原生 memories 分离 | `.codex/memory/` | `.codex/hooks.json` 的 index context + router |
 | Claude Code | `~/.claude/projects/<project-hash>/memory/` | `.claude/memory/` | `.claude/settings.json` |
 
-先只读盘点 junction 状态：
+Codex 必须安装 index/context/router/search/usage 脚本：SessionStart 先 rebuild 再注入
+最多 6000 字符 `MEMORY.md`，UserPromptSubmit 返回 3-5 候选，PostToolUse Read 仅在
+成功读取正文后记录 used；日志只写 `.runtime/memory_usage.jsonl`。
+
+Claude Code 继续只读盘点 junction 状态：
 
 1. 已是指向当前项目 memory 的正确 junction：验证目标后 no-op。
 2. 系统 memory 不存在、项目 memory 存在：直接建 junction，并验证最终目标。
 3. 系统 memory 是实目录、错误/断裂 junction 或路径异常：阻断 memory 路径写入，
    记录“待维护”，完成其余 init 后提示无参数运行 `/bridgeforge`。
 
-`init` 和 `SessionStart` 都禁止复制、合并或删除系统 memory。实目录迁移只能由
+Claude 的 `init` 和 `SessionStart` 都禁止复制、合并或删除系统 memory。实目录迁移只能由
 无参数 `/bridgeforge` 的既有项目维护分支展示逐文件计划并取得用户确认后，调用当前宿主脚本
 `--mode migrate --confirmed`；禁止创建 `.bak` 或其他备份，同路径异内容、路径异常、
 错误或断裂 junction 必须阻断且零写入。

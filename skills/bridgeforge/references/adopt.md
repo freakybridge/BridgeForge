@@ -23,7 +23,7 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 
 版本戳等于声明“以当前项目现状为最新同步基线”。首次收编默认不补历史增量；从下次运行起，才按 `(此版, 新版]` 处理 `[product]` 更新。
 
-写戳前审计当前宿主的项目级 hook 承载面与 memory junction：
+写戳前审计当前宿主的项目级 hook 承载面与 memory 加载机制：
 
 - Codex lifecycle hook 的唯一承载面必须是 `.codex/hooks.json`；先把 settings 旧
   `hooks` 的第三方项合并进去，再删除整个 settings `hooks` 块，按 `command` 身份
@@ -42,10 +42,10 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
   均存在，且其前缀 SHA-256 逐字匹配冻结的 0.81 Codex / Claude 模板时，无标记旧 hook 才可转换；
   其他缺标记、前缀改动、标记损坏或区块外自定义代码一律阻断版本戳，禁止整份覆盖；用户确认 diff 后才允许
   追加 `--apply --confirmed`。
-- adopt 不复制、合并或删除 memory，也不建立 junction。
-- junction 不是已验证的正确目标时记录为“待维护”；hook 承载必须先完成，不能以
+- adopt 不复制、合并或删除 memory；Codex 不建项目 memory junction，Claude 保持既有规则。
+- Codex context/router 未安装，或 Claude junction 不是已验证的正确目标时记录为“待维护”；hook 承载必须先完成，不能以
   “收编只登记”为由把无效 hooks 注册盖上新版本戳。
-- 错误/断裂 junction、路径异常或系统 memory 实目录只报告状态；禁止在
+- Claude 错误/断裂 junction、路径异常或系统 memory 实目录只报告状态；禁止在
   `SessionStart` 或 adopt 中自动迁移。
 - Codex 若审计发现 `.codex/hooks.json` 新增或变更后没有 trust 与新会话 smoke
   证据，必须提示用户执行 `/hooks`，逐项 review 并 trust，再开启新会话 smoke。
@@ -70,5 +70,5 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 - 禁止把“像 BridgeForge”当成“允许 fresh init 覆盖”。
 
 结束时报告命中的指纹、用户是否确认、写入的基线版本、是否跳过历史增量，以及
-当前宿主 hook/junction 审计结果、trust 验证状态与是否需要运行
+当前宿主 hook/memory 审计结果、trust 验证状态与是否需要运行
 无参数 `/bridgeforge`。

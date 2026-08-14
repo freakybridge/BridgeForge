@@ -69,6 +69,7 @@ def rebuild_manifest(manifest_path: Path) -> bool:
                 "scripts/bridgeforge_switch.py",
                 "scripts/bridgeforge_migrate_layout.py",
                 "scripts/bridgeforge_shared_update.ps1",
+                "scripts/codex_memory_sync.py",
             }
         )
         expected_bundle.update(

@@ -118,12 +118,12 @@ class HookSingleSourceTest(unittest.TestCase):
         dispatcher_path = TEMPLATE / "hooks" / "hook_dispatcher.py"
         dispatcher = load_module(dispatcher_path, "hook_dispatcher_audit")
         audit = dispatcher.HANDLER_AUDIT
-        self.assertEqual([int(key.split(":", 1)[0]) for key in audit], list(range(1, 34)))
+        self.assertEqual([int(key.split(":", 1)[0]) for key in audit], list(range(1, 37)))
         counts = {
             decision: sum(value[0] == decision for value in audit.values())
             for decision in ("retain", "adapt", "delete")
         }
-        self.assertEqual(counts, {"retain": 18, "adapt": 13, "delete": 2})
+        self.assertEqual(counts, {"retain": 18, "adapt": 16, "delete": 2})
         self.assertEqual(dispatcher.handler_audit_errors(), [])
         for key, (decision, route, target) in audit.items():
             if route in dispatcher.RUNTIME_ROUTES:
@@ -162,11 +162,13 @@ class HookSingleSourceTest(unittest.TestCase):
             for block in blocks:
                 for hook in block.get("hooks", []):
                     commands.append(hook)
-        self.assertEqual(len(commands), 7)
+        self.assertEqual(len(commands), 8)
         for hook in commands:
             self.assertIn("git rev-parse --show-toplevel", hook["command"])
             self.assertIn("git rev-parse --show-toplevel", hook["commandWindows"])
             self.assertIn("hook_dispatcher.py", hook["command"])
+        session_start = hooks["hooks"]["SessionStart"][0]["hooks"][0]
+        self.assertEqual(session_start["additionalContextLimit"], 0)
 
     def test_dogfood_registration_matches_template_and_uses_project_venv(self) -> None:
         template = json.loads((TEMPLATE / "hooks.json").read_text(encoding="utf-8"))
@@ -365,14 +367,15 @@ class HookSingleSourceTest(unittest.TestCase):
                 "import os,sys\n"
                 f"open({str(log)!r}, 'a', encoding='utf-8').write(os.path.basename(__file__)+'\\n')\n"
                 "print('[session-step] '+os.path.basename(__file__))\n"
-                "sys.exit(7 if os.path.basename(__file__) == 'memory_junction_check.py' else 0)\n"
+                "sys.exit(7 if os.path.basename(__file__) == 'memory_context.py' else 0)\n"
             )
             for name in (
-                "config_health_check.py", "memory_junction_check.py", "enforce_no_effortlevel.py",
+                "config_health_check.py", "enforce_no_effortlevel.py",
                 "githooks_path_check.py", "show_state.py", "target_cleanup.py", "skill_sync_check.py",
             ):
                 (hooks / name).write_text(stub, encoding="utf-8")
             (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
+            (scripts / "memory_context.py").write_text(stub, encoding="utf-8")
             result = run([sys.executable, str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
             self.assertEqual(result.returncode, 7)
             order = log.read_text(encoding="utf-8").splitlines()
@@ -381,6 +384,35 @@ class HookSingleSourceTest(unittest.TestCase):
             output = json.loads(result.stdout)
             self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
             self.assertIn("show_state.py", output["hookSpecificOutput"]["additionalContext"])
+
+    def test_session_start_never_injects_stale_context_after_rebuild_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            hooks = root / ".codex" / "hooks"
+            scripts = root / ".codex" / "scripts"
+            hooks.mkdir(parents=True)
+            scripts.mkdir()
+            shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
+            log = root / "session.log"
+            stub = (
+                "import os,sys\n"
+                f"open({str(log)!r}, 'a', encoding='utf-8').write(os.path.basename(__file__)+'\\n')\n"
+                "sys.exit(9 if os.path.basename(__file__) == 'memory_rebuild_index.py' else 0)\n"
+            )
+            for name in (
+                "config_health_check.py", "enforce_no_effortlevel.py",
+                "githooks_path_check.py", "show_state.py", "target_cleanup.py", "skill_sync_check.py",
+            ):
+                (hooks / name).write_text(stub, encoding="utf-8")
+            (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
+            (scripts / "memory_context.py").write_text(stub, encoding="utf-8")
+            result = run([sys.executable, str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
+            self.assertEqual(result.returncode, 9)
+            order = log.read_text(encoding="utf-8").splitlines()
+            self.assertIn("memory_rebuild_index.py", order)
+            self.assertNotIn("memory_context.py", order)
+            self.assertIn("memory_context skipped", result.stderr)
+            self.assertIn("show_state.py", order)
 
     def test_merge_preserves_third_party_and_stamp_is_transactional(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -394,7 +426,8 @@ class HookSingleSourceTest(unittest.TestCase):
                 "python .codex/hooks/vendor/show_state.py",
                 "python show_state.py",
             ]
-            (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, *[{"type": "command", "command": item} for item in collision_commands]]}]}}), encoding="utf-8")
+            legacy_junction = "python .codex/hooks/memory_junction_check.py"
+            (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, {"type": "command", "command": legacy_junction}, *[{"type": "command", "command": item} for item in collision_commands]]}]}}), encoding="utf-8")
             (codex / "settings.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}, "hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "third-party-prompt"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "python .codex/hooks/show_state.py session-start", "comment": "locally changed"}]}]}}), encoding="utf-8")
             stamp = codex / ".bridgeforge_version"
             stamp.write_text("old\n", encoding="utf-8")
@@ -414,6 +447,7 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertIn("hook_dispatcher.py", serialized)
             for command in collision_commands:
                 self.assertIn(command, serialized)
+            self.assertNotIn(legacy_junction, serialized)
             self.assertNotIn("locally changed", serialized)
             self.assertEqual(hooks["custom"], 1)
             self.assertEqual(stamp.read_text(encoding="utf-8"), "new\n")

@@ -7,11 +7,11 @@
 ## U1. 计算产品增量
 
 1. 读取项目 `$PROJECT_AGENT_DIR/.bridgeforge_version` 与 `$BRIDGEFORGE_HOME/VERSION`。
-2. 相等且文件无差异、当前宿主 hook 承载面正确且 memory junction 无待迁移
-   状态：报告“已是最新（vX.Y.Z）”并退出。承载面或 junction 仍待迁移时，即使
+2. 相等且文件无差异、当前宿主 hook 承载面与 memory 加载机制正确
+   时：报告“已是最新（vX.Y.Z）”并退出。承载面或 memory 仍待维护时，即使
    版本相等也必须继续 U2 的 B/D 类处理。
 3. 不等：从上游 `CHANGELOG.md` 提取 `(下游版本, 上游版本]` 内全部 `[product]` 条目；过滤 `[repo]` / `[meta]`。
-4. 区间没有 `[product]` 且 hook 承载面/junction 无待迁移状态：不要跑全量
+4. 区间没有 `[product]` 且 hook 承载面/memory 无待维护状态：不要跑全量
    diff；报告本次无下游产品变更，执行 U4 更新版本戳后退出。仍待迁移时继续
    B/D 类处理。
 
@@ -38,7 +38,7 @@
 | A | hooks、scripts；Codex `agents/*.toml`、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查。BridgeForge 不管理模型或思考强度。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
 | B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 先把 settings 旧 `hooks` 的第三方项迁入 `.codex/hooks.json`，再删除整个旧块；按 `command` 身份增补/替换全部受管 dispatcher，保留第三方事件、handler 与其他配置。受管内容漂移必须展示 diff 并确认；config `[hooks]` 直接阻断。Claude 注册方式不变。保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
 | C | rules、入口文件 | 只 diff；按通用增量/业务补充/上游脱敏减弱三类让用户逐段决定 |
-| D | memory | 分别展示分类计划与 junction 迁移计划；低置信 `category` / `topic` 由用户补齐；任何含复制/删除的 junction 迁移必须明确确认后才 apply |
+| D | memory | 展示分类计划；Codex 校验 context/router/usage 且不建 junction；Claude junction 迁移继续按确认后 apply |
 | E | `.gitignore` | 按 init 手册的 BridgeForge 机制块幂等补缺，不删项目项 |
 | F | `doc/` 布局 | 检测 `doc/README.md:delivery_layout` 和旧目录；展示迁移清单，用户确认后才 `git mv`，不得静默混用 |
 
@@ -98,16 +98,20 @@ pre-commit 整份复制到下游：
 用户拒绝或未确认迁移时，保持 memory 逐字不变并继续报告为未迁移；不得把
 “展示了计划”写成“已迁移”。
 
-### U2.2 Memory junction 迁移计划
+### U2.2 项目 memory 运行机制
 
 只处理当前宿主：
 
 | 宿主 | 系统 memory | 项目唯一事实源 | SessionStart 承载 |
 |---|---|---|---|
-| Codex | `~/.codex/projects/<project-hash>/memory/` | `.codex/memory/` | `.codex/hooks.json` |
+| Codex | 无系统 junction；与原生 memories 分离 | `.codex/memory/` | `.codex/hooks.json` 的 context/router |
 | Claude Code | `~/.claude/projects/<project-hash>/memory/` | `.claude/memory/` | `.claude/settings.json` |
 
-先只读盘点并展示状态：
+Codex 更新必须退役 `memory_junction_check.py`，安装 index/context/router/search/usage，
+并验证 6000 字符预算、3-5 候选和成功 Read 后 used。禁止读取或迁移旧
+`~/.codex/projects/**`；其清理由用户另行授权。
+
+以下迁移仅适用于 Claude Code。先只读盘点并展示状态：
 
 1. 正确 junction 必须解析并验证最终目标等于当前项目 memory，然后 no-op。
 2. 系统 memory 不存在且项目 memory 存在时，可直接建 junction并验证。
@@ -126,10 +130,10 @@ pre-commit 整份复制到下游：
 用户确认，禁止用它绕过计划展示：
 
 ```bash
-& $HOOK_PYTHON "$PROJECT_AGENT_DIR/hooks/memory_junction_check.py" --mode migrate --confirmed
+& $HOOK_PYTHON ".claude/hooks/memory_junction_check.py" --mode migrate --confirmed
 ```
 
-`SessionStart` 禁止执行上述含复制、合并或删除的迁移。它只允许对正确 junction
+Claude `SessionStart` 禁止执行上述含复制、合并或删除的迁移。它只允许对正确 junction
 no-op，或在系统 memory 不存在且项目 memory 已存在时建链；遇到实目录必须
 fail-closed 并提示无参数运行 `/bridgeforge`。实目录迁移只能在本既有项目维护流程中，
 取得用户确认后执行 `--mode migrate --confirmed`。

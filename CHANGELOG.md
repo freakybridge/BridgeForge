@@ -15,6 +15,23 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.86.0] - 2026-08-14
+
+### Added
+
+- [product][repo][meta] 完善双 memory 加载与云同步机制
+
+## [0.85.0] - 2026-08-14
+
+### Added
+
+- [product][repo][meta] Codex 项目 memory 新增确定性 SessionStart 上下文注入、UserPromptSubmit metadata 加权候选、成功 Read 后 used 回执和 `.runtime/memory_usage.jsonl` 诊断事件；`$find-memory` 保留为深度检索兜底。
+- [product][repo][meta] 新增可选的 Codex 原生 `~/.codex/memories/` 私有 GitHub 整树同步：`$bridgeforge` 经用户确认后开启三项原生开关、幂等合并用户 hooks，并以单一 parentless 最新快照、`--force-with-lease`、SessionStart/Stop/SessionEnd 最终一致触发支持换机恢复。
+
+### Changed
+
+- [product][repo][meta] 退役 Codex `~/.codex/projects/<hash>/memory/` junction 假路径及其 runtime；项目 `.codex/memory/` 与 Codex 原生 memories 明确分离，Claude junction 保持原状。
+
 ## [0.84.3] - 2026-08-13
 
 ### Fixed

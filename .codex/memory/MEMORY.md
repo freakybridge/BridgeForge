@@ -2,7 +2,7 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 12 | Cold: 0
+> Active: 12 | Cold: 1
 
 ## Active（按新增时间，新在前；主索引上限 6000 字符）
 - [bridgeforge-doc-runtime-packaging](bridgeforge-doc-runtime-packaging.md) — BridgeForge 的运行手册统一位于 doc/0_playbook；只有该编号子树随 bridgeforge command bundle 分发，其余 doc 只留在工厂仓库。
@@ -17,3 +17,6 @@
 - [codex-model-routing-policy](codex-model-routing-policy.md) — Codex 平台默认调度：BridgeForge 只定义 agent 职责，不固定模型或思考强度。
 - [skill-metadata-precommit-gate](skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
 - [codex-bridgeforge-slash-entry-debug](codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。
+
+## 🔍 Cold（1 条，用 /find-memory 搜索）
+详见 MEMORY_COLD.md

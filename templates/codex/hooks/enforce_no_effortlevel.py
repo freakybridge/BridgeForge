@@ -7,7 +7,7 @@
 必须机检强制——这是本骨架的特征：能机检的红线一律 hook 化，不留主观空间。
 （覆盖关系与决策全图见 memory effort-config-layering。）
 
-自愈式（仿 memory_junction_check）：每次 SessionStart 跑，发现项目 settings.json 有
+自愈式：每次 SessionStart 跑，发现项目 settings.json 有
 effortLevel 就原子删除（json 读改写 + temp+os.replace + .bak），其余键一字不动；没有则静默 no-op。
 仅作用于 git 跟踪的项目 settings.json；settings.local.json（个人本机覆盖）不碰。
 """

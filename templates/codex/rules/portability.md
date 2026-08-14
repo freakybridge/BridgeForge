@@ -36,26 +36,15 @@ paths:
 
 > **通用协作 skill 不进项目 git（单一源拆分）**：plan / escalate / snapshot / find-doc 本体等通用 skill 由 BridgeForge 的 GitHub `main` 按 manifest 安装到用户级 `~/.codex/skills/`，**不在项目 `.codex/skills/` 留副本**。换机恢复靠首次安装脚本，后续显式运行无参 `/bridgeforge` 强制同步受管 skill；项目专属**数据**（上表 `.map.md`）仍在项目 git，可移植性不受影响。
 
-### 2.1 Memory junction 自愈（SessionStart hook，机制化）
+### 2.1 项目 Memory 确定性加载
 
-memory 纳入项目 git（`.codex/memory/`），Codex 系统路径是
-`~/.codex/projects/<project-hash>/memory/`。项目级 `SessionStart` 必须由
-`.codex/hooks.json` 注册 `.codex/hooks/memory_junction_check.py`。
-
-- 正确 junction **必须**解析并验证最终目标等于当前项目 `.codex/memory/`。
-- 系统 memory 不存在且项目 memory 存在时，`SessionStart` **只允许**建 junction
-  并验证；正确 junction 只允许 no-op。
-- 系统 memory 是实目录时，`SessionStart` **禁止**复制、合并、删除或改名；
-  **必须** fail-closed 并提示运行 `/bridgeforge`。
-- 错误/断裂 junction、路径异常或内容冲突时**必须**零写入，禁止自动覆盖或重建。
-- 无参数 `/bridgeforge` 的既有项目维护分支**必须**先展示迁移计划并取得明确确认；只复制系统独有文件、
-  跳过同内容文件、遇到同路径不同内容即阻断；完整性校验通过后才允许删除系统
-  memory 并建 junction。
-- junction 迁移**禁止**创建 `.bak`、`memory.premigrate.bak` 或任何其他备份。
-- `.codex/hooks.json` **必须**按 `command` 身份 merge 受管 junction hook 并保留
-  第三方事件与 hook；`.codex/settings.json` 中的旧 junction 注册**必须**移除。
-
-> 这是 §2 表格里「Memory … Junction，AGENTS.md §5 自动恢复」的实现支点。早期靠人工建 junction（易漏），现由 hook 机制化。
+- 项目 memory 唯一事实源**必须**是 `.codex/memory/`，与原生
+  `~/.codex/memories/` 分离；禁止建立 `~/.codex/projects/**/memory/` junction。
+- `SessionStart` **必须**先 rebuild，再注入最多 6000 字符的 `MEMORY.md`。
+- `UserPromptSubmit` **必须**返回 3-5 个候选；排序必须按 exact
+  topic/related_paths > tags > name/description > body > created_at。
+- `PostToolUse Read` 仅在宿主提供成功结果后记录 used；禁止预报正文读取。
+- 回执只写 `.runtime/memory_usage.jsonl`，禁止写回 `_stats.json`。
 
 ---
 

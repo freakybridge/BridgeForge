@@ -46,16 +46,18 @@ RUNTIME_ROUTES = {
         "hooks/fallback_smell_check.py",
     ),
     "post-shell": ("hooks/test_receipt.py",),
+    "post-read": ("scripts/memory_router.py",),
     "user-prompt": (
+        "scripts/memory_router.py",
         "hooks/show_state.py", "hooks/context_warning.py",
         "hooks/clarify_reminder.py", "hooks/focus_reminder.py",
     ),
     "post-compact": ("hooks/session_snapshot.py",),
     "stop": ("hooks/session_snapshot.py",),
     "session-before": (
-        "hooks/config_health_check.py", "hooks/memory_junction_check.py",
+        "hooks/config_health_check.py",
         "hooks/enforce_no_effortlevel.py", "hooks/githooks_path_check.py",
-        "scripts/memory_rebuild_index.py",
+        "scripts/memory_rebuild_index.py", "scripts/memory_context.py",
     ),
     "session-after": (
         "hooks/show_state.py", "hooks/target_cleanup.py", "hooks/skill_sync_check.py",
@@ -97,6 +99,9 @@ HANDLER_AUDIT = {
     "31:SessionStart:enforce_no_effortlevel.py": ("retain", "session-before", "hooks/enforce_no_effortlevel.py"),
     "32:SessionStart:githooks_path_check.py": ("retain", "session-before", "hooks/githooks_path_check.py"),
     "33:SessionStart:memory_rebuild_index.py": ("adapt", "session-before", "scripts/memory_rebuild_index.py"),
+    "34:SessionStart:memory_context.py": ("adapt", "session-before", "scripts/memory_context.py"),
+    "35:UserPrompt:memory_router.py": ("adapt", "user-prompt", "scripts/memory_router.py"),
+    "36:PostTool:Read:memory_router.py": ("adapt", "post-read", "scripts/memory_router.py"),
 }
 
 
@@ -331,10 +336,19 @@ def _post_edit(payload: dict) -> int:
 def _session_start(raw: bytes) -> int:
     output = _new_output()
     first_failure = 0
+    rebuild_failed = False
     for relative in RUNTIME_ROUTES["session-before"]:
+        if relative == "scripts/memory_context.py" and rebuild_failed:
+            print(
+                "[hook-dispatch] memory_context skipped because index rebuild failed.",
+                file=sys.stderr,
+            )
+            continue
         result = _run(relative, raw)
         _emit(result, output)
         if result.returncode:
+            if relative == "scripts/memory_rebuild_index.py":
+                rebuild_failed = True
             if not first_failure:
                 first_failure = result.returncode
             print(f"[hook-dispatch] SessionStart step failed: {relative}", file=sys.stderr)
@@ -369,17 +383,20 @@ def main(version_info: object = sys.version_info) -> int:
     if event == "post-edit":
         return _post_edit(payload)
     route_args = {
+        ("post-read", "scripts/memory_router.py"): ("record-read",),
+        ("user-prompt", "scripts/memory_router.py"): ("route",),
         ("user-prompt", "hooks/show_state.py"): ("prompt-state",),
         ("post-compact", "hooks/session_snapshot.py"): ("post-compact",),
         ("stop", "hooks/session_snapshot.py"): ("stop",),
     }
     if event == "session-start":
         return _session_start(raw)
-    if event not in {"post-shell", "user-prompt", "post-compact", "stop"}:
+    if event not in {"post-shell", "post-read", "user-prompt", "post-compact", "stop"}:
         print(f"unknown hook event route: {event}", file=sys.stderr)
         return 2
     event_names = {
         "post-shell": "PostToolUse",
+        "post-read": "PostToolUse",
         "user-prompt": "UserPromptSubmit",
         "post-compact": "PostCompact",
         "stop": "Stop",

@@ -7,7 +7,7 @@ bridgeforge 的提交闸（.githooks/pre-commit）靠 git 的 core.hooksPath 指
 而 core.hooksPath 未指向它，则自动 `git config --local core.hooksPath .githooks`，让"clone 即生效"。
 
 为什么是 hook 而非手动一次性：clone 新机 / 重装就会漏，漏了提交闸静默失效（又退回"sync 完又脏"），
-机检自愈才根治。仿 memory_junction_check / enforce_no_effortlevel 的自愈模式。
+机检自愈才根治。沿用 enforce_no_effortlevel 的自愈模式。
 
 自门控：非 git 仓库、无 .githooks/pre-commit、或已正确设置 → 静默 no-op。非阻塞（始终 exit 0）。
 仅改 local config，不碰全局 / 系统 config。

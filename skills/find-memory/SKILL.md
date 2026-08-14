@@ -11,9 +11,10 @@ model: sonnet
 ## 定位与边界
 
 检索当前 agent 的 memory 热区、分类目录与 `topics/`，不修改索引、frontmatter
-或原始 memory。常规会话默认只读 `MEMORY.md`；当前任务锚或确认卡能唯一确定
-一个 delivery topic 时，才可额外读取对应 `memory/topics/<exact-slug>/`。
-`MEMORY.md` 已足够回答时无需递归检索。
+或原始 memory。Codex 常规会话由 UserPromptSubmit router 先给候选；本 skill 只在
+热索引与自动候选不足时做深度检索。当前任务锚或确认卡能唯一确定一个 delivery topic
+时，才可额外读取对应 `memory/topics/<exact-slug>/`。`MEMORY.md` 已足够回答时无需
+递归检索。
 
 ## 输入
 

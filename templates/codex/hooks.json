@@ -16,6 +16,17 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-read",
+            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-read\"",
+            "comment": "Observes all supported tools, then records only successful read-like calls for project-memory Markdown bodies."
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
@@ -67,7 +78,7 @@
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" user-prompt",
             "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') user-prompt\"",
-            "comment": "Injects repository state, context budget, clarification, and focus signals."
+            "comment": "Routes 3-5 project-memory candidates, then injects repository state, context budget, clarification, and focus signals."
           }
         ]
       }
@@ -79,7 +90,8 @@
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" session-start",
             "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') session-start\"",
-            "comment": "Runs startup health, memory junction/index, repository state, cleanup, and managed-skill checks in dependency order."
+            "additionalContextLimit": 0,
+            "comment": "Rebuilds and injects the bounded project-memory index before repository state, cleanup, and managed-skill checks."
           }
         ]
       }

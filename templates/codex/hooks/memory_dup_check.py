@@ -95,7 +95,6 @@ def main() -> int:
     is_memory_path = (
         "/.codex/memory/" in normalized
         or normalized.startswith(".codex/memory/")
-        or ("/.codex/projects/" in normalized and "/memory/" in normalized)
     )
     if not is_memory_path:
         return 0

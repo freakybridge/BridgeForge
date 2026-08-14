@@ -238,6 +238,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 "scripts/bridgeforge_switch.py",
                 "scripts/bridgeforge_migrate_layout.py",
                 "scripts/bridgeforge_shared_update.ps1",
+                "scripts/codex_memory_sync.py",
             }
         )
         required_project_memory_scripts = {

@@ -1,6 +1,6 @@
 # Memory 索引设计（确定性事件驱动）
 
-> 状态：现行设计（2026-06-27 改版落地）
+> 状态：现行设计（2026-08-14 增补自动加载与原生 memories 分离）
 > 前身：艾宾浩斯热度评分系统（2026-06-03 设计、已实现），**本次废弃**，原因见下。
 > 改版辩论：[debates_2026-06-27_memory-untrack.md](debates_2026-06-27_memory-untrack.md)
 
@@ -116,6 +116,11 @@ metadata schema、writer、索引器和冷热策略；禁止第二套实现或�
 - **PostToolUse(Write|Edit)** 调 `memory_rebuild_index.py --from-hook`：读 stdin，**仅当写入对象是当前宿主 `.<host>/memory/**/*.md`（非 MEMORY*.md、非 `_*`）时才重建**（防自触发循环 + 避免无谓执行）。
   → memory 写入的当下即同步索引；sync 时已最新；Stop 不再碰索引 → 不会「sync 后又被弄脏」。
 - **SessionStart** 调 `memory_rebuild_index.py`（无参，无条件）：clone 新机 / pull 后首个 session 兜底对齐。
+- **Codex SessionStart** 索引重建成功后由 `memory_context.py` 注入最多 6000 字符的
+  `MEMORY.md`；这一步才是“进入本轮上下文”的确定性证据，不能用“文件已存在”代替。
+- **Codex UserPromptSubmit** 由 `memory_router.py` 按 topic/path、tags、name/description、
+  正文词频、created_at 的顺序返回最多 5 个候选。`PostToolUse(Read)` 只在正文成功读取后
+  写 used 回执，运行事件只进 `.runtime/memory_usage.jsonl`，禁止回写 `_stats.json`。
 
 ---
 
@@ -124,8 +129,11 @@ metadata schema、writer、索引器和冷热策略；禁止第二套实现或�
 | 组件 | 位置 | 触发 | 职责 |
 |---|---|---|---|
 | `memory_rebuild_index.py` | `scripts/` | PostToolUse(--from-hook) + SessionStart | 确定性生成 MEMORY.md + MEMORY_COLD.md |
-| `memory_search.py` | `scripts/` | `/find-memory` 调用 | 关键词频率搜索全量 memory（召回冷区） |
-| `find-memory` skill | `skills/find-memory/` | Claude 主动调用 | 包装 memory_search.py |
+| `memory_context.py` | Codex `scripts/` | SessionStart | 有预算地注入项目热索引 |
+| `memory_router.py` | Codex `scripts/` | UserPromptSubmit + PostToolUse(Read) | 自动候选与真实读取回执 |
+| `memory_usage.py` | Codex `scripts/` | router 调用 | 只写 `.runtime` 的运行事件 |
+| `memory_search.py` | `scripts/` | router + `$find-memory` | metadata 加权递归搜索全量 memory |
+| `find-memory` skill | `skills/find-memory/` | agent 兜底调用 | 自动候选不足时深度检索 |
 | `_stats.json` | `memory/` | rebuild 维护 | created_at + pinned/title（事实源，纳入 git） |
 
 **已删除**（随热度系统废弃）：`memory_access_tracker.py`（PostToolUse/Read 访问追踪）、`memory_bootstrap_cold.py`（衰减冷启动工具）、`_stats.json` 的 `session_dates`、MEMORY_COLD.md 日期戳、艾宾浩斯评分。
@@ -137,6 +145,15 @@ metadata schema、writer、索引器和冷热策略；禁止第二套实现或�
 - **git 边界**：MEMORY.md/COLD 留在 git（确定性 → 多机一致、可 diff 兜底），但内容只在真增删 memory 时变。
 - **可删除性**：`rm MEMORY.md` 无后果，下个 PostToolUse/SessionStart 自动重生。
 - **description 依赖**：索引每条描述取自该 memory 的 `description:` 字段；写 memory 时该字段必须是**纯文本**（勿用 YAML 引号/转义，否则提取出半截）。
+- **双机制隔离**：项目 `.<host>/memory/` 由项目 Git、索引器和 summary 维护；Codex 原生
+  `~/.codex/memories/` 由 Codex 自身生成。两者禁止 junction、混写或互相替代。
+
+## Codex 原生 memories 云同步边界
+
+BridgeForge 把 `~/.codex/memories/` 当作不透明整树。用户明确同意后，用户级 hook 与
+`$bridgeforge` 才把它同步到固定 private 仓库 `bridgeforge-codex-memories`：每次只保留
+一个 parentless 快照提交，以 `--force-with-lease` 替换；本地和远端都变化时按整树中最新
+文件时间选一整套，禁止逐文件拼接。同步只支持单写入设备，失败告警但不阻断对话。
 
 ---
 
