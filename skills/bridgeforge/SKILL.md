@@ -105,24 +105,7 @@ if ((Test-Path -LiteralPath $factoryEntry -PathType Leaf) -and
 
 命中 `FACTORY_SELF` 必须立即停止：源头不能 bootstrap、update、adopt 或 switch 自己；改框架应直接编辑 `skills/bridgeforge/`、`doc/0_architecture/`、`templates/` 或其他 `skills/`。
 
-## Step 2.1：Codex 原生 memories 配置与补同步
-
-仅无参数且当前宿主为 Codex 时执行。先从 PATH 的 `python`、`python3` 中锁定首个
-Python 3.11+ 为 `$MEMORY_SYNC_PYTHON`；禁止使用项目 `.venv`，因为用户级 hook 必须在
-离开项目后仍可运行。没有合格的全局解释器时只报告本次原生 memories 配置未完成，
-继续项目骨架维护。随后用该解释器运行 `scripts/codex_memory_sync.py status`。三个开关
-未全开时每次提示；拒绝则零配置写入、跳过本次原生同步并继续项目维护，同意才给
-`setup` 追加 `--confirmed-enable`。三个开关已全开时也必须无参数运行一次 `setup`，用来
-检查并修复仓库状态和受管 hook 漂移，禁止只因 `hooks.json` 文件存在就跳过。`gh` 缺失
-或未登录时停止本次 memories 配置且禁止自动登录。同名仓库不存在时创建 private，
-private 时复用，public 时必须另取明确确认才追加 `--confirmed-public-to-private`。
-setup 幂等 merge 用户 hooks 并保留第三方字段；用户仍须 `/hooks` review/trust。最后运行
-`reconcile --trigger bridgeforge` 补同步。
-SessionEnd 最多 3 秒内落待同步标记并启动脱离会话的后台 reconciliation，不等待
-GitHub 成功回执；最终一致仍由 Stop、下次 SessionStart 或本步骤补齐。关闭任一开关后
-已有仓库/hook 保留且 hook no-op。
-
-## Step 2.25：项目 Python 3.11+ 一次性 preflight（写入前硬闸）
+## Step 2.1：项目 Python 3.11+ 一次性 preflight（写入前硬闸）
 
 在 `.agents/` 迁移、switch、init、adopt 或 update 的任何项目写入前，只运行一次以下
 preflight，并把本轮唯一解释器锁定为 `$HOOK_PYTHON`：
@@ -160,7 +143,28 @@ if (Test-Path -LiteralPath $projectVenv) {
 - preflight 失败后必须立即停止；禁止复制、删除、merge、迁移 `.agents/`、运行 switch
   apply 或写 `.bridgeforge_version`。
 - preflight 成功后，本轮所有 Python 命令统一用 `& $HOOK_PYTHON`；禁止重新探测、切换
-  解释器或使用裸 `python`。init、update、adopt 与 switch 手册继承同一个值。
+  解释器或使用裸 `python`。原生 memories、init、update、adopt 与 switch 流程继承同一个值。
+
+## Step 2.2：Codex 原生 memories 配置与补同步
+
+仅无参数且当前宿主为 Codex 时执行，并复用 Step 2.1 锁定的 `$HOOK_PYTHON` 运行
+`scripts/codex_memory_sync.py`；项目 `.venv` 只负责本轮 setup，脚本必须把该 venv 对应的
+Python 3.11+ 基础解释器写入用户级 hook，禁止把任何项目 `.venv` 路径持久化到
+`~/.codex/hooks.json`。基础解释器不存在或不稳定时只报告本次原生 memories 配置未完成，
+继续项目骨架维护，禁止安装依赖项目目录的用户级 hook。
+
+先运行 `status`。三个开关未全开时每次提示；拒绝则零配置写入、跳过本次原生同步并
+继续项目维护，同意才给 `setup` 追加 `--confirmed-enable`。三个开关已全开时也必须无参数
+运行一次 `setup`，用来检查并修复仓库状态、基础解释器路径和受管 hook 漂移，禁止只因
+`hooks.json` 文件存在就跳过。`gh` 缺失或未登录时停止本次 memories 配置且禁止自动登录。
+同名仓库不存在时创建 private，private 时复用，public 时必须另取明确确认才追加
+`--confirmed-public-to-private`。setup 幂等 merge 用户 hooks 并保留第三方字段；用户仍须
+`/hooks` review/trust。最后运行 `reconcile --trigger bridgeforge` 补同步，并报告 setup
+解释器、用户 hook 基础解释器、hook 健康状态和远端配置状态。
+
+SessionEnd 最多 3 秒内落待同步标记并启动脱离会话的后台 reconciliation，不等待
+GitHub 成功回执；最终一致仍由 Stop、下次 SessionStart 或本步骤补齐。关闭任一开关后
+已有仓库/hook 保留且 hook no-op。
 
 ## Step 2.5：当前项目遗留 `.agents/` 硬闸
 
@@ -246,6 +250,7 @@ Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\workflow.md") -PathT
 REFRESHED
   ├─ FACTORY_SELF -> STOP
   ├─ PYTHON PREFLIGHT -> `$HOOK_PYTHON` (3.11+) 或 STOP（零项目写入）
+  ├─ CODEX NATIVE MEMORIES -> status / setup / reconcile（仅无参数 Codex）
   ├─ LEGACY .agents -> dry-run -> 用户确认 -> apply 或 STOP
   ├─ EXPLICIT SWITCH -> switch 手册 -> DONE
   ├─ UPDATE -> update 手册

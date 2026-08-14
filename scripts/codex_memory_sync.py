@@ -2,7 +2,9 @@
 """BridgeForge single-writer sync for opaque Codex native memories.
 
 The runtime is distributed inside the user-level BridgeForge command bundle.
-It never imports project code or a project virtual environment.
+Setup may be launched by a project virtual environment, but installed user
+hooks always use that environment's stable base interpreter and never import
+project code.
 """
 from __future__ import annotations
 
@@ -152,12 +154,42 @@ def enable_memories(config_path: Path, *, confirmed: bool) -> bool:
     return False
 
 
-def _hook_handler(event: str, script: Path) -> dict[str, object]:
+def stable_hook_python() -> Path:
+    """Return a user-stable interpreter instead of a project venv executable."""
+    current = Path(sys.executable).resolve()
+    base_value = getattr(sys, "_base_executable", None)
+    candidate = (
+        Path(base_value).resolve()
+        if base_value
+        else (Path(sys.base_prefix) / current.name).resolve()
+    )
+    if not candidate.is_file():
+        raise SyncError(
+            "the project Python has no stable base interpreter; "
+            "native memories hooks were not installed"
+        )
+    prefix = Path(sys.prefix).resolve()
+    base_prefix = Path(sys.base_prefix).resolve()
+    if prefix != base_prefix and candidate.is_relative_to(prefix):
+        raise SyncError(
+            "the project Python resolves its base interpreter inside the venv; "
+            "native memories hooks were not installed"
+        )
+    return candidate
+
+
+def _hook_handler(
+    event: str,
+    script: Path,
+    *,
+    hook_python: Path | None = None,
+) -> dict[str, object]:
     if event == "SessionEnd":
         args = "kick --trigger session-end"
     else:
         args = f"reconcile --trigger {event.lower()}"
-    command = f'"{sys.executable}" "{script}" {args}'
+    runtime = (hook_python or stable_hook_python()).resolve()
+    command = f'"{runtime}" "{script}" {args}'
     handler: dict[str, object] = {"type": "command", "command": command, "bridgeforgeId": f"{HOOK_ID}:{event}"}
     if event == "Stop":
         handler["async"] = True
@@ -169,7 +201,12 @@ def _hook_handler(event: str, script: Path) -> dict[str, object]:
     return handler
 
 
-def merge_user_hooks(hooks_path: Path, script: Path) -> bool:
+def merge_user_hooks(
+    hooks_path: Path,
+    script: Path,
+    *,
+    hook_python: Path | None = None,
+) -> bool:
     if hooks_path.exists():
         try:
             document = json.loads(hooks_path.read_text(encoding="utf-8-sig"))
@@ -187,7 +224,7 @@ def merge_user_hooks(hooks_path: Path, script: Path) -> bool:
         entries = hooks.setdefault(event, [])
         if not isinstance(entries, list):
             raise SyncError(f"user hook event must be a list: {event}")
-        expected = _hook_handler(event, script)
+        expected = _hook_handler(event, script, hook_python=hook_python)
         found = False
         for entry in entries:
             if not isinstance(entry, dict):
@@ -214,14 +251,19 @@ def merge_user_hooks(hooks_path: Path, script: Path) -> bool:
     return False
 
 
-def user_hooks_healthy(hooks_path: Path, script: Path) -> bool:
+def user_hooks_healthy(
+    hooks_path: Path,
+    script: Path,
+    *,
+    hook_python: Path | None = None,
+) -> bool:
     try:
         document = json.loads(hooks_path.read_text(encoding="utf-8-sig"))
         hooks = document["hooks"]
         if not isinstance(hooks, dict):
             return False
         for event in ("SessionStart", "Stop", "SessionEnd"):
-            expected = _hook_handler(event, script)
+            expected = _hook_handler(event, script, hook_python=hook_python)
             matches = [
                 handler
                 for entry in hooks.get(event, [])
@@ -348,7 +390,7 @@ def choose_action(
 
 
 def launch_background_reconcile(trigger: str) -> None:
-    command = [sys.executable, str(Path(__file__).resolve()), "reconcile", "--trigger", trigger]
+    command = [str(stable_hook_python()), str(Path(__file__).resolve()), "reconcile", "--trigger", trigger]
     kwargs: dict[str, object] = {
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
@@ -375,17 +417,23 @@ def _default_run(command: list[str], **kwargs: object) -> subprocess.CompletedPr
         )
 
 
-def ensure_github_repository(*, confirmed_public_to_private: bool, run: Run = _default_run) -> str:
+def ensure_github_repository(
+    *,
+    confirmed_public_to_private: bool,
+    run: Run = _default_run,
+) -> tuple[str, str]:
     if shutil.which("gh") is None:
         raise SyncError("gh is not installed; memories setup stopped")
     auth = run(["gh", "auth", "status", "--active", "--hostname", "github.com"])
     if auth.returncode:
         raise SyncError("gh is not logged in; memories setup stopped")
+    action = "reused"
     view = run(["gh", "repo", "view", REPOSITORY, "--json", "visibility,url,nameWithOwner"])
     if view.returncode:
         created = run(["gh", "repo", "create", REPOSITORY, "--private", "--confirm"])
         if created.returncode:
             raise SyncError(f"failed to create private repository: {created.stderr.strip()}")
+        action = "created"
         view = run(["gh", "repo", "view", REPOSITORY, "--json", "visibility,url,nameWithOwner"])
     if view.returncode:
         raise SyncError(f"failed to inspect repository: {view.stderr.strip()}")
@@ -398,9 +446,11 @@ def ensure_github_repository(*, confirmed_public_to_private: bool, run: Run = _d
         changed = run(["gh", "repo", "edit", name, "--visibility", "private", "--accept-visibility-change-consequences"])
         if changed.returncode:
             raise SyncError(f"failed to make repository private: {changed.stderr.strip()}")
+        action = "made-private"
     elif visibility != "PRIVATE":
         raise SyncError(f"unsupported repository visibility: {visibility or 'unknown'}")
-    return str(data.get("url") or f"https://github.com/{data.get('nameWithOwner')}.git")
+    remote = str(data.get("url") or f"https://github.com/{data.get('nameWithOwner')}.git")
+    return remote, action
 
 
 def mark_pending(state_dir: Path, trigger: str) -> None:
@@ -708,10 +758,19 @@ def main(argv: list[str] | None = None) -> int:
         _real_directory(codex, create=True)
         enabled, _ = memory_switches(codex / "config.toml")
         if args.command == "status":
+            hook_python = stable_hook_python()
+            remote_configured = (state_dir / "remote.txt").is_file()
             print(json.dumps({
                 "enabled": enabled,
-                "hookInstalled": user_hooks_healthy(codex / "hooks.json", Path(__file__).resolve()),
+                "hookInstalled": user_hooks_healthy(
+                    codex / "hooks.json",
+                    Path(__file__).resolve(),
+                    hook_python=hook_python,
+                ),
                 "pending": (state_dir / "pending.json").exists(),
+                "setupPython": str(Path(sys.executable).resolve()),
+                "hookPython": str(hook_python),
+                "remoteConfigured": remote_configured,
             }, ensure_ascii=False))
             return 0
         if args.command in {"mark", "kick"}:
@@ -721,15 +780,28 @@ def main(argv: list[str] | None = None) -> int:
                     launch_background_reconcile(args.trigger)
             return 0
         if args.command == "setup":
+            hook_python = stable_hook_python()
             if not enabled:
                 if not args.confirmed_enable:
                     raise SyncError("native memories remain unchanged without --confirmed-enable")
-            remote = ensure_github_repository(confirmed_public_to_private=args.confirmed_public_to_private)
+            remote, remote_action = ensure_github_repository(
+                confirmed_public_to_private=args.confirmed_public_to_private
+            )
             if not enabled:
                 enable_memories(codex / "config.toml", confirmed=True)
-            merge_user_hooks(codex / "hooks.json", Path(__file__).resolve())
+            merge_user_hooks(
+                codex / "hooks.json",
+                Path(__file__).resolve(),
+                hook_python=hook_python,
+            )
             _atomic_text(state_dir / "remote.txt", remote + "\n")
-            print("[memory-sync] configured; review/trust the user hooks in /hooks")
+            print(
+                "[memory-sync] configured; "
+                f"setup_python={Path(sys.executable).resolve()}; "
+                f"hook_python={hook_python}; hook_installed=true; "
+                f"remote_configured=true; remote_action={remote_action}; remote={remote}; "
+                "review/trust the user hooks in /hooks"
+            )
             return 0
         if not enabled:
             return 0

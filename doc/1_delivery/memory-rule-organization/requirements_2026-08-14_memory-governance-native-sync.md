@@ -209,6 +209,14 @@ source: confirm -> develop
 - 隔离测试覆盖：GitHub 失败不改配置、hook 幂等 merge、中文召回、真实 Windows junction、快照复制竞态、并发去重、损坏/普通远端修复、本地 I/O 禁止误覆盖、整树恢复、单 parentless commit、临时目录清理和命令超时。
 - 未验证：真实 Codex Desktop 的用户 hook trust、新会话实际读文件工具成功/失败载荷与时序；真实 GitHub 建仓、公开转私有、网络 force-with-lease 和换机恢复。开发阶段按权限边界未触碰这些外部状态。
 
+## 验收后缺陷修复：项目 venv 与用户 Hook 运行时
+
+- 现象：下游项目 `.venv` 已是 Python 3.11+，但原生 memories onboarding 仍被跳过；项目骨架更新继续完成，用户未得到 GitHub 仓库和同步 hook 收据。
+- 根因：原生 memories 步骤先于项目 Python preflight，且只检查 PATH 的 `python/python3`；同步脚本还把 setup 进程的 `sys.executable` 直接写入用户级 hook，导致简单复用项目 venv 会把项目路径持久化到全局配置。
+- 修复：统一 Python preflight 前置，onboarding 复用 `$HOOK_PYTHON`；setup 可由项目 venv 执行，但用户级 hook 固定写入该 venv 的 Python 3.11+ 基础解释器。status/setup 收据新增 setup Python、hook Python、hook 健康和远端配置状态。
+- 安全边界：基础解释器不存在时不安装依赖项目目录的用户 hook；隔离测试继续 mock GitHub 和用户目录，不触碰真实 `~/.codex/hooks.json` 或远端仓库。
+- 验证：项目 memory / hook / lifecycle / recovery / BridgeForge 入口相关回归 90/90 通过；共享 skill 分发 18/18 通过。真实 GitHub 建仓和 Codex `/hooks` trust 仍留给下游试用，不在隔离测试中改动外部状态。
+
 ## 后续交接目标
 
-交给用户试用：运行 `$bridgeforge` 完成原生 memories 选择与真实 GitHub onboarding，再在新会话核对 `/hooks` 载荷、远端最新快照和换机恢复；任何多设备写入或加密范围变化必须重新确认。
+交给用户试用：更新后的下游项目运行 `$bridgeforge`，确认 `setupPython` 可为项目 `.venv`、`hookPython` 为稳定基础解释器，并完成真实 GitHub onboarding；随后在新会话核对 `/hooks` 载荷、远端最新快照和换机恢复。任何多设备写入或加密范围变化必须重新确认。

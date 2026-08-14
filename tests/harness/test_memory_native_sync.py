@@ -91,6 +91,79 @@ class ProjectMemoryTests(unittest.TestCase):
 
 
 class NativeMemorySyncTests(unittest.TestCase):
+    def test_stable_hook_python_prefers_the_venv_base_interpreter(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            venv_python = root / "project/.venv/Scripts/python.exe"
+            base_python = root / "Python312/python.exe"
+            venv_python.parent.mkdir(parents=True)
+            base_python.parent.mkdir(parents=True)
+            venv_python.write_bytes(b"venv")
+            base_python.write_bytes(b"base")
+            with mock.patch.object(sync_mod.sys, "executable", str(venv_python)), mock.patch.object(
+                sync_mod.sys,
+                "_base_executable",
+                str(base_python),
+            ):
+                self.assertEqual(sync_mod.stable_hook_python(), base_python.resolve())
+
+    def test_stable_hook_python_rejects_a_missing_base_interpreter(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            venv_python = root / "project/.venv/Scripts/python.exe"
+            venv_python.parent.mkdir(parents=True)
+            venv_python.write_bytes(b"venv")
+            with mock.patch.object(sync_mod.sys, "executable", str(venv_python)), mock.patch.object(
+                sync_mod.sys,
+                "_base_executable",
+                str(root / "missing/python.exe"),
+            ):
+                with self.assertRaisesRegex(sync_mod.SyncError, "no stable base interpreter"):
+                    sync_mod.stable_hook_python()
+
+    def test_stable_hook_python_rejects_a_base_interpreter_inside_the_venv(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            venv = root / "project/.venv"
+            venv_python = venv / "Scripts/python.exe"
+            base_prefix = root / "Python312"
+            venv_python.parent.mkdir(parents=True)
+            base_prefix.mkdir()
+            venv_python.write_bytes(b"venv")
+            with mock.patch.object(sync_mod.sys, "executable", str(venv_python)), mock.patch.object(
+                sync_mod.sys,
+                "_base_executable",
+                str(venv_python),
+            ), mock.patch.object(
+                sync_mod.sys,
+                "prefix",
+                str(venv),
+            ), mock.patch.object(
+                sync_mod.sys,
+                "base_prefix",
+                str(base_prefix),
+            ):
+                with self.assertRaisesRegex(sync_mod.SyncError, "inside the venv"):
+                    sync_mod.stable_hook_python()
+
+    def test_status_reports_setup_hook_and_remote_runtime_state(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), contextlib.redirect_stdout(output):
+                self.assertEqual(sync_mod.main(["status"]), 0)
+            receipt = json.loads(output.getvalue())
+            self.assertTrue(receipt["enabled"])
+            self.assertFalse(receipt["hookInstalled"])
+            self.assertFalse(receipt["remoteConfigured"])
+            self.assertEqual(receipt["setupPython"], str(Path(sync_mod.sys.executable).resolve()))
+            self.assertEqual(receipt["hookPython"], str(sync_mod.stable_hook_python()))
+
     def test_setup_leaves_config_untouched_when_github_preflight_fails(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
@@ -100,6 +173,50 @@ class NativeMemorySyncTests(unittest.TestCase):
                 self.assertEqual(sync_mod.main(["setup", "--confirmed-enable"]), 0)
             self.assertFalse((codex / "config.toml").exists())
             self.assertFalse((codex / "hooks.json").exists())
+
+    def test_setup_from_project_venv_persists_only_the_base_python(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            codex = root / ".codex"
+            venv_python = root / "project/.venv/Scripts/python.exe"
+            base_python = root / "Python312/python.exe"
+            venv_python.parent.mkdir(parents=True)
+            base_python.parent.mkdir(parents=True)
+            venv_python.write_bytes(b"venv")
+            base_python.write_bytes(b"base")
+            output = io.StringIO()
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
+                sync_mod.sys,
+                "executable",
+                str(venv_python),
+            ), mock.patch.object(
+                sync_mod.sys,
+                "_base_executable",
+                str(base_python),
+            ), mock.patch.object(
+                sync_mod,
+                "ensure_github_repository",
+                return_value=("git@example.invalid:private/memories.git", "created"),
+            ), contextlib.redirect_stdout(output):
+                self.assertEqual(sync_mod.main(["setup", "--confirmed-enable"]), 0)
+            hooks = json.loads((codex / "hooks.json").read_text(encoding="utf-8"))
+            managed = [
+                handler
+                for entries in hooks["hooks"].values()
+                for entry in entries
+                for handler in entry["hooks"]
+                if handler.get("bridgeforgeId", "").startswith(sync_mod.HOOK_ID)
+            ]
+            self.assertEqual(len(managed), 3)
+            self.assertTrue(all(str(base_python.resolve()) in handler["command"] for handler in managed))
+            self.assertTrue(all(str(venv_python.resolve()) not in handler["command"] for handler in managed))
+            self.assertIn(f"setup_python={venv_python.resolve()}", output.getvalue())
+            self.assertIn(f"hook_python={base_python.resolve()}", output.getvalue())
+            self.assertIn("remote_action=created", output.getvalue())
+            self.assertEqual(
+                (codex / ".bridgeforge/memory-sync/remote.txt").read_text(encoding="utf-8"),
+                "git@example.invalid:private/memories.git\n",
+            )
 
     def test_config_merge_requires_confirmation_and_preserves_other_toml(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -119,19 +236,23 @@ class NativeMemorySyncTests(unittest.TestCase):
     def test_user_hook_merge_is_idempotent_and_preserves_third_party(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             path = Path(raw) / "hooks.json"
+            hook_python = Path(raw) / "Python312/python.exe"
+            hook_python.parent.mkdir()
+            hook_python.write_bytes(b"base")
             third_party = {"matcher": "*", "vendor": {"opaque": [1, 2]}, "hooks": [{"type": "command", "command": "display", "async": False}]}
             path.write_text(json.dumps({"custom": "keep", "hooks": {"SessionStart": [third_party]}}), encoding="utf-8")
             script = Path(raw) / "runtime.py"
-            self.assertTrue(sync_mod.merge_user_hooks(path, script))
-            self.assertTrue(sync_mod.user_hooks_healthy(path, script))
+            self.assertTrue(sync_mod.merge_user_hooks(path, script, hook_python=hook_python))
+            self.assertTrue(sync_mod.user_hooks_healthy(path, script, hook_python=hook_python))
             first = path.read_bytes()
-            self.assertFalse(sync_mod.merge_user_hooks(path, script))
+            self.assertFalse(sync_mod.merge_user_hooks(path, script, hook_python=hook_python))
             self.assertEqual(first, path.read_bytes())
             data = json.loads(first)
             self.assertEqual(data["custom"], "keep")
             self.assertEqual(data["hooks"]["SessionStart"][0], third_party)
             handlers = [h for entries in data["hooks"].values() for entry in entries for h in entry.get("hooks", []) if "bridgeforgeId" in h]
             self.assertEqual(len(handlers), 3)
+            self.assertTrue(all(handler["command"].startswith(f'"{hook_python.resolve()}"') for handler in handlers))
             session_end = next(h for h in handlers if h["bridgeforgeId"].endswith(":SessionEnd"))
             stop = next(h for h in handlers if h["bridgeforgeId"].endswith(":Stop"))
             session_start = next(h for h in handlers if h["bridgeforgeId"].endswith(":SessionStart"))
@@ -147,6 +268,7 @@ class NativeMemorySyncTests(unittest.TestCase):
             sync_mod.launch_background_reconcile("session-end")
         command = popen.call_args.args[0]
         kwargs = popen.call_args.kwargs
+        self.assertEqual(command[0], str(sync_mod.stable_hook_python()))
         self.assertEqual(command[-3:], ["reconcile", "--trigger", "session-end"])
         self.assertIs(kwargs["stdout"], subprocess.DEVNULL)
         if sync_mod.os.name == "nt":
@@ -163,20 +285,27 @@ class NativeMemorySyncTests(unittest.TestCase):
     def test_user_hook_merge_repairs_and_deduplicates_managed_handlers(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             path = Path(raw) / "hooks.json"
+            old_venv = Path(raw) / "old-project/.venv/Scripts/python.exe"
+            hook_python = Path(raw) / "Python312/python.exe"
+            hook_python.parent.mkdir()
+            hook_python.write_bytes(b"base")
             managed_id = f"{sync_mod.HOOK_ID}:SessionStart"
             path.write_text(
                 json.dumps({"hooks": {"SessionStart": [
-                    {"matcher": "keep", "hooks": [{"bridgeforgeId": managed_id, "command": "old"}, {"command": "vendor"}]},
+                    {"matcher": "keep", "hooks": [{"bridgeforgeId": managed_id, "command": f'"{old_venv}" runtime.py'}, {"command": "vendor"}]},
                     {"hooks": [{"bridgeforgeId": managed_id, "command": "duplicate"}]},
                 ]}}),
                 encoding="utf-8",
             )
-            self.assertTrue(sync_mod.merge_user_hooks(path, Path(raw) / "runtime.py"))
+            self.assertTrue(sync_mod.merge_user_hooks(path, Path(raw) / "runtime.py", hook_python=hook_python))
             data = json.loads(path.read_text(encoding="utf-8"))
             handlers = [handler for entry in data["hooks"]["SessionStart"] for handler in entry["hooks"]]
             self.assertEqual(sum(handler.get("bridgeforgeId") == managed_id for handler in handlers), 1)
             self.assertIn({"command": "vendor"}, handlers)
             self.assertEqual(data["hooks"]["SessionStart"][0]["matcher"], "keep")
+            managed = next(handler for handler in handlers if handler.get("bridgeforgeId") == managed_id)
+            self.assertIn(str(hook_python.resolve()), managed["command"])
+            self.assertNotIn(str(old_venv), managed["command"])
 
     def test_snapshot_excludes_temp_lock_metadata_and_detects_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -455,7 +584,9 @@ class NativeMemorySyncTests(unittest.TestCase):
         with mock.patch.object(sync_mod.shutil, "which", return_value="gh"):
             with self.assertRaises(sync_mod.SyncError):
                 sync_mod.ensure_github_repository(confirmed_public_to_private=False, run=runner)
-            sync_mod.ensure_github_repository(confirmed_public_to_private=True, run=runner)
+            remote, action = sync_mod.ensure_github_repository(confirmed_public_to_private=True, run=runner)
+        self.assertEqual(remote, "https://example/repo.git")
+        self.assertEqual(action, "made-private")
         edit = next(command for command in calls if command[:3] == ["gh", "repo", "edit"])
         self.assertIn("--accept-visibility-change-consequences", edit)
         auth = next(command for command in calls if command[:3] == ["gh", "auth", "status"])

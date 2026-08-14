@@ -34,19 +34,26 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
 
     def test_python_preflight_precedes_every_project_write_mode(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
-        preflight = skill.index("Step 2.25：项目 Python 3.11+ 一次性 preflight")
+        preflight = skill.index("Step 2.1：项目 Python 3.11+ 一次性 preflight")
+        native_memories = skill.index("Step 2.2：Codex 原生 memories 配置与补同步")
         legacy_write = skill.index("Step 2.5：当前项目遗留 `.agents/` 硬闸")
         switch = skill.index("Step 3：显式 switch 优先")
+        self.assertLess(preflight, native_memories)
+        self.assertLess(native_memories, legacy_write)
         self.assertLess(preflight, legacy_write)
         self.assertLess(preflight, switch)
         for marker in (
             "$HOOK_PYTHON",
             "project .venv must use Python 3.11+",
             "PATH fallback is forbidden",
+            "基础解释器写入用户级 hook",
+            "禁止把任何项目 `.venv` 路径持久化",
             "禁止复制、删除、merge",
             "禁止重新探测、切换",
         ):
             self.assertIn(marker, skill)
+        self.assertNotIn("$MEMORY_SYNC_PYTHON", skill)
+        self.assertNotIn("禁止使用项目 `.venv`", skill)
 
         references = ROOT / "skills" / "bridgeforge" / "references"
         for name in ("init.md", "adopt.md", "update.md"):
