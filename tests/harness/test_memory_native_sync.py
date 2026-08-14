@@ -91,6 +91,26 @@ class ProjectMemoryTests(unittest.TestCase):
 
 
 class NativeMemorySyncTests(unittest.TestCase):
+    def _create_empty_remote(
+        self,
+        base: Path,
+        manifest_changes: dict[str, object] | None = None,
+    ) -> tuple[Path, dict[str, object], str]:
+        remote = base / "remote.git"
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+        source = base / "empty-source"
+        source.mkdir()
+        snapshot = base / "empty-snapshot"
+        manifest = sync_mod.build_snapshot(source, snapshot, 2)
+        if manifest_changes:
+            manifest.update(manifest_changes)
+            (snapshot / "snapshot-manifest.json").write_text(
+                json.dumps(manifest) + "\n",
+                encoding="utf-8",
+            )
+        commit = sync_mod._push_snapshot(snapshot, base / "publish-state", str(remote), None)
+        return remote, manifest, commit
+
     def test_stable_hook_python_prefers_the_venv_base_interpreter(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -376,6 +396,85 @@ class NativeMemorySyncTests(unittest.TestCase):
                 action = sync_mod.reconcile(memories, base / "state", "unused")
             self.assertEqual(action, "noop")
             self.assertFalse(memories.exists())
+
+    @unittest.skipUnless(shutil.which("git"), "git required")
+    def test_real_empty_remote_is_a_quiet_noop_without_creating_native_memories(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            remote, manifest, commit = self._create_empty_remote(base)
+            codex = base / ".codex"
+            codex.mkdir()
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            state = codex / ".bridgeforge/memory-sync"
+            state.mkdir(parents=True)
+            (state / "remote.txt").write_text(str(remote), encoding="utf-8")
+            sync_mod.mark_pending(state, "bridgeforge")
+            output = io.StringIO()
+            errors = io.StringIO()
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), contextlib.redirect_stdout(
+                output
+            ), contextlib.redirect_stderr(errors):
+                self.assertEqual(sync_mod.main(["reconcile", "--trigger", "bridgeforge"]), 0)
+            receipt = json.loads((state / "last-synced.json").read_text(encoding="utf-8"))
+            self.assertEqual(output.getvalue(), "[memory-sync] noop\n")
+            self.assertEqual(errors.getvalue(), "")
+            self.assertFalse((codex / "memories").exists())
+            self.assertFalse((state / "pending.json").exists())
+            self.assertEqual(receipt["content_sha256"], manifest["content_sha256"])
+            self.assertEqual(receipt["commit"], commit)
+
+    @unittest.skipUnless(shutil.which("git"), "git required")
+    def test_empty_local_directory_and_empty_remote_are_a_noop(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            remote, _manifest, _commit = self._create_empty_remote(base)
+            memories = base / "memories"
+            memories.mkdir()
+            state = base / "state"
+            sync_mod.mark_pending(state, "stop")
+            self.assertEqual(sync_mod.reconcile(memories, state, str(remote)), "noop")
+            self.assertTrue(memories.is_dir())
+            self.assertEqual(list(memories.iterdir()), [])
+            self.assertFalse((state / "pending.json").exists())
+
+    @unittest.skipUnless(shutil.which("git"), "git required")
+    def test_local_content_pushes_over_an_empty_remote(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            remote, _manifest, _commit = self._create_empty_remote(base)
+            memories = base / "memories"
+            memories.mkdir()
+            payloads = {
+                "crlf.md": b"local\r\nopaque\r\n",
+                "lf.md": b"local\nopaque\n",
+            }
+            for name, payload in payloads.items():
+                (memories / name).write_bytes(payload)
+            self.assertEqual(sync_mod.reconcile(memories, base / "state", str(remote)), "push")
+            verify_state = base / "verify-state"
+            verify_state.mkdir()
+            remote_manifest, extracted, _commit = sync_mod._read_remote_snapshot(verify_state, str(remote))
+            self.assertIsNotNone(remote_manifest)
+            self.assertEqual([item["path"] for item in remote_manifest["files"]], sorted(payloads))
+            for name, payload in payloads.items():
+                self.assertEqual((extracted / "memories" / name).read_bytes(), payload)
+
+    @unittest.skipUnless(shutil.which("git"), "git required")
+    def test_invalid_empty_remote_remains_corrupt(self) -> None:
+        for changes in ({"content_sha256": "0" * 64}, {"schema_version": 99}):
+            with self.subTest(changes=changes), tempfile.TemporaryDirectory() as raw:
+                base = Path(raw)
+                remote, _manifest, _commit = self._create_empty_remote(base, changes)
+                state = base / "state"
+                sync_mod.mark_pending(state, "bridgeforge")
+                memories = base / "memories"
+                with self.assertRaisesRegex(sync_mod.SyncError, "remote snapshot is corrupt"):
+                    sync_mod.reconcile(memories, state, str(remote))
+                self.assertFalse(memories.exists())
+                self.assertTrue((state / "pending.json").exists())
 
     def test_snapshot_retries_and_rejects_a_tree_that_changes_during_copy(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

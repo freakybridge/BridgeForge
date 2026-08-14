@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.86.4] - 2026-08-15
+
+### Fixed
+
+- [repo][meta] 修复 Codex memories 快照同步
+
+## [0.86.3] - 2026-08-15
+
+### Fixed
+
+- [product][repo][meta] 修复 Codex 原生 memories 合法空远端快照被误判为同步失败，以及 Git `core.autocrlf` 在发布或读回时改写 opaque memory 字节的问题；reconcile 现在以 `noop` 清除 pending、记录同步收据且不创建空的用户级 memories 目录，读写两端均强制逐字节处理，并以真实 bare Git remote 覆盖空快照、LF/CRLF 混合内容、冲突裁决与损坏快照回归。
+
 ## [0.86.2] - 2026-08-14
 
 ### Fixed

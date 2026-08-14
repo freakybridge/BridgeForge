@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:5ccf8969d3edd307be49d2927e81a8c17b4d89382d325533e37ab60581984d06"
+              "sha256": "sha256:a1c45ccdb294278dfaa96e886eb38730dce7ac9bb5d5a0f6156774e5e475a00c"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:244c74bf7d2e0ddc1bd530d6d722ed915dd0b6a43447a9a05dd13ef75cb9bc89"
+              "sha256": "sha256:4a816d667f15c5021e7343ac8653cf25897cf2321ffcfcb402359ef364936856"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -42,7 +42,7 @@
             {
               "source": "scripts/codex_memory_sync.py",
               "target": "scripts/codex_memory_sync.py",
-              "sha256": "sha256:54952c06aede5f60a3e9408f558f8985f8e58994e78558f9a9aecd3302087f2c"
+              "sha256": "sha256:060e745b85f1f9c3f26ef162ebc38fd027848a1aca5731172346c7cd2398e34d"
             },
             {
               "source": "skills/bridgeforge/SKILL.md",
@@ -932,12 +932,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:5ccf8969d3edd307be49d2927e81a8c17b4d89382d325533e37ab60581984d06"
+              "sha256": "sha256:a1c45ccdb294278dfaa96e886eb38730dce7ac9bb5d5a0f6156774e5e475a00c"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:244c74bf7d2e0ddc1bd530d6d722ed915dd0b6a43447a9a05dd13ef75cb9bc89"
+              "sha256": "sha256:4a816d667f15c5021e7343ac8653cf25897cf2321ffcfcb402359ef364936856"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -962,7 +962,7 @@
             {
               "source": "scripts/codex_memory_sync.py",
               "target": "scripts/codex_memory_sync.py",
-              "sha256": "sha256:54952c06aede5f60a3e9408f558f8985f8e58994e78558f9a9aecd3302087f2c"
+              "sha256": "sha256:060e745b85f1f9c3f26ef162ebc38fd027848a1aca5731172346c7cd2398e34d"
             },
             {
               "source": "skills/bridgeforge/SKILL.md",

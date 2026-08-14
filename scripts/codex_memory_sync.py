@@ -555,6 +555,7 @@ def _read_remote_snapshot(state_dir: Path, remote: str) -> tuple[dict[str, objec
     bare = state_dir / "remote.git"
     if not bare.exists():
         _git(["init", "--bare", str(bare)], state_dir)
+    (bare / "info" / "attributes").write_bytes(b"* -text\n")
     remotes = _git(["remote"], bare).splitlines()
     if "origin" in remotes:
         _git(["remote", "set-url", "origin", remote], bare)
@@ -582,11 +583,29 @@ def _read_remote_snapshot(state_dir: Path, remote: str) -> tuple[dict[str, objec
         return None, None, commit
     if not isinstance(manifest, dict):
         return None, None, commit
+    files = manifest.get("files")
+    if manifest.get("schema_version") != 1 or not isinstance(files, list):
+        return None, None, commit
     extracted = state_dir / "remote-snapshot"
     if extracted.exists():
         _remove_tree(extracted)
     extracted.mkdir()
-    _git([f"--work-tree={extracted}", "checkout", "-f", "refs/remotes/origin/main", "--", "memories", "snapshot-manifest.json"], bare)
+    checkout_paths = ["snapshot-manifest.json"]
+    if files:
+        checkout_paths.insert(0, "memories")
+    else:
+        tracked_memories = _git(
+            ["ls-tree", "-r", "--name-only", "refs/remotes/origin/main", "--", "memories"],
+            bare,
+        )
+        if tracked_memories:
+            return None, None, commit
+    _git(
+        ["-c", "core.autocrlf=false", f"--work-tree={extracted}", "checkout", "-f", "refs/remotes/origin/main", "--", *checkout_paths],
+        bare,
+    )
+    if not files:
+        (extracted / "memories").mkdir()
     try:
         verify_snapshot(extracted, manifest)
     except SyncError:
@@ -602,7 +621,8 @@ def _push_snapshot(snapshot: Path, state_dir: Path, remote: str, expected: str |
         _remove_tree(publish)
     shutil.copytree(snapshot, publish)
     _git(["init", "-b", "main"], publish)
-    _git(["add", "--all"], publish)
+    (publish / ".git" / "info" / "attributes").write_bytes(b"* -text\n")
+    _git(["-c", "core.autocrlf=false", "add", "--all"], publish)
     tree = _git(["write-tree"], publish)
     env = os.environ.copy()
     env.update({"GIT_AUTHOR_NAME": "BridgeForge Memory Sync", "GIT_AUTHOR_EMAIL": "bridgeforge@invalid", "GIT_COMMITTER_NAME": "BridgeForge Memory Sync", "GIT_COMMITTER_EMAIL": "bridgeforge@invalid"})
@@ -653,7 +673,11 @@ def _reconcile_in_work(
                 raise SyncError("remote snapshot is corrupt and no local memories exist to repair it")
             _clear_pending_if_unchanged(state_dir, pending_before)
             return "noop"
-        _restore_snapshot(extracted, memories)
+        action = "restore"
+        if remote_manifest["files"]:
+            _restore_snapshot(extracted, memories)
+        else:
+            action = "noop"
         _atomic_json(state_file, {
             "content_sha256": remote_manifest["content_sha256"],
             "revision": remote_manifest["revision"],
@@ -661,7 +685,7 @@ def _reconcile_in_work(
             "utc": utc_now(),
         })
         _clear_pending_if_unchanged(state_dir, pending_before)
-        return "restore"
+        return action
     _real_directory(memories)
     local_manifest = capture_manifest(memories, 0)
     remote_digest = str(remote_manifest.get("content_sha256")) if remote_manifest else None
