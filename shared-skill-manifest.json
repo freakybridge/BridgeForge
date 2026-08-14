@@ -12,17 +12,22 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:a6cc7be5772320c6ccdbd937c327793a67a33d267300bd94741519412e2b528a"
+              "sha256": "sha256:5ccf8969d3edd307be49d2927e81a8c17b4d89382d325533e37ab60581984d06"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:37275690d7caf85f14a9634bfea008fb8bc4fabd593c345316cb84d0a738d0b0"
+              "sha256": "sha256:244c74bf7d2e0ddc1bd530d6d722ed915dd0b6a43447a9a05dd13ef75cb9bc89"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
               "target": "scripts/bridgeforge_migrate_layout.py",
               "sha256": "sha256:811c2b96db71c0e146ae36c3df1a373f7724328d39eca487975f5762da776534"
+            },
+            {
+              "source": "scripts/bridgeforge_project_finalize.py",
+              "target": "scripts/bridgeforge_project_finalize.py",
+              "sha256": "sha256:2082b9bf3cb66f4f5a4a3d907d7e768550ef690d6b3e59183235b617b14a5209"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -42,7 +47,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:8b0fc70618e42196c78512d1a63c2781a856b9bbde7762cc3d8881ecc7246f33"
+              "sha256": "sha256:06b1eae1b9a447b4eecfff4c5a88fb0035dbc11632ede95a8386a80d7b8d115c"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -62,7 +67,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:4adff308cc40fb24abae8a555bfdd911fd5a46f615d5a3c8db497a7937c4b08a"
+              "sha256": "sha256:5249006a7f3a85a42e1bb140e9f34c2be66b5e9484fd2f4c85cbacd70f24c60e"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -127,7 +132,7 @@
             {
               "source": "templates/claude/hooks/config_health_check.py",
               "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:96c5dd977e8a76c5957b0a4d1400f3818c5def3983fb2140f029042ec87768b2"
+              "sha256": "sha256:b5f266127ec6447616a81e500b0f17198ebfb8e0160e0e0526363fdc53d2a56e"
             },
             {
               "source": "templates/claude/hooks/context_warning.py",
@@ -187,7 +192,7 @@
             {
               "source": "templates/claude/hooks/memory_lint.py",
               "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:3c074662fab1e4a7a89af0e2fadf9ae4173f80834951c709f3e0a27466ec3503"
+              "sha256": "sha256:7d794ff3805481af6cb1c230f4785f163daef6c8772e592d514a9f267e3cf922"
             },
             {
               "source": "templates/claude/hooks/mirror_drift_check.py",
@@ -442,7 +447,7 @@
             {
               "source": "templates/codex/hooks/config_health_check.py",
               "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:074d3d7c878ad99bbb3dc1bd2831053a163ef9ff71fbb164412304738b09c0a3"
+              "sha256": "sha256:2e0d2b5abe3935e2c8018b0a6268e37c0590638fa5f8d888885f59e3d661f2d3"
             },
             {
               "source": "templates/codex/hooks/context_warning.py",
@@ -502,7 +507,7 @@
             {
               "source": "templates/codex/hooks/memory_lint.py",
               "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:0dbed1f63cf3827f6b20e4e3804920bd8a28893bbd146b27110f3c43237dd948"
+              "sha256": "sha256:836ecf7810b96c006d1b880267b579c83480285242a66bc397e4c02b5e08a54a"
             },
             {
               "source": "templates/codex/hooks/mirror_drift_check.py",
@@ -662,7 +667,7 @@
             {
               "source": "templates/codex/scripts/hooks_merge.py",
               "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:6590795fcb9bf512e5687f593d9a04fb77c8a23168469b612a29f83295b90ff4"
+              "sha256": "sha256:8b67d0683be8ac43e0590bd10dca46298e53249e3f9dacd5f2e5bccb16660633"
             },
             {
               "source": "templates/codex/scripts/memory_context.py",
@@ -927,17 +932,22 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:a6cc7be5772320c6ccdbd937c327793a67a33d267300bd94741519412e2b528a"
+              "sha256": "sha256:5ccf8969d3edd307be49d2927e81a8c17b4d89382d325533e37ab60581984d06"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:37275690d7caf85f14a9634bfea008fb8bc4fabd593c345316cb84d0a738d0b0"
+              "sha256": "sha256:244c74bf7d2e0ddc1bd530d6d722ed915dd0b6a43447a9a05dd13ef75cb9bc89"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
               "target": "scripts/bridgeforge_migrate_layout.py",
               "sha256": "sha256:811c2b96db71c0e146ae36c3df1a373f7724328d39eca487975f5762da776534"
+            },
+            {
+              "source": "scripts/bridgeforge_project_finalize.py",
+              "target": "scripts/bridgeforge_project_finalize.py",
+              "sha256": "sha256:2082b9bf3cb66f4f5a4a3d907d7e768550ef690d6b3e59183235b617b14a5209"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -957,7 +967,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:8b0fc70618e42196c78512d1a63c2781a856b9bbde7762cc3d8881ecc7246f33"
+              "sha256": "sha256:06b1eae1b9a447b4eecfff4c5a88fb0035dbc11632ede95a8386a80d7b8d115c"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -977,7 +987,7 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:4adff308cc40fb24abae8a555bfdd911fd5a46f615d5a3c8db497a7937c4b08a"
+              "sha256": "sha256:5249006a7f3a85a42e1bb140e9f34c2be66b5e9484fd2f4c85cbacd70f24c60e"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
@@ -1042,7 +1052,7 @@
             {
               "source": "templates/claude/hooks/config_health_check.py",
               "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:96c5dd977e8a76c5957b0a4d1400f3818c5def3983fb2140f029042ec87768b2"
+              "sha256": "sha256:b5f266127ec6447616a81e500b0f17198ebfb8e0160e0e0526363fdc53d2a56e"
             },
             {
               "source": "templates/claude/hooks/context_warning.py",
@@ -1102,7 +1112,7 @@
             {
               "source": "templates/claude/hooks/memory_lint.py",
               "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:3c074662fab1e4a7a89af0e2fadf9ae4173f80834951c709f3e0a27466ec3503"
+              "sha256": "sha256:7d794ff3805481af6cb1c230f4785f163daef6c8772e592d514a9f267e3cf922"
             },
             {
               "source": "templates/claude/hooks/mirror_drift_check.py",
@@ -1357,7 +1367,7 @@
             {
               "source": "templates/codex/hooks/config_health_check.py",
               "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:074d3d7c878ad99bbb3dc1bd2831053a163ef9ff71fbb164412304738b09c0a3"
+              "sha256": "sha256:2e0d2b5abe3935e2c8018b0a6268e37c0590638fa5f8d888885f59e3d661f2d3"
             },
             {
               "source": "templates/codex/hooks/context_warning.py",
@@ -1417,7 +1427,7 @@
             {
               "source": "templates/codex/hooks/memory_lint.py",
               "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:0dbed1f63cf3827f6b20e4e3804920bd8a28893bbd146b27110f3c43237dd948"
+              "sha256": "sha256:836ecf7810b96c006d1b880267b579c83480285242a66bc397e4c02b5e08a54a"
             },
             {
               "source": "templates/codex/hooks/mirror_drift_check.py",
@@ -1577,7 +1587,7 @@
             {
               "source": "templates/codex/scripts/hooks_merge.py",
               "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:6590795fcb9bf512e5687f593d9a04fb77c8a23168469b612a29f83295b90ff4"
+              "sha256": "sha256:8b67d0683be8ac43e0590bd10dca46298e53249e3f9dacd5f2e5bccb16660633"
             },
             {
               "source": "templates/codex/scripts/memory_context.py",

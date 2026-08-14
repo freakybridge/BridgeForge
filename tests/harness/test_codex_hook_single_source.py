@@ -414,7 +414,7 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertIn("memory_context skipped", result.stderr)
             self.assertIn("show_state.py", order)
 
-    def test_merge_preserves_third_party_and_stamp_is_transactional(self) -> None:
+    def test_merge_preserves_third_party_and_never_changes_version_stamp(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             codex = root / ".codex"
@@ -432,7 +432,7 @@ class HookSingleSourceTest(unittest.TestCase):
             stamp = codex / ".bridgeforge_version"
             stamp.write_text("old\n", encoding="utf-8")
             script = TEMPLATE / "scripts" / "hooks_merge.py"
-            base = [sys.executable, str(script), "--project-root", str(root), "--template-hooks", str(template), "--stamp-version", "new"]
+            base = [sys.executable, str(script), "--project-root", str(root), "--template-hooks", str(template)]
             refused = run(base + ["--apply"], root)
             self.assertEqual(refused.returncode, 2)
             self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
@@ -450,7 +450,7 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertNotIn(legacy_junction, serialized)
             self.assertNotIn("locally changed", serialized)
             self.assertEqual(hooks["custom"], 1)
-            self.assertEqual(stamp.read_text(encoding="utf-8"), "new\n")
+            self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
 
     def test_merge_initializes_new_project_from_template(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -462,12 +462,36 @@ class HookSingleSourceTest(unittest.TestCase):
                 sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
                 "--project-root", str(root),
                 "--template-hooks", str(TEMPLATE / "hooks.json"),
-                "--apply", "--confirmed", "--stamp-version", "0.75.0",
+                "--apply", "--confirmed",
             ], root)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn("hooks", json.loads((codex / "settings.json").read_text(encoding="utf-8")))
             self.assertIsInstance(json.loads((codex / "hooks.json").read_text(encoding="utf-8"))["hooks"], dict)
-            self.assertEqual((codex / ".bridgeforge_version").read_text(encoding="utf-8"), "0.75.0\n")
+            self.assertFalse((codex / ".bridgeforge_version").exists())
+
+    def test_merge_rejects_retired_stamp_version_option_without_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            codex = root / ".codex"
+            codex.mkdir()
+            template = root / "template.json"
+            template.write_text('{"hooks": {}}\n', encoding="utf-8")
+            result = run(
+                [
+                    sys.executable,
+                    str(TEMPLATE / "scripts" / "hooks_merge.py"),
+                    "--project-root",
+                    str(root),
+                    "--template-hooks",
+                    str(template),
+                    "--stamp-version",
+                    "new",
+                ],
+                root,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("unrecognized arguments: --stamp-version new", result.stderr)
+            self.assertEqual(list(codex.iterdir()), [])
 
     def test_config_hooks_conflict_keeps_files_and_old_stamp(self) -> None:
         forms = (
@@ -500,7 +524,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 result = run([
                     sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
                     "--project-root", str(root), "--template-hooks", str(template),
-                    "--apply", "--confirmed", "--stamp-version", "new",
+                    "--apply", "--confirmed",
                 ], root)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("forbidden hooks table", result.stderr)
@@ -568,6 +592,10 @@ class HookSingleSourceTest(unittest.TestCase):
                     codex / "hooks" / "config_health_check.py",
                 )
                 shutil.copy2(
+                    TEMPLATE / "hooks" / "memory_lint.py",
+                    codex / "hooks" / "memory_lint.py",
+                )
+                shutil.copy2(
                     TEMPLATE / "scripts" / "hook_config_policy.py",
                     codex / "scripts" / "hook_config_policy.py",
                 )
@@ -578,10 +606,10 @@ class HookSingleSourceTest(unittest.TestCase):
                 merged = run([
                     sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
                     "--project-root", str(root), "--template-hooks", str(template),
-                    "--apply", "--confirmed", "--stamp-version", "new",
+                    "--apply", "--confirmed",
                 ], root)
                 self.assertEqual(merged.returncode, 0, merged.stderr)
-                self.assertEqual((codex / ".bridgeforge_version").read_text(encoding="utf-8"), "new\n")
+                self.assertFalse((codex / ".bridgeforge_version").exists())
                 health = run([
                     sys.executable,
                     str(codex / "hooks" / "config_health_check.py"),
@@ -614,7 +642,7 @@ class HookSingleSourceTest(unittest.TestCase):
             merged = run([
                 sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
                 "--project-root", str(root), "--template-hooks", str(template),
-                "--apply", "--confirmed", "--stamp-version", "new",
+                "--apply", "--confirmed",
             ], root)
             self.assertEqual(merged.returncode, 2)
             self.assertIn("invalid table header", merged.stderr)
@@ -716,7 +744,7 @@ class HookSingleSourceTest(unittest.TestCase):
             with redirect_stderr(merge_stderr):
                 merge_rc = merge.main([
                 "--project-root", str(root), "--template-hooks", str(template),
-                "--apply", "--confirmed", "--stamp-version", "new",
+                "--apply", "--confirmed",
                 ], (3, 10))
             self.assertEqual(merge_rc, 2)
             self.assertIn("Python 3.11", merge_stderr.getvalue())

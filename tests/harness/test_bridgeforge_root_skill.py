@@ -77,6 +77,25 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
         self.assertEqual({path.name for path in references.glob("*.md")}, expected)
         self.assertFalse(any(path.is_dir() for path in references.iterdir()))
 
+    def test_update_memory_audit_precedes_the_only_version_finalizer(self) -> None:
+        update = (
+            ROOT / "skills" / "bridgeforge" / "references" / "update.md"
+        ).read_text(encoding="utf-8")
+        audit = update.index("templates\\$TEMPLATE_AGENT\\hooks\\memory_lint.py")
+        finalizer = update.index("scripts\\bridgeforge_project_finalize.py")
+        self.assertLess(audit, finalizer)
+        latest = update.index("已是最新（vX.Y.Z）")
+        self.assertIn("判断“已是最新”前必须先执行 U2.1", update[:latest])
+        for marker in (
+            "--organize --project-root . --host $CURRENT_HOST",
+            "--apply --confirmed",
+            "memory_schema=clean",
+            "config_health=clean",
+            "completed_with_gaps",
+            "禁止绕过 `bridgeforge_project_finalize.py` 手工写",
+        ):
+            self.assertIn(marker, update)
+
 
 if __name__ == "__main__":
     unittest.main()

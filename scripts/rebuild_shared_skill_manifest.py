@@ -68,6 +68,7 @@ def rebuild_manifest(manifest_path: Path) -> bool:
                 "skills/bridgeforge/references/user-skill-maintenance.md",
                 "scripts/bridgeforge_switch.py",
                 "scripts/bridgeforge_migrate_layout.py",
+                "scripts/bridgeforge_project_finalize.py",
                 "scripts/bridgeforge_shared_update.ps1",
                 "scripts/codex_memory_sync.py",
             }

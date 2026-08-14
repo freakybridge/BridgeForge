@@ -286,7 +286,7 @@ BridgeForge 下沉时按业务专属性分层：
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
 | rules、入口文件 | 只 diff，用户逐段决定 |
-| memory | init 只创建 `MEMORY.md`；update 先展示分类计划；Codex 项目 memory 不建用户级 junction |
+| memory | init 只创建 `MEMORY.md`；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
 | `doc/` | 新项目按模板创建；已有项目仅按 `references/update.md` 展示迁移清单并经用户确认后移动 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
 
@@ -300,7 +300,8 @@ BridgeForge 下沉时按业务专属性分层：
 - 禁止跳过 doc 分层、Python 硬依赖或项目 memory 的 context/router；Claude junction 规则保持不变。
 - 禁止在 BridgeForge 源头仓库自身运行 bootstrap/update/adopt/switch。
 - 禁止自动 `git commit` / `git push`；真实 switch 同样只改工作区。
-- 禁止在未解决冲突、未完成验证时写新版本戳。
+- 禁止在未解决冲突、未完成验证时写新版本戳；update 只能由
+  `bridgeforge_project_finalize.py` 在 memory schema 与严格配置体检均通过后写戳。
 - 禁止预建空 memory 分类目录；禁止创建 `memory/_archive/`，完成的 topic
   memory 只由索引降温并保留原路径。
 - 禁止把 Claude 与 Codex 的用户级目录、memory 机制或 settings 混用。
@@ -315,7 +316,7 @@ BridgeForge 下沉时按业务专属性分层：
 | switch | 脚本真实调用与退出码；target/current-host 匹配；source hash 前后不变；目标 map 路径与确定性内容；目标原生 projection；未原样复制宿主专属资产；`status` / `readiness` / gaps / conflicts；旧根 `.bridgeforge/` 未读写删；可捕获异常回滚或硬中断后的保守冲突 |
 | init | 复制/merge 清单；memory 初始仅含 `MEMORY.md`；OPTIONAL 残留检查；snapshot smoke test；Codex context/router 或 Claude junction；版本戳 |
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
-| update | 版本区间与 `[product]`；A-F 分类；memory plan / 用户确认 / apply 状态；hook smoke test；新版本戳；git diff |
+| update | 版本区间与 `[product]`；A-F 分类；上游规范 memory plan / 用户确认 / apply 状态；hook smoke test；finalizer 收据或保留旧戳的 gaps；git diff |
 | 用户级 skill 更新 | updater 退出码；目标 commit；Codex/Claude 托管账本结果；第三方 skill 未触碰 |
 | `.agents` 迁移 | 当前项目 dry-run 清单；用户确认；apply 退出码；未知内容阻断结果 |
 | Codex 订阅档位 | marker 的 `tier`；脚本退出码；config/implementation 实际模型与 effort；用户级配置未触碰 |

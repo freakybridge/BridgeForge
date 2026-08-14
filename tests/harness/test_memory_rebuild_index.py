@@ -158,6 +158,7 @@ class MemoryRebuildIndexTests(unittest.TestCase):
                     "--category",
                     "engineering",
                     "--apply",
+                    "--confirmed",
                 ],
                 cwd=repo,
                 capture_output=True,

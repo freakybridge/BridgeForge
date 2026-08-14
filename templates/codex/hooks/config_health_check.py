@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -139,12 +140,41 @@ def _check_single_hook_source() -> "str | None":
     )
 
 
+def _check_memory_schema() -> "str | None":
+    """Project memory must already match the canonical BridgeForge layout."""
+    lint = Path(__file__).resolve().parent / "memory_lint.py"
+    if not lint.is_file():
+        return "MEMORY_SCHEMA: memory_lint.py is missing. FIX: rerun /bridgeforge."
+    try:
+        result = subprocess.run(
+            [sys.executable, str(lint), "--organize"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            check=False,
+        )
+    except Exception as exc:
+        return (
+            f"MEMORY_SCHEMA: audit failed ({type(exc).__name__}). "
+            "FIX: rerun /bridgeforge."
+        )
+    if result.returncode == 0:
+        return None
+    return (
+        "MEMORY_SCHEMA: project memory needs migration. "
+        "FIX: run /bridgeforge and review the complete memory plan."
+    )
+
+
 # 本 hook 亲测 + 报告的项（单一事实源之一）。
 ACTIVE_CHECKS = (
     ("python-version", _check_python_version),
     ("pythonutf8", _check_pythonutf8),
     ("settings-json-valid", _check_settings_json_valid),
     ("single-hook-source", _check_single_hook_source),
+    ("memory-schema", _check_memory_schema),
 )
 
 # 已有专职 hook 保证的必要配置 —— 本 hook **不重复测**（避免双重刷屏 / 时序竞争），仅在此
@@ -178,7 +208,12 @@ def main(
           "(check-only, nothing changed):" % len(failures))
     for _name, msg in failures:
         print("  - %s" % msg)
-    strict_failures = {"python-version", "settings-json-valid", "single-hook-source"}
+    strict_failures = {
+        "python-version",
+        "settings-json-valid",
+        "single-hook-source",
+        "memory-schema",
+    }
     strict_mode = "--strict" in sys.argv if strict is None else strict
     return 2 if strict_mode and any(
         name in strict_failures for name, _msg in failures

@@ -209,12 +209,10 @@ def main(
     parser.add_argument("--template-hooks", required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--confirmed", action="store_true")
-    parser.add_argument("--stamp-version", help="version value written after a clean apply")
     args = parser.parse_args(argv)
     root = Path(args.project_root).resolve()
     hooks_path = root / ".codex" / "hooks.json"
     settings_path = root / ".codex" / "settings.json"
-    stamp_path = root / ".codex" / ".bridgeforge_version"
     try:
         hooks, settings, removed = build_plan(root, Path(args.template_hooks).resolve())
     except (MergeBlocked, OSError) as exc:
@@ -236,16 +234,14 @@ def main(
 
     original_hooks = old_hooks if hooks_path.is_file() else None
     original_settings = old_settings if settings_path.is_file() else None
-    original_stamp = stamp_path.read_bytes() if stamp_path.is_file() else None
     try:
         _atomic_write(hooks_path, new_hooks)
         _atomic_write(settings_path, new_settings)
-        # Re-parse and re-check the committed shape before stamping.
+        # Re-parse and re-check the committed shape. The project finalizer is
+        # the sole owner of the BridgeForge version stamp.
         verified_hooks, verified_settings, _ = build_plan(root, Path(args.template_hooks).resolve())
         if _render(verified_hooks) != new_hooks or _render(verified_settings) != new_settings:
             raise MergeBlocked("post-write verification is not idempotent")
-        if args.stamp_version:
-            _atomic_write(stamp_path, args.stamp_version.strip() + "\n")
     except Exception as exc:
         if original_hooks is None:
             hooks_path.unlink(missing_ok=True)
@@ -255,10 +251,6 @@ def main(
             settings_path.unlink(missing_ok=True)
         else:
             _atomic_write(settings_path, original_settings)
-        if original_stamp is None:
-            stamp_path.unlink(missing_ok=True)
-        else:
-            _atomic_write(stamp_path, original_stamp.decode("utf-8"))
         print(f"BLOCKED: apply rolled back: {exc}", file=sys.stderr)
         return 2
     print("APPLIED: hooks single-source migration verified")

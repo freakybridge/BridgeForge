@@ -108,7 +108,7 @@ def expected_path(
     topic: str,
 ) -> Path:
     if category == "topic":
-        return memory_dir / "topics" / topic / source.name
+        return memory_dir / "topics" / topic / "summary.md"
     return memory_dir / category / source.name
 
 
@@ -158,21 +158,36 @@ def organize_cli() -> int:
         help="检查全部 memory；默认不写入、不移动",
     )
     parser.add_argument("--apply", action="store_true", help="应用已明确/高置信分类")
+    parser.add_argument("--confirmed", action="store_true", help="确认应用完整 dry-run 计划")
     parser.add_argument("--category", choices=VALID_CATEGORIES)
     parser.add_argument("--topic", help="topic category 的 exact slug")
     parser.add_argument("--status", choices=VALID_STATUSES)
+    parser.add_argument("--description", help="单个 memory 的非空单行 description")
+    parser.add_argument("--project-root", help="由 BridgeForge 扫描的目标项目根目录")
+    parser.add_argument("--host", choices=("codex", "claude"), help="目标宿主")
     args = parser.parse_args()
 
-    if (args.category or args.topic or args.status) and not args.path:
-        parser.error("--category/--topic/--status 必须同时指定单个 path")
+    if (args.category or args.topic or args.status or args.description) and not args.path:
+        parser.error("--category/--topic/--status/--description 必须同时指定单个 path")
     if args.category == "topic" and not args.topic:
         parser.error("--category topic 必须同时指定 --topic <exact-slug>")
     if args.topic and args.category not in (None, "topic"):
         parser.error("--topic 只能与 --category topic 一起使用")
     if args.topic and not TOPIC_SLUG_RE.fullmatch(args.topic):
         parser.error("topic 必须是小写字母/数字/连字符组成的 exact slug")
+    if args.description is not None and (
+        not args.description.strip() or "\n" in args.description or "\r" in args.description
+    ):
+        parser.error("description 必须是非空单行纯文本")
+    if args.apply and not args.confirmed:
+        parser.error("--apply 必须同时指定 --confirmed，表示已确认完整 dry-run 计划")
+    if args.project_root and not args.host:
+        parser.error("--project-root 必须同时指定 --host")
 
-    memory_dir = Path(__file__).resolve().parent.parent / "memory"
+    if args.project_root:
+        memory_dir = Path(args.project_root).resolve() / f".{args.host}" / "memory"
+    else:
+        memory_dir = Path(__file__).resolve().parent.parent / "memory"
     if not memory_dir.exists():
         return 0
     try:
@@ -184,7 +199,7 @@ def organize_cli() -> int:
     except ValueError as exc:
         parser.error(str(exc))
 
-    unresolved = False
+    records: list[dict[str, object]] = []
     for source in sources:
         relative = source.relative_to(memory_dir).as_posix()
         raw = source.read_text(encoding="utf-8")
@@ -194,25 +209,31 @@ def organize_cli() -> int:
         if category not in VALID_CATEGORIES:
             category = category_from_tags(metadata)
             explicit = False
+        issues: list[str] = []
+        if relative.split("/", 1)[0] == "_archive":
+            issues.append("memory/_archive 已退役，必须保留原 topic 路径并通过状态降温")
+        description = args.description if args.description is not None else metadata.get("description", "")
+        if not description.strip() or re.fullmatch(r"[>|][+-]?\d?", description.strip()):
+            issues.append("缺少非空 description")
         if not category:
             topic_hint = metadata.get("topic", "<topic>")
-            print(
-                f"[candidate] {relative} -> architecture/ | engineering/ | "
-                f"domain/ | operations/ | topics/{topic_hint}/；未修改"
-            )
-            unresolved = True
+            records.append({
+                "source": source,
+                "relative": relative,
+                "candidate": (
+                    "architecture/ | engineering/ | domain/ | operations/ | "
+                    f"topics/{topic_hint}/"
+                ),
+                "issues": issues,
+            })
             continue
 
         status = args.status or metadata.get("status", "").lower()
         if status and status not in VALID_STATUSES:
-            print(f"[invalid] {relative}: status={status!r}；未修改")
-            unresolved = True
-            continue
+            issues.append(f"status={status!r} 非法")
         topic = args.topic or metadata.get("topic", "")
         if category == "topic" and not TOPIC_SLUG_RE.fullmatch(topic):
-            print(f"[invalid] {relative}: topic category 缺少合法 topic slug；未修改")
-            unresolved = True
-            continue
+            issues.append("topic category 缺少合法 topic slug")
         if category == "topic":
             parts = source.relative_to(memory_dir).parts
             directory_topic = (
@@ -227,15 +248,16 @@ def organize_cli() -> int:
                 and directory_topic != metadata_topic
                 and args.topic is None
             ):
-                print(
-                    f"[invalid] {relative}: directory topic={directory_topic!r} "
-                    f"!= frontmatter topic={metadata_topic!r}；未修改；"
-                    "显式改名需 --category topic --topic <exact-slug>"
+                issues.append(
+                    f"directory topic={directory_topic!r} != frontmatter "
+                    f"topic={metadata_topic!r}；显式改名需 --category topic --topic <exact-slug>"
                 )
-                unresolved = True
-                continue
 
-        target = expected_path(memory_dir, source, category, topic)
+        target = (
+            expected_path(memory_dir, source, category, topic)
+            if category != "topic" or TOPIC_SLUG_RE.fullmatch(topic)
+            else source
+        )
         updates: dict[str, str] = {}
         if explicit or metadata.get("category", "").lower() not in VALID_CATEGORIES:
             updates["category"] = category
@@ -243,32 +265,84 @@ def organize_cli() -> int:
             updates["topic"] = topic
         if args.status or not status:
             updates["status"] = args.status or "active"
+        if args.description is not None:
+            updates["description"] = args.description.strip()
+        records.append({
+            "source": source,
+            "relative": relative,
+            "target": target,
+            "updates": updates,
+            "issues": issues,
+            "explicit": explicit,
+        })
 
-        target_relative = target.relative_to(memory_dir).as_posix()
-        if not args.apply:
-            if target != source or updates:
-                confidence = "explicit" if explicit else "high-confidence"
-                print(
-                    f"[{confidence}] {relative} -> {target_relative}；"
-                    "未修改（加 --apply）"
-                )
-                unresolved = True
-            else:
-                print(f"[ok] {relative}")
-            continue
+    target_sources: dict[Path, list[Path]] = {}
+    for record in records:
+        target = record.get("target")
+        source = record.get("source")
+        if isinstance(target, Path) and isinstance(source, Path):
+            target_sources.setdefault(target, []).append(source)
 
-        if target != source and target.exists():
-            print(f"[collision] {relative} -> {target_relative} 已存在；未修改")
+    unresolved = False
+    changes_pending = False
+    for record in records:
+        relative = str(record["relative"])
+        candidate = record.get("candidate")
+        issues = list(record.get("issues", []))
+        if candidate:
+            print(f"[candidate] {relative} -> {candidate}；未修改")
+            if issues:
+                print(f"[invalid] {relative}: {'；'.join(issues)}；未修改")
             unresolved = True
             continue
+        source = record["source"]
+        target = record["target"]
+        updates = record["updates"]
+        assert isinstance(source, Path) and isinstance(target, Path) and isinstance(updates, dict)
+        shared = target_sources.get(target, [])
+        if len(shared) > 1:
+            names = ", ".join(path.relative_to(memory_dir).as_posix() for path in shared)
+            issues.append(f"多个文件竞争同一规范目标 {target.relative_to(memory_dir).as_posix()}: {names}")
+        elif target != source and target.exists():
+            issues.append(f"目标已存在: {target.relative_to(memory_dir).as_posix()}")
+        if issues:
+            print(f"[invalid] {relative}: {'；'.join(issues)}；未修改")
+            unresolved = True
+            continue
+        target_relative = target.relative_to(memory_dir).as_posix()
+        if target != source or updates:
+            confidence = "explicit" if record.get("explicit") else "high-confidence"
+            metadata_plan = ", ".join(f"{key}={value}" for key, value in updates.items()) or "metadata unchanged"
+            print(
+                f"[{confidence}] {relative} -> {target_relative}; {metadata_plan}；"
+                "未修改（确认后加 --apply --confirmed）"
+            )
+            changes_pending = True
+        else:
+            print(f"[ok] {relative}")
+
+    if unresolved:
+        return 1
+    if not args.apply:
+        return 1 if changes_pending else 0
+
+    for record in records:
+        source = record["source"]
+        target = record["target"]
+        updates = record["updates"]
+        assert isinstance(source, Path) and isinstance(target, Path) and isinstance(updates, dict)
+        raw = source.read_text(encoding="utf-8")
         if updates:
             source.write_text(update_metadata(raw, updates), encoding="utf-8")
         if target != source:
             target.parent.mkdir(parents=True, exist_ok=True)
             source.rename(target)
             move_stats_entry(memory_dir, source, target)
-        print(f"[applied] {relative} -> {target_relative}")
-    return 1 if unresolved else 0
+        print(
+            f"[applied] {source.relative_to(memory_dir).as_posix()} -> "
+            f"{target.relative_to(memory_dir).as_posix()}"
+        )
+    return 0
 
 
 def main() -> int:

@@ -13,6 +13,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class MemoryLifecycleGovernanceTests(unittest.TestCase):
+    @staticmethod
+    def _memory_text(
+        category: str,
+        description: str = "fixture memory",
+        *,
+        topic: str = "",
+        status: str = "active",
+    ) -> str:
+        topic_line = f"topic: {topic}\n" if topic else ""
+        description_line = f"description: {description}\n" if description else ""
+        return (
+            f"---\ncategory: {category}\n{topic_line}status: {status}\n"
+            f"{description_line}---\nfixture body\n"
+        )
+
     def test_claude_and_codex_memory_contracts_are_equivalent(self) -> None:
         codex = (ROOT / "templates/codex/AGENTS.md").read_text(encoding="utf-8")
         claude = (ROOT / "templates/claude/CLAUDE.md").read_text(encoding="utf-8")
@@ -106,7 +121,7 @@ class MemoryLifecycleGovernanceTests(unittest.TestCase):
                 self.assertEqual(dry_run.returncode, 1, dry_run.stderr)
                 self.assertTrue(source.exists())
                 applied = subprocess.run(
-                    command + ["--apply"],
+                    command + ["--apply", "--confirmed"],
                     cwd=project,
                     capture_output=True,
                     text=True,
@@ -150,7 +165,7 @@ class MemoryLifecycleGovernanceTests(unittest.TestCase):
                     str(hooks / "memory_lint.py"),
                     "topics/folder-slug/summary.md",
                 ]
-                for suffix in ([], ["--apply"]):
+                for suffix in ([], ["--apply", "--confirmed"]):
                     result = subprocess.run(
                         base + suffix,
                         cwd=project,
@@ -162,6 +177,132 @@ class MemoryLifecycleGovernanceTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 1, result.stderr)
                     self.assertIn("directory topic", result.stdout)
                     self.assertEqual(source.read_text(encoding="utf-8"), original)
+
+    def test_apply_requires_explicit_confirmation_and_never_writes_without_it(self) -> None:
+        for host in ("codex", "claude"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                source = project / f".{host}/memory/loose.md"
+                source.parent.mkdir(parents=True)
+                source.write_text(self._memory_text("domain"), encoding="utf-8")
+                before = source.read_bytes()
+                command = [
+                    sys.executable,
+                    str(ROOT / f"templates/{host}/hooks/memory_lint.py"),
+                    "--organize",
+                    "--project-root",
+                    str(project),
+                    "--host",
+                    host,
+                    "--apply",
+                ]
+                result = subprocess.run(
+                    command,
+                    cwd=project,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("--confirmed", result.stderr)
+                self.assertEqual(source.read_bytes(), before)
+                self.assertFalse((source.parent / "domain/loose.md").exists())
+
+    def test_causis_like_invalid_layout_is_fully_reported_without_writes(self) -> None:
+        for host in ("codex", "claude"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                memory = project / f".{host}/memory"
+                fixtures = {
+                    ".codex/memory/topics/risk-weekly/summary.md": self._memory_text(
+                        "topic", topic="risk-weekly"
+                    ),
+                    "topics/root_hygiene/summary.md": self._memory_text(
+                        "topic", topic="root_hygiene"
+                    ),
+                    "topics/hedge-exposure/summary.md": self._memory_text(
+                        "topic", topic="hedge-exposure"
+                    ),
+                    "topics/hedge-exposure/delivery.md": self._memory_text(
+                        "topic", topic="hedge-exposure"
+                    ),
+                    "domain/hedge_exposure_option_bar_t_fallback_2026_07_23.md": self._memory_text(
+                        "domain", ""
+                    ),
+                    "engineering/scheduled_result_sync.md": self._memory_text(
+                        "engineering", ""
+                    ),
+                    "domain/t0_fac_second_precision_and_result_columns.md": self._memory_text(
+                        "domain", ""
+                    ),
+                }
+                paths: list[Path] = []
+                for relative, content in fixtures.items():
+                    path = memory / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(content, encoding="utf-8")
+                    paths.append(path)
+                before = {path.relative_to(memory).as_posix(): path.read_bytes() for path in paths}
+
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / f"templates/{host}/hooks/memory_lint.py"),
+                        "--organize",
+                        "--project-root",
+                        str(project),
+                        "--host",
+                        host,
+                    ],
+                    cwd=project,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 1, result.stderr)
+                for marker in (
+                    ".codex/memory/topics/risk-weekly/summary.md",
+                    "root_hygiene",
+                    "缺少非空 description",
+                    "多个文件竞争同一规范目标 topics/hedge-exposure/summary.md",
+                ):
+                    self.assertIn(marker, result.stdout)
+                after = {
+                    path.relative_to(memory).as_posix(): path.read_bytes()
+                    for path in memory.rglob("*.md")
+                }
+                self.assertEqual(after, before)
+
+    def test_canonical_project_memory_layout_passes_for_both_hosts(self) -> None:
+        for host in ("codex", "claude"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                summary = project / f".{host}/memory/topics/risk-weekly/summary.md"
+                summary.parent.mkdir(parents=True)
+                summary.write_text(
+                    self._memory_text("topic", topic="risk-weekly"),
+                    encoding="utf-8",
+                )
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(ROOT / f"templates/{host}/hooks/memory_lint.py"),
+                        "--organize",
+                        "--project-root",
+                        str(project),
+                        "--host",
+                        host,
+                    ],
+                    cwd=project,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("[ok] topics/risk-weekly/summary.md", result.stdout)
 
     def test_active_topic_moves_from_hot_to_cold_index(self) -> None:
         for host in ("codex", "claude"):

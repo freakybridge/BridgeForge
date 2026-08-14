@@ -7,9 +7,10 @@
 ## U1. 计算产品增量
 
 1. 读取项目 `$PROJECT_AGENT_DIR/.bridgeforge_version` 与 `$BRIDGEFORGE_HOME/VERSION`。
-2. 相等且文件无差异、当前宿主 hook 承载面与 memory 加载机制正确
-   时：报告“已是最新（vX.Y.Z）”并退出。承载面或 memory 仍待维护时，即使
-   版本相等也必须继续 U2 的 B/D 类处理。
+2. 判断“已是最新”前必须先执行 U2.1 的上游规范 memory dry-run；禁止仅凭版本戳
+   相等跳过审计。只有该命令 exit 0、文件无差异、当前宿主 hook 承载面与 memory
+   加载机制正确时，才报告“已是最新（vX.Y.Z）”并退出。审计非零、承载面或 memory
+   仍待维护时，即使版本相等也必须继续 U2 的 B/D 类处理。
 3. 不等：从上游 `CHANGELOG.md` 提取 `(下游版本, 上游版本]` 内全部 `[product]` 条目；过滤 `[repo]` / `[meta]`。
 4. 区间没有 `[product]` 且 hook 承载面/memory 无待维护状态：不要跑全量
    diff；报告本次无下游产品变更，执行 U4 更新版本戳后退出。仍待迁移时继续
@@ -75,19 +76,31 @@ pre-commit 整份复制到下游：
 
 ### U2.1 Memory 迁移计划
 
-更新既有项目时先递归盘点当前 agent 的 `memory/**/*.md`；跳过自动生成的
-`MEMORY.md`、`MEMORY_COLD.md`，只输出计划，不写 frontmatter、不创建目录、
-不移动文件：
+每次更新既有项目都必须先调用上游 bundle 内的规范审计器；版本戳相等也不得跳过：
+
+```powershell
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\hooks\memory_lint.py") `
+  --organize --project-root . --host $CURRENT_HOST
+```
+
+该命令递归盘点当前 agent 的 `memory/**/*.md`，跳过自动生成的 `MEMORY.md`、
+`MEMORY_COLD.md`，只输出完整计划，不写 frontmatter、不创建目录、不移动文件：
 
 1. 对合法 `category` 直接给出目标：`architecture`、`engineering`、
    `domain`、`operations` 进入 `memory/<category>/`；`topic` 必须同时有
-   `topic: <exact-slug>`，进入 `memory/topics/<exact-slug>/`。
+   `topic: <exact-slug>`，且唯一规范文件是
+   `memory/topics/<exact-slug>/summary.md`。
 2. 缺失或非法 `category` 时展示候选。低置信项必须由用户逐项选择
    `category`；选择 `topic` 时还必须确认 exact slug。未决项阻断 apply。
-3. 计划必须列出每个文件的原路径、目标路径、拟补写的
-   `category` / `topic` / `status`，以及会新建的非空目录。
-4. 只有用户明确确认整份计划后才 apply：补写 metadata、创建实际需要的目录、
-   移动文件并重建索引。禁止预建未使用的分类目录。
+3. 每个 memory 必须有非空单行 `description`。计划必须列出每个文件的原路径、
+   目标路径、拟补写的 `category` / `topic` / `status` / `description`，以及会新建的
+   非空目录；嵌套的 `memory/.codex/memory/` 或 `memory/.claude/memory/`、非法 slug、
+   同一 topic 多文件竞争 `summary.md`、目标已存在均必须明确报告并阻断 apply。
+4. dry-run 非零时必须把完整输出展示给用户。只有用户明确确认整份计划后，才允许
+   使用同一上游审计器附加 `--apply --confirmed`，并为需人工判断的单文件附加明确的
+   `--category` / `--topic` / `--status` / `--description`；补写 metadata、创建实际需要
+   的目录、移动文件后再重建索引。禁止预建未使用的分类目录，禁止把
+   `--confirmed` 当作未取得的用户确认。
 5. `status` 只允许 `active`、`completed`、`superseded`，缺省按
    `active`。`completed` / `superseded` topic 仍保留在原
    `memory/topics/<topic>/`，只由索引降温；禁止创建或使用
@@ -192,7 +205,23 @@ Codex 每个受管 handler 的 `command` 与 `commandWindows` 都必须从
    流程；未完成时同样报告“trust 未验证”。
 4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，展示差异并由用户决定是否保留。
 5. `.githooks/pre-commit` 有变更时确认 `PROJECT_EXTENSION` hash 与 merge 前一致，并实际运行一次无暂存改动的 no-op 路径。
-6. 先运行 `config_health_check.py --strict`。仅当所有 A-D 冲突已解决、受管 hook 覆盖已确认且严格检查 exit 0，才将 `$PROJECT_AGENT_DIR/.bridgeforge_version` 写为上游当前 `$BRIDGEFORGE_HOME/VERSION`。拒绝覆盖、冲突或非法双源时保留旧戳。根 `VERSION`、项目 `CHANGELOG.md`、`package.json`、`pyproject.toml`、`Cargo.toml` 均属于业务版本域，必须逐字保持不变；`managed-skeleton.json` 属于受管骨架，随上游更新。
+6. 禁止任何 merge 脚本或人工命令直接写 `$PROJECT_AGENT_DIR/.bridgeforge_version`。
+   所有 A-D 冲突解决、受管 hook 覆盖确认后，只能调用唯一 finalizer；它会重新运行
+   上游规范 memory 审计与项目 `config_health_check.py --strict`，两者均 exit 0 后才
+   原子写入版本戳：
+
+```powershell
+$UPSTREAM_VERSION = (Get-Content -LiteralPath (Join-Path $BRIDGEFORGE_HOME "VERSION") -Raw).Trim()
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_project_finalize.py") `
+  --project-root . --template-root $BRIDGEFORGE_HOME --host $CURRENT_HOST `
+  --version $UPSTREAM_VERSION --confirmed
+```
+
+   finalizer 非零时必须报告 `completed_with_gaps` 并保留旧戳；只有其输出包含
+   `FINALIZED`、`memory_schema=clean`、`config_health=clean` 才能报告升级完成。
+   根 `VERSION`、项目 `CHANGELOG.md`、`package.json`、`pyproject.toml`、
+   `Cargo.toml` 均属于业务版本域，必须逐字保持不变；`managed-skeleton.json`
+   属于受管骨架，随上游更新。
 7. 输出 `git status` 与 `git diff` 供用户 review。
 8. 不自动 commit / push。
 9. 确认本模式未修改用户级 skill、其他项目或当前项目之外的路径。
@@ -213,6 +242,7 @@ hook trust / 新会话 smoke 状态、新版本戳。
 - 禁止由 `SessionStart` 复制、合并或删除系统 memory。
 - 禁止为 junction 迁移创建备份；校验完成前禁止删除系统 memory。
 - 禁止把完成的 topic memory 移入 archive，或创建 `memory/_archive/`。
+- 禁止绕过 `bridgeforge_project_finalize.py` 手工写 `.bridgeforge_version`。
 - 禁止跨多个项目批量同步。
 - 禁止自动 commit / push。
 - 类 A-D 任一项存在未决冲突时，禁止先更新版本戳。

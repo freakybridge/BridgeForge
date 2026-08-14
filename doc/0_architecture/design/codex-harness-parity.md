@@ -29,7 +29,7 @@
 | `hooks/allow_memory_write.py` | 6 | -8 / +10 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_* fallback |
 | `hooks/cargo_default_run_check.py` | 4 | -6 / +6 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/clarify_reminder.py` | 2 | -3 / +3 | `expected-codex-adapter` | Codex must skip both / commands and $ skills |
-| `hooks/config_health_check.py` | 8 | -5 / +70 | `codex-only` | Codex checks project configuration health at session start |
+| `hooks/config_health_check.py` | 8 | -6 / +67 | `codex-only` | Codex checks project configuration health at session start |
 | `hooks/context_warning.py` | 16 | -97 / +182 | `expected-codex-adapter` | Codex skill calls use $ and must bypass ctx warning |
 | `hooks/enforce_no_effortlevel.py` | 2 | -3 / +3 | `expected-codex-adapter` | Codex removes only the legacy project effortLevel while leaving user config read-only |
 | `hooks/fallback_smell_check.py` | 3 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
@@ -38,7 +38,7 @@
 | `hooks/git_add_all_guard.py` | 10 | -30 / +54 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback and broader git flag parsing |
 | `hooks/githooks_path_check.py` | 1 | -1 / +1 | `needs-review` | new or unclassified semantic difference |
 | `hooks/memory_dup_check.py` | 10 | -17 / +43 | `expected-codex-adapter` | Codex memory path plus hyphen/underscore topic splitting |
-| `hooks/memory_lint.py` | 4 | -6 / +7 | `expected-codex-adapter` | Codex memory path and CODEX_TOOL_INPUT fallback |
+| `hooks/memory_lint.py` | 5 | -7 / +7 | `expected-codex-adapter` | Codex memory path and CODEX_TOOL_INPUT fallback |
 | `hooks/mirror_drift_check.py` | 1 | -1 / +1 | `expected-codex-adapter` | Codex dogfood paths and AGENTS.md wording differ |
 | `hooks/requirements_check.py` | 2 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/rule_index_check.py` | 2 | -4 / +5 | `cleanup-only` | behavior OK; local variable naming still carries claude_md |

@@ -1,43 +1,43 @@
 {
   "files": {
-    "codex-bridgeforge-slash-entry-debug.md": {
-      "created_at": "2026-07-07"
-    },
-    "skill-metadata-precommit-gate.md": {
-      "created_at": "2026-07-08"
-    },
-    "bridgeforge-command-model.md": {
-      "created_at": "2026-07-08"
-    },
-    "codex-model-routing-policy.md": {
-      "created_at": "2026-07-08"
-    },
-    "bom-free-encoding-gate.md": {
-      "created_at": "2026-07-08"
-    },
-    "codex-harness-parity-closure.md": {
-      "created_at": "2026-07-08"
-    },
-    "claude-template-safety-hooks-review.md": {
-      "created_at": "2026-07-08"
-    },
-    "codex-ctx-budget-window.md": {
-      "created_at": "2026-07-09"
-    },
-    "confirm-workflow.md": {
-      "created_at": "2026-07-14"
-    },
-    "bridgeforge-switch-semantic-migration.md": {
-      "created_at": "2026-07-25"
-    },
-    "bridgeforge-doc-runtime-packaging.md": {
-      "created_at": "2026-07-25"
-    },
-    "bridgeforge-switch-direct-sync.md": {
-      "created_at": "2026-07-25"
-    },
     "topics/memory-rule-organization/summary.md": {
       "created_at": "2026-08-14"
+    },
+    "architecture/bridgeforge-switch-direct-sync.md": {
+      "created_at": "2026-07-25"
+    },
+    "architecture/codex-model-routing-policy.md": {
+      "created_at": "2026-07-08"
+    },
+    "engineering/bom-free-encoding-gate.md": {
+      "created_at": "2026-07-08"
+    },
+    "engineering/codex-ctx-budget-window.md": {
+      "created_at": "2026-07-09"
+    },
+    "engineering/confirm-workflow.md": {
+      "created_at": "2026-07-14"
+    },
+    "engineering/skill-metadata-precommit-gate.md": {
+      "created_at": "2026-07-08"
+    },
+    "operations/codex-bridgeforge-slash-entry-debug.md": {
+      "created_at": "2026-07-07"
+    },
+    "topics/claude-template-safety-hooks-review/summary.md": {
+      "created_at": "2026-07-08"
+    },
+    "topics/codex-harness-parity-closure/summary.md": {
+      "created_at": "2026-07-08"
+    },
+    "topics/bridgeforge-command-model/summary.md": {
+      "created_at": "2026-07-08"
+    },
+    "topics/bridgeforge-doc-runtime-packaging/summary.md": {
+      "created_at": "2026-07-25"
+    },
+    "topics/bridgeforge-switch-semantic-migration/summary.md": {
+      "created_at": "2026-07-25"
     }
   }
 }

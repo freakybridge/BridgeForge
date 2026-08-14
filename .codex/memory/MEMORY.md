@@ -2,21 +2,16 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 12 | Cold: 1
+> Active: 7 | Cold: 6
 
 ## Active（按新增时间，新在前；主索引上限 6000 字符）
-- [bridgeforge-doc-runtime-packaging](bridgeforge-doc-runtime-packaging.md) — BridgeForge 的运行手册统一位于 doc/0_playbook；只有该编号子树随 bridgeforge command bundle 分发，其余 doc 只留在工厂仓库。
-- [bridgeforge-switch-direct-sync](bridgeforge-switch-direct-sync.md) — BridgeForge switch 采用双骨架直接同步；目标端 map 只记录可验证映射与生成基线，绝不替代真实项目资产。
-- [bridgeforge-switch-semantic-migration](bridgeforge-switch-semantic-migration.md) — BridgeForge 跨 Claude/Codex 切换采用语义迁移 manifest 与可回滚事务；可执行约束在无可信沙箱时必须 fail-closed。
-- [confirm-workflow](confirm-workflow.md)
-- [codex-ctx-budget-window](codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 353K 校准，hook 用 transcript usage 计算比例。
-- [bom-free-encoding-gate](bom-free-encoding-gate.md) — BridgeForge 全 repo 文本统一 UTF-8 without BOM，并用编辑后 / pre-commit / shell 中转 hook 防编码污染。
-- [bridgeforge-command-model](bridgeforge-command-model.md) — BridgeForge 对外命令心智收敛为 /bridgeforge 与 /bridgeforge switch <agent>；显式 switch 时目标完整但旧骨架残留要 cleanup-only。
-- [claude-template-safety-hooks-review](claude-template-safety-hooks-review.md) — Claude 模板从 StratusAgent 反哺的三个轻量 hook 审查结论：产品层和 dogfood 成套、注册事件合理、以伪 payload 和阻断路径验收。
-- [codex-harness-parity-closure](codex-harness-parity-closure.md) — Codex 迁移兼容闭环验收：parity 覆盖 memory/skills，20 个差异必须归类，报告状态以未分类为 0 才算 OK。
-- [codex-model-routing-policy](codex-model-routing-policy.md) — Codex 平台默认调度：BridgeForge 只定义 agent 职责，不固定模型或思考强度。
-- [skill-metadata-precommit-gate](skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
-- [codex-bridgeforge-slash-entry-debug](codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。
+- [architecture/bridgeforge-switch-direct-sync](architecture/bridgeforge-switch-direct-sync.md) — BridgeForge switch 采用双骨架直接同步；目标端 map 只记录可验证映射与生成基线，绝不替代真实项目资产。
+- [engineering/confirm-workflow](engineering/confirm-workflow.md) — BridgeForge 的统一需求确认工作流：confirm 先核验事实并生成确认卡，develop/debate/collab 必须复用有效确认卡。
+- [engineering/codex-ctx-budget-window](engineering/codex-ctx-budget-window.md) — Codex ctx-budget 口径：复用 Claude 成熟机制，但 Codex 窗口按 /status 实测 353K 校准，hook 用 transcript usage 计算比例。
+- [architecture/codex-model-routing-policy](architecture/codex-model-routing-policy.md) — Codex 平台默认调度：BridgeForge 只定义 agent 职责，不固定模型或思考强度。
+- [engineering/bom-free-encoding-gate](engineering/bom-free-encoding-gate.md) — BridgeForge 全 repo 文本统一 UTF-8 without BOM，并用编辑后 / pre-commit / shell 中转 hook 防编码污染。
+- [engineering/skill-metadata-precommit-gate](engineering/skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
+- [operations/codex-bridgeforge-slash-entry-debug](operations/codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。
 
-## 🔍 Cold（1 条，用 /find-memory 搜索）
+## 🔍 Cold（6 条，用 /find-memory 搜索）
 详见 MEMORY_COLD.md
