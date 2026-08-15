@@ -49,6 +49,9 @@ B 以重复的 `--selected-action <Rn|Un>` 绑定当前 aggregate fingerprint；
 零写入失败，禁止只存 receipt 而忽略语义。同一文件选中多个 U 时合并为一次事务写入。C 以
 `--decline-risk` 本轮全拒绝。全部冲突文件、区块效果和
 强风险警告必须在选择前一次展示，禁止 apply 后第二次询问。
+`confirmation.options` 是不可改写的用户文案契约；C 始终执行 safe，只拒绝 R/C/U。
+`conflict_file_groups` 必须逐 U 展开完整项目相对路径、区块、上游效果、本地影响与可恢复性，
+禁止用编号范围或 basename 省略审阅信息。
 
 receipt 同时输出：
 
@@ -58,6 +61,10 @@ receipt 同时输出：
 
 旧 `status/readiness` 字段继续兼容既有消费者，但不再承担用户主标题。人工 trust/restart/smoke
 只进入 `manual_steps`，没有真实运行时收据时不得标记完成。
+
+区块渲染按目标位置决定边界：非末尾受管区块与下一标题之间保留一个空行，文件末尾受管
+区块只保留一个终止换行。写版本戳前，对本轮实际修改的受管路径执行
+`git diff --check HEAD -- <targets>`；失败必须纳入同一事务回滚，禁止留下新版本戳。
 
 ### 分类
 

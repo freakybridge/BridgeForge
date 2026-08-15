@@ -22,6 +22,9 @@
     ],
     "0.93.0": [
       "sha256:e212ebc1dd5b27b056ba1704c7369720e741928a7c4770b51592a21d522d8306"
+    ],
+    "0.94.0": [
+      "sha256:d445943f9e2b2824d0048acf8fdec007e931670bb5d36d9e8cc563d333c253f9"
     ]
   },
   "assets": [
@@ -1179,6 +1182,9 @@
         ],
         "0.91.1": [
           "sha256:aec284d4083d7030ec696d0c2af03d65d60e6e0a66ac854fdc8db8e77edf26ed"
+        ],
+        "0.94.0": [
+          "sha256:1f4ff40d457ae24adfce84458f0eb28d9d4c087de143b7c83db1beeedb2eb71a"
         ]
       }
     },

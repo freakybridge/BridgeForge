@@ -17,12 +17,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:33e4df636e81eadbe1cf99e0720ea259669c339ce4e06691bc1bbf554d61ba12"
+              "sha256": "sha256:34627ec627d36f2ea45d07cdb491de297b10eb1be2e3b7aeddc011f6bc2b5100"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:2b7b7bbc8bb4813c9a4507cc1ca47028df5b2153f46ab8d06379f96fb1610ef3"
+              "sha256": "sha256:e75bc215bd28ed29d67aac03f65e345081958e292092da1ed659f4dca4841326"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:9505e00c5a2a883f5213b6613445e84fe48335c2d0e99664ae91c672e17e95fc"
+              "sha256": "sha256:4830829b922c98f029bf6841cbbc8e2c6ab4ea50ba88685bc7c0ccfb7bc76bb4"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -62,7 +62,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:071a444187150a4d26930144c2bed9264a1075d139f30d463b2d2e8b4389f22b"
+              "sha256": "sha256:9f9271c5b198eadaf8220e659b6213bfd773436813e17850054add9667bb8a8b"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -587,7 +587,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:d445943f9e2b2824d0048acf8fdec007e931670bb5d36d9e8cc563d333c253f9"
+              "sha256": "sha256:de29c5b33acd3b0939d8d51f1be08e7ef5172bb7b8a64a3a0df0fc5a4793b227"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -957,12 +957,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:33e4df636e81eadbe1cf99e0720ea259669c339ce4e06691bc1bbf554d61ba12"
+              "sha256": "sha256:34627ec627d36f2ea45d07cdb491de297b10eb1be2e3b7aeddc011f6bc2b5100"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:2b7b7bbc8bb4813c9a4507cc1ca47028df5b2153f46ab8d06379f96fb1610ef3"
+              "sha256": "sha256:e75bc215bd28ed29d67aac03f65e345081958e292092da1ed659f4dca4841326"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -977,7 +977,7 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:9505e00c5a2a883f5213b6613445e84fe48335c2d0e99664ae91c672e17e95fc"
+              "sha256": "sha256:4830829b922c98f029bf6841cbbc8e2c6ab4ea50ba88685bc7c0ccfb7bc76bb4"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -1002,7 +1002,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:071a444187150a4d26930144c2bed9264a1075d139f30d463b2d2e8b4389f22b"
+              "sha256": "sha256:9f9271c5b198eadaf8220e659b6213bfd773436813e17850054add9667bb8a8b"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1527,7 +1527,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:d445943f9e2b2824d0048acf8fdec007e931670bb5d36d9e8cc563d333c253f9"
+              "sha256": "sha256:de29c5b33acd3b0939d8d51f1be08e7ef5172bb7b8a64a3a0df0fc5a4793b227"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",

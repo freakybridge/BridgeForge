@@ -104,6 +104,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.88.4",
             "0.90.0",
             "0.91.1",
+            "0.93.0",
             "0.92.0",
             "0.92.1",
         }
@@ -255,6 +256,19 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertEqual(payload["conflict_file_items"][0]["target"], ".codex/rules/architecture.md")
         self.assertIn("aggressive", payload["confirmation"]["warning"])
         self.assertEqual(payload["confirmation"]["all"], ["U1", "U2"])
+        self.assertIn(
+            "执行全部 safe；不执行任何 R/C/U",
+            payload["confirmation"]["options"][2]["text"],
+        )
+        self.assertTrue(
+            payload["confirmation"]["rendering_contract"][
+                "must_expand_every_conflict"
+            ]
+        )
+        self.assertEqual(
+            payload["conflict_file_groups"][0]["items"][0]["id"],
+            "U1",
+        )
 
         declined = sync.apply_plan(
             plan,
@@ -351,6 +365,145 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "本地数据流定制，B 模式必须保留",
             target.read_text(encoding="utf-8"),
         )
+
+    def test_missing_blocks_append_cleanly_and_094_boundary_is_safe_repaired(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        contract = json.loads(
+            (ROOT / "templates/codex/managed-skeleton.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        missing_by_target = {
+            "AGENTS.md": (
+                "## 0.5 专业表达风格",
+                "## 2.5 工具与证据红线",
+                "## 8.5 自改审计独立性（红线）",
+                "## 9.5 较大需求主动澄清 — `[clarify]`",
+                "## 9.6 任务防漂移 — `[focus]`",
+            ),
+            ".codex/rules/workflow.md": ("## 9. 版本域隔离（红线）",),
+        }
+        for relative, missing in missing_by_target.items():
+            asset = next(
+                item for item in contract["assets"] if item["target"] == relative
+            )
+            target = project / relative
+            before = target.read_bytes()
+            sections = sync._markdown_heading_sections(
+                before,
+                tuple(asset["managed_blocks"]["headings"]),
+            )
+            for start, finish in sorted(
+                (sections[heading] for heading in missing),
+                reverse=True,
+            ):
+                before = before[:start] + before[finish:]
+            target.write_bytes(
+                before + b"\n## Project Owned\n\nproject tail\n\n---\n"
+            )
+        stamp = project / ".codex/.bridgeforge_version"
+        stamp.write_text("0.93.0\n", encoding="utf-8")
+        subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "fixture@example.invalid"],
+            cwd=project,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Fixture"],
+            cwd=project,
+            check=True,
+        )
+        subprocess.run(["git", "add", "."], cwd=project, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "baseline"],
+            cwd=project,
+            check=True,
+            capture_output=True,
+        )
+
+        plan = sync.build_plan(project, ROOT, "update")
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            confirmed_risk=True,
+        )
+        self.assertTrue(receipt.stamp_written_last)
+        self.assertIn("git_diff_check", receipt.timings_ms)
+        for relative in missing_by_target:
+            payload = (project / relative).read_bytes()
+            self.assertTrue(payload.endswith(b"\n"))
+            self.assertFalse(payload.endswith(b"\n\n"))
+            self.assertIn(b"## Project Owned\n\nproject tail\n\n---\n", payload)
+        checked = subprocess.run(
+            ["git", "diff", "--check", "HEAD"],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
+        agents = project / "AGENTS.md"
+        agents.write_bytes(agents.read_bytes() + b"\n")
+        repair = sync.build_plan(project, ROOT, "update")
+        boundary = [
+            item
+            for item in repair.safe_actions
+            if item.action == "normalize-managed-block-boundary"
+        ]
+        self.assertEqual([item.target for item in boundary], ["AGENTS.md"])
+        repaired = sync.apply_plan(
+            repair,
+            plan_fingerprint=repair.aggregate_fingerprint,
+        )
+        self.assertTrue(repaired.stamp_written_last)
+        self.assertFalse(agents.read_bytes().endswith(b"\n\n"))
+
+    def test_managed_git_diff_failure_rolls_back_before_stamp(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        stamp = project / ".codex/.bridgeforge_version"
+        stamp.write_text("0.93.0\n", encoding="utf-8")
+        subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "fixture@example.invalid"],
+            cwd=project,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Fixture"],
+            cwd=project,
+            check=True,
+        )
+        subprocess.run(["git", "add", "."], cwd=project, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "baseline"],
+            cwd=project,
+            check=True,
+            capture_output=True,
+        )
+        target = project / ".codex/rules/architecture.md"
+        customized = target.read_text(encoding="utf-8").replace(
+            "## 1. 职责边界\n",
+            "## 1. 职责边界\n\nlocal customization\n",
+            1,
+        )
+        target.write_text(
+            customized + "\n## Project Owned\n\ninvalid blank at eof\n\n",
+            encoding="utf-8",
+        )
+        before = target.read_bytes()
+        plan = sync.build_plan(project, ROOT, "update")
+        with self.assertRaisesRegex(sync.SyncBlocked, "rolled back: managed git diff check"):
+            sync.apply_plan(
+                plan,
+                plan_fingerprint=plan.aggregate_fingerprint,
+                confirmed_risk=True,
+            )
+        self.assertEqual(target.read_bytes(), before)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.93.0\n")
 
     def test_ambiguous_managed_block_boundary_remains_manual_and_unwritten(self) -> None:
         project = self.make_project()
