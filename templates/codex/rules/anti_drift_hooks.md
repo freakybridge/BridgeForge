@@ -1,7 +1,7 @@
 ---
 paths:
   - ".codex/hooks/**"
-  - ".codex/settings.json"
+  - ".codex/hooks.json"
 ---
 
 # 反漂移 hook 低频细节（clarify / focus / ctx-budget）
@@ -25,7 +25,7 @@ paths:
 **配置**：
 
 - Hook 入口：`.codex/hooks/clarify_reminder.py`（项目内）
-- 注册位置：`.codex/settings.json` → `hooks.UserPromptSubmit`
+- 注册位置：`.codex/hooks.json` → `hooks.UserPromptSubmit`
 - 调参：hook 文件开头改 `MIN_CHARS`（极短阈值）和 `CONTINUATION_TOKENS`（续接/确认词集合，按团队语言习惯增删）
 
 ---
@@ -62,5 +62,5 @@ paths:
 **配置**：
 
 - Hook 入口：`.codex/hooks/context_warning.py`（项目内）
-- 注册位置：`.codex/settings.json` → `hooks.UserPromptSubmit`
+- 注册位置：`.codex/hooks.json` → `hooks.UserPromptSubmit`
 - 调参：窗口用 `BRIDGEFORGE_CODEX_CTX_WINDOW`；成本档位用 `BRIDGEFORGE_CTX_ECONOMY_TOKENS` / `BRIDGEFORGE_CTX_HANDOFF_TOKENS` / `BRIDGEFORGE_CTX_CRITICAL_TOKENS`（默认 80k / 140k / 200k）

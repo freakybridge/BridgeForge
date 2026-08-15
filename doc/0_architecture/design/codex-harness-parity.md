@@ -45,7 +45,7 @@
 | `hooks/rule_size_check.py` | 2 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/show_state.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex startup hints use $ skills and .codex scripts |
 | `hooks/test_receipt.py` | 3 | -3 / +4 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
-| `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
+| `rules/anti_drift_hooks.md` | 5 | -6 / +8 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
 | `rules/portability.md` | 7 | -28 / +53 | `codex-only` | Codex config.toml and custom-agent portability guidance |

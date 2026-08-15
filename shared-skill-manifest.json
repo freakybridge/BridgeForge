@@ -17,12 +17,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:d027e8289a3557c1013e713b85f0eae257b9b4ba833a62d5438dcc2c9636213d"
+              "sha256": "sha256:e332079b44c52a4599027328ded7069e6bb74082a9541105072535c716bd9ef7"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:21b2e6bca1fc91c1e01434222edab3050ade97726f6d3720e50ed08da2e70728"
+              "sha256": "sha256:2b148f4b4c1222f9da652fb5f89bf93637bce3b0de7b3f57ef8116251433b9da"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,7 +37,7 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:f5064dacc4dca4702a9ed5a1d7aab3e8958e1c1215695ef3251964f77ae55227"
+              "sha256": "sha256:5f80df83acb3d90a507123d576a1c11692b22f6395efcab0f6f73c8dd20890ac"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -62,7 +62,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c886dba36dbee3a007ed105700fbbd4e17c5a00c173a192e05fd1a581df871fc"
+              "sha256": "sha256:13fb25bd07a6fbb52c1b2611ae0b777a604a0744dd04f7b9865eb43170154ab0"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -362,7 +362,7 @@
             {
               "source": "templates/claude/scripts/version_release.py",
               "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc"
+              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
             },
             {
               "source": "templates/claude/settings.json",
@@ -377,7 +377,7 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:80f5349a10c66613e7f39ead4dbdb75f2a34f675ae00621c80149498dc258dd1"
+              "sha256": "sha256:67d091b3b456d5e9cf31812eec6dc18e50f7bd4e9005e5216d2e19a673d426d7"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -407,7 +407,7 @@
             {
               "source": "templates/codex/config.toml",
               "target": "templates/codex/config.toml",
-              "sha256": "sha256:5d56c60e65f29d957abba914b3db7f8da17dacb66abf11fa78724f031d075858"
+              "sha256": "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe"
             },
             {
               "source": "templates/codex/doc/0_architecture/.gitkeep",
@@ -587,7 +587,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:0de6c38800a91c08e2c79ef4c7877b22fa5cdeb808b456d299948ab1513f2a3e"
+              "sha256": "sha256:500faa802a325f7959c24c904bc9adeb80497932d9230c25813b2b9745de66a4"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -597,7 +597,7 @@
             {
               "source": "templates/codex/rules/anti_drift_hooks.md",
               "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20"
+              "sha256": "sha256:8e8dd74a0549171b832d3461da6232e28e4c399e83fa5f99d9e5c2ec9c0d781e"
             },
             {
               "source": "templates/codex/rules/anti_fabrication.md",
@@ -712,7 +712,7 @@
             {
               "source": "templates/codex/scripts/version_release.py",
               "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc"
+              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
             },
             {
               "source": "templates/codex/settings.json",
@@ -957,12 +957,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:d027e8289a3557c1013e713b85f0eae257b9b4ba833a62d5438dcc2c9636213d"
+              "sha256": "sha256:e332079b44c52a4599027328ded7069e6bb74082a9541105072535c716bd9ef7"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:21b2e6bca1fc91c1e01434222edab3050ade97726f6d3720e50ed08da2e70728"
+              "sha256": "sha256:2b148f4b4c1222f9da652fb5f89bf93637bce3b0de7b3f57ef8116251433b9da"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -977,7 +977,7 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:f5064dacc4dca4702a9ed5a1d7aab3e8958e1c1215695ef3251964f77ae55227"
+              "sha256": "sha256:5f80df83acb3d90a507123d576a1c11692b22f6395efcab0f6f73c8dd20890ac"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
@@ -1002,7 +1002,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c886dba36dbee3a007ed105700fbbd4e17c5a00c173a192e05fd1a581df871fc"
+              "sha256": "sha256:13fb25bd07a6fbb52c1b2611ae0b777a604a0744dd04f7b9865eb43170154ab0"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1302,7 +1302,7 @@
             {
               "source": "templates/claude/scripts/version_release.py",
               "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc"
+              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
             },
             {
               "source": "templates/claude/settings.json",
@@ -1317,7 +1317,7 @@
             {
               "source": "templates/codex/AGENTS.md",
               "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:80f5349a10c66613e7f39ead4dbdb75f2a34f675ae00621c80149498dc258dd1"
+              "sha256": "sha256:67d091b3b456d5e9cf31812eec6dc18e50f7bd4e9005e5216d2e19a673d426d7"
             },
             {
               "source": "templates/codex/agents/implementation-worker.toml",
@@ -1347,7 +1347,7 @@
             {
               "source": "templates/codex/config.toml",
               "target": "templates/codex/config.toml",
-              "sha256": "sha256:5d56c60e65f29d957abba914b3db7f8da17dacb66abf11fa78724f031d075858"
+              "sha256": "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe"
             },
             {
               "source": "templates/codex/doc/0_architecture/.gitkeep",
@@ -1527,7 +1527,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:0de6c38800a91c08e2c79ef4c7877b22fa5cdeb808b456d299948ab1513f2a3e"
+              "sha256": "sha256:500faa802a325f7959c24c904bc9adeb80497932d9230c25813b2b9745de66a4"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -1537,7 +1537,7 @@
             {
               "source": "templates/codex/rules/anti_drift_hooks.md",
               "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20"
+              "sha256": "sha256:8e8dd74a0549171b832d3461da6232e28e4c399e83fa5f99d9e5c2ec9c0d781e"
             },
             {
               "source": "templates/codex/rules/anti_fabrication.md",
@@ -1652,7 +1652,7 @@
             {
               "source": "templates/codex/scripts/version_release.py",
               "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc"
+              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
             },
             {
               "source": "templates/codex/settings.json",

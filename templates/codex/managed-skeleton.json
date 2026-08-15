@@ -28,6 +28,9 @@
     ],
     "0.94.1": [
       "sha256:de29c5b33acd3b0939d8d51f1be08e7ef5172bb7b8a64a3a0df0fc5a4793b227"
+    ],
+    "0.94.2": [
+      "sha256:0de6c38800a91c08e2c79ef4c7877b22fa5cdeb808b456d299948ab1513f2a3e"
     ]
   },
   "assets": [
@@ -46,12 +49,14 @@
           "## 5. Memory 项目内托管",
           "## 6. 换机首次启动 Checklist",
           "## 8. 鬼打墙觉察 + 渐进升级（红线）",
-          "## 8.5 自改审计独立性（红线）",
           "## 9. 主观体验报告主动问范式（红线）",
-          "## 9.5 较大需求主动澄清 — `[clarify]`",
-          "## 9.6 任务防漂移 — `[focus]`",
           "## 10. 上下文成本与预算 — `[ctx-budget]`",
           "## 11. 文档管理（红线）"
+        ],
+        "additive_headings": [
+          "## 8.5 自改审计独立性（红线）",
+          "## 9.5 较大需求主动澄清 — `[clarify]`",
+          "## 9.6 任务防漂移 — `[focus]`"
         ],
         "keyed_tables": [
           {
@@ -70,7 +75,7 @@
           }
         ]
       },
-      "current_sha256": "sha256:80f5349a10c66613e7f39ead4dbdb75f2a34f675ae00621c80149498dc258dd1",
+      "current_sha256": "sha256:67d091b3b456d5e9cf31812eec6dc18e50f7bd4e9005e5216d2e19a673d426d7",
       "historical_sha256": {
         "0.86.0": [
           "sha256:1dccdd44746a585895ad780d0919793c4d2c919224ec396333dc0e684d972d54"
@@ -120,7 +125,7 @@
       "source": "templates/codex/config.toml",
       "target": ".codex/config.toml",
       "strategy": "whole",
-      "current_sha256": "sha256:5d56c60e65f29d957abba914b3db7f8da17dacb66abf11fa78724f031d075858",
+      "current_sha256": "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe",
       "historical_sha256": {
         "0.86.0": [
           "sha256:5d56c60e65f29d957abba914b3db7f8da17dacb66abf11fa78724f031d075858"
@@ -321,7 +326,7 @@
           "## 3. `[ctx-budget]` 信号 — 上下文预算（AGENTS.md §10）"
         ]
       },
-      "current_sha256": "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20",
+      "current_sha256": "sha256:8e8dd74a0549171b832d3461da6232e28e4c399e83fa5f99d9e5c2ec9c0d781e",
       "historical_sha256": {
         "0.86.0": [
           "sha256:24791b438532c1e1988bab612f94fec88df57418a8890e47d2bad7d71712fc20"
@@ -360,17 +365,7 @@
       "id": "codex.rule.architecture",
       "source": "templates/codex/rules/architecture.md",
       "target": ".codex/rules/architecture.md",
-      "strategy": "whole",
-      "managed_blocks": {
-        "format": "markdown-headings",
-        "headings": [
-          "## 1. 职责边界",
-          "## 2. 数据流方向",
-          "## 3. 关键链路完整性（红线）",
-          "## 4. 重写 / 移植期间的功能等价性（红线）",
-          "## 5. 模块组织约束"
-        ]
-      },
+      "strategy": "seed",
       "current_sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892",
       "historical_sha256": {
         "0.86.0": [
@@ -511,8 +506,10 @@
           "## 6. 文档目录职责边界",
           "## 7. 文档权威位置",
           "## 8. 子目录 README 同步规则",
-          "## 9. 版本域隔离（红线）",
           "## 10. 大版本依赖升级必做 spike 验证"
+        ],
+        "additive_headings": [
+          "## 9. 版本域隔离（红线）"
         ]
       },
       "current_sha256": "sha256:443eec12b4b8abc0751134419e948c1e1e244eb9e17c2bfd23a82fa64a4c747b",
@@ -1226,7 +1223,7 @@
       "source": "templates/codex/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc",
+      "current_sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8",
       "historical_sha256": {
         "0.86.0": [
           "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
@@ -1239,6 +1236,9 @@
         ],
         "0.94.0": [
           "sha256:1f4ff40d457ae24adfce84458f0eb28d9d4c087de143b7c83db1beeedb2eb71a"
+        ],
+        "0.94.2": [
+          "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc"
         ]
       }
     },

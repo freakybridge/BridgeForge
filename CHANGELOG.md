@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.94.4] - 2026-08-16
+
+### Fixed
+
+- [product][repo][meta] 防止 BridgeForge 覆盖下游 Rule 语义
+
+## [0.94.3] - 2026-08-16
+
+### Fixed
+
+- [product][repo][meta] 修复 A 激进吸收误删高定制下游 Rule 语义：`architecture.md` 改为只在缺失时创建的 seed；普通受管标题漂移/缺失一律保留为 gap，仅显式 additive 标题允许安全追加；项目同步器与四份发布脚本统一使用 fence-aware Markdown 扫描，apply 在版本戳前验证结构并保护 seed 字节，当前版本 no-op 不再重复写戳。
+
 ## [0.94.2] - 2026-08-16
 
 ### Fixed

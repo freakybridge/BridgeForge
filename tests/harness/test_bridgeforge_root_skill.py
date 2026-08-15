@@ -32,6 +32,21 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             self.assertIn(marker, init)
             self.assertIn(marker, update)
 
+    def test_codex_hook_registration_docs_use_hooks_json(self) -> None:
+        agents = (ROOT / "templates" / "codex" / "AGENTS.md").read_text(
+            encoding="utf-8"
+        )
+        config = (ROOT / "templates" / "codex" / "config.toml").read_text(
+            encoding="utf-8"
+        )
+        anti_drift_row = next(
+            line for line in agents.splitlines() if "rules/anti_drift_hooks.md" in line
+        )
+        self.assertIn(".codex/hooks.json", anti_drift_row)
+        self.assertNotIn(".codex/settings.json", anti_drift_row)
+        self.assertIn("hooks are registered in\n# .codex/hooks.json", config)
+        self.assertNotIn("settings.json stays\n# responsible for hooks", config)
+
     def test_python_preflight_precedes_every_project_write_mode(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
         preflight = skill.index("Step 2.1：项目 Python 3.11+ 一次性 preflight")
@@ -81,12 +96,14 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             "`U1...Un`",
             "逐项自然语言约束",
             "禁止执行后补问",
-            "普通受管标题允许上游替换该区块",
+            "普通受管标题缺失或发生本地漂移",
+            "`managed_blocks.additive_headings`",
             "下游独有行必须保留",
             "只有 M 项时直接给",
             "`__pycache__` / `.pyc` 只能是 `C` 类 advisory",
         ):
             self.assertIn(marker, skill)
+        self.assertNotIn("普通受管标题允许上游替换该区块", skill)
         for name in ("init.md", "adopt.md", "update.md", "switch.md"):
             text = (ROOT / "skills" / "bridgeforge" / "references" / name).read_text(encoding="utf-8")
             self.assertNotIn("无条件删除 `.codex/hooks/stall_warning.py`", text)

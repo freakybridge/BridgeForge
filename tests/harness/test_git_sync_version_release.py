@@ -293,6 +293,24 @@ class VersionReleaseTests(unittest.TestCase):
             )
             self.assertEqual(mixed.classification, "mixed")
 
+    def test_managed_markdown_release_scanner_is_fence_aware(self) -> None:
+        payload = (
+            "# Entry\n\n## Managed\n\n"
+            "```markdown\n## Example\n```\n\n"
+            "## Project\n\nlocal\n"
+        ).encode("utf-8")
+        managed, project = VERSION_RELEASE._markdown_heading_parts(
+            payload,
+            ["## Managed"],
+        )
+        self.assertIn(b"## Example", managed)
+        self.assertIn(b"## Project", project)
+        with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "unclosed"):
+            VERSION_RELEASE._markdown_heading_parts(
+                b"## Managed\n\n~~~markdown\n## Example\n",
+                ["## Managed"],
+            )
+
     def test_schema_v2_keyed_table_distinguishes_managed_and_project_rows(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

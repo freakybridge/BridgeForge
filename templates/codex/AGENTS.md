@@ -32,7 +32,7 @@
 | `rules/workflow.md` | 范式同步文档 + 文档索引同步 + 经验总结 | 编辑 `doc/**`、`.codex/rules/**` |
 | `rules/portability.md` | 换机可移植性 + 包安装陷阱 + hooks 路径约束 | 编辑 `.codex/**`、配置文件、依赖清单 |
 | `rules/meta_rule_design.md` | 元规则：怎么写 rule（强制力梯度 + 加载策略 + 反模式速查） | 编辑 `.codex/rules/**` 或 `AGENTS.md` |
-| `rules/anti_drift_hooks.md` | 反漂移 hook（clarify / focus / ctx-budget）的分工论述 + 路径 / 调参 / 豁免 | 编辑 `.codex/hooks/**`、`.codex/settings.json` |
+| `rules/anti_drift_hooks.md` | 反漂移 hook（clarify / focus / ctx-budget）的分工论述 + 路径 / 调参 / 豁免 | 编辑 `.codex/hooks/**`、`.codex/hooks.json` |
 
 <!-- 按需追加项目特定 path-rule，如 `rules/<topic>.md`（按 `src/<topic>/**` 触发）。 -->
 

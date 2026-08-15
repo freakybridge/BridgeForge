@@ -126,17 +126,15 @@ def _region_parts(
     return payload[start:finish], outside
 
 
-def _markdown_heading_parts(
-    payload: bytes | None, headings: list[str]
-) -> tuple[bytes | None, bytes | None]:
-    if payload is None:
-        return None, None
-    payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+def _markdown_heading_spans(
+    payload: bytes,
+    headings: list[str],
+) -> dict[str, tuple[int, int]]:
     try:
         payload.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ReleaseError("managed Markdown file is not valid UTF-8") from exc
-    if not headings or len(set(headings)) != len(headings):
+    if len(set(headings)) != len(headings):
         raise ReleaseError("managed Markdown headings must be unique and non-empty")
 
     configured = {heading.encode("utf-8"): heading for heading in headings}
@@ -147,31 +145,71 @@ def _markdown_heading_parts(
         offsets.append(cursor)
         cursor += len(line)
     matches: dict[str, list[tuple[int, int]]] = {heading: [] for heading in headings}
-    heading_re = re.compile(br"^(#{1,6}) [^\r\n]+$")
+    heading_re = re.compile(br"^ {0,3}(#{1,6}) [^\r\n]+$")
+    fence_open_re = re.compile(br"^ {0,3}(`{3,}|~{3,})[^\r\n]*$")
+    visible_headings: list[tuple[int, int, int, bytes]] = []
+    fence_char: bytes | None = None
+    fence_length = 0
     for index, line in enumerate(lines):
         stripped = line.rstrip(b"\r\n")
-        heading = configured.get(stripped)
+        if fence_char is not None:
+            close = re.fullmatch(
+                br" {0,3}"
+                + re.escape(fence_char)
+                + br"{"
+                + str(fence_length).encode("ascii")
+                + br",}[ \t]*",
+                stripped,
+            )
+            if close:
+                fence_char = None
+                fence_length = 0
+            continue
+        fence = fence_open_re.fullmatch(stripped)
+        if fence:
+            marker = fence.group(1)
+            fence_char = marker[:1]
+            fence_length = len(marker)
+            continue
+        match = heading_re.fullmatch(stripped)
+        if match:
+            visible_headings.append(
+                (index, offsets[index], len(match.group(1)), stripped.lstrip(b" "))
+            )
+    if fence_char is not None:
+        raise ReleaseError("managed Markdown contains an unclosed fenced code block")
+
+    for position, (_index, start, level, canonical) in enumerate(visible_headings):
+        heading = configured.get(canonical)
         if heading is None:
             continue
-        level = len(stripped) - len(stripped.lstrip(b"#"))
         finish = len(payload)
-        for later in range(index + 1, len(lines)):
-            candidate = lines[later].rstrip(b"\r\n")
-            match = heading_re.fullmatch(candidate)
-            if match and len(match.group(1)) <= level:
-                finish = offsets[later]
+        for _later_index, later_start, later_level, _later_heading in visible_headings[position + 1:]:
+            if later_level <= level:
+                finish = later_start
                 break
-        matches[heading].append((offsets[index], finish))
+        matches[heading].append((start, finish))
     duplicate = [heading for heading, spans in matches.items() if len(spans) > 1]
     if duplicate:
         raise ReleaseError(
             "managed Markdown headings are duplicated: " + ", ".join(duplicate)
         )
 
+    return {heading: entries[0] for heading, entries in matches.items() if entries}
+
+
+def _markdown_heading_parts(
+    payload: bytes | None, headings: list[str]
+) -> tuple[bytes | None, bytes | None]:
+    if payload is None:
+        return None, None
+    payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    if not headings:
+        raise ReleaseError("managed Markdown headings must be unique and non-empty")
+    matches = _markdown_heading_spans(payload, headings)
     spans = [
-        (entries[0][0], entries[0][1], heading)
-        for heading, entries in matches.items()
-        if entries
+        (start, finish, heading)
+        for heading, (start, finish) in matches.items()
     ]
     spans.sort()
     for previous, current in zip(spans, spans[1:]):
@@ -180,11 +218,11 @@ def _markdown_heading_parts(
     document_order = [heading for _start, _finish, heading in spans]
     managed_chunks = ["order=" + "|".join(document_order)]
     for heading in headings:
-        entries = matches[heading]
-        if not entries:
+        span = matches.get(heading)
+        if span is None:
             managed_chunks.append(heading + "=<MISSING>")
             continue
-        start, finish = entries[0]
+        start, finish = span
         block = payload[start:finish].rstrip(b" \t\n").decode("utf-8-sig")
         managed_chunks.append(heading + "=" + block)
 
@@ -248,32 +286,24 @@ def _keyed_table_parts(
     if payload is None:
         return None, None
     payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    heading_bytes = heading.encode("utf-8")
     lines = payload.splitlines(keepends=True)
     offsets: list[int] = []
     cursor = 0
     for line in lines:
         offsets.append(cursor)
         cursor += len(line)
-    heading_matches = [
-        index
-        for index, line in enumerate(lines)
-        if line.rstrip(b"\n") == heading_bytes
-    ]
-    if len(heading_matches) > 1:
-        raise ReleaseError(f"managed Markdown heading is duplicated: {heading}")
-    if not heading_matches:
+    heading_spans = _markdown_heading_spans(payload, [heading])
+    span = heading_spans.get(heading)
+    if span is None:
         return f"{heading}=<MISSING>".encode("utf-8"), payload
-    heading_index = heading_matches[0]
-    level = len(heading) - len(heading.lstrip("#"))
-    section_end_index = len(lines)
-    heading_re = re.compile(br"^(#{1,6}) [^\n]+$")
-    for later in range(heading_index + 1, len(lines)):
-        candidate = lines[later].rstrip(b"\n")
-        match = heading_re.fullmatch(candidate)
-        if match and len(match.group(1)) <= level:
-            section_end_index = later
-            break
+    section_start, section_end = span
+    heading_index = next(
+        index for index, offset in enumerate(offsets) if offset == section_start
+    )
+    section_end_index = next(
+        (index for index, offset in enumerate(offsets) if offset == section_end),
+        len(lines),
+    )
 
     candidates: list[int] = []
     for index in range(heading_index + 1, section_end_index - 1):
@@ -333,10 +363,12 @@ def _keyed_table_parts(
 def _managed_markdown_parts(
     payload: bytes | None,
     headings: list[str],
+    additive_headings: list[str],
     keyed_tables: list[dict[str, object]],
 ) -> tuple[bytes | None, bytes | None]:
-    if headings:
-        managed_headings, project = _markdown_heading_parts(payload, headings)
+    all_headings = headings + additive_headings
+    if all_headings:
+        managed_headings, project = _markdown_heading_parts(payload, all_headings)
     else:
         managed_headings, project = b"order=", payload
     managed_chunks = [managed_headings or b""]
@@ -394,9 +426,15 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
                     or managed_blocks.get("format") != "markdown-headings"
                     or not isinstance(managed_blocks.get("headings"), list)
                     or not all(isinstance(item, str) and item for item in managed_blocks["headings"])
+                    or not isinstance(managed_blocks.get("additive_headings", []), list)
+                    or not all(
+                        isinstance(item, str) and item
+                        for item in managed_blocks.get("additive_headings", [])
+                    )
                     or not isinstance(managed_blocks.get("keyed_tables", []), list)
                     or (
                         not managed_blocks["headings"]
+                        and not managed_blocks.get("additive_headings", [])
                         and not managed_blocks.get("keyed_tables", [])
                     )
                 ):
@@ -405,6 +443,9 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
                     {
                         "path": target,
                         "headings": list(managed_blocks["headings"]),
+                        "additive_headings": list(
+                            managed_blocks.get("additive_headings", [])
+                        ),
                         "keyed_tables": list(managed_blocks.get("keyed_tables", [])),
                     }
                 )
@@ -465,16 +506,19 @@ def _change_ownership(
             if not isinstance(raw_markdown, dict) or raw_markdown.get("path") != path:
                 continue
             headings = raw_markdown.get("headings")
+            additive_headings = raw_markdown.get("additive_headings", [])
             keyed_tables = raw_markdown.get("keyed_tables", [])
             if not isinstance(headings, list) or not all(
                 isinstance(item, str) for item in headings
+            ) or not isinstance(additive_headings, list) or not all(
+                isinstance(item, str) for item in additive_headings
             ) or not isinstance(keyed_tables, list):
                 raise ReleaseError(f"invalid managed Markdown headings in {config_path}")
             before_managed, before_project = _managed_markdown_parts(
-                before, headings, keyed_tables
+                before, headings, additive_headings, keyed_tables
             )
             current_managed, current_project = _managed_markdown_parts(
-                current, headings, keyed_tables
+                current, headings, additive_headings, keyed_tables
             )
             return (
                 config_path,

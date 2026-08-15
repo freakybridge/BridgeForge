@@ -303,11 +303,13 @@ REFRESHED
   稳定身份 merge、manifest 受管 refresh、无冲突 map projection、验证与 finalization。
 - `risk`：有精确 source/target/hash/影响/回滚边界的移动、删除、首次 native memories enable、
   public→private 或无法从项目事实确定且会改变结果的 init/adopt 参数。
-- `absorption`：whole-file 无历史 hash，但 schema v2 已逐资产登记可信 Markdown 受管区块；
-  普通受管标题允许上游替换该区块；显式 `keyed_tables` 只允许按稳定键合并，同键差异才
-  生成 U，下游独有行必须保留。
-- `gap`：无可信受管区块、低置信分类、目标冲突、map 损坏、来源不可信。gap 必须保留
+- `absorption`：whole-file 无历史 hash，但 schema v2 已逐资产登记可信 keyed-table 行；
+  只允许按稳定键合并，同键差异才生成 U，下游独有行必须保留。
+- `gap`：普通受管标题缺失或发生本地漂移、无可信受管区块、低置信分类、目标冲突、map
+  损坏、来源不可信。gap 必须保留
   原样，不得进入执行选集，也不得再次询问。
+- `additive`：只有 `managed_blocks.additive_headings` 显式登记且目标缺失的独立通用章节可
+  作为 safe 按上游顺序追加；已存在但漂移时保留为 gap。
 
 对所有 planner 输出做确定性排序与 canonical JSON 序列化，计算单一
 `aggregate_fingerprint=sha256:<64hex>`。没有 R/C/U 时直接执行 safe，业务确认次数为 0。
@@ -323,8 +325,8 @@ Git ignored `__pycache__` / `.pyc` 只能是 `C` 类 advisory，禁止单独降�
 程序必须同时给出推荐清单和全部可执行项，然后只展示一张卡、只接受一次业务决定：
 
 ```text
-⚠️ A 为激进模式：普通受管区块以上游为准；keyed table 只覆盖同键冲突行，下游独有行
-会保留；事务失败会回滚，但验证通过不代表本地业务语义完全保留。
+⚠️ A 为激进模式：只吸收逐项列明的可信冲突；普通 Markdown 标题的本地内容不会因 A 被
+覆盖，keyed table 只覆盖同键冲突行，下游独有行会保留；事务失败会回滚。
 
 A. 激进更新：执行全部 R/C/U，并默认吸收全部 U 项
 B. 温和更新：同一回复携带编号及可选逐项要求，例如 B：R1、U2；U3 只吸收 hooks 规则
@@ -385,7 +387,7 @@ BridgeForge 下沉时按业务专属性分层：
 | 上游项目 hooks/scripts | 与已知旧模板一致时 safe fast-forward；人工修改或无历史 hash 时保留为 gap |
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
-| rules、入口文件 | 普通受管标题按区块生成 U；规则/目录索引按 schema v2 `keyed_tables` 稳定键 merge，同键冲突才生成 U，下游独有行保留；无可信边界则 gap |
+| rules、入口文件 | 已发布整文件 hash 可 safe fast-forward；普通标题的本地漂移/缺失保留为 gap；只有显式 `additive_headings` 缺失时 safe 追加；规则/目录索引按 `keyed_tables` 稳定键 merge，同键冲突才生成 U，下游独有行保留；`seed` 既有文件绝不覆盖 |
 | memory | `MEMORY.md` 仅作首次 seed，既有索引属于项目生成数据；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
 | `doc/` | 新项目按事实推导布局；已有项目迁移清单进入唯一 risk 卡 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
@@ -394,15 +396,16 @@ BridgeForge 下沉时按业务专属性分层：
 
 ## 通用危险红线
 
-- 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill；受管区块覆盖必须逐文件
-  列入唯一 A/B/C 卡并显示激进模式警告。
+- 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill；普通 Markdown 标题的本地
+  漂移必须保留为 gap，keyed-table 同键覆盖必须逐文件列入唯一 A/B/C 卡并显示激进模式警告。
 - 禁止静默删除人工修改内容；确定性删除只能进入唯一 risk 卡，未知项保留为 gap。
 - 禁止代编架构红线、快速命令和项目结构。
 - 禁止跳过 doc 分层、Python 硬依赖或项目 memory 的 context/router；Claude junction 规则保持不变。
 - 禁止在 BridgeForge 源头仓库自身运行 bootstrap/update/adopt/switch。
 - 禁止自动 `git commit` / `git push`；真实 switch 同样只改工作区。
-- 禁止在未解决冲突、未完成验证时写新版本戳；update 只能由
-  `bridgeforge_project_finalize.py` 在 memory schema 与严格配置体检均通过后写戳。
+- 禁止在未解决冲突、未完成验证时写新版本戳；Codex 只能由
+  `bridgeforge_project_sync.py` 在同一事务全部验证通过后最后写戳；Claude 兼容路径仍由
+  `bridgeforge_project_finalize.py` 写戳。
 - 禁止预建空 memory 分类目录；禁止创建 `memory/_archive/`，完成的 topic
   memory 只由索引降温并保留原路径。
 - 禁止把 Claude 与 Codex 的用户级目录、memory 机制或 settings 混用。
@@ -417,7 +420,7 @@ BridgeForge 下沉时按业务专属性分层：
 | switch | 脚本真实调用与退出码；target/current-host 匹配；source hash 前后不变；目标 map 路径与确定性内容；目标原生 projection；未原样复制宿主专属资产；`status` / `readiness` / gaps / conflicts；旧根 `.bridgeforge/` 未读写删；可捕获异常回滚或硬中断后的保守冲突 |
 | init | 复制/merge 清单；memory 初始仅含 `MEMORY.md`；OPTIONAL 残留检查；snapshot smoke test；Codex context/router 或 Claude junction；版本戳 |
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
-| update | 版本区间与 `[product]`；A-F 分类；上游规范 memory plan / 用户确认 / apply 状态；hook smoke test；finalizer 收据或保留旧戳的 gaps；git diff |
+| update | 版本区间与 `[product]`；A-F 分类；上游规范 memory plan / 用户确认 / apply 状态；hook smoke test；Codex project-sync 或 Claude finalizer 收据；存在 gaps 时保留旧戳；git diff |
 | 用户级 skill 更新 | updater 退出码；目标 commit；Codex/Claude 托管账本结果；第三方 skill 未触碰 |
 | `.agents` 迁移 | 当前项目 dry-run、plan fingerprint、唯一卡决定、apply 退出码、未知内容保留 gap |
 | 统一确认 | safe/risk/gap 数量；aggregate fingerprint；业务确认次数 0 或 1；`status` / `readiness` / gaps |

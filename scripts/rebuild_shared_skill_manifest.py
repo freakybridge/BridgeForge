@@ -162,13 +162,20 @@ def rebuild_managed_contract(
         if managed is None:
             continue
         headings = managed.get("headings") if isinstance(managed, dict) else None
+        additive_headings = (
+            managed.get("additive_headings", []) if isinstance(managed, dict) else None
+        )
         keyed_tables = managed.get("keyed_tables", []) if isinstance(managed, dict) else None
         if (
             not isinstance(managed, dict)
             or managed.get("format") != "markdown-headings"
             or not isinstance(headings, list)
+            or not isinstance(additive_headings, list)
+            or any(not isinstance(item, str) or not item for item in additive_headings)
+            or len(set(additive_headings)) != len(additive_headings)
             or not isinstance(keyed_tables, list)
-            or (not headings and not keyed_tables)
+            or (not headings and not additive_headings and not keyed_tables)
+            or set(headings).intersection(additive_headings)
         ):
             raise ValueError("Codex managed Markdown ownership is invalid")
         seen_table_headings: set[str] = set()
@@ -181,6 +188,7 @@ def rebuild_managed_contract(
                 not isinstance(heading, str)
                 or heading in seen_table_headings
                 or heading in headings
+                or heading in additive_headings
                 or table.get("key_column") != 0
                 or not isinstance(managed_keys, list)
                 or not managed_keys

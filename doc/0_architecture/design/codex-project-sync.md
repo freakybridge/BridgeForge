@@ -70,8 +70,8 @@ receipt 同时输出：
 
 - `safe`：缺失资产创建、已发布历史 hash fast-forward、显式 region 更新、只增不删 JSON merge。
 - `risk`：已知受管历史副本的删除，以及明确/高置信 memory 归位。全轮只允许一次接受或拒绝。
-- `absorption`：未知 whole-file hash 但 schema v2 已为该资产登记可信 Markdown 标题区块；A
-  在区块内上游优先，区块外项目内容逐字保留。
+- `absorption`：未知 whole-file hash 但 schema v2 已为该资产登记可信 keyed-table 稳定键；A
+  只替换逐项列明的同键冲突行，下游独有行保留。
 - `gap`：无可信区块、JSON 冲突、ambiguous memory、非普通文件或 ownership 不足。原样保留，收据降级。
 - `blocker`：版本低于 `0.86.0`、版本倒退、路径逃逸/reparse、contract 损坏、验证器不可用。
 
@@ -82,7 +82,8 @@ receipt 同时输出：
 | strategy | 所有权语义 |
 |---|---|
 | `whole` | 仅当前 hash 或已发布历史 hash 可自动替换 |
-| `whole` + `managed_blocks` | 未知 whole-file hash 可生成 U 项；只替换逐资产登记的 Markdown 标题区块 |
+| `whole` + `managed_blocks.headings` | 已发布整文件 hash 可 fast-forward；未知 hash 下普通标题缺失或漂移均保留为 gap |
+| `whole` + `managed_blocks.additive_headings` | 仅目标缺失时按上游顺序 safe 追加；已存在但漂移时保留为 gap |
 | `whole` + `managed_blocks.keyed_tables` | 以显式 `managed_keys` 合并登记表格；缺失官方键 safe 加入、同键差异生成 U、下游独有键保留 |
 | `merge` | 只补缺失受管值；冲突字段保留为 gap |
 | `region` | 只替换唯一 marker 区域；区域外逐字节保留 |
@@ -91,11 +92,17 @@ receipt 同时输出：
 
 禁止 glob ownership。版本戳只参与兼容边界判断，不作为覆盖证据。
 
-`managed_blocks.headings` 与 `managed_blocks.keyed_tables` 必须互斥。前者用于 BridgeForge
-规范正文，A 可让上游赢得整个标题区块；后者只用于规则索引、目录索引等具有稳定首列身份
-的表格。keyed table 只接受精确标题、`key_column=0` 和显式 `managed_keys`：上游缺失键
+`managed_blocks.headings`、`managed_blocks.additive_headings` 与
+`managed_blocks.keyed_tables[].heading` 必须互斥。普通 headings 只用于识别可信边界，未知
+whole-file hash 下不得由 A 覆盖；additive 只登记缺失时可独立追加的通用章节；keyed table
+只用于规则索引、目录索引等具有稳定首列身份的表格。keyed table 只接受精确标题、
+`key_column=0` 和显式 `managed_keys`：上游缺失键
 作为 safe insert，同键异值才成为 U，下游非 managed key 始终保留。重复键、多个候选表格、
 损坏表头或列数不一致时保持原文件并进入 gap，禁止模糊匹配。
+
+Markdown 标题扫描必须忽略反引号/波浪线 fenced code 内的 ATX 标题，并对未闭合 fence
+fail-closed。apply 在写版本戳前验证本轮修改 Markdown 的 fence、登记标题唯一性与显式顺序；
+失败必须回滚。`seed` 资产在 update 事务前后逐字节核验，既有项目内容不得变化。
 
 当前上游未再列出的旧键不等于可删除项；没有显式 retirement key 与历史行证据时按下游行
 保留。version-release 使用同一键集合拆分 managed/project ownership，项目独有行的日常维护
@@ -111,7 +118,7 @@ receipt 同时输出：
 - memory 迁移计划只接受 canonical auditor 的 `explicit` / `high-confidence` 动作并统一列为 risk；ambiguous 结果保留为 gap。
 - 验证器必须从 command bundle canonical 模板执行，禁止信任被下游修改的目标 hook 自证通过。
 - memory tree 在迁移前纳入事务快照；迁移后任一验证或写戳失败必须恢复路径与字节。
-- 仅 `readiness=ready` 时写 `.codex/.bridgeforge_version`，且必须是最后一次写入；存在 gap 或拒绝 risk 时保留旧戳/无戳。
+- 仅 `readiness=ready` 且版本戳确需变化时写 `.codex/.bridgeforge_version`，且必须是最后一次写入；存在 gap 或拒绝 risk 时保留旧戳/无戳；当前版本 no-op 不重写版本戳。
 
 ## 性能路径
 

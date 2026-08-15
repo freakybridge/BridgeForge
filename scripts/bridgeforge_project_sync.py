@@ -607,6 +607,7 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                     f"asset {asset_id!r} managed_blocks has an invalid format"
                 )
             headings = managed_blocks.get("headings")
+            additive_headings = managed_blocks.get("additive_headings", [])
             if (
                 not isinstance(headings, list)
                 or any(
@@ -618,6 +619,18 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             ):
                 raise SyncBlocked(
                     f"asset {asset_id!r} managed_blocks headings are invalid"
+                )
+            if (
+                not isinstance(additive_headings, list)
+                or any(
+                    not isinstance(heading, str)
+                    or not re.fullmatch(r"#{1,6} [^\r\n]+", heading)
+                    for heading in additive_headings
+                )
+                or len(set(additive_headings)) != len(additive_headings)
+            ):
+                raise SyncBlocked(
+                    f"asset {asset_id!r} additive managed headings are invalid"
                 )
             keyed_tables = managed_blocks.get("keyed_tables", [])
             if not isinstance(keyed_tables, list):
@@ -648,9 +661,11 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                     )
                 keyed_headings.append(heading)
             if (
-                not headings and not keyed_tables
+                not headings and not additive_headings and not keyed_tables
                 or len(set(keyed_headings)) != len(keyed_headings)
                 or set(headings).intersection(keyed_headings)
+                or set(additive_headings).intersection(keyed_headings)
+                or set(headings).intersection(additive_headings)
             ):
                 raise SyncBlocked(
                     f"asset {asset_id!r} managed block ownership overlaps or is empty"
@@ -674,8 +689,11 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                 raise SyncBlocked(f"asset {asset_id!r} current hash is stale")
             if managed_blocks is not None:
                 headings = tuple(str(item) for item in managed_blocks.get("headings", []))
+                additive_headings = tuple(
+                    str(item) for item in managed_blocks.get("additive_headings", [])
+                )
                 keyed_tables = tuple(managed_blocks.get("keyed_tables", []))
-                registered = headings + tuple(
+                registered = headings + additive_headings + tuple(
                     str(item["heading"])
                     for item in keyed_tables
                 )
@@ -754,21 +772,50 @@ def _markdown_heading_sections(
         offsets.append(cursor)
         cursor += len(line)
     matches: dict[str, list[tuple[int, int]]] = {heading: [] for heading in headings}
-    heading_re = re.compile(br"^(#{1,6}) [^\r\n]+$")
+    heading_re = re.compile(br"^ {0,3}(#{1,6}) [^\r\n]+$")
+    fence_open_re = re.compile(br"^ {0,3}(`{3,}|~{3,})[^\r\n]*$")
+    visible_headings: list[tuple[int, int, int, bytes]] = []
+    fence_char: bytes | None = None
+    fence_length = 0
     for index, line in enumerate(lines):
         stripped = line.rstrip(b"\r\n")
-        heading = configured.get(stripped)
+        if fence_char is not None:
+            close = re.fullmatch(
+                br" {0,3}"
+                + re.escape(fence_char)
+                + br"{"
+                + str(fence_length).encode("ascii")
+                + br",}[ \t]*",
+                stripped,
+            )
+            if close:
+                fence_char = None
+                fence_length = 0
+            continue
+        fence = fence_open_re.fullmatch(stripped)
+        if fence:
+            marker = fence.group(1)
+            fence_char = marker[:1]
+            fence_length = len(marker)
+            continue
+        match = heading_re.fullmatch(stripped)
+        if match:
+            visible_headings.append(
+                (index, offsets[index], len(match.group(1)), stripped.lstrip(b" "))
+            )
+    if fence_char is not None:
+        raise SyncBlocked("managed Markdown contains an unclosed fenced code block")
+
+    for position, (_index, start, level, canonical) in enumerate(visible_headings):
+        heading = configured.get(canonical)
         if heading is None:
             continue
-        level = len(stripped) - len(stripped.lstrip(b"#"))
         finish = len(payload)
-        for later in range(index + 1, len(lines)):
-            candidate = lines[later].rstrip(b"\r\n")
-            match = heading_re.fullmatch(candidate)
-            if match and len(match.group(1)) <= level:
-                finish = offsets[later]
+        for _later_index, later_start, later_level, _later_heading in visible_headings[position + 1:]:
+            if later_level <= level:
+                finish = later_start
                 break
-        matches[heading].append((offsets[index], finish))
+        matches[heading].append((start, finish))
     duplicate = [heading for heading, spans in matches.items() if len(spans) > 1]
     if duplicate:
         raise SyncBlocked(
@@ -984,6 +1031,37 @@ def _append_managed_blocks(payload: bytes, blocks: list[bytes]) -> bytes:
     return payload + separator + rendered + b"\n"
 
 
+def _insert_managed_block_in_source_order(
+    before: bytes,
+    desired: bytes,
+    heading: str,
+    registered: tuple[str, ...],
+) -> bytes:
+    source_sections = _markdown_heading_sections(desired, registered)
+    target_sections = _markdown_heading_sections(before, registered)
+    source_span = source_sections.get(heading)
+    if source_span is None:
+        raise SyncBlocked(f"additive heading is missing from source: {heading}")
+    source_order = [
+        item
+        for item, _span in sorted(
+            source_sections.items(),
+            key=lambda entry: entry[1][0],
+        )
+    ]
+    position = source_order.index(heading)
+    for following in source_order[position + 1:]:
+        target_span = target_sections.get(following)
+        if target_span is None:
+            continue
+        block = _render_managed_block(
+            desired[slice(*source_span)],
+            terminal=False,
+        )
+        return before[:target_span[0]] + block + before[target_span[0]:]
+    return _append_managed_blocks(before, [desired[slice(*source_span)]])
+
+
 def _replace_heading_items(
     before: bytes,
     desired: bytes,
@@ -994,7 +1072,6 @@ def _replace_heading_items(
     desired_sections = _markdown_heading_sections(desired, headings)
     current_sections = _markdown_heading_sections(before, headings)
     replacements: list[tuple[int, int, bytes]] = []
-    appended: list[bytes] = []
     for heading in headings:
         desired_span = desired_sections.get(heading)
         if desired_span is None:
@@ -1003,8 +1080,9 @@ def _replace_heading_items(
         desired_block = desired[desired_start:desired_end]
         current_span = current_sections.get(heading)
         if current_span is None:
-            appended.append(desired_block)
-            continue
+            raise SyncBlocked(
+                f"selected replace-block heading is missing from target: {heading}"
+            )
         current_start, current_end = current_span
         replacements.append(
             (
@@ -1019,7 +1097,7 @@ def _replace_heading_items(
     after = before
     for start, finish, replacement in sorted(replacements, reverse=True):
         after = after[:start] + replacement + after[finish:]
-    return _append_managed_blocks(after, appended)
+    return after
 
 
 def _plan_managed_markdown_blocks(
@@ -1031,6 +1109,9 @@ def _plan_managed_markdown_blocks(
 ) -> tuple[list[Action], list[Gap]]:
     block_contract = asset.get("managed_blocks")
     headings = tuple(str(item) for item in block_contract.get("headings", []))
+    additive_headings = tuple(
+        str(item) for item in block_contract.get("additive_headings", [])
+    )
     keyed_tables = tuple(block_contract.get("keyed_tables", []))
     keyed_contracts = tuple(
         (
@@ -1039,7 +1120,11 @@ def _plan_managed_markdown_blocks(
         )
         for item in keyed_tables
     )
-    registered = headings + tuple(heading for heading, _keys in keyed_contracts)
+    registered = (
+        headings
+        + additive_headings
+        + tuple(heading for heading, _keys in keyed_contracts)
+    )
     try:
         source_sections = _markdown_heading_sections(desired, registered)
         target_sections = _markdown_heading_sections(before, registered)
@@ -1057,23 +1142,19 @@ def _plan_managed_markdown_blocks(
             f"asset {asset['id']!r} source is missing managed headings: "
             + ", ".join(missing_source)
         )
-    if not target_sections:
-        return [], [
-            Gap(
-                asset["id"],
-                asset["target"],
-                "managed block ownership is ambiguous: no registered heading exists",
-            )
-        ]
-
     safe_replacements: list[tuple[int, int, bytes]] = []
-    conflict_headings: list[str] = []
+    missing_additive: list[str] = []
+    ordinary_gaps: list[Gap] = []
     for heading in headings:
         source_start, source_end = source_sections[heading]
         source_block = desired[source_start:source_end]
         target_span = target_sections.get(heading)
         if target_span is None:
-            conflict_headings.append(heading)
+            ordinary_gaps.append(Gap(
+                asset["id"],
+                asset["target"],
+                f"ordinary managed heading is missing; original file preserved: {heading}",
+            ))
             continue
         target_start, target_end = target_span
         target_block = before[target_start:target_end]
@@ -1092,29 +1173,66 @@ def _plan_managed_markdown_blocks(
         if same_content:
             safe_replacements.append((target_start, target_end, rendered))
         else:
-            conflict_headings.append(heading)
+            ordinary_gaps.append(Gap(
+                asset["id"],
+                asset["target"],
+                f"ordinary managed heading drifted; local content preserved: {heading}",
+            ))
+
+    for heading in additive_headings:
+        source_start, source_end = source_sections[heading]
+        source_block = desired[source_start:source_end]
+        target_span = target_sections.get(heading)
+        if target_span is None:
+            missing_additive.append(heading)
+            continue
+        target_start, target_end = target_span
+        target_block = before[target_start:target_end]
+        same_content = (
+            _normalized_managed_block(target_block)
+            == _normalized_managed_block(source_block)
+        )
+        if same_content:
+            rendered = _render_managed_block(
+                source_block,
+                terminal=target_end == len(before),
+            )
+            if _git_blob_bytes(target_block) != rendered:
+                safe_replacements.append((target_start, target_end, rendered))
+        else:
+            ordinary_gaps.append(Gap(
+                asset["id"],
+                asset["target"],
+                f"additive managed heading already exists with local drift; preserved: {heading}",
+            ))
 
     safe_after = before
     keyed_safe_changed = False
     for start, finish, replacement in sorted(safe_replacements, reverse=True):
         safe_after = safe_after[:start] + replacement + safe_after[finish:]
-    all_after = _replace_heading_items(
-        safe_after,
-        desired,
-        tuple(conflict_headings),
-    )
+    for heading in sorted(
+        missing_additive,
+        key=lambda item: source_sections[item][0],
+    ):
+        safe_after = _insert_managed_block_in_source_order(
+            safe_after,
+            desired,
+            heading,
+            registered,
+        )
+    all_after = safe_after
 
-    item_labels: list[str] = list(conflict_headings)
+    item_labels: list[str] = []
     item_details: list[tuple[str, str, str, str]] = []
     try:
         for heading, managed_keys in keyed_contracts:
             current_sections = _markdown_heading_sections(safe_after, (heading,))
             if heading not in current_sections:
-                source_start, source_end = source_sections[heading]
-                source_block = desired[source_start:source_end]
-                safe_after = _append_managed_blocks(safe_after, [source_block])
-                all_after = _append_managed_blocks(all_after, [source_block])
-                keyed_safe_changed = True
+                ordinary_gaps.append(Gap(
+                    asset["id"],
+                    asset["target"],
+                    f"managed keyed-table heading is missing; original file preserved: {heading}",
+                ))
                 continue
             before_safe_merge = safe_after
             safe_after, _missing, conflicts = _merge_keyed_table(
@@ -1187,7 +1305,7 @@ def _plan_managed_markdown_blocks(
                 "same-key conflicts and preserve downstream-only rows"
             ),
         ))
-    return actions, []
+    return actions, ordinary_gaps
 
 
 def _plan_whole(
@@ -1613,6 +1731,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     minimum = _semver(str(contract["minimum_supported_version"]), "minimum supported version")
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
     previous_version = stamp.read_text(encoding="utf-8-sig").strip() if stamp.is_file() else None
+    previous_semver: tuple[int, int, int] | None = None
     blockers: list[str] = []
     if selected_mode == "update" and previous_version is None:
         blockers.append("update mode requires an existing .codex/.bridgeforge_version")
@@ -1655,6 +1774,55 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 asset_actions, asset_gaps = _plan_region(asset, source, target, root)
         actions.extend(asset_actions)
         gaps.extend(asset_gaps)
+    structural_gap_targets = sorted({
+        gap.target
+        for gap in gaps
+        if gap.target.startswith(".codex/rules/")
+        or "seed" in gap.reason.casefold()
+    })
+    existing_rule_seed_targets: list[str] = []
+    for asset in contract["assets"]:
+        if not isinstance(asset, dict) or asset.get("strategy") != "seed":
+            continue
+        seed_target_relative = str(asset.get("target", ""))
+        if not seed_target_relative.startswith(".codex/rules/"):
+            continue
+        seed_target = _inside(
+            root,
+            seed_target_relative,
+            f"seed asset {asset['id']} target",
+        )
+        if seed_target.is_file() and not _is_reparse(seed_target):
+            existing_rule_seed_targets.append(seed_target_relative)
+    existing_rule_seed_targets.sort()
+    if (
+        selected_mode == "update"
+        and previous_semver is not None
+        and previous_semver < current_semver
+        and structural_gap_targets
+    ):
+        current_assets_present: list[str] = []
+        for asset in contract["assets"]:
+            if not isinstance(asset, dict) or asset.get("strategy") == "retirement":
+                continue
+            target = _inside(root, str(asset["target"]), f"asset {asset['id']} target")
+            if not target.is_file() or _is_reparse(target):
+                continue
+            source_path = _inside(template, str(asset["source"]), f"asset {asset['id']} source")
+            desired = _render_source(source_path.read_bytes(), asset, root)
+            if _target_hash(target.read_bytes(), asset, root) == _target_hash(desired, asset, root):
+                current_assets_present.append(str(asset["target"]))
+        if current_assets_present:
+            recovery_targets = sorted(
+                set(structural_gap_targets) | set(existing_rule_seed_targets)
+            )
+            gaps.append(Gap(
+                "codex.partial-upgrade-advisory",
+                str(contract["stamp"]),
+                "suspected partial prior upgrade; version stamp is blocked and no Git recovery was attempted; "
+                "compare these targets with a trusted pre-upgrade snapshot and restore if needed: "
+                + ", ".join(recovery_targets),
+            ))
     memory_actions, memory_gaps = _plan_memory_schema(root, template)
     actions.extend(memory_actions)
     gaps.extend(memory_gaps)
@@ -1904,6 +2072,96 @@ def _verify_actions(project_root: Path, actions: Iterable[Action]) -> None:
                 raise SyncBlocked(f"managed asset verification failed: {action.target}")
 
 
+def _validate_changed_markdown(
+    project_root: Path,
+    template_root: Path,
+    contract: dict[str, Any],
+    changed_targets: set[str],
+) -> None:
+    assets = {
+        str(asset["target"]): asset
+        for asset in contract["assets"]
+        if isinstance(asset, dict) and isinstance(asset.get("target"), str)
+    }
+    for relative in sorted(changed_targets):
+        if not relative.casefold().endswith(".md"):
+            continue
+        target = _inside(project_root, relative, "Markdown validation target")
+        if not target.exists():
+            continue
+        payload = target.read_bytes()
+        # Empty configuration still performs the fail-closed fence scan.
+        _markdown_heading_sections(payload, ())
+        asset = assets.get(relative)
+        managed = asset.get("managed_blocks") if isinstance(asset, dict) else None
+        if not isinstance(managed, dict):
+            continue
+        headings = tuple(str(item) for item in managed.get("headings", []))
+        additive = tuple(str(item) for item in managed.get("additive_headings", []))
+        keyed = tuple(
+            str(item["heading"])
+            for item in managed.get("keyed_tables", [])
+        )
+        registered = headings + additive + keyed
+        target_sections = _markdown_heading_sections(payload, registered)
+        source_path = _inside(
+            template_root,
+            str(asset["source"]),
+            f"asset {asset['id']} Markdown validation source",
+        )
+        source_payload = _render_source(source_path.read_bytes(), asset, project_root)
+        source_sections = _markdown_heading_sections(source_payload, registered)
+        expected_order = [
+            heading
+            for heading, _span in sorted(
+                source_sections.items(),
+                key=lambda item: item[1][0],
+            )
+            if heading in target_sections
+        ]
+        actual_order = [
+            heading
+            for heading, _span in sorted(
+                target_sections.items(),
+                key=lambda item: item[1][0],
+            )
+        ]
+        if actual_order != expected_order:
+            raise SyncBlocked(
+                f"managed Markdown headings are out of explicit source order: {relative}"
+            )
+        for table in managed.get("keyed_tables", []):
+            heading = str(table["heading"])
+            if heading in target_sections:
+                _parse_keyed_table(payload, heading)
+
+
+def _seed_snapshots(
+    project_root: Path,
+    contract: dict[str, Any],
+) -> dict[Path, bytes]:
+    snapshots: dict[Path, bytes] = {}
+    for asset in contract["assets"]:
+        if not isinstance(asset, dict) or asset.get("strategy") != "seed":
+            continue
+        target = _inside(
+            project_root,
+            str(asset["target"]),
+            f"seed asset {asset['id']}",
+        )
+        if target.is_file() and not _is_reparse(target):
+            snapshots[target] = target.read_bytes()
+    return snapshots
+
+
+def _verify_seed_snapshots(snapshots: dict[Path, bytes]) -> None:
+    changed = [str(path) for path, payload in snapshots.items() if not path.is_file() or path.read_bytes() != payload]
+    if changed:
+        raise SyncBlocked(
+            "project-owned seed changed during update: " + ", ".join(changed)
+        )
+
+
 def _materialize_selected_actions(
     project_root: Path,
     entries: list[CatalogEntry],
@@ -2095,6 +2353,7 @@ def _apply_rebuilt_plan(
 
     contract, _contract_path = load_contract(Path(rebuilt.template_root))
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
+    seed_before = _seed_snapshots(root, contract)
     transaction = _Transaction(root)
     stamp_written = False
     try:
@@ -2140,6 +2399,18 @@ def _apply_rebuilt_plan(
             1,
         )
         _verify_actions(root, selected)
+        changed_targets = {
+            action.target
+            for action in selected
+            if action.action != "memory-organize"
+        }
+        _validate_changed_markdown(
+            root,
+            Path(rebuilt.template_root),
+            contract,
+            changed_targets,
+        )
+        _verify_seed_snapshots(seed_before)
         if checkpoint:
             checkpoint("before-validate")
         validation_started = time.perf_counter()
@@ -2150,11 +2421,7 @@ def _apply_rebuilt_plan(
                 any(item.asset_id == MEMORY_ACTION_ID for item in rebuilt.gaps)
                 or MEMORY_ACTION_ID in risk_declined
             ),
-            changed_targets=tuple(sorted({
-                action.target
-                for action in selected
-                if action.action != "memory-organize"
-            })),
+            changed_targets=tuple(sorted(changed_targets)),
         ))
         timings["validation_wall"] = round(
             (time.perf_counter() - validation_started) * 1000,
@@ -2162,8 +2429,14 @@ def _apply_rebuilt_plan(
         )
         if checkpoint:
             checkpoint("before-stamp")
-        if not rebuilt.gaps and not declined_executable:
-            transaction.write(stamp, (rebuilt.current_version + "\n").encode("utf-8"))
+        _verify_seed_snapshots(seed_before)
+        expected_stamp = (rebuilt.current_version + "\n").encode("utf-8")
+        if (
+            not rebuilt.gaps
+            and not declined_executable
+            and (not stamp.is_file() or stamp.read_bytes() != expected_stamp)
+        ):
+            transaction.write(stamp, expected_stamp)
             stamp_written = True
             if checkpoint:
                 checkpoint("after-stamp")
@@ -2371,9 +2644,9 @@ def _plan_payload(
             {
                 "business_confirmation_count": "one",
                 "warning": (
-                    "A 为激进模式（aggressive）：普通受管区块以上游为准；keyed table 只覆盖同键冲突行，"
-                    "下游独有行会保留；"
-                    "事务失败会回滚，但验证通过不代表本地业务语义完全保留。"
+                    "A 为激进模式（aggressive）：只吸收逐项列明的可信冲突；普通 Markdown "
+                    "标题的本地内容不会因 A 被覆盖；keyed table 只覆盖同键冲突行，下游独有行"
+                    "会保留；事务失败会回滚。"
                 ),
                 "all": selected_ids,
                 "partial_syntax": "B: R1,U2; U3 only absorb the named managed block",

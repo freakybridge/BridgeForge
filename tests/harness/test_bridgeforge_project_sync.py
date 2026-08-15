@@ -89,6 +89,17 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             active["managed_blocks"]["keyed_tables"][0]["heading"],
             "## 2. 规则文件索引",
         )
+        self.assertIn(
+            "## 8.5 自改审计独立性（红线）",
+            active["managed_blocks"]["additive_headings"],
+        )
+        architecture = next(
+            item
+            for item in contract["assets"]
+            if item["id"] == "codex.rule.architecture"
+        )
+        self.assertEqual(architecture["strategy"], "seed")
+        self.assertNotIn("managed_blocks", architecture)
         retired = next(
             item
             for item in contract["assets"]
@@ -112,6 +123,8 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.91.1",
             "0.93.0",
             "0.94.0",
+            "0.94.1",
+            "0.94.2",
             "0.92.0",
             "0.92.1",
         }
@@ -227,151 +240,79 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.90.0\n")
         self.assertEqual(target.read_bytes(), before)
 
-    def test_aggressive_absorption_lists_conflict_and_replaces_only_managed_blocks(self) -> None:
+    def test_architecture_seed_and_customized_rule_are_preserved_under_aggressive_mode(self) -> None:
         project = self.make_project()
         self.apply_init(project)
-        target = project / ".codex/rules/architecture.md"
-        canonical = target.read_text(encoding="utf-8")
-        customized = canonical.replace(
-            "## 1. 职责边界\n",
-            "## 1. 职责边界\n\n本地区块定制，将被上游覆盖。\n",
-            1,
+        architecture = project / ".codex/rules/architecture.md"
+        architecture.write_text(
+            architecture.read_text(encoding="utf-8").replace(
+                "TODO：列出本项目各核心模块的职责边界。",
+                "Gateway 禁止承载风控；UI 禁止持有 Gateway。",
+            ).replace("## 2. 数据流方向", "## 2. 单向数据流"),
+            encoding="utf-8",
         )
-        customized = customized.replace(
-            "## 2. 数据流方向\n",
-            "## 2. 数据流方向\n\n本地数据流定制，B 模式必须保留。\n",
-            1,
+        architecture_before = architecture.read_bytes()
+        anti_drift = project / ".codex/rules/anti_drift_hooks.md"
+        anti_drift.write_text(
+            anti_drift.read_text(encoding="utf-8").replace(
+                "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）\n",
+                "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）\n\n项目增强：禁止丢失。\n",
+                1,
+            ),
+            encoding="utf-8",
         )
-        customized += "\n## 项目专属规则\n\n此区块必须保留。\n"
-        target.write_text(customized, encoding="utf-8")
-        before = target.read_bytes()
+        anti_drift_before = anti_drift.read_bytes()
         stamp = project / ".codex/.bridgeforge_version"
         stamp.write_text("0.90.0\n", encoding="utf-8")
 
         plan = sync.build_plan(project, ROOT, "update")
-        absorption = next(
-            item
-            for item in plan.absorption_actions
-            if item.asset_id == "codex.rule.architecture"
-        )
-        self.assertIn("## 1. 职责边界", absorption.managed_blocks)
-        payload = sync._plan_payload(plan)
-        self.assertEqual(
-            [item["id"] for item in payload["upstream_absorption_actions"]],
-            ["U1", "U2"],
-        )
-        self.assertEqual(payload["conflict_file_items"][0]["target"], ".codex/rules/architecture.md")
-        self.assertIn("aggressive", payload["confirmation"]["warning"])
-        self.assertEqual(payload["confirmation"]["all"], ["U1", "U2"])
-        self.assertIn(
-            "执行全部 safe；不执行任何 R/C/U",
-            payload["confirmation"]["options"][2]["text"],
-        )
-        self.assertTrue(
-            payload["confirmation"]["rendering_contract"][
-                "must_expand_every_conflict"
-            ]
-        )
-        self.assertEqual(
-            payload["conflict_file_groups"][0]["items"][0]["id"],
-            "U1",
-        )
-
-        declined = sync.apply_plan(
+        receipt = sync.apply_plan(
             plan,
             plan_fingerprint=plan.aggregate_fingerprint,
-            decline_risk=True,
-        )
-        self.assertEqual(declined.upstream_absorption_declined, ("U1", "U2"))
-        self.assertEqual(target.read_bytes(), before)
-        self.assertFalse(declined.stamp_written_last)
-
-        selected = sync.build_plan(project, ROOT, "update")
-        with self.assertRaisesRegex(
-            sync.SyncBlocked,
-            "does not name a selected U ID",
-        ):
-            sync.apply_plan(
-                selected,
-                plan_fingerprint=selected.aggregate_fingerprint,
-                selected_risk_ids=("U1",),
-                custom_absorption_directives=("U2：采用另一个区块",),
-            )
-        self.assertEqual(target.read_bytes(), before)
-
-        with self.assertRaisesRegex(
-            sync.SyncBlocked,
-            "ambiguous or unsupported",
-        ):
-            sync.apply_plan(
-                selected,
-                plan_fingerprint=selected.aggregate_fingerprint,
-                selected_risk_ids=("U1",),
-                custom_absorption_directives=(
-                    "U1：只吸收 hooks 规则，同时保留模型配置",
-                ),
-            )
-        self.assertEqual(target.read_bytes(), before)
-
-        preserved = sync.apply_plan(
-            selected,
-            plan_fingerprint=selected.aggregate_fingerprint,
-            selected_risk_ids=("U1",),
-            custom_absorption_directives=("U1：保留本地内容，禁止吸收上游",),
-        )
-        self.assertEqual(target.read_bytes(), before)
-        self.assertEqual(preserved.selected_absorption_ids, ())
-        self.assertEqual(preserved.selected_action_ids, ())
-        self.assertEqual(
-            preserved.upstream_absorption_declined,
-            ("U1", "U2"),
-        )
-        self.assertEqual(
-            [item["id"] for item in preserved.conflict_file_items],
-            ["U1", "U2"],
-        )
-        self.assertEqual(
-            [item["effect"] for item in preserved.managed_block_effects],
-            ["preserved_local", "preserved_local"],
-        )
-
-        receipt = sync.apply_plan(
-            selected,
-            plan_fingerprint=selected.aggregate_fingerprint,
-            selected_risk_ids=("U1",),
-            custom_absorption_directives=("U1：采用上游受管区块",),
-        )
-        result = target.read_text(encoding="utf-8")
-        self.assertNotIn("本地区块定制，将被上游覆盖", result)
-        self.assertIn("本地数据流定制，B 模式必须保留", result)
-        self.assertIn("## 项目专属规则\n\n此区块必须保留。", result)
-        self.assertEqual(receipt.upstream_absorption_applied, ("codex.rule.architecture",))
-        self.assertEqual(receipt.upstream_absorption_declined, ("U2",))
-        self.assertEqual(receipt.selected_absorption_ids, ("U1",))
-        self.assertEqual(receipt.selected_action_ids, ("U1",))
-        self.assertEqual(receipt.custom_absorption_directives, ("U1：采用上游受管区块",))
-        self.assertEqual(
-            [item["id"] for item in receipt.conflict_file_items],
-            ["U1", "U2"],
-        )
-        self.assertEqual(
-            [item["effect"] for item in receipt.managed_block_effects],
-            ["absorbed_upstream", "preserved_local"],
-        )
-        self.assertEqual([item["id"] for item in receipt.required_actions], ["U2"])
-        self.assertFalse(receipt.stamp_written_last)
-
-        remaining = sync.build_plan(project, ROOT, "update")
-        completed = sync.apply_plan(
-            remaining,
-            plan_fingerprint=remaining.aggregate_fingerprint,
             confirmed_risk=True,
         )
-        self.assertTrue(completed.stamp_written_last)
-        self.assertNotIn(
-            "本地数据流定制，B 模式必须保留",
-            target.read_text(encoding="utf-8"),
+        self.assertEqual(architecture.read_bytes(), architecture_before)
+        self.assertEqual(anti_drift.read_bytes(), anti_drift_before)
+        self.assertTrue(any(
+            gap.asset_id == "codex.rule.anti-drift-hooks"
+            and "local content preserved" in gap.reason
+            for gap in plan.gaps
+        ))
+        self.assertFalse(any(
+            action.asset_id == "codex.rule.architecture"
+            for action in plan.actions
+        ))
+        self.assertFalse(receipt.stamp_written_last)
+
+    def test_partial_upgrade_advisory_includes_architecture_seed_recovery(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        architecture = project / ".codex/rules/architecture.md"
+        architecture_before = architecture.read_bytes()
+        anti_drift = project / ".codex/rules/anti_drift_hooks.md"
+        anti_drift.write_text(
+            anti_drift.read_text(encoding="utf-8").replace(
+                "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）",
+                "## 项目自定义 clarify",
+                1,
+            ),
+            encoding="utf-8",
         )
+        stamp = project / ".codex/.bridgeforge_version"
+        stamp.write_text("0.90.0\n", encoding="utf-8")
+
+        plan = sync.build_plan(project, ROOT, "update")
+        advisory = next(
+            gap
+            for gap in plan.gaps
+            if gap.asset_id == "codex.partial-upgrade-advisory"
+        )
+        self.assertIn("trusted pre-upgrade snapshot", advisory.reason)
+        self.assertIn(".codex/rules/architecture.md", advisory.reason)
+        receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        self.assertEqual(architecture.read_bytes(), architecture_before)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.90.0\n")
+        self.assertFalse(receipt.stamp_written_last)
 
     def test_keyed_rule_index_merges_without_deleting_project_rows(self) -> None:
         for decision in ("A", "B", "C"):
@@ -478,7 +419,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         result = target.read_text(encoding="utf-8")
         self.assertIn("rules/modules.md", result)
         self.assertIn("rules/local_only.md", result)
-        self.assertTrue(receipt.stamp_written_last)
+        self.assertFalse(receipt.stamp_written_last)
 
     def test_keyed_table_duplicate_key_is_preserved_as_gap(self) -> None:
         project = self.make_project()
@@ -608,7 +549,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         self.assertEqual(effect["managed_key"], "0_architecture/")
 
-    def test_missing_blocks_append_cleanly_and_094_boundary_is_safe_repaired(self) -> None:
+    def test_explicit_additive_blocks_append_cleanly(self) -> None:
         project = self.make_project()
         self.apply_init(project)
         contract = json.loads(
@@ -618,8 +559,6 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         missing_by_target = {
             "AGENTS.md": (
-                "## 0.5 专业表达风格",
-                "## 2.5 工具与证据红线",
                 "## 8.5 自改审计独立性（红线）",
                 "## 9.5 较大需求主动澄清 — `[clarify]`",
                 "## 9.6 任务防漂移 — `[focus]`",
@@ -634,7 +573,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             before = target.read_bytes()
             sections = sync._markdown_heading_sections(
                 before,
-                tuple(asset["managed_blocks"]["headings"]),
+                tuple(asset["managed_blocks"]["additive_headings"]),
             )
             for start, finish in sorted(
                 (sections[heading] for heading in missing),
@@ -689,19 +628,20 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
 
         agents = project / "AGENTS.md"
         agents.write_bytes(agents.read_bytes() + b"\n")
+        customized_boundary = agents.read_bytes()
         repair = sync.build_plan(project, ROOT, "update")
-        boundary = [
+        agents_actions = [
             item
-            for item in repair.safe_actions
-            if item.action == "normalize-managed-block-boundary"
+            for item in repair.safe_actions + repair.absorption_actions
+            if item.target == "AGENTS.md"
         ]
-        self.assertEqual([item.target for item in boundary], ["AGENTS.md"])
+        self.assertEqual(agents_actions, [])
         repaired = sync.apply_plan(
             repair,
             plan_fingerprint=repair.aggregate_fingerprint,
         )
-        self.assertTrue(repaired.stamp_written_last)
-        self.assertFalse(agents.read_bytes().endswith(b"\n\n"))
+        self.assertFalse(repaired.stamp_written_last)
+        self.assertEqual(agents.read_bytes(), customized_boundary)
 
     def test_managed_git_diff_failure_rolls_back_before_stamp(self) -> None:
         project = self.make_project()
@@ -726,23 +666,29 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             check=True,
             capture_output=True,
         )
-        target = project / ".codex/rules/architecture.md"
-        customized = target.read_text(encoding="utf-8").replace(
-            "## 1. 职责边界\n",
-            "## 1. 职责边界\n\nlocal customization\n",
-            1,
+        target = project / "AGENTS.md"
+        customized = target.read_text(encoding="utf-8")
+        modules_row = next(
+            line for line in customized.splitlines() if "`rules/modules.md`" in line
         )
         target.write_text(
-            customized + "\n## Project Owned\n\ninvalid blank at eof\n\n",
+            customized.replace(modules_row + "\n", "", 1)
+            + "\nproject trailing whitespace \n",
             encoding="utf-8",
         )
         before = target.read_bytes()
         plan = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(
+            any(
+                action.target == "AGENTS.md"
+                and action.action == "merge-managed-markdown-safe"
+                for action in plan.safe_actions
+            )
+        )
         with self.assertRaisesRegex(sync.SyncBlocked, "rolled back: managed git diff check"):
             sync.apply_plan(
                 plan,
                 plan_fingerprint=plan.aggregate_fingerprint,
-                confirmed_risk=True,
             )
         self.assertEqual(target.read_bytes(), before)
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.93.0\n")
@@ -750,31 +696,79 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
     def test_ambiguous_managed_block_boundary_remains_manual_and_unwritten(self) -> None:
         project = self.make_project()
         self.apply_init(project)
-        target = project / ".codex/rules/architecture.md"
+        target = project / ".codex/rules/anti_drift_hooks.md"
         payload = target.read_text(encoding="utf-8").replace(
-            "## 1. 职责边界",
-            "## 项目自定义职责",
+            "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）",
+            "## 项目自定义 clarify",
             1,
         )
-        for heading in (
-            "## 2. 数据流方向",
-            "## 3. 关键链路完整性（红线）",
-            "## 4. 重写 / 移植期间的功能等价性（红线）",
-            "## 5. 模块组织约束",
-        ):
-            payload = payload.replace(heading, heading.replace("##", "###"), 1)
         target.write_text(payload, encoding="utf-8")
         before = target.read_bytes()
         plan = sync.build_plan(project, ROOT, "update")
         self.assertFalse(
-            any(item.asset_id == "codex.rule.architecture" for item in plan.absorption_actions)
+            any(item.asset_id == "codex.rule.anti-drift-hooks" for item in plan.absorption_actions)
         )
         self.assertTrue(
-            any(item.asset_id == "codex.rule.architecture" for item in plan.gaps)
+            any(
+                item.asset_id == "codex.rule.anti-drift-hooks"
+                and "ordinary managed heading is missing" in item.reason
+                for item in plan.gaps
+            )
         )
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(receipt.manual_steps[0]["category"], "manual")
         self.assertEqual(target.read_bytes(), before)
+
+    def test_heading_scanner_ignores_fenced_examples_and_fails_unclosed(self) -> None:
+        heading = "## 1. Managed"
+        payload = (
+            "# Rule\n\n## 1. Managed\n\n"
+            "```markdown\n## example\n```\n\n"
+            "   ~~~~text\n## another example\n   ~~~~\n\n"
+            "## 2. Next\n"
+        ).encode("utf-8")
+        sections = sync._markdown_heading_sections(payload, (heading,))
+        block = payload[slice(*sections[heading])]
+        self.assertIn(b"## example", block)
+        self.assertIn(b"## another example", block)
+        self.assertTrue(block.rstrip().endswith(b"~~~~"))
+        with self.assertRaisesRegex(sync.SyncBlocked, "unclosed fenced code block"):
+            sync._markdown_heading_sections(
+                b"## 1. Managed\n\n```markdown\n## example\n",
+                (heading,),
+            )
+
+    def test_markdown_structure_failure_rolls_back_before_stamp(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        agents = project / "AGENTS.md"
+        agents.write_text(
+            agents.read_text(encoding="utf-8").replace(
+                "## 8.5 自改审计独立性（红线）",
+                "## removed additive heading",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        before = agents.read_bytes()
+        stamp = project / ".codex/.bridgeforge_version"
+        stamp.write_text("0.93.0\n", encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        with mock.patch.object(
+            sync,
+            "_validate_changed_markdown",
+            side_effect=sync.SyncBlocked(
+                "managed Markdown contains an unclosed fenced code block"
+            ),
+        ):
+            with self.assertRaisesRegex(sync.SyncBlocked, "rolled back"):
+                sync.apply_plan(
+                    plan,
+                    plan_fingerprint=plan.aggregate_fingerprint,
+                    confirmed_risk=True,
+                )
+        self.assertEqual(agents.read_bytes(), before)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.93.0\n")
 
     def test_memory_index_is_project_owned_seed_after_init(self) -> None:
         project = self.make_project()
@@ -934,6 +928,9 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         self.assertEqual(payload["recommended_selection"], ["R1", "R2"])
         self.assertEqual(payload["confirmation"]["business_confirmation_count"], "one")
+        warning = payload["confirmation"]["warning"]
+        self.assertIn("普通 Markdown 标题的本地内容不会因 A 被覆盖", warning)
+        self.assertNotIn("普通受管区块以上游为准", warning)
 
         with self.assertRaisesRegex(sync.SyncBlocked, "unknown selected risk IDs"):
             sync.apply_plan(

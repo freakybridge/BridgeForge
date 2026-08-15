@@ -147,52 +147,85 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
 
 def check_project_sync_upstream_absorption_card() -> CheckResult:
     fixture = build_codex_fixture()
-    target = fixture / ".codex" / "rules" / "architecture.md"
-    customized = target.read_text(encoding="utf-8").replace(
-        "## 1. 职责边界\n",
-        "## 1. 职责边界\n\nfixture local managed customization\n",
-        1,
+    architecture = fixture / ".codex" / "rules" / "architecture.md"
+    architecture.write_text(
+        architecture.read_text(encoding="utf-8").replace(
+            "TODO：列出本项目各核心模块的职责边界。",
+            "Gateway only connects; UI must not hold Gateway.",
+        ).replace("## 2. 数据流方向", "## 2. 单向数据流"),
+        encoding="utf-8",
     )
-    customized += "\n## Fixture project-owned section\n\nmust survive outside managed blocks\n"
-    target.write_text(customized, encoding="utf-8")
+    architecture_before = architecture.read_bytes()
+    anti_drift = fixture / ".codex" / "rules" / "anti_drift_hooks.md"
+    anti_drift.write_text(
+        anti_drift.read_text(encoding="utf-8").replace(
+            "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）\n",
+            "## 1. `[clarify]` 信号 — 较大需求主动澄清（AGENTS.md §9.5）\n\nfixture downstream enhancement\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    anti_drift_before = anti_drift.read_bytes()
     memory_index = fixture / ".codex" / "memory" / "MEMORY.md"
     memory_index.write_text("# fixture generated memory index\n", encoding="utf-8")
-    result = run(
-        [
-            sys.executable,
-            str(REPO_ROOT / "scripts" / "bridgeforge_project_sync.py"),
-            "--project-root",
-            str(fixture),
-            "--template-root",
-            str(REPO_ROOT),
-            "--mode",
-            "update",
-        ],
-        REPO_ROOT,
+    (fixture / ".codex" / ".bridgeforge_version").write_text(
+        "0.90.0\n", encoding="utf-8"
     )
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "bridgeforge_project_sync.py"),
+        "--project-root",
+        str(fixture),
+        "--template-root",
+        str(REPO_ROOT),
+        "--mode",
+        "update",
+    ]
+    result = run(command, REPO_ROOT)
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
         payload = {}
-    absorptions = payload.get("upstream_absorption_actions", [])
-    conflicts = payload.get("conflict_file_items", [])
     gaps = payload.get("gaps", [])
+    applied = run(
+        command
+        + [
+            "--apply",
+            "--plan-fingerprint",
+            str(payload.get("aggregate_fingerprint", "")),
+            "--confirmed-risk",
+        ],
+        REPO_ROOT,
+    )
     ok = (
         result.returncode == 0
-        and [item.get("id") for item in absorptions] == ["U1"]
-        and conflicts
-        and conflicts[0].get("target") == ".codex/rules/architecture.md"
-        and "## 1. 职责边界" in conflicts[0].get("managed_blocks", [])
-        and "aggressive" in payload.get("confirmation", {}).get("warning", "")
-        and payload.get("confirmation", {}).get("business_confirmation_count") == "one"
+        and applied.returncode == 0
+        and not any(
+            item.get("asset_id") == "codex.rule.architecture"
+            for item in payload.get("actions", [])
+        )
+        and any(
+            item.get("asset_id") == "codex.rule.anti-drift-hooks"
+            and "local content preserved" in item.get("reason", "")
+            for item in gaps
+        )
+        and architecture.read_bytes() == architecture_before
+        and anti_drift.read_bytes() == anti_drift_before
+        and (fixture / ".codex" / ".bridgeforge_version").read_text(
+            encoding="utf-8"
+        ) == "0.90.0\n"
         and not any(item.get("asset_id") == "codex.memory.index" for item in gaps)
     )
     return CheckResult(
         "project_sync_upstream_absorption_card",
         ok,
-        "real CLI lists every managed-block conflict as U before one aggressive/warm/conservative decision and treats memory index as project-owned seed"
+        "real high-customization CLI preserves architecture seed and drifted Rule bytes under aggressive mode while blocking the stamp"
         if ok
-        else f"exit={result.returncode} stdout={result.stdout.strip()} stderr={result.stderr.strip()}",
+        else (
+            f"plan_exit={result.returncode} apply_exit={applied.returncode} "
+            f"plan={result.stdout.strip()} apply={applied.stdout.strip()} "
+            f"stderr={(result.stderr + applied.stderr).strip()}"
+        ),
     )
 
 
