@@ -548,6 +548,8 @@ def _run_direct_switch(
     dry_run: bool = False,
     fail_at: str | None = None,
     risk_fingerprint: str | None = None,
+    selected_risk_ids: tuple[str, ...] = (),
+    decline_risk: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -564,6 +566,10 @@ def _run_direct_switch(
         command.append("--dry-run")
     if risk_fingerprint is not None:
         command.extend(["--confirmed-risk-fingerprint", risk_fingerprint])
+    for item_id in selected_risk_ids:
+        command.extend(["--selected-risk", item_id])
+    if decline_risk:
+        command.append("--decline-risk")
     env = {"BRIDGEFORGE_SWITCH_FAIL_AT": fail_at} if fail_at else None
     return run(command, fixture, env=env)
 
@@ -1715,6 +1721,9 @@ def check_switch_direct_retired_stall_warning_cleanup() -> CheckResult:
         expected = (
             (target_rel in plan.deletes) is (not modified)
             and dry_run.returncode == 0
+            and "execution_status=planned" in dry_run.stdout
+            and "target_readiness=action_required" in dry_run.stdout
+            and "action_card=" in dry_run.stdout
             and retired_after_dry_run
             and applied.returncode == 0
             and (

@@ -18,10 +18,14 @@ $PLAN = $PLAN_JSON | ConvertFrom-Json
 $PLAN_JSON
 ```
 
-将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。没有 risk 时立即以
-`--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；存在 risk 时只展示一次
-汇总卡，用户接受追加 `--confirmed-risk`，拒绝追加 `--decline-risk`。执行器会紧邻
-replan；fingerprint 漂移零写入，任何失败回滚。仅 ready 结果在验证后最后写版本戳；存在 gap 或拒绝 risk 时保留旧戳/无戳并输出 degraded JSON receipt。
+将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。读取 plan 的
+`required_actions / optional_actions / manual_steps / blocker_items / recommended_selection`，按根
+契约只展示一张 A/B/C 卡。没有 R/C 时立即以
+`--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；A 追加 `--confirmed-risk`；
+B 为同一回复中的每个合法 R 编号追加 `--selected-risk <Rn>`；C 追加 `--decline-risk`。
+执行器会紧邻 replan；fingerprint 漂移零写入，任何失败回滚。仅
+`target_readiness=ready|ready_with_advisories` 且验证通过时最后写版本戳；存在必要 gap、
+人工步骤或拒绝 risk 时保留旧戳/无戳，并同时输出双状态与兼容 JSON receipt。
 
 Codex 禁止再单独调用 `hooks_merge.py`、`precommit_merge.py`、
 `bridgeforge_project_finalize.py`，也禁止手工复制、删除或写

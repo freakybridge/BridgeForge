@@ -308,16 +308,35 @@ REFRESHED
 
 对所有 planner 输出做确定性排序与 canonical JSON 序列化，计算单一
 `aggregate_fingerprint=sha256:<64hex>`。没有 risk 时直接执行 safe，业务确认次数为 0。
-存在 risk 时只展示一张卡，逐项列路径、动作、影响、可恢复性、fingerprint 与推荐处理，
-并且只问一次：`我要执行 [汇总风险动作]，这可能导致 [列明影响]，是否继续?`
+存在 risk 时只展示一张带稳定编号的可执行完善卡。每个 `R1...Rn` 必须列路径、动作、
+当前/目标状态、影响、可恢复性、是否影响完全就绪、executor、推荐值、完成标准和
+fingerprint；无功能影响但可执行的清理用 `C1...Cn`，`/hooks` trust、重启和新会话 smoke
+等不可代执行步骤用 `M1...Mn`，blocker 用 `B1...Bn`。`M/B` 只展示，禁止进入执行选集。
+Git ignored `__pycache__` / `.pyc` 只能是 `C` 类 advisory，禁止单独降低完全就绪度。
 
-用户确认后必须紧邻重跑全部 planner 并重算 aggregate fingerprint；不一致时风险项零写入
-并停止，禁止沿用旧授权。用户拒绝时 risk 跳过，safe 继续，gap 与拒绝项合并到收据；
-禁止第二轮逐项确认。每个底层 apply 仍须传自己的 confirmed/fingerprint/recheck 参数。
-switch dry-run 输出 `risk_fingerprint` 时，真实 apply 必须去掉 `--dry-run` 并精确追加
-`--confirmed-risk-fingerprint <本轮值>`；缺失、旧值或不同值必须在任何写入前失败。
-所有模式统一输出 `status=completed|completed_with_gaps|failed`、
-`readiness=ready|degraded|blocked` 与逐项 gaps。
+程序必须同时给出推荐清单和全部可执行项，然后只展示一张卡、只接受一次业务决定：
+
+```text
+A. 全部确认：执行全部 R/C
+B. 部分确认：同一回复携带编号，例如 B：R1、C1
+C. 不再进一步完善：本轮跳过全部 R/C
+```
+
+A 包含必要项和可选清理；B 既接受推荐组合，也接受当前卡内任意合法 R/C 组合；C 只对
+本轮有效，不写永久 waiver。没有 R/C 时业务确认次数为 0，不展示空卡；只有 M 时直接给
+人工步骤。B 缺编号、未知/重复编号或选择 M/B 时风险项零写入并提示合法语法，禁止把无效
+输入当授权或继续第二轮逐项确认。用户拒绝时 risk 跳过，safe 继续，gap 与拒绝项合并到收据。
+
+用户决定后必须紧邻重跑全部 planner 并重算 aggregate fingerprint；不一致时风险项零写入
+并停止，禁止沿用旧授权。Codex project-sync：A 追加 `--confirmed-risk`；B 对每个所选编号
+追加 `--selected-risk <Rn>`；C 追加 `--decline-risk`。switch：A 追加当前
+`--confirmed-risk-fingerprint <本轮值>`；B 同时追加当前 fingerprint 与逐个
+`--selected-risk <Rn>`；C 追加 `--decline-risk`。缺失、旧值或不同值必须在任何风险写入前失败。
+
+所有模式新增双状态：`execution_status=planned|completed|failed` 回答本轮执行是否完成；
+`target_readiness=ready|ready_with_advisories|action_required|blocked` 回答距离完全就绪还差什么。
+兼容期继续输出 `status=completed|completed_with_gaps|failed`、
+`readiness=ready|degraded|blocked` 与逐项 gaps，但旧字段只放技术收据，不再作为用户主标题。
 
 ## Step 4.6：Codex 平台默认调度（仅 init / adopt / update）
 
@@ -381,4 +400,8 @@ BridgeForge 下沉时按业务专属性分层：
 | `.agents` 迁移 | 当前项目 dry-run、plan fingerprint、唯一卡决定、apply 退出码、未知内容保留 gap |
 | 统一确认 | safe/risk/gap 数量；aggregate fingerprint；业务确认次数 0 或 1；`status` / `readiness` / gaps |
 
-最终输出遵循“已做什么 / 验证了什么 / 还剩什么风险”。任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成。
+最终输出遵循“结论 / 双状态 / 已自动完成 / R-C-M-B 分区清单 / 推荐组合 / 唯一 A-B-C 卡 /
+执行与验证收据 / 折叠机器字段”的固定顺序。用户主标题只允许：`完全就绪`、
+`核心更新完成，还需用户完成 N 项`、`完全就绪，另有 N 项可选清理`、`更新被阻断`。
+任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成；M 项必须等真实 trust、
+restart 或 smoke 收据后才能标记完成。

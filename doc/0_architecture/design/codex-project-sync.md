@@ -28,7 +28,7 @@ detect mode/version
   -> plan every asset as safe/risk/gap
   -> plan canonical memory organization
   -> emit aggregate fingerprint
-  -> optional single risk decision
+  -> optional single A/B/C risk decision (all / selected Rn / decline)
   -> replan and compare fingerprint
   -> snapshot owned pre-state
   -> apply file/region/merge/memory actions
@@ -38,6 +38,22 @@ detect mode/version
   -> JSON receipt
   -> caught failure restores every owned pre-state
 ```
+
+### 行动清单与双状态
+
+planner 把 risk 以稳定 `R1...Rn` 编号输出，并附 `required_actions`、`manual_steps`、
+`recommended_selection` 和单卡 confirmation contract。A 沿用 `--confirmed-risk` 全选，B 以
+重复的 `--selected-risk <Rn>` 绑定当前 aggregate fingerprint，C 以 `--decline-risk` 本轮
+全拒绝；未知、重复或旧计划编号在任何风险写入前失败。未选 risk 原样保留，safe 继续，
+版本戳仍只在无必要 gap 时最后写入。
+
+receipt 同时输出：
+
+- `execution_status=planned|completed|failed`：本轮执行是否完成；
+- `target_readiness=ready|ready_with_advisories|action_required|blocked`：距离完全就绪还差什么。
+
+旧 `status/readiness` 字段继续兼容既有消费者，但不再承担用户主标题。人工 trust/restart/smoke
+只进入 `manual_steps`，没有真实运行时收据时不得标记完成。
 
 ### 分类
 
@@ -64,6 +80,8 @@ detect mode/version
 ## 事务与验证红线
 
 - apply 必须携带刚展示的 aggregate fingerprint；执行器紧邻 replan，漂移零写入。
+- 部分确认的 selected Rn 必须来自同一计划的 canonical risk 排序，并与 aggregate fingerprint
+  一同形成 selection receipt；未选项不得写入。
 - memory 迁移计划只接受 canonical auditor 的 `explicit` / `high-confidence` 动作并统一列为 risk；ambiguous 结果保留为 gap。
 - 验证器必须从 command bundle canonical 模板执行，禁止信任被下游修改的目标 hook 自证通过。
 - memory tree 在迁移前纳入事务快照；迁移后任一验证或写戳失败必须恢复路径与字节。

@@ -632,6 +632,114 @@ def _risk_fingerprint(plan: SyncPlan) -> str | None:
     return _sha_bytes(_canonical_json(payload))
 
 
+def _risk_catalog(plan: SyncPlan) -> list[tuple[str, str]]:
+    return [
+        (f"R{index}", rel)
+        for index, rel in enumerate(sorted(plan.retired_deletes), 1)
+    ]
+
+
+def _manual_items(plan: SyncPlan) -> list[dict[str, Any]]:
+    evidence: list[tuple[str, str, str]] = []
+    for asset in sorted(plan.assets, key=lambda item: item["asset_id"]):
+        if asset["status"] in {
+            "created_unowned",
+            "untranslated",
+            "conflict",
+            "forked_projection",
+        }:
+            evidence.append((
+                asset["asset_id"],
+                asset["status"],
+                str(asset.get("reason", asset["status"])),
+            ))
+    for message in sorted(plan.messages):
+        if message.startswith(("map-error:", "gap:")):
+            evidence.append(("switch.notice", "gap", message))
+    return [
+        {
+            "id": f"M{index}",
+            "asset_id": asset_id,
+            "title": f"manual review: {asset_id}",
+            "category": "manual",
+            "current_state": state,
+            "target_state": "reviewed and resolved or explicitly preserved",
+            "affects_readiness": True,
+            "action": "manual-review",
+            "impact": reason,
+            "executor": "user",
+            "recommended": True,
+            "completion_criteria": "a later switch plan no longer reports this gap",
+        }
+        for index, (asset_id, state, reason) in enumerate(evidence, 1)
+    ]
+
+
+def _risk_item(item_id: str, rel: str, plan: SyncPlan) -> dict[str, Any]:
+    return {
+        "id": item_id,
+        "asset_id": f"switch.retire:{rel}",
+        "title": f"retire managed file: {rel}",
+        "category": "required",
+        "current_state": plan.target_prestate.get(rel),
+        "target_state": "absent",
+        "affects_readiness": True,
+        "action": "delete-retired-managed-file",
+        "target": rel,
+        "impact": "remove a byte-identical retired BridgeForge managed file",
+        "recoverability": "transaction rollback before completion",
+        "executor": "bridgeforge",
+        "recommended": True,
+        "recommendation_reason": "retired managed files should not remain active",
+        "completion_criteria": "target is absent",
+        "platform_permission": False,
+    }
+
+
+def _select_risks(
+    plan: SyncPlan,
+    *,
+    supplied_fingerprint: str | None,
+    selected_ids: tuple[str, ...] | None,
+    decline_risk: bool,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], str | None]:
+    catalog = _risk_catalog(plan)
+    fingerprint = _risk_fingerprint(plan)
+    if not catalog:
+        if supplied_fingerprint or selected_ids is not None or decline_risk:
+            raise SyncError("risk decision was supplied but the current switch plan has no risk actions")
+        return [], [], None
+    if decline_risk:
+        if supplied_fingerprint or selected_ids is not None:
+            raise SyncError("decline-risk cannot be combined with a fingerprint or selected IDs")
+        selected: list[tuple[str, str]] = []
+        declined = catalog
+    else:
+        if supplied_fingerprint != fingerprint:
+            raise SyncError(
+                "retired managed-file deletion requires the current "
+                "--confirmed-risk-fingerprint from the single action card"
+            )
+        if selected_ids is None:
+            selected, declined = catalog, []
+        else:
+            if not selected_ids:
+                raise SyncError("partial confirmation requires at least one --selected-risk ID")
+            if len(set(selected_ids)) != len(selected_ids):
+                raise SyncError("partial confirmation contains duplicate risk IDs")
+            by_id = dict(catalog)
+            unknown = sorted(set(selected_ids) - set(by_id))
+            if unknown:
+                raise SyncError("unknown selected risk IDs: " + ", ".join(unknown))
+            chosen = set(selected_ids)
+            selected = [item for item in catalog if item[0] in chosen]
+            declined = [item for item in catalog if item[0] not in chosen]
+    declined_paths = {rel for _item_id, rel in declined}
+    plan.deletes.difference_update(declined_paths)
+    plan.retired_deletes.difference_update(declined_paths)
+    return selected, declined, fingerprint
+
+
 def _load_map(root: Path, host: str) -> LoadedMap:
     path = _map_path(root, host)
     state, digest = _file_state(path)
@@ -1649,27 +1757,84 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--confirmed-risk-fingerprint",
         help="single-card authorization fingerprint for deterministic risk actions",
     )
+    parser.add_argument(
+        "--selected-risk",
+        action="append",
+        dest="selected_risk_ids",
+        metavar="ID",
+        help="repeat a displayed Rn ID for the single partial-confirmation decision",
+    )
+    parser.add_argument(
+        "--decline-risk",
+        action="store_true",
+        help="decline all displayed risk actions for this run while applying safe work",
+    )
     return parser.parse_args(argv)
 
 
-def _print_summary(plan: SyncPlan, dry_run: bool) -> None:
+def _print_summary(
+    plan: SyncPlan,
+    dry_run: bool,
+    *,
+    displayed_risks: list[tuple[str, str]] | None = None,
+    selected_risks: list[tuple[str, str]] | None = None,
+    declined_risks: list[tuple[str, str]] | None = None,
+    displayed_fingerprint: str | None = None,
+) -> None:
     counts = {
         status: sum(asset["status"] == status for asset in plan.assets)
         for status in sorted(STATUSES)
     }
-    status = "completed_with_gaps" if plan.degraded else "completed"
-    readiness = "degraded" if plan.degraded else "ready"
+    catalog = displayed_risks if displayed_risks is not None else _risk_catalog(plan)
+    selected = selected_risks or []
+    declined = declined_risks or []
+    pending = catalog if dry_run else declined
+    manual_steps = _manual_items(plan)
+    required_actions = [_risk_item(item_id, rel, plan) for item_id, rel in pending]
+    target_readiness = (
+        "action_required" if required_actions or manual_steps else "ready"
+    )
+    degraded = plan.degraded or bool(declined)
+    status = "completed_with_gaps" if degraded else "completed"
+    readiness = "degraded" if degraded else "ready"
     prefix = "Dry-run" if dry_run else "Switch"
     print(f"{prefix} {status}: {plan.current_host}")
     print(f"readiness={readiness}")
-    risk_fingerprint = _risk_fingerprint(plan)
+    print(f"execution_status={'planned' if dry_run else 'completed'}")
+    print(f"target_readiness={target_readiness}")
+    risk_fingerprint = (
+        displayed_fingerprint
+        if displayed_risks is not None
+        else _risk_fingerprint(plan)
+    )
     print(f"risk_fingerprint={risk_fingerprint or 'none'}")
+    action_card = {
+        "required_actions": required_actions,
+        "optional_actions": [],
+        "manual_steps": manual_steps,
+        "recommended_selection": [item_id for item_id, _rel in catalog],
+        "selected_action_ids": [item_id for item_id, _rel in selected],
+        "declined_action_ids": [item_id for item_id, _rel in declined],
+        "confirmation": (
+            {
+                "business_confirmation_count": "one",
+                "all": [item_id for item_id, _rel in catalog],
+                "partial_syntax": "B: R1,R3",
+                "decline": "C",
+            }
+            if dry_run and catalog
+            else {"business_confirmation_count": "zero"}
+        ),
+    }
+    print("action_card=" + json.dumps(action_card, ensure_ascii=False, sort_keys=True))
     print(
         "assets="
         + ",".join(f"{key}:{value}" for key, value in counts.items() if value)
     )
     for message in plan.messages:
         print(f"NOTICE: {message}")
+    for item_id, rel in declined:
+        print(f"NOTICE: risk-declined:{item_id}:{rel}:preserved")
     if plan.target_map.state == "invalid":
         print(
             "Target map is invalid and was preserved; only entirely absent "
@@ -1715,13 +1880,21 @@ def main(argv: list[str]) -> int:
                 "refusing to switch the BridgeForge source repository itself"
             )
         plan = build_plan(args.current_host, project_root, template_root)
+        displayed_risks = _risk_catalog(plan)
+        displayed_fingerprint = _risk_fingerprint(plan)
+        selected_risks: list[tuple[str, str]] = []
+        declined_risks: list[tuple[str, str]] = []
         if not args.dry_run:
-            risk_fingerprint = _risk_fingerprint(plan)
-            if risk_fingerprint is not None and args.confirmed_risk_fingerprint != risk_fingerprint:
-                raise SyncError(
-                    "retired managed-file deletion requires the current "
-                    "--confirmed-risk-fingerprint from the single risk card"
-                )
+            selected_risks, declined_risks, displayed_fingerprint = _select_risks(
+                plan,
+                supplied_fingerprint=args.confirmed_risk_fingerprint,
+                selected_ids=(
+                    tuple(args.selected_risk_ids)
+                    if args.selected_risk_ids is not None
+                    else None
+                ),
+                decline_risk=args.decline_risk,
+            )
             apply_plan(plan)
     except SyncError as exc:
         print(f"ERROR: direct sync blocked: {exc}", file=sys.stderr)
@@ -1751,7 +1924,14 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
-    _print_summary(plan, args.dry_run)
+    _print_summary(
+        plan,
+        args.dry_run,
+        displayed_risks=displayed_risks,
+        selected_risks=selected_risks,
+        declined_risks=declined_risks,
+        displayed_fingerprint=displayed_fingerprint,
+    )
     return 0
 
 

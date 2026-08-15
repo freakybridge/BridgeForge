@@ -104,6 +104,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.88.4",
             "0.90.0",
             "0.91.1",
+            "0.92.0",
         }
         self.assertEqual(
             set(manifest_builder._baseline_revisions(ROOT)),
@@ -210,6 +211,9 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(receipt.status, "completed_with_gaps")
+        self.assertEqual(receipt.execution_status, "completed")
+        self.assertEqual(receipt.target_readiness, "action_required")
+        self.assertEqual(receipt.manual_steps[0]["id"], "M1")
         self.assertFalse(receipt.stamp_written_last)
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.90.0\n")
         self.assertEqual(target.read_bytes(), before)
@@ -331,6 +335,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                 "templates/codex/hooks/version_check.py",
             )
         )
+        model_payload = model.read_bytes()
         stamp = project / ".codex/.bridgeforge_version"
         stamp.write_text("0.90.0\n", encoding="utf-8")
         plan = sync.build_plan(project, ROOT, "update")
@@ -349,12 +354,56 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.90.0\n")
         self.assertTrue(model.exists() and version.exists())
 
+        payload = sync._plan_payload(plan)
+        self.assertEqual(payload["execution_status"], "planned")
+        self.assertEqual(payload["target_readiness"], "action_required")
+        self.assertEqual(
+            [item["id"] for item in payload["required_actions"]],
+            ["R1", "R2"],
+        )
+        self.assertEqual(payload["recommended_selection"], ["R1", "R2"])
+        self.assertEqual(payload["confirmation"]["business_confirmation_count"], "one")
+
+        with self.assertRaisesRegex(sync.SyncBlocked, "unknown selected risk IDs"):
+            sync.apply_plan(
+                plan,
+                plan_fingerprint=plan.aggregate_fingerprint,
+                selected_risk_ids=("R9",),
+            )
+        with self.assertRaisesRegex(sync.SyncBlocked, "duplicate risk IDs"):
+            sync.apply_plan(
+                plan,
+                plan_fingerprint=plan.aggregate_fingerprint,
+                selected_risk_ids=("R1", "R1"),
+            )
+        self.assertTrue(model.exists() and version.exists())
+
+        partial = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            selected_risk_ids=("R1",),
+        )
+        self.assertEqual(partial.execution_status, "completed")
+        self.assertEqual(partial.target_readiness, "action_required")
+        self.assertEqual(partial.selected_action_ids, ("R1",))
+        self.assertEqual(len(partial.risk_applied), 1)
+        self.assertEqual(len(partial.risk_declined), 1)
+        self.assertEqual([item["id"] for item in partial.required_actions], ["R2"])
+        self.assertIsNotNone(partial.selection_fingerprint)
+        self.assertFalse(model.exists())
+        self.assertTrue(version.exists())
+        self.assertFalse(partial.stamp_written_last)
+
+        model.write_bytes(model_payload)
+        plan = sync.build_plan(project, ROOT, "update")
+
         receipt = sync.apply_plan(
             plan,
             plan_fingerprint=plan.aggregate_fingerprint,
             confirmed_risk=True,
         )
         self.assertEqual(len(receipt.risk_applied), 2)
+        self.assertEqual(receipt.target_readiness, "ready")
         self.assertFalse(model.exists() or version.exists())
 
         model.write_text("manual replacement\n", encoding="utf-8")

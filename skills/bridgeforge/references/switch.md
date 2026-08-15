@@ -91,9 +91,11 @@ source 全程只读并在结束时复核 hash。禁止移动、删除、重写�
 
 历史 `stall_warning.py` 只有在 target 字节 hash 等于 BridgeForge 冻结的 LF/CRLF 受管
 副本时才可列为退役 risk；人工修改副本必须保留并报告
-`gap:retired-file-modified`。获准后应重跑 `--dry-run` 并核对 aggregate fingerprint，再执行
-apply，并传该计划输出的 `--confirmed-risk-fingerprint`；脚本缺少或收到旧 fingerprint 时
-必须零写入失败。禁止因“已退役”无条件强删。
+`gap:retired-file-modified`。dry-run 必须输出稳定 R 编号、`action_card` 和 risk fingerprint。
+A 传该计划输出的 `--confirmed-risk-fingerprint`；B 同时传 fingerprint，并为同一回复中的
+每个合法编号追加 `--selected-risk <Rn>`；C 传 `--decline-risk`。脚本缺少或收到旧
+fingerprint、未知/重复编号时必须零风险写入失败；未选退役项原样保留，safe projection
+继续。禁止因“已退役”无条件强删。
 
 ## 5. 缺口、冲突与 readiness
 
@@ -108,6 +110,10 @@ apply，并传该计划输出的 `--confirmed-risk-fingerprint`；脚本缺少�
 | 宿主不匹配、项目边界/路径安全失败或执行异常无法安全完成 | `failed` | `blocked` |
 
 `completed_with_gaps` 是完成态，不是整体失败；必须列出每个 gap/conflict 的 source、target、状态和原因。它只表示当前宿主可以继续工作，不表示两侧能力完全等价。
+
+面向用户必须优先输出 `execution_status` 与 `target_readiness`，并把 risk 转为 R 清单、
+冲突/未转译转为 M 清单；兼容 `status/readiness` 只留在技术收据。没有 R/C 时确认次数为 0；
+存在 R 时按根契约只展示一次 A/B/C。人工 M 项不可进入选集，也不得因 A 被标为完成。
 
 target map 缺失、损坏或不可解析时，仍可写入与现有 target 无歧义、无碰撞的新资产；对任何可能属于用户或旧生成结果的 target 一律保留并报告冲突。禁止因 map 异常静默覆盖或删除。
 
@@ -140,7 +146,8 @@ kill、强制终止、系统崩溃或断电不承诺跨文件原子性，也不�
 - source 与 target map 的实际路径和校验结果；
 - source 盘点数量及同步前后 hash 不变断言；
 - created、updated、deleted、preserved、untranslated、forked 与 conflict 的逐组结果；
-- `status`、`readiness` 和 gaps/conflicts 数量；
+- `execution_status`、`target_readiness`、R/C/M/B 清单、推荐/选择结果，以及兼容
+  `status`、`readiness` 和 gaps/conflicts 数量；
 - target 原生 projection 校验，以及未原样复制宿主专属资产的断言；
 - 旧根 `.bridgeforge/` 是否存在及“未读写删”断言；
 - 是否发生可捕获异常回滚，或是否检测到硬中断残态。

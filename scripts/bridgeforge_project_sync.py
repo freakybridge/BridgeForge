@@ -81,6 +81,8 @@ class Plan:
 class Receipt:
     status: str
     readiness: str
+    execution_status: str
+    target_readiness: str
     mode: str
     previous_version: str | None
     current_version: str
@@ -88,6 +90,13 @@ class Receipt:
     safe_applied: tuple[str, ...]
     risk_applied: tuple[str, ...]
     risk_declined: tuple[str, ...]
+    selected_action_ids: tuple[str, ...]
+    selection_fingerprint: str | None
+    required_actions: tuple[dict[str, Any], ...]
+    optional_actions: tuple[dict[str, Any], ...]
+    manual_steps: tuple[dict[str, Any], ...]
+    blockers: tuple[dict[str, Any], ...]
+    recommended_selection: tuple[str, ...]
     gaps: tuple[dict[str, str], ...]
     stamp_written_last: bool
     rollback_performed: bool
@@ -118,6 +127,142 @@ def _canonical_json(value: Any) -> bytes:
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
+
+
+def _risk_catalog(plan: Plan) -> list[tuple[str, Action]]:
+    ordered = sorted(
+        plan.risk_actions,
+        key=lambda item: (item.asset_id, item.target, item.action),
+    )
+    return [(f"R{index}", action) for index, action in enumerate(ordered, 1)]
+
+
+def _action_item(item_id: str, action: Action) -> dict[str, Any]:
+    target_state = "absent" if action.action == "retire" else action.after_sha256
+    return {
+        "id": item_id,
+        "asset_id": action.asset_id,
+        "title": f"{action.action}: {action.target}",
+        "category": "required",
+        "current_state": action.before_sha256 or "missing",
+        "target_state": target_state,
+        "affects_readiness": True,
+        "action": action.action,
+        "target": action.target,
+        "impact": action.reason,
+        "recoverability": "transaction rollback before completion",
+        "executor": "bridgeforge",
+        "recommended": True,
+        "recommendation_reason": "required to reach the published managed state",
+        "completion_criteria": (
+            f"target is {target_state}"
+            if target_state == "absent"
+            else f"target sha256 equals {target_state}"
+        ),
+        "platform_permission": False,
+    }
+
+
+def _manual_items(gaps: list[Gap]) -> list[dict[str, Any]]:
+    ordered = sorted(gaps, key=lambda item: (item.asset_id, item.target, item.reason))
+    return [
+        {
+            "id": f"M{index}",
+            "asset_id": gap.asset_id,
+            "title": f"manual review: {gap.target}",
+            "category": "manual",
+            "current_state": "preserved gap",
+            "target_state": "reviewed and resolved or explicitly preserved",
+            "affects_readiness": True,
+            "action": "manual-review",
+            "target": gap.target,
+            "impact": gap.reason,
+            "recoverability": "original content is preserved",
+            "executor": "user",
+            "recommended": True,
+            "recommendation_reason": "BridgeForge cannot safely decide this gap",
+            "completion_criteria": "a later plan no longer reports this gap",
+            "platform_permission": False,
+        }
+        for index, gap in enumerate(ordered, 1)
+    ]
+
+
+def _blocker_items(blockers: list[str]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": f"B{index}",
+            "title": "update blocker",
+            "category": "blocker",
+            "affects_readiness": True,
+            "executor": "user",
+            "impact": reason,
+            "completion_criteria": "planner no longer reports this blocker",
+        }
+        for index, reason in enumerate(blockers, 1)
+    ]
+
+
+def _target_readiness(
+    *,
+    required_actions: list[dict[str, Any]],
+    optional_actions: list[dict[str, Any]],
+    manual_steps: list[dict[str, Any]],
+    blockers: list[dict[str, Any]],
+) -> str:
+    if blockers:
+        return "blocked"
+    if required_actions or any(item.get("affects_readiness") for item in manual_steps):
+        return "action_required"
+    if optional_actions:
+        return "ready_with_advisories"
+    return "ready"
+
+
+def _selection_fingerprint(plan: Plan, selected_ids: tuple[str, ...]) -> str:
+    return _sha256_bytes(_canonical_json({
+        "aggregate_fingerprint": plan.aggregate_fingerprint,
+        "selected_action_ids": list(selected_ids),
+    }))
+
+
+def _select_risk_actions(
+    plan: Plan,
+    *,
+    confirmed_risk: bool,
+    decline_risk: bool,
+    selected_risk_ids: tuple[str, ...] | None,
+) -> tuple[list[tuple[str, Action]], list[tuple[str, Action]]]:
+    decisions = sum((confirmed_risk, decline_risk, selected_risk_ids is not None))
+    if decisions > 1:
+        raise SyncBlocked("risk decision must be exactly one of all, selected, or declined")
+    catalog = _risk_catalog(plan)
+    if not catalog:
+        if selected_risk_ids is not None:
+            raise SyncBlocked("--selected-risk was supplied but the current plan has no risk actions")
+        return [], []
+    if decisions == 0:
+        raise SyncBlocked(
+            "risk actions require the single --confirmed-risk, --selected-risk, or --decline-risk decision"
+        )
+    if confirmed_risk:
+        return catalog, []
+    if decline_risk:
+        return [], catalog
+    assert selected_risk_ids is not None
+    if not selected_risk_ids:
+        raise SyncBlocked("partial confirmation requires at least one --selected-risk ID")
+    if len(set(selected_risk_ids)) != len(selected_risk_ids):
+        raise SyncBlocked("partial confirmation contains duplicate risk IDs")
+    by_id = dict(catalog)
+    unknown = sorted(set(selected_risk_ids) - set(by_id))
+    if unknown:
+        raise SyncBlocked("unknown selected risk IDs: " + ", ".join(unknown))
+    chosen = set(selected_risk_ids)
+    return (
+        [(item_id, action) for item_id, action in catalog if item_id in chosen],
+        [(item_id, action) for item_id, action in catalog if item_id not in chosen],
+    )
 
 
 def _semver(value: str, label: str) -> tuple[int, int, int]:
@@ -945,6 +1090,7 @@ def apply_plan(
     plan_fingerprint: str,
     confirmed_risk: bool = False,
     decline_risk: bool = False,
+    selected_risk_ids: tuple[str, ...] | None = None,
     checkpoint: Callable[[str], None] | None = None,
 ) -> Receipt:
     apply_started = time.perf_counter()
@@ -957,6 +1103,7 @@ def apply_plan(
         plan_fingerprint=plan_fingerprint,
         confirmed_risk=confirmed_risk,
         decline_risk=decline_risk,
+        selected_risk_ids=selected_risk_ids,
         checkpoint=checkpoint,
         replan_ms=replan_ms,
         apply_started=apply_started,
@@ -970,13 +1117,12 @@ def _apply_rebuilt_plan(
     plan_fingerprint: str,
     confirmed_risk: bool = False,
     decline_risk: bool = False,
+    selected_risk_ids: tuple[str, ...] | None = None,
     checkpoint: Callable[[str], None] | None = None,
     replan_ms: float,
     apply_started: float,
 ) -> Receipt:
     timings: dict[str, float] = {}
-    if confirmed_risk and decline_risk:
-        raise SyncBlocked("risk cannot be both confirmed and declined")
     if planned.blockers:
         raise SyncBlocked("plan contains blockers")
     if planned.aggregate_fingerprint != plan_fingerprint:
@@ -984,15 +1130,16 @@ def _apply_rebuilt_plan(
     timings["replan"] = round(replan_ms, 1)
     if rebuilt.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("aggregate fingerprint drifted; zero writes performed")
-    if rebuilt.risk_actions and not (confirmed_risk or decline_risk):
-        raise SyncBlocked("risk actions require the single --confirmed-risk or --decline-risk decision")
-
+    selected_risks, declined_risks = _select_risk_actions(
+        rebuilt,
+        confirmed_risk=confirmed_risk,
+        decline_risk=decline_risk,
+        selected_risk_ids=selected_risk_ids,
+    )
     selected = list(rebuilt.safe_actions)
-    risk_declined: tuple[str, ...] = ()
-    if confirmed_risk:
-        selected.extend(rebuilt.risk_actions)
-    elif rebuilt.risk_actions:
-        risk_declined = tuple(item.asset_id for item in rebuilt.risk_actions)
+    selected.extend(action for _item_id, action in selected_risks)
+    selected_action_ids = tuple(item_id for item_id, _action in selected_risks)
+    risk_declined = tuple(action.asset_id for _item_id, action in declined_risks)
 
     root = Path(rebuilt.project_root)
     contract, _contract_path = load_contract(Path(rebuilt.template_root))
@@ -1081,18 +1228,43 @@ def _apply_rebuilt_plan(
         for item in rebuilt.risk_actions
         if item.asset_id in risk_declined
     )
+    remaining_required = [
+        _action_item(item_id, action)
+        for item_id, action in declined_risks
+    ]
+    manual_steps = _manual_items(rebuilt.gaps)
+    blockers: list[dict[str, Any]] = []
+    optional_actions: list[dict[str, Any]] = []
+    target_readiness = _target_readiness(
+        required_actions=remaining_required,
+        optional_actions=optional_actions,
+        manual_steps=manual_steps,
+        blockers=blockers,
+    )
+    catalog = _risk_catalog(rebuilt)
     degraded = bool(receipt_gaps)
     timings["total"] = round((time.perf_counter() - apply_started) * 1000, 1)
     return Receipt(
         status="completed_with_gaps" if degraded else "completed",
         readiness="degraded" if degraded else "ready",
+        execution_status="completed",
+        target_readiness=target_readiness,
         mode=rebuilt.mode,
         previous_version=rebuilt.previous_version,
         current_version=rebuilt.current_version,
         aggregate_fingerprint=rebuilt.aggregate_fingerprint,
         safe_applied=tuple(item.asset_id for item in rebuilt.safe_actions),
-        risk_applied=tuple(item.asset_id for item in rebuilt.risk_actions) if confirmed_risk else (),
+        risk_applied=tuple(action.asset_id for _item_id, action in selected_risks),
         risk_declined=risk_declined,
+        selected_action_ids=selected_action_ids,
+        selection_fingerprint=(
+            _selection_fingerprint(rebuilt, selected_action_ids) if catalog else None
+        ),
+        required_actions=tuple(remaining_required),
+        optional_actions=tuple(optional_actions),
+        manual_steps=tuple(manual_steps),
+        blockers=tuple(blockers),
+        recommended_selection=tuple(item_id for item_id, _action in catalog),
         gaps=tuple(receipt_gaps),
         stamp_written_last=stamp_written,
         rollback_performed=False,
@@ -1105,9 +1277,21 @@ def _plan_payload(
     *,
     timings_ms: dict[str, float] | None = None,
 ) -> dict[str, Any]:
+    catalog = _risk_catalog(plan)
+    required_actions = [_action_item(item_id, action) for item_id, action in catalog]
+    optional_actions: list[dict[str, Any]] = []
+    manual_steps = _manual_items(plan.gaps)
+    blockers = _blocker_items(plan.blockers)
     payload = {
         "status": "blocked" if plan.blockers else ("completed_with_gaps" if plan.gaps else "planned"),
         "readiness": "blocked" if plan.blockers else ("degraded" if plan.gaps else "ready"),
+        "execution_status": "failed" if plan.blockers else "planned",
+        "target_readiness": _target_readiness(
+            required_actions=required_actions,
+            optional_actions=optional_actions,
+            manual_steps=manual_steps,
+            blockers=blockers,
+        ),
         "mode": plan.mode,
         "previous_version": plan.previous_version,
         "current_version": plan.current_version,
@@ -1121,6 +1305,25 @@ def _plan_payload(
         ],
         "gaps": [asdict(item) for item in plan.gaps],
         "blockers": plan.blockers,
+        "required_actions": required_actions,
+        "optional_actions": optional_actions,
+        "manual_steps": manual_steps,
+        "blocker_items": blockers,
+        "recommended_selection": [item_id for item_id, _action in catalog],
+        "confirmation": (
+            {
+                "business_confirmation_count": "one",
+                "all": [item_id for item_id, _action in catalog],
+                "partial_syntax": "B: R1,R3",
+                "decline": "C",
+                "aggregate_fingerprint": plan.aggregate_fingerprint,
+            }
+            if catalog
+            else {
+                "business_confirmation_count": "zero",
+                "all": [],
+            }
+        ),
         "aggregate_fingerprint": plan.aggregate_fingerprint,
     }
     if timings_ms is not None:
@@ -1137,6 +1340,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan-fingerprint")
     risk = parser.add_mutually_exclusive_group()
     risk.add_argument("--confirmed-risk", action="store_true")
+    risk.add_argument(
+        "--selected-risk",
+        action="append",
+        dest="selected_risk_ids",
+        metavar="ID",
+        help="repeat a displayed Rn ID for the single partial-confirmation decision",
+    )
     risk.add_argument("--decline-risk", action="store_true")
     args = parser.parse_args(argv)
 
@@ -1164,6 +1374,11 @@ def main(argv: list[str] | None = None) -> int:
             plan_fingerprint=args.plan_fingerprint,
             confirmed_risk=args.confirmed_risk,
             decline_risk=args.decline_risk,
+            selected_risk_ids=(
+                tuple(args.selected_risk_ids)
+                if args.selected_risk_ids is not None
+                else None
+            ),
             replan_ms=plan_ms,
             apply_started=plan_started,
         )
@@ -1175,6 +1390,8 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "status": "failed",
                     "readiness": "blocked",
+                    "execution_status": "failed",
+                    "target_readiness": "blocked",
                     "error": str(exc),
                     "rollback_performed": "rolled back" in str(exc),
                 },
