@@ -1,8 +1,8 @@
 # 需求：永久 Git Worktree 创建 Skill
 
 > 日期：2026-08-15
-> 状态：ready-for-user-acceptance
-> 入口：新增 Codex 用户级 `$create-worktree`，在当前 Git 仓库外创建无槽位永久 worktree，并同步创建独立开发分支。
+> 状态：已验收
+> 入口：新增 Codex 用户级 `/create-worktree` / `$create-worktree`，在当前 Git 仓库外创建无槽位永久 worktree，并同步创建独立开发分支。
 
 ## 背景与目标
 
@@ -11,7 +11,8 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 目标调用形式：
 
 ```text
-$create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base_branch=main
+/create-worktree causis_risk_suite_2 risk-suite-2
+/create-worktree causis_risk_suite_2 risk-suite-2 develop
 ```
 
 预期结果：
@@ -47,15 +48,15 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
 
 ## 用户可见行为
 
-### 必填参数
+### 位置参数
 
-调用必须提供三个具名参数：
+调用按顺序接收两个必填位置参数和一个可选位置参数：
 
-- `worktree_name`：目标工作树的单层目录名。
-- `branch_name`：用户输入不带前缀的分支名。
-- `base_branch`：创建新分支所基于的本地分支。
+- 第一个：目标工作树的单层目录名。
+- 第二个：用户输入不带前缀的分支名。
+- 第三个（可选）：创建新分支所基于的本地分支。
 
-缺少任意参数时必须暂停创建，并一次只询问一个缺失参数；禁止推断默认值。
+缺少前两个参数时必须暂停创建，并一次只询问一个缺失参数。用户禁止被要求输入 `worktree_name=`、`branch_name=` 或 `base_branch=` 这类变量名。第三个参数缺省时优先使用本地 `main`；`main` 不存在时使用本地 `master`；两者均不存在时零写入停止并请用户补充第三个参数。
 
 ### 路径规则
 
@@ -73,6 +74,7 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
 - 用户已输入 `codex/` 时不得重复添加前缀。
 - 完整分支名必须通过 `git check-ref-format --branch` 验证。
 - `base_branch` 必须是已存在的本地分支，并只使用其当前指向的提交。
+- 未传入基准分支时必须按 `main` 后 `master` 的固定优先级选择，禁止使用当前分支或其他推断值。
 - 禁止自动访问远端或更新本地基准分支。
 
 ### 创建前硬闸
@@ -119,21 +121,22 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
 - 新增 `skills/create-worktree/agents/openai.yaml`。
 - 接入现有 Codex shared-skill 分发清单。
 - 同步必要的版本、`CHANGELOG.md` 与文档。
-- 使用 skill-creator 提供的初始化与验证工具生成并校验标准结构。
+- 用 BridgeForge metadata 门卫校验用户可调用的兼容 metadata；单独记录 OpenAI 当前 `quick_validate.py` 不接受该扩展字段。
 
 ## 验收清单
 
-- [x] 在干净的临时 Git 仓库中，以三个具名参数成功创建直接路径 worktree。
+- [x] 在干净的临时 Git 仓库中，以两个必填位置参数成功创建直接路径 worktree。
+- [x] 省略第三个参数时优先使用本地 `main`，没有 `main` 时回退到本地 `master`，两者均无时零写入失败。
 - [x] 新 worktree 当前分支为自动补前缀后的 `codex/<branch_name>`，且不是 detached HEAD。
 - [x] 原工作树的当前分支、HEAD、文件与暂存区不变。
 - [x] `git worktree list --porcelain` 登记路径中不存在槽位层。
 - [x] 已修改、已暂存、未跟踪三类脏状态均在任何写入前停止。
-- [x] 参数缺失时一次只询问一个参数，三个参数均不得自动推断。
+- [x] 前两个参数缺失时一次只询问一个，且不要求用户输入变量名。
 - [x] 非 Git 目录、缺失根目录配置、非法目录名、非法分支名、本地基准分支缺失均零写入失败。
 - [x] 目标路径冲突和目标分支冲突均零写入失败，不自动修复。
 - [x] 测试证明创建过程没有执行 `fetch`、`pull`、commit、merge 或 push。
 - [x] `codex app` 成功时调用注册打开命令；失败时保留 Git 成果并给出重试命令。
-- [x] `quick_validate.py`、skill 元数据检查、PowerShell 脚本测试和临时仓库端到端测试通过。
+- [x] BridgeForge skill 元数据检查、PowerShell 脚本测试和临时仓库端到端测试通过；OpenAI 当前 `quick_validate.py` 对 `user_invocable` / `argument` 报不支持，不伪报为通过。
 - [x] shared-skill 分发验证证明该 skill 只安装到 Codex 用户级目录。
 - [x] `git diff --check` 通过，并形成包含命令、断言和覆盖场景的验证收据。
 
@@ -150,6 +153,9 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
 - 2026-08-15：用户确认需求卡准确，并要求将需求交接到 BridgeForge，后续在 BridgeForge 内开发。
 - 2026-08-15：实现前 discovery 发现 BridgeForge 旧 metadata 门卫强制 `user_invocable` / `argument`，与 OpenAI 当前 `quick_validate.py` 的标准 frontmatter 冲突；用户确认更新门卫，采用向后兼容方案继续开发。
 - 2026-08-15：独立审计发现 reparse point 路径逃逸与 Unicode 上标设备名缺口；用户批准修复，并将验证预算从 2 轮增加至 3 轮。
+- 2026-08-15：用户要求与 `summary` 一样进入斜杠命令清单，改为两个必填位置参数和一个可选基准分支，并明确缺省顺序为 `main` 后 `master`。
+- 2026-08-15：用户要求 Skill 选择后的 UI 展示文本为精确的 `create-worktree`，不使用中文展示名。
+- 2026-08-15：用户显式调用 `$summary 同意验收`，本交付关闭。
 
 ## 实施计划
 
@@ -161,6 +167,8 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
 
 - 2026-08-15：完成 L 级规模与预算硬闸；预算维持 90 分钟、约 40k 新 token（平台无可靠计量，未实测）、最多 3 个子 agent；独立审计后验证预算由 2 轮增至 3 轮。
 - 2026-08-15：只读 discovery、实现、三轮验证和首次独立审计已完成；审计发现的 reparse point 路径逃逸与 Unicode 上标设备名缺口已修复并回归。
+- 2026-08-15：根据用户试用反馈补齐斜杠调用 metadata，将 Skill 与 PowerShell 脚本改为两必填、一可选的位置接口，并增加基准分支缺省回归。
+- 2026-08-15：将 `agents/openai.yaml` 的 `interface.display_name` 改为 `create-worktree`，并增加静态契约测试。
 
 ## 验证记录
 
@@ -173,9 +181,11 @@ $create-worktree worktree_name=causis_risk_suite_2 branch_name=risk-suite-2 base
   - `.codex\hooks\skill_metadata_check.py --pre-commit`、`.codex\hooks\mirror_drift_check.py --pre-commit`、`.codex\scripts\factory_version_check.py`：退出码 0。
   - PowerShell AST 解析与 `git diff --check`：退出码 0。
 - 第三轮（审计修复回归）：真实创建 junction 后验证配置根目录在任何 Git/路径写入前被拒绝；`LPT².txt` 验证 Unicode 上标设备名零写入拒绝；2/2 定向测试通过，0 skip，manifest 重建后 `--check` 通过。
+- 用户试用修订：`test_create_worktree_skill.py` 13/13，覆盖斜杠调用契约、省略基准时优先 `main`、回退 `master` 及两者缺失时零写入；metadata 门卫 7/7，PowerShell AST 解析通过。
 - 独立审计：首次审计确认主体流程、metadata 镜像、Codex-only 分发和版本治理正确，并发现两项运行时边界缺口；两项均已修复，修复后只读复核通过，无仍存阻塞问题。
 
 ## 剩余风险与试用边界
 
 - 自动化测试使用真实 Windows Git 与假 `codex` CLI，已验证 `codex app <目标路径>` 的参数、成功/失败分支及失败保留；未在测试中实际打开 Codex Desktop GUI，真实注册显示留给用户试用确认。
+- Codex Desktop 斜杠菜单发现依赖用户级 Skill 刷新；安装后若当前对话未刷新，需重启 Codex 再试。
 - reparse point 采用 fail-closed：源仓库或配置根目录的任一现存祖先带 junction/symlink 属性时拒绝创建，不尝试解析或接受该路径。

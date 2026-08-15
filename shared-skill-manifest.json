@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:621d994fd708d0b8d00f2f911f44fdbdc9e1638823657e47a5c9bbf557ebed17"
+              "sha256": "sha256:3d660125efb7ca6988f9510fed28a3bcf85911a1ca711daebc5f427db3d19f61"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:7f70261c5320ab7fa538e77c6d78782efac8f58c1685a00de788444c3af5fb37"
+              "sha256": "sha256:234f4e6a01d834d3084fea97a250670b12462c342cc95bbadb94614b1a9a1830"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -762,17 +762,17 @@
             {
               "source": "skills/create-worktree/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:5b225a048d1ff6e7313369ab0456425669f165c9e099bfaff65523036d968d92"
+              "sha256": "sha256:a8c85d29f3327c2ad5da1b6c93f6edf6837d891048527af7eefc9f2e753025ec"
             },
             {
               "source": "skills/create-worktree/agents/openai.yaml",
               "target": "agents/openai.yaml",
-              "sha256": "sha256:7c6ce97b727a1b1699f89b1fc36d300f6bda6ade446b7e5c71b2f0551952ca29"
+              "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8"
             },
             {
               "source": "skills/create-worktree/scripts/create_worktree.ps1",
               "target": "scripts/create_worktree.ps1",
-              "sha256": "sha256:44dcaf694e08a79dafa1ca5a74f65983363609d0fca457f4d6b8a8acde87a4af"
+              "sha256": "sha256:385567ffe0f78e785452f9668ee7c8f559e411cf02f2dd4013c5f756237cdc3b"
             }
           ]
         },
@@ -952,12 +952,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:621d994fd708d0b8d00f2f911f44fdbdc9e1638823657e47a5c9bbf557ebed17"
+              "sha256": "sha256:3d660125efb7ca6988f9510fed28a3bcf85911a1ca711daebc5f427db3d19f61"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:7f70261c5320ab7fa538e77c6d78782efac8f58c1685a00de788444c3af5fb37"
+              "sha256": "sha256:234f4e6a01d834d3084fea97a250670b12462c342cc95bbadb94614b1a9a1830"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",

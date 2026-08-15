@@ -15,6 +15,24 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.88.0] - 2026-08-15
+
+### Added
+
+- [product][repo][meta] 完善 create-worktree 调用体验
+
+## [0.87.2] - 2026-08-15
+
+### Changed
+
+- [product][meta] 将 `create-worktree` 的 Codex UI 展示名从“创建永久 Worktree”简化为与 skill 名完全一致的 `create-worktree`。
+
+## [0.87.1] - 2026-08-15
+
+### Changed
+
+- [product][meta] `create-worktree` 补齐与 `summary` 一致的用户可调用 metadata，支持 `/create-worktree <工作树名> <分支名> [基准分支]` 位置调用；第三项省略时按本地 `main` 后 `master` 的顺序选择基准。
+
 ## [0.87.0] - 2026-08-15
 
 ### Added

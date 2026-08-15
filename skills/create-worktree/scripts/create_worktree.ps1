@@ -10,9 +10,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$branch_name,
 
-    [Parameter(Mandatory = $true)]
-    [ValidateNotNullOrEmpty()]
-    [string]$base_branch
+    [string]$base_branch = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -211,10 +209,6 @@ try {
     if ($branch_name -ne $branch_name.Trim() -or [string]::IsNullOrWhiteSpace($branch_name)) {
         Stop-CreateWorktree "branch_name is empty or has surrounding whitespace"
     }
-    if ($base_branch -ne $base_branch.Trim() -or [string]::IsNullOrWhiteSpace($base_branch)) {
-        Stop-CreateWorktree "base_branch is empty or has surrounding whitespace"
-    }
-
     $fullBranch = if ($branch_name.StartsWith("codex/", [StringComparison]::Ordinal)) {
         $branch_name
     } else {
@@ -225,11 +219,6 @@ try {
     if ($targetBranchFormat.ExitCode -ne 0) {
         Stop-CreateWorktree "Invalid target branch name: $fullBranch"
     }
-    $baseBranchFormat = Invoke-GitCommand @("check-ref-format", "--branch", $base_branch)
-    if ($baseBranchFormat.ExitCode -ne 0) {
-        Stop-CreateWorktree "Invalid base branch name: $base_branch"
-    }
-
     $repoResult = Invoke-GitCommand @("-C", (Get-Location).Path, "rev-parse", "--show-toplevel")
     Assert-GitSuccess $repoResult "Current directory is not inside a valid Git repository"
     $repoRoot = $repoResult.Text.Trim()
@@ -243,6 +232,31 @@ try {
     Assert-GitSuccess $statusBefore "Cannot inspect the source repository status"
     if ($statusBefore.Text) {
         Stop-CreateWorktree "Source repository has modified, staged, or untracked files; handle them and retry"
+    }
+
+    if ($base_branch -eq "") {
+        $mainExists = Invoke-GitCommand @("-C", $repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/main")
+        if ($mainExists.ExitCode -eq 0) {
+            $base_branch = "main"
+        } elseif ($mainExists.ExitCode -ne 1) {
+            Stop-CreateWorktree "Cannot verify whether local main exists: $($mainExists.Text.Trim())"
+        } else {
+            $masterExists = Invoke-GitCommand @("-C", $repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/master")
+            if ($masterExists.ExitCode -eq 0) {
+                $base_branch = "master"
+            } elseif ($masterExists.ExitCode -ne 1) {
+                Stop-CreateWorktree "Cannot verify whether local master exists: $($masterExists.Text.Trim())"
+            } else {
+                Stop-CreateWorktree "No local main or master branch exists; provide the optional third base branch argument"
+            }
+        }
+    } elseif ([string]::IsNullOrWhiteSpace($base_branch) -or $base_branch -ne $base_branch.Trim()) {
+        Stop-CreateWorktree "base_branch is empty or has surrounding whitespace"
+    }
+
+    $baseBranchFormat = Invoke-GitCommand @("check-ref-format", "--branch", $base_branch)
+    if ($baseBranchFormat.ExitCode -ne 0) {
+        Stop-CreateWorktree "Invalid base branch name: $base_branch"
     }
 
     $baseExists = Invoke-GitCommand @("-C", $repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/$base_branch")

@@ -18,7 +18,7 @@
 | `rules` | 8 | 8 | - | - |
 | `scripts` | 9 | 17 | - | `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `memory_context.py`, `memory_router.py`, `memory_usage.py`, `project_memory_recovery.py` |
 | `memory` | 1 | 1 | - | - |
-| `skills` | 19 | 19 | - | 共享单一源 |
+| `skills` | 20 | 20 | - | 共享单一源 |
 
 ## Normalized Diffs
 
@@ -44,7 +44,7 @@
 | `hooks/rule_index_check.py` | 2 | -4 / +5 | `cleanup-only` | behavior OK; local variable naming still carries claude_md |
 | `hooks/rule_size_check.py` | 2 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/show_state.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex startup hints use $ skills and .codex scripts |
-| `hooks/skill_metadata_check.py` | 12 | -10 / +70 | `needs-review` | new or unclassified semantic difference |
+| `hooks/skill_metadata_check.py` | 12 | -11 / +73 | `needs-review` | new or unclassified semantic difference |
 | `hooks/test_receipt.py` | 3 | -3 / +4 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/version_check.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex command payload fallback differs |
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |

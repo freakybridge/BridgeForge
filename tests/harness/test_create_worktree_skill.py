@@ -64,12 +64,13 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         with_config: bool = True,
         root_exists: bool = True,
         codex_exit: int = 0,
+        initial_branch: str = "main",
     ) -> dict[str, object]:
         self.counter += 1
         fixture = self.base / f"fixture-{self.counter}"
         repo = fixture / "source repo"
         repo.mkdir(parents=True)
-        self.git_run(repo, "init", "-b", "main")
+        self.git_run(repo, "init", "-b", initial_branch)
         self.git_run(repo, "config", "user.name", "BridgeForge Test")
         self.git_run(repo, "config", "user.email", "bridgeforge@example.invalid")
         tracked = repo / "tracked.txt"
@@ -144,7 +145,7 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         *,
         worktree_name: str = "risk-suite",
         branch_name: str = "risk-suite-2",
-        base_branch: str = "main",
+        base_branch: str | None = None,
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         command = [
@@ -158,9 +159,9 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             worktree_name,
             "-branch_name",
             branch_name,
-            "-base_branch",
-            base_branch,
         ]
+        if base_branch is not None:
+            command.extend(["-base_branch", base_branch])
         return run(command, cwd or fixture["repo"], fixture["env"])
 
     def ref_exists(self, repo: Path, branch: str) -> bool:
@@ -229,6 +230,28 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         )
         self.assertFalse(self.ref_exists(fixture["repo"], "codex/codex/already-prefixed"))
 
+    def test_omitted_base_prefers_main_and_falls_back_to_master(self) -> None:
+        main_fixture = self.make_fixture()
+        main_result = self.invoke(main_fixture, worktree_name="from-main")
+        self.assertEqual(main_result.returncode, 0, main_result.stderr + main_result.stdout)
+        main_log = main_fixture["git_log"].read_text(encoding="utf-8", errors="replace")
+        self.assertIn(" worktree add -b codex/risk-suite-2 ", f" {main_log} ")
+        self.assertIn(" main", main_log)
+
+        master_fixture = self.make_fixture(initial_branch="master")
+        master_result = self.invoke(master_fixture, worktree_name="from-master")
+        self.assertEqual(master_result.returncode, 0, master_result.stderr + master_result.stdout)
+        master_log = master_fixture["git_log"].read_text(encoding="utf-8", errors="replace")
+        self.assertIn(" worktree add -b codex/risk-suite-2 ", f" {master_log} ")
+        self.assertIn(" master", master_log)
+
+    def test_omitted_base_without_main_or_master_is_zero_write(self) -> None:
+        fixture = self.make_fixture(initial_branch="trunk")
+        result = self.invoke(fixture)
+        self.assertEqual(result.returncode, 2, result.stderr + result.stdout)
+        self.assertIn("No local main or master branch exists", result.stderr)
+        self.assert_no_creation(fixture, "risk-suite", "codex/risk-suite-2")
+
     def test_non_ascii_worktree_name_is_passed_as_a_structured_argument(self) -> None:
         fixture = self.make_fixture()
         result = self.invoke(fixture, worktree_name="风险套件", branch_name="unicode-path")
@@ -268,6 +291,7 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             ("invalid-name", {"worktree_name": "../escape"}, "codex/risk-suite-2"),
             ("superscript-device-name", {"worktree_name": "LPT².txt"}, "codex/risk-suite-2"),
             ("invalid-branch", {"branch_name": "bad..branch"}, "codex/bad..branch"),
+            ("blank-base", {"base_branch": " "}, "codex/risk-suite-2"),
             ("missing-base", {"base_branch": "missing"}, "codex/risk-suite-2"),
         )
         for label, arguments, expected_branch in cases:
@@ -394,10 +418,15 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         openai_yaml = OPENAI_YAML.read_text(encoding="utf-8")
         script = SCRIPT.read_text(encoding="ascii")
 
-        self.assertLess(skill.index("`worktree_name`"), skill.index("`branch_name`"))
-        self.assertLess(skill.index("`branch_name`"), skill.index("`base_branch`"))
+        self.assertIn("user_invocable: true", skill)
+        self.assertIn("argument: ", skill)
+        self.assertIn("/create-worktree <工作树名> <分支名> [基准分支]", skill)
         self.assertIn("一次只询问第一个缺失项", skill)
-        self.assertIn("禁止推断默认值", skill)
+        self.assertIn("优先使用本地 `main`", skill)
+        self.assertIn("使用本地 `master`", skill)
+        self.assertIn("禁止要求用户输入 `worktree_name=`", skill)
+        self.assertIn('display_name: "create-worktree"', openai_yaml)
+        self.assertIn("$create-worktree", openai_yaml)
         self.assertIn("allow_implicit_invocation: false", openai_yaml)
         self.assertEqual(script.count('"worktree", "add", "-b"'), 1)
         self.assertIn("[IO.FileAttributes]::ReparsePoint", script)

@@ -1,21 +1,26 @@
 ---
 name: create-worktree
-description: 在 Windows 上从当前本地 Git 仓库的指定基准分支创建带 codex/ 前缀的新分支和永久 worktree，并用 Codex Desktop 打开。仅当用户显式调用 $create-worktree 并提供 worktree_name、branch_name、base_branch 三个具名参数时使用。
+description: 在 Windows 上从当前本地 Git 仓库创建带 codex/ 前缀的新分支和永久 worktree，并用 Codex Desktop 打开。用户调用 /create-worktree 或 $create-worktree 并依次传入工作树名、分支名和可选基准分支时使用。
+user_invocable: true
+argument: 两个必填位置参数，可选第三个基准分支
 ---
 
 # 创建永久 Git Worktree
 
 只执行随 skill 提供的 `scripts/create_worktree.ps1`。禁止自行拼装另一套 Git 流程，禁止访问远端，禁止清理失败成果。
 
-## 参数硬闸
+## 调用格式
 
-按以下顺序检查用户输入，一次只询问第一个缺失项，并在获得答案后再检查下一项：
+只接受按顺序排列的位置参数：
 
-1. `worktree_name`
-2. `branch_name`
-3. `base_branch`
+```text
+/create-worktree <工作树名> <分支名> [基准分支]
+$create-worktree <工作树名> <分支名> [基准分支]
+```
 
-禁止推断默认值，禁止把位置参数当成具名参数。三个参数齐全前不得运行脚本。
+第一个参数是目标工作树的单层目录名，第二个是新分支名。两者均必填；缺失时一次只询问第一个缺失项。禁止要求用户输入 `worktree_name=`、`branch_name=` 或 `base_branch=` 这类变量名。
+
+第三个参数可选。未提供时，脚本优先使用本地 `main`；本地 `main` 不存在时使用本地 `master`；两者都不存在时必须停止并请用户补充第三个参数。
 
 ## 执行
 
@@ -24,11 +29,16 @@ description: 在 Windows 上从当前本地 Git 仓库的指定基准分支创�
 ```powershell
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<skill-root>\scripts\create_worktree.ps1" `
   -worktree_name "<worktree_name>" `
+  -branch_name "<branch_name>"
+
+# 只在用户提供第三个位置参数时改用：
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<skill-root>\scripts\create_worktree.ps1" `
+  -worktree_name "<worktree_name>" `
   -branch_name "<branch_name>" `
   -base_branch "<base_branch>"
 ```
 
-必须将三个值作为独立参数传递；禁止用 `Invoke-Expression` 或拼接命令字符串。脚本会完成全部只读预检，并把唯一写入 Git 的动作限制为 `git worktree add -b`。
+必须将已提供的值作为独立参数传递；第三个值缺失时省略 `-base_branch`。禁止用 `Invoke-Expression` 或拼接命令字符串。脚本会完成全部只读预检，并把唯一写入 Git 的动作限制为 `git worktree add -b`。
 
 ## 结果处理
 
