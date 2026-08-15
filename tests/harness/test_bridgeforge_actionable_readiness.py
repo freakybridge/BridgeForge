@@ -114,6 +114,15 @@ class BridgeForgeActionableReadinessTests(unittest.TestCase):
     def test_switch_product_mirror_is_exact(self) -> None:
         self.assertEqual(SWITCH_PATHS[0].read_bytes(), SWITCH_PATHS[1].read_bytes())
 
+    def test_root_skill_defines_aggressive_upstream_absorption_without_second_prompt(self) -> None:
+        skill = (ROOT / "skills/bridgeforge/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("A. 激进更新：执行全部 R/C/U", skill)
+        self.assertIn("B. 温和更新", skill)
+        self.assertIn("C. 保守更新", skill)
+        self.assertIn("所有 U 项必须在用户选择前一次展示", skill)
+        self.assertIn("禁止执行后补问", skill)
+        self.assertIn("上游将覆盖所有列明受管区块", skill)
+
 
 if __name__ == "__main__":
     unittest.main()

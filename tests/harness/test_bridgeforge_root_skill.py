@@ -69,16 +69,20 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             "业务确认次数为 0",
             "只展示一张卡",
             "紧邻重跑全部 planner",
-            "用户拒绝时 risk 跳过，safe 继续",
+            "用户拒绝时 safe 继续",
             "status=completed|completed_with_gaps|failed",
             "readiness=ready|degraded|blocked",
             "execution_status=planned|completed|failed",
             "target_readiness=ready|ready_with_advisories|action_required|blocked",
-            "A. 全部确认",
-            "B. 部分确认",
-            "C. 不再进一步完善",
-            "B：R1、C1",
-            "只有 M 时直接给",
+            "A. 激进更新",
+            "B. 温和更新",
+            "C. 保守更新",
+            "B：R1、U2",
+            "`U1...Un`",
+            "逐项自然语言约束",
+            "禁止执行后补问",
+            "区块外逐字保留",
+            "只有 M 项时直接给",
             "`__pycache__` / `.pyc` 只能是 `C` 类 advisory",
         ):
             self.assertIn(marker, skill)
@@ -146,7 +150,8 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             self.assertIn(f"--mode {mode}", text)
             self.assertIn("--plan-fingerprint $PLAN.aggregate_fingerprint", text)
             self.assertIn("--confirmed-risk", text)
-            self.assertIn("--selected-risk <Rn>", text)
+            self.assertIn("--selected-action <ID>", text)
+            self.assertIn("--custom-absorption-directive <text>", text)
             self.assertIn("--decline-risk", text)
             self.assertIn("fingerprint 漂移零写入", text)
             self.assertIn("最后写版本戳", text)

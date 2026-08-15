@@ -21,7 +21,7 @@ import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -52,6 +52,8 @@ class Action:
     reason: str
     before_sha256: str | None
     after_sha256: str | None
+    managed_blocks: tuple[str, ...] = ()
+    local_impact: str | None = None
     payload: bytes | None = field(default=None, repr=False, compare=False)
 
 
@@ -76,6 +78,10 @@ class Plan:
     def risk_actions(self) -> list[Action]:
         return [item for item in self.actions if item.classification == "risk"]
 
+    @property
+    def absorption_actions(self) -> list[Action]:
+        return [item for item in self.actions if item.classification == "absorb"]
+
 
 @dataclass(frozen=True)
 class Receipt:
@@ -90,8 +96,14 @@ class Receipt:
     safe_applied: tuple[str, ...]
     risk_applied: tuple[str, ...]
     risk_declined: tuple[str, ...]
+    upstream_absorption_applied: tuple[str, ...]
+    upstream_absorption_declined: tuple[str, ...]
+    selected_absorption_ids: tuple[str, ...]
     selected_action_ids: tuple[str, ...]
     selection_fingerprint: str | None
+    custom_absorption_directives: tuple[str, ...]
+    conflict_file_items: tuple[dict[str, Any], ...]
+    managed_block_effects: tuple[dict[str, Any], ...]
     required_actions: tuple[dict[str, Any], ...]
     optional_actions: tuple[dict[str, Any], ...]
     manual_steps: tuple[dict[str, Any], ...]
@@ -129,35 +141,90 @@ def _canonical_json(value: Any) -> bytes:
     ).encode("utf-8")
 
 
-def _risk_catalog(plan: Plan) -> list[tuple[str, Action]]:
+CatalogEntry = tuple[str, Action, str | None]
+
+
+def _risk_catalog(plan: Plan) -> list[CatalogEntry]:
     ordered = sorted(
         plan.risk_actions,
         key=lambda item: (item.asset_id, item.target, item.action),
     )
-    return [(f"R{index}", action) for index, action in enumerate(ordered, 1)]
+    return [
+        (f"R{index}", action, None)
+        for index, action in enumerate(ordered, 1)
+    ]
 
 
-def _action_item(item_id: str, action: Action) -> dict[str, Any]:
-    target_state = "absent" if action.action == "retire" else action.after_sha256
+def _absorption_catalog(plan: Plan) -> list[CatalogEntry]:
+    ordered = sorted(
+        (
+            (action, block)
+            for action in plan.absorption_actions
+            for block in action.managed_blocks
+        ),
+        key=lambda item: (item[0].asset_id, item[0].target, item[1]),
+    )
+    return [
+        (f"U{index}", action, block)
+        for index, (action, block) in enumerate(ordered, 1)
+    ]
+
+
+def _executable_catalog(plan: Plan) -> list[CatalogEntry]:
+    return _risk_catalog(plan) + _absorption_catalog(plan)
+
+
+def _action_item(
+    item_id: str,
+    action: Action,
+    managed_block: str | None = None,
+) -> dict[str, Any]:
+    target_state = (
+        f"upstream managed block: {managed_block}"
+        if managed_block is not None
+        else ("absent" if action.action == "retire" else action.after_sha256)
+    )
     return {
         "id": item_id,
         "asset_id": action.asset_id,
-        "title": f"{action.action}: {action.target}",
-        "category": "required",
+        "title": (
+            f"{action.action}: {action.target} :: {managed_block}"
+            if managed_block is not None
+            else f"{action.action}: {action.target}"
+        ),
+        "category": (
+            "upstream_absorption"
+            if action.classification == "absorb"
+            else "required"
+        ),
         "current_state": action.before_sha256 or "missing",
         "target_state": target_state,
         "affects_readiness": True,
         "action": action.action,
         "target": action.target,
         "impact": action.reason,
+        "managed_blocks": (
+            [managed_block]
+            if managed_block is not None
+            else list(action.managed_blocks)
+        ),
+        "local_impact": action.local_impact,
         "recoverability": "transaction rollback before completion",
         "executor": "bridgeforge",
         "recommended": True,
-        "recommendation_reason": "required to reach the published managed state",
+        "recommendation_reason": (
+            "aggressive mode absorbs the current upstream managed blocks"
+            if action.classification == "absorb"
+            else "required to reach the published managed state"
+        ),
         "completion_criteria": (
-            f"target is {target_state}"
-            if target_state == "absent"
-            else f"target sha256 equals {target_state}"
+            f"managed block matches current upstream: {managed_block}"
+            if managed_block is not None
+            else (
+                f"target is {target_state}"
+                if target_state == "absent"
+                else f"target sha256 equals {target_state}"
+            )
         ),
         "platform_permission": False,
     }
@@ -219,10 +286,15 @@ def _target_readiness(
     return "ready"
 
 
-def _selection_fingerprint(plan: Plan, selected_ids: tuple[str, ...]) -> str:
+def _selection_fingerprint(
+    plan: Plan,
+    selected_ids: tuple[str, ...],
+    custom_directives: tuple[str, ...] = (),
+) -> str:
     return _sha256_bytes(_canonical_json({
         "aggregate_fingerprint": plan.aggregate_fingerprint,
         "selected_action_ids": list(selected_ids),
+        "custom_absorption_directives": list(custom_directives),
     }))
 
 
@@ -232,18 +304,18 @@ def _select_risk_actions(
     confirmed_risk: bool,
     decline_risk: bool,
     selected_risk_ids: tuple[str, ...] | None,
-) -> tuple[list[tuple[str, Action]], list[tuple[str, Action]]]:
+) -> tuple[list[CatalogEntry], list[CatalogEntry]]:
     decisions = sum((confirmed_risk, decline_risk, selected_risk_ids is not None))
     if decisions > 1:
         raise SyncBlocked("risk decision must be exactly one of all, selected, or declined")
-    catalog = _risk_catalog(plan)
+    catalog = _executable_catalog(plan)
     if not catalog:
         if selected_risk_ids is not None:
-            raise SyncBlocked("--selected-risk was supplied but the current plan has no risk actions")
+            raise SyncBlocked("--selected-risk was supplied but the current plan has no executable actions")
         return [], []
     if decisions == 0:
         raise SyncBlocked(
-            "risk actions require the single --confirmed-risk, --selected-risk, or --decline-risk decision"
+            "executable actions require the single --confirmed-risk, --selected-risk, or --decline-risk decision"
         )
     if confirmed_risk:
         return catalog, []
@@ -254,15 +326,88 @@ def _select_risk_actions(
         raise SyncBlocked("partial confirmation requires at least one --selected-risk ID")
     if len(set(selected_risk_ids)) != len(selected_risk_ids):
         raise SyncBlocked("partial confirmation contains duplicate risk IDs")
-    by_id = dict(catalog)
+    by_id = {item_id: (action, block) for item_id, action, block in catalog}
     unknown = sorted(set(selected_risk_ids) - set(by_id))
     if unknown:
         raise SyncBlocked("unknown selected risk IDs: " + ", ".join(unknown))
     chosen = set(selected_risk_ids)
     return (
-        [(item_id, action) for item_id, action in catalog if item_id in chosen],
-        [(item_id, action) for item_id, action in catalog if item_id not in chosen],
+        [entry for entry in catalog if entry[0] in chosen],
+        [entry for entry in catalog if entry[0] not in chosen],
     )
+
+
+_PRESERVE_DIRECTIVE_RE = re.compile(
+    r"(?:禁止|不要|不再|不|拒绝|跳过)\s*(?:继续\s*)?(?:吸收|采用|覆盖)"
+    r"|保留(?:本地|当前|现有)?|保持(?:本地|当前|现有)?"
+    r"|\b(?:preserve|keep|skip)\b"
+    r"|\b(?:do\s+not|don't)\s+(?:absorb|apply|use)\b",
+    re.IGNORECASE,
+)
+_ABSORB_DIRECTIVE_RE = re.compile(
+    r"吸收|采用上游|使用上游|以上游为准|覆盖本地"
+    r"|\babsorb\b|\bapply\s+upstream\b|\buse\s+upstream\b",
+    re.IGNORECASE,
+)
+_ABSORPTION_ID_RE = re.compile(r"(?<![A-Z0-9])U[1-9][0-9]*(?![0-9])", re.IGNORECASE)
+
+
+def _apply_custom_absorption_directives(
+    selected: list[CatalogEntry],
+    declined: list[CatalogEntry],
+    directives: tuple[str, ...],
+) -> tuple[list[CatalogEntry], list[CatalogEntry], dict[str, str]]:
+    if not directives:
+        return selected, declined, {}
+    selected_uids = {
+        item_id
+        for item_id, action, _block in selected
+        if action.classification == "absorb"
+    }
+    if not selected_uids:
+        raise SyncBlocked(
+            "custom absorption directives require at least one selected U ID"
+        )
+    decisions: dict[str, str] = {}
+    for directive in directives:
+        referenced = tuple(dict.fromkeys(
+            item.upper() for item in _ABSORPTION_ID_RE.findall(directive)
+        ))
+        if len(referenced) != 1:
+            raise SyncBlocked(
+                "custom absorption directive must name exactly one selected U ID: "
+                + directive
+            )
+        item_id = referenced[0]
+        if item_id not in selected_uids:
+            raise SyncBlocked(
+                "custom absorption directive does not name a selected U ID: "
+                + directive
+            )
+        if item_id in decisions:
+            raise SyncBlocked(
+                "custom absorption directives contain duplicate U ID: " + item_id
+            )
+        preserve = bool(_PRESERVE_DIRECTIVE_RE.search(directive))
+        positive_text = _PRESERVE_DIRECTIVE_RE.sub("", directive)
+        absorb = bool(_ABSORB_DIRECTIVE_RE.search(positive_text))
+        if preserve == absorb:
+            raise SyncBlocked(
+                "custom absorption directive is ambiguous or unsupported; "
+                "state exactly absorb upstream or preserve local for "
+                + item_id
+            )
+        decisions[item_id] = "preserve" if preserve else "absorb"
+
+    preserved_ids = {
+        item_id for item_id, decision in decisions.items() if decision == "preserve"
+    }
+    if preserved_ids:
+        moved = [entry for entry in selected if entry[0] in preserved_ids]
+        selected = [entry for entry in selected if entry[0] not in preserved_ids]
+        declined = declined + moved
+        declined.sort(key=lambda entry: (entry[0][0], int(entry[0][1:])))
+    return selected, declined, decisions
 
 
 def _semver(value: str, label: str) -> tuple[int, int, int]:
@@ -369,7 +514,7 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
         raise SyncBlocked("Codex asset contract has no assets")
     seen_ids: set[str] = set()
     seen_targets: set[str] = set()
-    allowed_strategies = {"whole", "merge", "region", "retirement"}
+    allowed_strategies = {"whole", "merge", "region", "seed", "retirement"}
     for asset in assets:
         if not isinstance(asset, dict):
             raise SyncBlocked("Codex asset contract contains a non-object asset")
@@ -387,6 +532,30 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             raise SyncBlocked(f"duplicate asset target: {target}")
         if strategy not in allowed_strategies:
             raise SyncBlocked(f"asset {asset_id!r} has an invalid strategy: {strategy!r}")
+        managed_blocks = asset.get("managed_blocks")
+        if managed_blocks is not None:
+            if strategy != "whole" or not isinstance(managed_blocks, dict):
+                raise SyncBlocked(
+                    f"asset {asset_id!r} managed_blocks requires whole strategy"
+                )
+            if managed_blocks.get("format") != "markdown-headings":
+                raise SyncBlocked(
+                    f"asset {asset_id!r} managed_blocks has an invalid format"
+                )
+            headings = managed_blocks.get("headings")
+            if (
+                not isinstance(headings, list)
+                or not headings
+                or any(
+                    not isinstance(heading, str)
+                    or not re.fullmatch(r"#{1,6} [^\r\n]+", heading)
+                    for heading in headings
+                )
+                or len(set(headings)) != len(headings)
+            ):
+                raise SyncBlocked(
+                    f"asset {asset_id!r} managed_blocks headings are invalid"
+                )
         if strategy == "retirement":
             if asset.get("source") is not None or asset.get("current_sha256") is not None:
                 raise SyncBlocked(f"retired asset {asset_id!r} must not declare a current source/hash")
@@ -404,6 +573,15 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                 raise SyncBlocked(f"asset {asset_id!r} source is missing or unsafe: {source}")
             if _sha256_path(source_path) != current_hash:
                 raise SyncBlocked(f"asset {asset_id!r} current hash is stale")
+            if managed_blocks is not None:
+                headings = tuple(str(item) for item in managed_blocks["headings"])
+                sections = _markdown_heading_sections(source_path.read_bytes(), headings)
+                missing = [heading for heading in headings if heading not in sections]
+                if missing:
+                    raise SyncBlocked(
+                        f"asset {asset_id!r} source is missing managed headings: "
+                        + ", ".join(missing)
+                    )
             _history_hashes(asset)
         seen_ids.add(asset_id)
         seen_targets.add(target.casefold())
@@ -419,6 +597,9 @@ def _action(
     before: bytes | None,
     after: bytes | None,
     project_root: Path,
+    *,
+    managed_blocks: tuple[str, ...] = (),
+    local_impact: str | None = None,
 ) -> Action:
     return Action(
         asset_id=str(asset["id"]),
@@ -428,8 +609,134 @@ def _action(
         reason=reason,
         before_sha256=_target_hash(before, asset, project_root) if before is not None else None,
         after_sha256=_target_hash(after, asset, project_root) if after is not None else None,
+        managed_blocks=managed_blocks,
+        local_impact=local_impact,
         payload=after,
     )
+
+
+def _markdown_heading_sections(
+    payload: bytes,
+    headings: tuple[str, ...],
+) -> dict[str, tuple[int, int]]:
+    try:
+        payload.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise SyncBlocked("managed Markdown target is not valid UTF-8") from exc
+    configured = {heading.encode("utf-8"): heading for heading in headings}
+    lines = payload.splitlines(keepends=True)
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line)
+    matches: dict[str, list[tuple[int, int]]] = {heading: [] for heading in headings}
+    heading_re = re.compile(br"^(#{1,6}) [^\r\n]+$")
+    for index, line in enumerate(lines):
+        stripped = line.rstrip(b"\r\n")
+        heading = configured.get(stripped)
+        if heading is None:
+            continue
+        level = len(stripped) - len(stripped.lstrip(b"#"))
+        finish = len(payload)
+        for later in range(index + 1, len(lines)):
+            candidate = lines[later].rstrip(b"\r\n")
+            match = heading_re.fullmatch(candidate)
+            if match and len(match.group(1)) <= level:
+                finish = offsets[later]
+                break
+        matches[heading].append((offsets[index], finish))
+    duplicate = [heading for heading, spans in matches.items() if len(spans) > 1]
+    if duplicate:
+        raise SyncBlocked(
+            "managed Markdown headings are duplicated: " + ", ".join(duplicate)
+        )
+    return {heading: spans[0] for heading, spans in matches.items() if spans}
+
+
+def _normalized_managed_block(payload: bytes) -> bytes:
+    return _git_blob_bytes(payload).rstrip(b" \t\r\n")
+
+
+def _plan_managed_markdown_blocks(
+    asset: dict[str, Any],
+    desired: bytes,
+    before: bytes,
+    target: Path,
+    project_root: Path,
+) -> tuple[list[Action], list[Gap]]:
+    block_contract = asset.get("managed_blocks")
+    headings = tuple(str(item) for item in block_contract["headings"])
+    try:
+        source_sections = _markdown_heading_sections(desired, headings)
+        target_sections = _markdown_heading_sections(before, headings)
+    except SyncBlocked as exc:
+        return [], [
+            Gap(
+                asset["id"],
+                asset["target"],
+                f"managed block ownership is ambiguous: {exc}",
+            )
+        ]
+    missing_source = [heading for heading in headings if heading not in source_sections]
+    if missing_source:
+        raise SyncBlocked(
+            f"asset {asset['id']!r} source is missing managed headings: "
+            + ", ".join(missing_source)
+        )
+    if not target_sections:
+        return [], [
+            Gap(
+                asset["id"],
+                asset["target"],
+                "managed block ownership is ambiguous: no registered heading exists",
+            )
+        ]
+
+    replacements: list[tuple[int, int, bytes]] = []
+    appended: list[bytes] = []
+    changed: list[str] = []
+    for heading in headings:
+        source_start, source_end = source_sections[heading]
+        source_block = desired[source_start:source_end]
+        target_span = target_sections.get(heading)
+        if target_span is None:
+            appended.append(source_block)
+            changed.append(heading)
+            continue
+        target_start, target_end = target_span
+        if _normalized_managed_block(
+            before[target_start:target_end]
+        ) == _normalized_managed_block(source_block):
+            continue
+        replacements.append((target_start, target_end, source_block))
+        changed.append(heading)
+    if not changed:
+        return [], []
+
+    after = before
+    for start, finish, replacement in sorted(replacements, reverse=True):
+        after = after[:start] + replacement + after[finish:]
+    if appended:
+        separator = b"" if not after or after.endswith((b"\n", b"\r")) else b"\n"
+        after += separator + b"\n".join(appended)
+    return [
+        _action(
+            asset,
+            target,
+            "absorb-upstream-blocks",
+            "absorb",
+            "upstream wins inside explicitly registered BridgeForge Markdown blocks",
+            before,
+            after,
+            project_root,
+            managed_blocks=tuple(changed),
+            local_impact=(
+                "local content inside the listed managed blocks will be replaced; "
+                "content outside those blocks is preserved byte-for-byte"
+            ),
+        )
+    ], []
 
 
 def _plan_whole(
@@ -461,7 +768,40 @@ def _plan_whole(
                 project_root,
             )
         ], []
+    if asset.get("managed_blocks") is not None:
+        return _plan_managed_markdown_blocks(
+            asset,
+            desired,
+            before,
+            target,
+            project_root,
+        )
     return [], [Gap(asset["id"], asset["target"], "whole-file target is modified or has no trusted historical hash")]
+
+
+def _plan_seed(
+    asset: dict[str, Any],
+    source: bytes,
+    target: Path,
+    project_root: Path,
+) -> tuple[list[Action], list[Gap]]:
+    desired = _render_source(source, asset, project_root)
+    if not target.exists():
+        return [
+            _action(
+                asset,
+                target,
+                "create",
+                "safe",
+                "project-owned seed is missing",
+                None,
+                desired,
+                project_root,
+            )
+        ], []
+    if not target.is_file() or _is_reparse(target):
+        return [], [Gap(asset["id"], asset["target"], "seed target is not a regular file")]
+    return [], []
 
 
 def _merge_generic(current: Any, canonical: Any, path: str, conflicts: list[str]) -> Any:
@@ -854,6 +1194,8 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 asset_actions, asset_gaps = _plan_whole(asset, source, target, root)
             elif strategy == "merge":
                 asset_actions, asset_gaps = _plan_merge(asset, source, target, root)
+            elif strategy == "seed":
+                asset_actions, asset_gaps = _plan_seed(asset, source, target, root)
             else:
                 asset_actions, asset_gaps = _plan_region(asset, source, target, root)
         actions.extend(asset_actions)
@@ -1084,6 +1426,68 @@ def _verify_actions(project_root: Path, actions: Iterable[Action]) -> None:
                 raise SyncBlocked(f"managed asset verification failed: {action.target}")
 
 
+def _materialize_selected_actions(
+    project_root: Path,
+    entries: list[CatalogEntry],
+) -> list[Action]:
+    materialized = [
+        action
+        for _item_id, action, block in entries
+        if block is None
+    ]
+    grouped: dict[tuple[str, str], tuple[Action, list[str]]] = {}
+    for _item_id, action, block in entries:
+        if block is None:
+            continue
+        key = (action.asset_id, action.target)
+        if key not in grouped:
+            grouped[key] = (action, [])
+        grouped[key][1].append(block)
+    for key in sorted(grouped):
+        action, selected_blocks = grouped[key]
+        if action.payload is None:
+            raise SyncBlocked(f"absorption action {action.asset_id} has no payload")
+        target = _inside(
+            project_root,
+            action.target,
+            f"absorption target {action.asset_id}",
+        )
+        before = target.read_bytes()
+        headings = tuple(action.managed_blocks)
+        desired_sections = _markdown_heading_sections(action.payload, headings)
+        current_sections = _markdown_heading_sections(before, headings)
+        replacements: list[tuple[int, int, bytes]] = []
+        appended: list[bytes] = []
+        for block in selected_blocks:
+            desired_span = desired_sections.get(block)
+            if desired_span is None:
+                raise SyncBlocked(
+                    f"selected absorption block is missing from payload: {block}"
+                )
+            desired_start, desired_end = desired_span
+            desired_block = action.payload[desired_start:desired_end]
+            current_span = current_sections.get(block)
+            if current_span is None:
+                appended.append(desired_block)
+            else:
+                replacements.append((*current_span, desired_block))
+        after = before
+        for start, finish, replacement in sorted(replacements, reverse=True):
+            after = after[:start] + replacement + after[finish:]
+        if appended:
+            separator = b"" if not after or after.endswith((b"\n", b"\r")) else b"\n"
+            after += separator + b"\n".join(appended)
+        materialized.append(
+            replace(
+                action,
+                after_sha256=_sha256_bytes(after),
+                managed_blocks=tuple(selected_blocks),
+                payload=after,
+            )
+        )
+    return materialized
+
+
 def apply_plan(
     planned: Plan,
     *,
@@ -1091,6 +1495,7 @@ def apply_plan(
     confirmed_risk: bool = False,
     decline_risk: bool = False,
     selected_risk_ids: tuple[str, ...] | None = None,
+    custom_absorption_directives: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
 ) -> Receipt:
     apply_started = time.perf_counter()
@@ -1104,6 +1509,7 @@ def apply_plan(
         confirmed_risk=confirmed_risk,
         decline_risk=decline_risk,
         selected_risk_ids=selected_risk_ids,
+        custom_absorption_directives=custom_absorption_directives,
         checkpoint=checkpoint,
         replan_ms=replan_ms,
         apply_started=apply_started,
@@ -1118,6 +1524,7 @@ def _apply_rebuilt_plan(
     confirmed_risk: bool = False,
     decline_risk: bool = False,
     selected_risk_ids: tuple[str, ...] | None = None,
+    custom_absorption_directives: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
     replan_ms: float,
     apply_started: float,
@@ -1130,18 +1537,49 @@ def _apply_rebuilt_plan(
     timings["replan"] = round(replan_ms, 1)
     if rebuilt.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("aggregate fingerprint drifted; zero writes performed")
-    selected_risks, declined_risks = _select_risk_actions(
+    if custom_absorption_directives and selected_risk_ids is None:
+        raise SyncBlocked(
+            "custom absorption directives require the single partial selection decision"
+        )
+    selected_executable, declined_executable = _select_risk_actions(
         rebuilt,
         confirmed_risk=confirmed_risk,
         decline_risk=decline_risk,
         selected_risk_ids=selected_risk_ids,
     )
-    selected = list(rebuilt.safe_actions)
-    selected.extend(action for _item_id, action in selected_risks)
-    selected_action_ids = tuple(item_id for item_id, _action in selected_risks)
-    risk_declined = tuple(action.asset_id for _item_id, action in declined_risks)
-
+    selected_executable, declined_executable, custom_decisions = (
+        _apply_custom_absorption_directives(
+            selected_executable,
+            declined_executable,
+            custom_absorption_directives,
+        )
+    )
+    selected_risks = [
+        item for item in selected_executable if item[1].classification == "risk"
+    ]
+    selected_absorptions = [
+        item for item in selected_executable if item[1].classification == "absorb"
+    ]
+    declined_risks = [
+        item for item in declined_executable if item[1].classification == "risk"
+    ]
+    declined_absorptions = [
+        item for item in declined_executable if item[1].classification == "absorb"
+    ]
     root = Path(rebuilt.project_root)
+    selected = list(rebuilt.safe_actions)
+    selected.extend(_materialize_selected_actions(root, selected_executable))
+    selected_action_ids = tuple(item_id for item_id, _action, _block in selected_executable)
+    selected_absorption_ids = tuple(
+        item_id for item_id, _action, _block in selected_absorptions
+    )
+    risk_declined = tuple(
+        action.asset_id for _item_id, action, _block in declined_risks
+    )
+    absorption_declined = tuple(
+        item_id for item_id, _action, _block in declined_absorptions
+    )
+
     contract, _contract_path = load_contract(Path(rebuilt.template_root))
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
     transaction = _Transaction(root)
@@ -1206,7 +1644,7 @@ def _apply_rebuilt_plan(
         )
         if checkpoint:
             checkpoint("before-stamp")
-        if not rebuilt.gaps and not risk_declined:
+        if not rebuilt.gaps and not declined_executable:
             transaction.write(stamp, (rebuilt.current_version + "\n").encode("utf-8"))
             stamp_written = True
             if checkpoint:
@@ -1228,9 +1666,20 @@ def _apply_rebuilt_plan(
         for item in rebuilt.risk_actions
         if item.asset_id in risk_declined
     )
+    receipt_gaps.extend(
+        {
+            "asset_id": action.asset_id,
+            "target": action.target,
+            "reason": (
+                "upstream absorption declined; local managed block preserved: "
+                + str(block)
+            ),
+        }
+        for _item_id, action, block in declined_absorptions
+    )
     remaining_required = [
-        _action_item(item_id, action)
-        for item_id, action in declined_risks
+        _action_item(item_id, action, block)
+        for item_id, action, block in declined_executable
     ]
     manual_steps = _manual_items(rebuilt.gaps)
     blockers: list[dict[str, Any]] = []
@@ -1241,7 +1690,30 @@ def _apply_rebuilt_plan(
         manual_steps=manual_steps,
         blockers=blockers,
     )
-    catalog = _risk_catalog(rebuilt)
+    catalog = _executable_catalog(rebuilt)
+    selected_absorption_id_set = set(selected_absorption_ids)
+    conflict_file_items = tuple(
+        _action_item(item_id, action, block)
+        for item_id, action, block in _absorption_catalog(rebuilt)
+    )
+    managed_block_effects = tuple(
+        {
+            "id": item_id,
+            "asset_id": action.asset_id,
+            "target": action.target,
+            "managed_block": block,
+            "decision": (
+                custom_decisions.get(item_id)
+                or ("absorb" if item_id in selected_absorption_id_set else "preserve")
+            ),
+            "effect": (
+                "absorbed_upstream"
+                if item_id in selected_absorption_id_set
+                else "preserved_local"
+            ),
+        }
+        for item_id, action, block in _absorption_catalog(rebuilt)
+    )
     degraded = bool(receipt_gaps)
     timings["total"] = round((time.perf_counter() - apply_started) * 1000, 1)
     return Receipt(
@@ -1254,17 +1726,35 @@ def _apply_rebuilt_plan(
         current_version=rebuilt.current_version,
         aggregate_fingerprint=rebuilt.aggregate_fingerprint,
         safe_applied=tuple(item.asset_id for item in rebuilt.safe_actions),
-        risk_applied=tuple(action.asset_id for _item_id, action in selected_risks),
+        risk_applied=tuple(
+            action.asset_id for _item_id, action, _block in selected_risks
+        ),
         risk_declined=risk_declined,
+        upstream_absorption_applied=tuple(dict.fromkeys(
+            action.asset_id for _item_id, action, _block in selected_absorptions
+        )),
+        upstream_absorption_declined=absorption_declined,
+        selected_absorption_ids=selected_absorption_ids,
         selected_action_ids=selected_action_ids,
         selection_fingerprint=(
-            _selection_fingerprint(rebuilt, selected_action_ids) if catalog else None
+            _selection_fingerprint(
+                rebuilt,
+                selected_action_ids,
+                custom_absorption_directives,
+            )
+            if catalog
+            else None
         ),
+        custom_absorption_directives=custom_absorption_directives,
+        conflict_file_items=conflict_file_items,
+        managed_block_effects=managed_block_effects,
         required_actions=tuple(remaining_required),
         optional_actions=tuple(optional_actions),
         manual_steps=tuple(manual_steps),
         blockers=tuple(blockers),
-        recommended_selection=tuple(item_id for item_id, _action in catalog),
+        recommended_selection=tuple(
+            item_id for item_id, _action, _block in catalog
+        ),
         gaps=tuple(receipt_gaps),
         stamp_written_last=stamp_written,
         rollback_performed=False,
@@ -1277,8 +1767,15 @@ def _plan_payload(
     *,
     timings_ms: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    catalog = _risk_catalog(plan)
-    required_actions = [_action_item(item_id, action) for item_id, action in catalog]
+    catalog = _executable_catalog(plan)
+    required_actions = [
+        _action_item(item_id, action, block)
+        for item_id, action, block in catalog
+    ]
+    upstream_absorption_actions = [
+        _action_item(item_id, action, block)
+        for item_id, action, block in _absorption_catalog(plan)
+    ]
     optional_actions: list[dict[str, Any]] = []
     manual_steps = _manual_items(plan.gaps)
     blockers = _blocker_items(plan.blockers)
@@ -1303,18 +1800,39 @@ def _plan_payload(
             {key: value for key, value in asdict(item).items() if key != "payload"}
             for item in plan.risk_actions
         ],
+        "upstream_absorption": [
+            {key: value for key, value in asdict(item).items() if key != "payload"}
+            for item in plan.absorption_actions
+        ],
         "gaps": [asdict(item) for item in plan.gaps],
         "blockers": plan.blockers,
         "required_actions": required_actions,
+        "upstream_absorption_actions": upstream_absorption_actions,
+        "conflict_file_items": [
+            {
+                "id": item["id"],
+                "target": item["target"],
+                "managed_blocks": item["managed_blocks"],
+                "local_impact": item["local_impact"],
+                "recoverability": item["recoverability"],
+            }
+            for item in upstream_absorption_actions
+        ],
         "optional_actions": optional_actions,
         "manual_steps": manual_steps,
         "blocker_items": blockers,
-        "recommended_selection": [item_id for item_id, _action in catalog],
+        "recommended_selection": [
+            item_id for item_id, _action, _block in catalog
+        ],
         "confirmation": (
             {
                 "business_confirmation_count": "one",
-                "all": [item_id for item_id, _action in catalog],
-                "partial_syntax": "B: R1,R3",
+                "warning": (
+                    "A is aggressive: upstream wins inside every listed managed block; "
+                    "local customizations inside those blocks may be lost"
+                ),
+                "all": [item_id for item_id, _action, _block in catalog],
+                "partial_syntax": "B: R1,U2; U3 only absorb the named managed block",
                 "decline": "C",
                 "aggregate_fingerprint": plan.aggregate_fingerprint,
             }
@@ -1342,12 +1860,19 @@ def main(argv: list[str] | None = None) -> int:
     risk.add_argument("--confirmed-risk", action="store_true")
     risk.add_argument(
         "--selected-risk",
+        "--selected-action",
         action="append",
         dest="selected_risk_ids",
         metavar="ID",
-        help="repeat a displayed Rn ID for the single partial-confirmation decision",
+        help="repeat a displayed Rn/Un ID for the single partial-confirmation decision",
     )
     risk.add_argument("--decline-risk", action="store_true")
+    parser.add_argument(
+        "--custom-absorption-directive",
+        action="append",
+        default=[],
+        help="preserve the user's same-reply B directive in the transaction receipt",
+    )
     args = parser.parse_args(argv)
 
     if sys.version_info < MIN_PYTHON:
@@ -1379,6 +1904,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.selected_risk_ids is not None
                 else None
             ),
+            custom_absorption_directives=tuple(args.custom_absorption_directive),
             replan_ms=plan_ms,
             apply_started=plan_started,
         )

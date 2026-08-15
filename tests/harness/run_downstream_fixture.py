@@ -145,6 +145,57 @@ def build_codex_fixture(*, include_factory_templates: bool = False) -> Path:
     return CODEX_FIXTURE
 
 
+def check_project_sync_upstream_absorption_card() -> CheckResult:
+    fixture = build_codex_fixture()
+    target = fixture / ".codex" / "rules" / "architecture.md"
+    customized = target.read_text(encoding="utf-8").replace(
+        "## 1. 职责边界\n",
+        "## 1. 职责边界\n\nfixture local managed customization\n",
+        1,
+    )
+    customized += "\n## Fixture project-owned section\n\nmust survive outside managed blocks\n"
+    target.write_text(customized, encoding="utf-8")
+    memory_index = fixture / ".codex" / "memory" / "MEMORY.md"
+    memory_index.write_text("# fixture generated memory index\n", encoding="utf-8")
+    result = run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "bridgeforge_project_sync.py"),
+            "--project-root",
+            str(fixture),
+            "--template-root",
+            str(REPO_ROOT),
+            "--mode",
+            "update",
+        ],
+        REPO_ROOT,
+    )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        payload = {}
+    absorptions = payload.get("upstream_absorption_actions", [])
+    conflicts = payload.get("conflict_file_items", [])
+    gaps = payload.get("gaps", [])
+    ok = (
+        result.returncode == 0
+        and [item.get("id") for item in absorptions] == ["U1"]
+        and conflicts
+        and conflicts[0].get("target") == ".codex/rules/architecture.md"
+        and "## 1. 职责边界" in conflicts[0].get("managed_blocks", [])
+        and "aggressive" in payload.get("confirmation", {}).get("warning", "")
+        and payload.get("confirmation", {}).get("business_confirmation_count") == "one"
+        and not any(item.get("asset_id") == "codex.memory.index" for item in gaps)
+    )
+    return CheckResult(
+        "project_sync_upstream_absorption_card",
+        ok,
+        "real CLI lists every managed-block conflict as U before one aggressive/warm/conservative decision and treats memory index as project-owned seed"
+        if ok
+        else f"exit={result.returncode} stdout={result.stdout.strip()} stderr={result.stderr.strip()}",
+    )
+
+
 def check_rule_index_missing() -> CheckResult:
     fixture = build_codex_fixture()
     target = fixture / ".codex" / "rules" / "debugging.md"
@@ -2838,6 +2889,7 @@ CHECKS = {
     "encoding-garble": check_encoding_garble_scan,
     "encoding-no-bom": check_encoding_no_bom,
     "platform-default": check_platform_default,
+    "project-sync-absorption-card": check_project_sync_upstream_absorption_card,
     "layout-migration": check_layout_migration_dry_run_apply,
     "layout-migration-blockers": check_layout_migration_blockers_are_local,
     "layout-migration-rollback": check_layout_migration_transaction_rollback,

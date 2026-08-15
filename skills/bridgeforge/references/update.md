@@ -16,10 +16,12 @@ $PLAN_JSON
 ```
 
 将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。读取 plan 的
-`required_actions / optional_actions / manual_steps / blocker_items / recommended_selection`，按根
-契约只展示一张 A/B/C 卡。没有 R/C 时立即以
+`required_actions / upstream_absorption_actions / conflict_file_items / optional_actions /
+manual_steps / blocker_items / recommended_selection`，按根契约先逐文件展示全部 U 冲突与
+强警告，再只展示一张 A/B/C 卡。没有 R/C/U 时立即以
 `--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；A 追加 `--confirmed-risk`；
-B 为同一回复中的每个合法 R 编号追加 `--selected-risk <Rn>`；C 追加 `--decline-risk`。
+B 为同一回复中的每个合法 R/U 编号追加 `--selected-action <ID>`，并将逐项文字要求原文
+追加 `--custom-absorption-directive <text>`；C 追加 `--decline-risk`。
 执行器会紧邻 replan；fingerprint 漂移零写入，任何失败回滚。仅
 `target_readiness=ready|ready_with_advisories` 且验证通过时最后写版本戳；存在必要 gap、
 人工步骤或拒绝 risk 时保留旧戳/无戳，并同时输出双状态与兼容 JSON receipt。
@@ -58,7 +60,7 @@ LF/CRLF hash，且注册可由稳定身份识别时，才把删除与注销列�
 |---|---|---|
 | A | hooks、scripts；Codex `agents/*.toml`、`skill-routing.json` | 与已知旧模板一致时 safe fast-forward；被改过或无历史 hash 时保留为 gap；Codex agents 与 routing 必须配套检查。BridgeForge 不管理模型或思考强度。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
 | B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 先把 settings 旧 `hooks` 的第三方项迁入 `.codex/hooks.json`，再删除整个旧块；按 `command` 身份增补/替换全部受管 dispatcher，保留第三方事件、handler 与其他配置。受管内容漂移必须展示 diff、保留原内容并记 gap，不再询问覆盖；config `[hooks]` 直接阻断。Claude 注册方式不变。保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
-| C | rules、入口文件 | 只 diff；whole-file 无历史 hash 或人工修改时保留为 gap，不逐段追问 |
+| C | rules、入口文件 | schema v2 已登记 Markdown 受管区块时生成 U 项并逐文件展示；A 仅在受管区块内上游优先，B 可选编号/文字约束，C 保留；无可信边界才进入 gap |
 | D | memory | 只读分类计划；确定性迁移进入唯一 risk 卡，低置信分类保留为 gap；Codex 校验 context/router/usage 且不建 junction |
 | E | `.gitignore` | 按 init 手册的 BridgeForge 机制块幂等补缺，不删项目项 |
 | F | `doc/` 布局 | 检测 `delivery_layout` 和旧目录；确定性移动进入唯一 risk 卡，冲突保留为 gap |
@@ -93,7 +95,8 @@ pre-commit 整份复制到下游：
 - 下游业务专属补充：保留。
 - 上游脱敏版比下游弱：保留下游。
 
-任何类 C 差异都要展示具体 diff；无法凭历史 hash 自动判断时保留为 gap，不在本轮追问。
+任何类 C 差异都要在唯一确认卡中逐文件展示；无可信 ownership 时保留为 gap，不在执行后
+追问。区块外项目内容必须逐字保留。
 禁止跨多个项目批量同步。
 
 ### U2.1 Memory 迁移计划

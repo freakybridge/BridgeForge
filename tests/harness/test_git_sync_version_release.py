@@ -208,6 +208,91 @@ class VersionReleaseTests(unittest.TestCase):
             )
             self.assertIsNone(plan)
 
+    def test_schema_v2_managed_blocks_preserve_project_owned_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            host = repo / ".codex"
+            memory = host / "memory" / "MEMORY.md"
+            memory.parent.mkdir(parents=True)
+            (host / "managed-skeleton.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "stamp": ".codex/.bridgeforge_version",
+                        "contract_target": ".codex/managed-skeleton.json",
+                        "assets": [
+                            {
+                                "id": "root.agents",
+                                "target": "AGENTS.md",
+                                "strategy": "whole",
+                                "managed_blocks": {
+                                    "format": "markdown-headings",
+                                    "headings": ["## Managed"],
+                                },
+                            },
+                            {
+                                "id": "codex.memory.index",
+                                "target": ".codex/memory/MEMORY.md",
+                                "strategy": "seed",
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            agents = repo / "AGENTS.md"
+            stamp = host / ".bridgeforge_version"
+            agents.write_text(
+                "# Entry\n\n## Managed\n\nupstream\n\n## Project\n\nlocal old\n",
+                encoding="utf-8",
+            )
+            memory.write_text("# generated index\n", encoding="utf-8")
+            stamp.write_text("0.92.1\n", encoding="utf-8")
+            (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "baseline")
+
+            agents.write_text(
+                agents.read_text(encoding="utf-8").replace("local old", "local new"),
+                encoding="utf-8",
+            )
+            plan = VERSION_RELEASE.build_release_plan(
+                repo, "fix: 更新项目说明", {"AGENTS.md"}
+            )
+            self.assertEqual(plan.classification, "project")
+
+            memory.write_text("# regenerated project index\n", encoding="utf-8")
+            plan = VERSION_RELEASE.build_release_plan(
+                repo,
+                "fix: 更新项目索引",
+                {"AGENTS.md", ".codex/memory/MEMORY.md"},
+            )
+            self.assertEqual(plan.classification, "project")
+
+            agents.write_text(
+                agents.read_text(encoding="utf-8").replace("upstream", "bypassed"),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+                VERSION_RELEASE.build_release_plan(
+                    repo,
+                    "fix: 禁止旁路修改受管区块",
+                    {"AGENTS.md", ".codex/memory/MEMORY.md"},
+                )
+
+            stamp.write_text("0.92.2\n", encoding="utf-8")
+            mixed = VERSION_RELEASE.build_release_plan(
+                repo,
+                "fix: 同步受管区块并保留项目定制",
+                {
+                    "AGENTS.md",
+                    ".codex/memory/MEMORY.md",
+                    ".codex/.bridgeforge_version",
+                },
+            )
+            self.assertEqual(mixed.classification, "mixed")
+
     def test_managed_file_without_stamp_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

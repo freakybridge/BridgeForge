@@ -16,10 +16,12 @@ $PLAN_JSON
 ```
 
 将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。读取 plan 的
-`required_actions / optional_actions / manual_steps / blocker_items / recommended_selection`，按根
-契约只展示一张 A/B/C 卡。没有 R/C 时立即以
+`required_actions / upstream_absorption_actions / conflict_file_items / optional_actions /
+manual_steps / blocker_items / recommended_selection`，按根契约先逐文件展示全部 U 冲突与
+强警告，再只展示一张 A/B/C 卡。没有 R/C/U 时立即以
 `--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；A 追加 `--confirmed-risk`；
-B 为同一回复中的每个合法 R 编号追加 `--selected-risk <Rn>`；C 追加 `--decline-risk`。
+B 为同一回复中的每个合法 R/U 编号追加 `--selected-action <ID>`，并将逐项文字要求原文
+追加 `--custom-absorption-directive <text>`；C 追加 `--decline-risk`。
 执行器会紧邻 replan；fingerprint 漂移零写入，任何失败回滚。仅
 `target_readiness=ready|ready_with_advisories` 且验证通过时最后写版本戳；存在必要 gap、
 人工步骤或拒绝 risk 时保留旧戳/无戳，并同时输出双状态与兼容 JSON receipt。

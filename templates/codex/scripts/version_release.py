@@ -126,6 +126,75 @@ def _region_parts(
     return payload[start:finish], outside
 
 
+def _markdown_heading_parts(
+    payload: bytes | None, headings: list[str]
+) -> tuple[bytes | None, bytes | None]:
+    if payload is None:
+        return None, None
+    payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    try:
+        payload.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ReleaseError("managed Markdown file is not valid UTF-8") from exc
+    if not headings or len(set(headings)) != len(headings):
+        raise ReleaseError("managed Markdown headings must be unique and non-empty")
+
+    configured = {heading.encode("utf-8"): heading for heading in headings}
+    lines = payload.splitlines(keepends=True)
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line)
+    matches: dict[str, list[tuple[int, int]]] = {heading: [] for heading in headings}
+    heading_re = re.compile(br"^(#{1,6}) [^\r\n]+$")
+    for index, line in enumerate(lines):
+        stripped = line.rstrip(b"\r\n")
+        heading = configured.get(stripped)
+        if heading is None:
+            continue
+        level = len(stripped) - len(stripped.lstrip(b"#"))
+        finish = len(payload)
+        for later in range(index + 1, len(lines)):
+            candidate = lines[later].rstrip(b"\r\n")
+            match = heading_re.fullmatch(candidate)
+            if match and len(match.group(1)) <= level:
+                finish = offsets[later]
+                break
+        matches[heading].append((offsets[index], finish))
+    duplicate = [heading for heading, spans in matches.items() if len(spans) > 1]
+    if duplicate:
+        raise ReleaseError(
+            "managed Markdown headings are duplicated: " + ", ".join(duplicate)
+        )
+
+    spans = [
+        (entries[0][0], entries[0][1], heading)
+        for heading, entries in matches.items()
+        if entries
+    ]
+    spans.sort()
+    for previous, current in zip(spans, spans[1:]):
+        if previous[1] > current[0]:
+            raise ReleaseError("managed Markdown heading spans overlap")
+    document_order = [heading for _start, _finish, heading in spans]
+    managed_chunks = ["order=" + "|".join(document_order)]
+    for heading in headings:
+        entries = matches[heading]
+        if not entries:
+            managed_chunks.append(heading + "=<MISSING>")
+            continue
+        start, finish = entries[0]
+        block = payload[start:finish].rstrip(b" \t\n").decode("utf-8-sig")
+        managed_chunks.append(heading + "=" + block)
+
+    outside = payload
+    for start, finish, heading in reversed(spans):
+        marker = f"<BRIDGEFORGE_MANAGED_MARKDOWN:{heading}>".encode("utf-8")
+        outside = outside[:start] + marker + outside[finish:]
+    return "\n\0".join(managed_chunks).encode("utf-8"), outside
+
+
 def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
     configs: list[tuple[Path, dict[str, object]]] = []
     for host in (".codex", ".claude"):
@@ -155,6 +224,7 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
             raise ReleaseError(f"invalid schema v2 managed skeleton config: {path}")
         whole_files = [stamp, contract_target]
         managed_regions: list[dict[str, str]] = []
+        managed_headings: list[dict[str, object]] = []
         for asset in assets:
             if not isinstance(asset, dict):
                 raise ReleaseError(f"invalid schema v2 asset in {path}")
@@ -162,6 +232,22 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
             strategy = asset.get("strategy")
             if not isinstance(target, str) or not isinstance(strategy, str):
                 raise ReleaseError(f"invalid schema v2 asset in {path}")
+            if strategy == "whole" and asset.get("managed_blocks") is not None:
+                managed_blocks = asset.get("managed_blocks")
+                if (
+                    not isinstance(managed_blocks, dict)
+                    or managed_blocks.get("format") != "markdown-headings"
+                    or not isinstance(managed_blocks.get("headings"), list)
+                    or not managed_blocks["headings"]
+                    or not all(isinstance(item, str) and item for item in managed_blocks["headings"])
+                ):
+                    raise ReleaseError(f"invalid schema v2 managed blocks in {path}")
+                managed_headings.append(
+                    {"path": target, "headings": list(managed_blocks["headings"])}
+                )
+                continue
+            if strategy == "seed":
+                continue
             if strategy in {"whole", "merge", "retirement"}:
                 whole_files.append(target)
                 continue
@@ -181,6 +267,7 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
                     "stamp": stamp,
                     "whole_files": sorted(set(whole_files)),
                     "managed_regions": managed_regions,
+                    "managed_headings": managed_headings,
                 },
             )
         )
@@ -206,6 +293,21 @@ def _change_ownership(
                 raise ReleaseError(f"invalid managed region in {config_path}")
             before_managed, before_project = _region_parts(before, begin, end)
             current_managed, current_project = _region_parts(current, begin, end)
+            return (
+                config_path,
+                before_managed != current_managed,
+                before_project != current_project,
+            )
+        for raw_headings in config.get("managed_headings", []):  # type: ignore[union-attr]
+            if not isinstance(raw_headings, dict) or raw_headings.get("path") != path:
+                continue
+            headings = raw_headings.get("headings")
+            if not isinstance(headings, list) or not all(
+                isinstance(item, str) for item in headings
+            ):
+                raise ReleaseError(f"invalid managed Markdown headings in {config_path}")
+            before_managed, before_project = _markdown_heading_parts(before, headings)
+            current_managed, current_project = _markdown_heading_parts(current, headings)
             return (
                 config_path,
                 before_managed != current_managed,

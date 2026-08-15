@@ -303,33 +303,45 @@ REFRESHED
   稳定身份 merge、manifest 受管 refresh、无冲突 map projection、验证与 finalization。
 - `risk`：有精确 source/target/hash/影响/回滚边界的移动、删除、首次 native memories enable、
   public→private 或无法从项目事实确定且会改变结果的 init/adopt 参数。
-- `gap`：人工修改、whole-file 无历史 hash、低置信分类、目标冲突、map 损坏、来源不可信。
-  gap 必须保留原样，不得进入 risk，也不得再次询问。
+- `absorption`：whole-file 无历史 hash，但 schema v2 已逐资产登记可信 Markdown 受管区块；
+  只允许上游替换这些区块，区块外项目内容必须逐字保留。
+- `gap`：无可信受管区块、低置信分类、目标冲突、map 损坏、来源不可信。gap 必须保留
+  原样，不得进入执行选集，也不得再次询问。
 
 对所有 planner 输出做确定性排序与 canonical JSON 序列化，计算单一
-`aggregate_fingerprint=sha256:<64hex>`。没有 risk 时直接执行 safe，业务确认次数为 0。
-存在 risk 时只展示一张带稳定编号的可执行完善卡。每个 `R1...Rn` 必须列路径、动作、
+`aggregate_fingerprint=sha256:<64hex>`。没有 R/C/U 时直接执行 safe，业务确认次数为 0。
+存在 R/C/U 时只展示一张带稳定编号的可执行完善卡。每个 `R1...Rn` 必须列路径、动作、
 当前/目标状态、影响、可恢复性、是否影响完全就绪、executor、推荐值、完成标准和
 fingerprint；无功能影响但可执行的清理用 `C1...Cn`，`/hooks` trust、重启和新会话 smoke
 等不可代执行步骤用 `M1...Mn`，blocker 用 `B1...Bn`。`M/B` 只展示，禁止进入执行选集。
+可吸收的上游受管区块用 `U1...Un`；每个 U 只代表一个冲突区块，并按文件分组列出路径、
+上游覆盖效果、本地定制影响和可恢复性。同一文件选择多个 U 时执行器必须合并成一次事务
+写入。所有 U 项必须在用户选择前一次展示，禁止执行后补问。
 Git ignored `__pycache__` / `.pyc` 只能是 `C` 类 advisory，禁止单独降低完全就绪度。
 
 程序必须同时给出推荐清单和全部可执行项，然后只展示一张卡、只接受一次业务决定：
 
 ```text
-A. 全部确认：执行全部 R/C
-B. 部分确认：同一回复携带编号，例如 B：R1、C1
-C. 不再进一步完善：本轮跳过全部 R/C
+⚠️ A 为激进模式：上游将覆盖所有列明受管区块，区块内本地定制可能丢失；事务失败会
+回滚，但验证通过不代表本地业务语义完全保留。
+
+A. 激进更新：执行全部 R/C/U，并默认吸收全部 U 项
+B. 温和更新：同一回复携带编号及可选逐项要求，例如 B：R1、U2；U3 只吸收 hooks 规则
+C. 保守更新：保留已完成的 safe 更新，本轮不再执行 R/C/U
 ```
 
-A 包含必要项和可选清理；B 既接受推荐组合，也接受当前卡内任意合法 R/C 组合；C 只对
-本轮有效，不写永久 waiver。没有 R/C 时业务确认次数为 0，不展示空卡；只有 M 时直接给
-人工步骤。B 缺编号、未知/重复编号或选择 M/B 时风险项零写入并提示合法语法，禁止把无效
-输入当授权或继续第二轮逐项确认。用户拒绝时 risk 跳过，safe 继续，gap 与拒绝项合并到收据。
+A 包含必要项、可选清理和所有可信上游吸收；B 接受当前卡内任意合法 R/C/U 组合，也接受
+同一回复中的逐项自然语言约束。每条 U 约束必须只指向一个已选 U，并明确收敛为“吸收上游”
+或“保留本地”之一；同时包含两种意图、缺少明确意图或试图在一个 U 内继续细分时，执行器
+必须在风险写入前拒绝。原文与最终区块效果都必须写入 receipt，禁止只记录文字却忽略语义。
+C 只对本轮有效，不写永久 waiver。没有 R/C/U 时业务确认次数为 0，不展示空卡；
+只有 M 项时直接给人工步骤。无效输入不得变成第二轮逐项确认。用户拒绝时 safe 继续，gap 与拒绝项
+合并到收据。
 
 用户决定后必须紧邻重跑全部 planner 并重算 aggregate fingerprint；不一致时风险项零写入
 并停止，禁止沿用旧授权。Codex project-sync：A 追加 `--confirmed-risk`；B 对每个所选编号
-追加 `--selected-risk <Rn>`；C 追加 `--decline-risk`。switch：A 追加当前
+追加 `--selected-action <Rn|Un>`，并为用户文字原文追加 `--custom-absorption-directive`；
+C 追加 `--decline-risk`。switch：A 追加当前
 `--confirmed-risk-fingerprint <本轮值>`；B 同时追加当前 fingerprint 与逐个
 `--selected-risk <Rn>`；C 追加 `--decline-risk`。缺失、旧值或不同值必须在任何风险写入前失败。
 
@@ -337,6 +349,8 @@ A 包含必要项和可选清理；B 既接受推荐组合，也接受当前卡�
 `target_readiness=ready|ready_with_advisories|action_required|blocked` 回答距离完全就绪还差什么。
 兼容期继续输出 `status=completed|completed_with_gaps|failed`、
 `readiness=ready|degraded|blocked` 与逐项 gaps，但旧字段只放技术收据，不再作为用户主标题。
+apply receipt 还必须回显完整 `conflict_file_items` 和逐 U 的 `managed_block_effects`，使用户
+能够对账每个冲突区块最终是 `absorbed_upstream` 还是 `preserved_local`。
 
 ## Step 4.6：Codex 平台默认调度（仅 init / adopt / update）
 
@@ -364,8 +378,8 @@ BridgeForge 下沉时按业务专属性分层：
 | 上游项目 hooks/scripts | 与已知旧模板一致时 safe fast-forward；人工修改或无历史 hash 时保留为 gap |
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
-| rules、入口文件 | 只 diff；人工差异或无历史 hash 时原样保留为 gap |
-| memory | init 只创建 `MEMORY.md`；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
+| rules、入口文件 | schema v2 有显式 Markdown 受管区块时生成 U 项；A 上游优先、B 选择吸收、C 保留；区块外逐字保留，无可信边界则 gap |
+| memory | `MEMORY.md` 仅作首次 seed，既有索引属于项目生成数据；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
 | `doc/` | 新项目按事实推导布局；已有项目迁移清单进入唯一 risk 卡 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
 
@@ -373,7 +387,8 @@ BridgeForge 下沉时按业务专属性分层：
 
 ## 通用危险红线
 
-- 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill。
+- 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill；受管区块覆盖必须逐文件
+  列入唯一 A/B/C 卡并显示激进模式警告。
 - 禁止静默删除人工修改内容；确定性删除只能进入唯一 risk 卡，未知项保留为 gap。
 - 禁止代编架构红线、快速命令和项目结构。
 - 禁止跳过 doc 分层、Python 硬依赖或项目 memory 的 context/router；Claude junction 规则保持不变。
@@ -400,7 +415,7 @@ BridgeForge 下沉时按业务专属性分层：
 | `.agents` 迁移 | 当前项目 dry-run、plan fingerprint、唯一卡决定、apply 退出码、未知内容保留 gap |
 | 统一确认 | safe/risk/gap 数量；aggregate fingerprint；业务确认次数 0 或 1；`status` / `readiness` / gaps |
 
-最终输出遵循“结论 / 双状态 / 已自动完成 / R-C-M-B 分区清单 / 推荐组合 / 唯一 A-B-C 卡 /
+最终输出遵循“结论 / 双状态 / 已自动完成 / R-C-U-M-B 分区清单 / 推荐组合 / 唯一 A-B-C 卡 /
 执行与验证收据 / 折叠机器字段”的固定顺序。用户主标题只允许：`完全就绪`、
 `核心更新完成，还需用户完成 N 项`、`完全就绪，另有 N 项可选清理`、`更新被阻断`。
 任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成；M 项必须等真实 trust、
