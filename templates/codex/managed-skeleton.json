@@ -25,6 +25,9 @@
     ],
     "0.94.0": [
       "sha256:d445943f9e2b2824d0048acf8fdec007e931670bb5d36d9e8cc563d333c253f9"
+    ],
+    "0.94.1": [
+      "sha256:de29c5b33acd3b0939d8d51f1be08e7ef5172bb7b8a64a3a0df0fc5a4793b227"
     ]
   },
   "assets": [
@@ -37,15 +40,11 @@
         "format": "markdown-headings",
         "headings": [
           "## 0.5 专业表达风格",
-          "## 1. 架构红线",
-          "## 2. 规则文件索引",
           "## 2.5 工具与证据红线",
-          "## 3. 快速命令",
           "## 4. Skills（可调用技能）",
           "## 4.5 Codex 模型 / effort（平台默认）",
           "## 5. Memory 项目内托管",
           "## 6. 换机首次启动 Checklist",
-          "## 7. 项目结构速查",
           "## 8. 鬼打墙觉察 + 渐进升级（红线）",
           "## 8.5 自改审计独立性（红线）",
           "## 9. 主观体验报告主动问范式（红线）",
@@ -53,6 +52,22 @@
           "## 9.6 任务防漂移 — `[focus]`",
           "## 10. 上下文成本与预算 — `[ctx-budget]`",
           "## 11. 文档管理（红线）"
+        ],
+        "keyed_tables": [
+          {
+            "heading": "## 2. 规则文件索引",
+            "key_column": 0,
+            "managed_keys": [
+              "rules/architecture.md",
+              "rules/modules.md",
+              "rules/anti_fabrication.md",
+              "rules/debugging.md",
+              "rules/workflow.md",
+              "rules/portability.md",
+              "rules/meta_rule_design.md",
+              "rules/anti_drift_hooks.md"
+            ]
+          }
         ]
       },
       "current_sha256": "sha256:80f5349a10c66613e7f39ead4dbdb75f2a34f675ae00621c80149498dc258dd1",
@@ -218,13 +233,52 @@
       "strategy": "whole",
       "managed_blocks": {
         "format": "markdown-headings",
-        "headings": [
-          "## 目录职责",
-          "## 0_architecture/",
-          "## 1_delivery/",
-          "## 2_bugs/",
-          "## 3_reference/",
-          "## 4_archive/"
+        "headings": [],
+        "keyed_tables": [
+          {
+            "heading": "## 目录职责",
+            "key_column": 0,
+            "managed_keys": [
+              "0_architecture/",
+              "1_delivery/",
+              "2_bugs/",
+              "3_reference/",
+              "4_archive/"
+            ]
+          },
+          {
+            "heading": "## 0_architecture/",
+            "key_column": 0,
+            "managed_keys": [
+              "system-overview.md",
+              "data-flow.md",
+              "interfaces.md",
+              "adr/ADR-*.md"
+            ]
+          },
+          {
+            "heading": "## 1_delivery/",
+            "key_column": 0,
+            "managed_keys": [
+              "1_delivery/feature_x/",
+              "1_delivery/M1/feature_x/"
+            ]
+          },
+          {
+            "heading": "## 2_bugs/",
+            "key_column": 0,
+            "managed_keys": [
+              "BUG-001_<topic>.md",
+              "BUG-002_<topic>/"
+            ]
+          },
+          {
+            "heading": "## 3_reference/",
+            "key_column": 0,
+            "managed_keys": [
+              "3_reference/external_api/"
+            ]
+          }
         ]
       },
       "current_sha256": "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344",
@@ -1172,7 +1226,7 @@
       "source": "templates/codex/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:1f4ff40d457ae24adfce84458f0eb28d9d4c087de143b7c83db1beeedb2eb71a",
+      "current_sha256": "sha256:87fb5e147b9ee0db67dd372b498fbcb793f1af433ae86bc6358906c61664c4cc",
       "historical_sha256": {
         "0.86.0": [
           "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"

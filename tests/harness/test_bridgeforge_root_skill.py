@@ -81,7 +81,8 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             "`U1...Un`",
             "逐项自然语言约束",
             "禁止执行后补问",
-            "区块外逐字保留",
+            "普通受管标题允许上游替换该区块",
+            "下游独有行必须保留",
             "只有 M 项时直接给",
             "`__pycache__` / `.pyc` 只能是 `C` 类 advisory",
         ):

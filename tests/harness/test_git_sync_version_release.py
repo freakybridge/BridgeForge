@@ -293,6 +293,97 @@ class VersionReleaseTests(unittest.TestCase):
             )
             self.assertEqual(mixed.classification, "mixed")
 
+    def test_schema_v2_keyed_table_distinguishes_managed_and_project_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            host = repo / ".codex"
+            host.mkdir(parents=True)
+            (host / "managed-skeleton.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "stamp": ".codex/.bridgeforge_version",
+                        "contract_target": ".codex/managed-skeleton.json",
+                        "assets": [
+                            {
+                                "id": "root.agents",
+                                "target": "AGENTS.md",
+                                "strategy": "whole",
+                                "managed_blocks": {
+                                    "format": "markdown-headings",
+                                    "headings": [],
+                                    "keyed_tables": [
+                                        {
+                                            "heading": "## Index",
+                                            "key_column": 0,
+                                            "managed_keys": ["rules/core.md"],
+                                        }
+                                    ],
+                                },
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            agents = repo / "AGENTS.md"
+            stamp = host / ".bridgeforge_version"
+            baseline = (
+                "# Entry\n\n## Index\n\n"
+                "| Rule | Purpose |\n|---|---|\n"
+                "| `rules/core.md` | upstream |\n"
+                "| `rules/local.md` | local old |\n"
+            )
+            agents.write_text(baseline, encoding="utf-8")
+            stamp.write_text("0.94.1\n", encoding="utf-8")
+            (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "baseline")
+
+            agents.write_text(baseline.replace("local old", "local new"), encoding="utf-8")
+            project_plan = VERSION_RELEASE.build_release_plan(
+                repo, "fix: 更新项目索引", {"AGENTS.md"}
+            )
+            self.assertEqual(project_plan.classification, "project")
+
+            agents.write_text(
+                baseline.replace("local old", "local \\| new"),
+                encoding="utf-8",
+            )
+            escaped_pipe_plan = VERSION_RELEASE.build_release_plan(
+                repo, "fix: 更新带转义竖线的项目索引", {"AGENTS.md"}
+            )
+            self.assertEqual(escaped_pipe_plan.classification, "project")
+
+            agents.write_text(
+                baseline.replace("| `rules/local.md` | local old |", "| `rules/local.md` | local old"),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "ambiguous"):
+                VERSION_RELEASE.build_release_plan(
+                    repo, "fix: 拒绝损坏的项目索引", {"AGENTS.md"}
+                )
+
+            agents.write_text(
+                baseline.replace("upstream", "bypassed").replace(
+                    "local old", "local new"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+                VERSION_RELEASE.build_release_plan(
+                    repo, "fix: 禁止旁路官方索引", {"AGENTS.md"}
+                )
+
+            stamp.write_text("0.94.2\n", encoding="utf-8")
+            mixed = VERSION_RELEASE.build_release_plan(
+                repo,
+                "fix: BridgeForge 更新官方索引",
+                {"AGENTS.md", ".codex/.bridgeforge_version"},
+            )
+            self.assertEqual(mixed.classification, "mixed")
+
     def test_managed_file_without_stamp_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

@@ -157,6 +157,38 @@ def rebuild_managed_contract(
     contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
     if contract.get("schema_version") != 2 or not isinstance(contract.get("assets"), list):
         raise ValueError("Codex managed-skeleton.json must use schema v2 before rebuild")
+    for asset in contract["assets"]:
+        managed = asset.get("managed_blocks") if isinstance(asset, dict) else None
+        if managed is None:
+            continue
+        headings = managed.get("headings") if isinstance(managed, dict) else None
+        keyed_tables = managed.get("keyed_tables", []) if isinstance(managed, dict) else None
+        if (
+            not isinstance(managed, dict)
+            or managed.get("format") != "markdown-headings"
+            or not isinstance(headings, list)
+            or not isinstance(keyed_tables, list)
+            or (not headings and not keyed_tables)
+        ):
+            raise ValueError("Codex managed Markdown ownership is invalid")
+        seen_table_headings: set[str] = set()
+        for table in keyed_tables:
+            if not isinstance(table, dict):
+                raise ValueError("Codex managed keyed-table ownership is invalid")
+            heading = table.get("heading")
+            managed_keys = table.get("managed_keys")
+            if (
+                not isinstance(heading, str)
+                or heading in seen_table_headings
+                or heading in headings
+                or table.get("key_column") != 0
+                or not isinstance(managed_keys, list)
+                or not managed_keys
+                or any(not isinstance(key, str) or not key.strip() for key in managed_keys)
+                or len({key.casefold() for key in managed_keys}) != len(managed_keys)
+            ):
+                raise ValueError("Codex managed keyed-table ownership is invalid")
+            seen_table_headings.add(heading)
     changed = False
     root = contract_path.parents[2]
     baselines = _baseline_revisions(root)

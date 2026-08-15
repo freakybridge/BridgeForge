@@ -196,6 +196,86 @@ def check_project_sync_upstream_absorption_card() -> CheckResult:
     )
 
 
+def check_project_sync_keyed_index_merge() -> CheckResult:
+    fixture = build_codex_fixture()
+    entry = fixture / "AGENTS.md"
+    text = entry.read_text(encoding="utf-8")
+    text = text.replace(
+        "职责边界 + 数据流方向（核心红线）",
+        "fixture customized canonical row",
+        1,
+    )
+    text = text.replace(
+        "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+        "| `rules/alerting.md` | fixture local alerting | 始终加载 |\n"
+        "| `rules/check_panel_ux.md` | fixture local panel | 编辑 `ui/**` |\n"
+        "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+        1,
+    )
+    text = text.replace(
+        "<!-- 填 3-5 条“必须 X / 禁止 Y”硬约束（数据流方向 / 资源上限 / 时序约束），填好删注释。 -->",
+        "- fixture project-owned architecture rule",
+        1,
+    )
+    entry.write_text(text, encoding="utf-8")
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "bridgeforge_project_sync.py"),
+        "--project-root",
+        str(fixture),
+        "--template-root",
+        str(REPO_ROOT),
+        "--mode",
+        "update",
+    ]
+    planned = run(command, REPO_ROOT)
+    try:
+        plan_payload = json.loads(planned.stdout)
+    except json.JSONDecodeError:
+        plan_payload = {}
+    keyed = next(
+        (
+            item
+            for item in plan_payload.get("upstream_absorption_actions", [])
+            if item.get("managed_key") == "rules/architecture.md"
+        ),
+        None,
+    )
+    applied = run(
+        command
+        + [
+            "--apply",
+            "--plan-fingerprint",
+            str(plan_payload.get("aggregate_fingerprint", "")),
+            "--confirmed-risk",
+        ],
+        REPO_ROOT,
+    )
+    result = entry.read_text(encoding="utf-8")
+    ok = (
+        planned.returncode == 0
+        and keyed is not None
+        and keyed.get("merge_mode") == "keyed_table"
+        and applied.returncode == 0
+        and "rules/alerting.md" in result
+        and "rules/check_panel_ux.md" in result
+        and "fixture project-owned architecture rule" in result
+        and "职责边界 + 数据流方向（核心红线）" in result
+        and "fixture customized canonical row" not in result
+    )
+    return CheckResult(
+        "project_sync_keyed_index_merge",
+        ok,
+        "real CLI aggressive mode resolves only same-key index conflicts and preserves downstream-only rows"
+        if ok
+        else (
+            f"plan_exit={planned.returncode} apply_exit={applied.returncode} "
+            f"plan={planned.stdout.strip()} apply={applied.stdout.strip()} "
+            f"stderr={(planned.stderr + applied.stderr).strip()}"
+        ),
+    )
+
+
 def check_rule_index_missing() -> CheckResult:
     fixture = build_codex_fixture()
     target = fixture / ".codex" / "rules" / "debugging.md"
@@ -2890,6 +2970,7 @@ CHECKS = {
     "encoding-no-bom": check_encoding_no_bom,
     "platform-default": check_platform_default,
     "project-sync-absorption-card": check_project_sync_upstream_absorption_card,
+    "project-sync-keyed-index": check_project_sync_keyed_index_merge,
     "layout-migration": check_layout_migration_dry_run_apply,
     "layout-migration-blockers": check_layout_migration_blockers_are_local,
     "layout-migration-rollback": check_layout_migration_transaction_rollback,

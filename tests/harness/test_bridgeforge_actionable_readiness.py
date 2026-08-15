@@ -121,7 +121,8 @@ class BridgeForgeActionableReadinessTests(unittest.TestCase):
         self.assertIn("C. 保守更新", skill)
         self.assertIn("所有 U 项必须在用户选择前一次展示", skill)
         self.assertIn("禁止执行后补问", skill)
-        self.assertIn("上游将覆盖所有列明受管区块", skill)
+        self.assertIn("keyed table 只覆盖同键冲突行", skill)
+        self.assertIn("下游独有行", skill)
 
 
 if __name__ == "__main__":

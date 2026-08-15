@@ -53,8 +53,11 @@ class Action:
     before_sha256: str | None
     after_sha256: str | None
     managed_blocks: tuple[str, ...] = ()
+    managed_item_details: tuple[tuple[str, str, str, str], ...] = ()
+    keyed_table_contracts: tuple[tuple[str, tuple[str, ...]], ...] = ()
     local_impact: str | None = None
     payload: bytes | None = field(default=None, repr=False, compare=False)
+    source_payload: bytes | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -144,6 +147,25 @@ def _canonical_json(value: Any) -> bytes:
 CatalogEntry = tuple[str, Action, str | None]
 
 
+def _managed_item_detail(
+    action: Action,
+    selection_label: str | None,
+) -> tuple[str, str | None, str | None]:
+    if selection_label is None:
+        return "replace_block", None, None
+    detail = next(
+        (
+            item
+            for item in action.managed_item_details
+            if item[0] == selection_label
+        ),
+        None,
+    )
+    if detail is None:
+        return "replace_block", selection_label, None
+    return detail[1], detail[2], detail[3]
+
+
 def _risk_catalog(plan: Plan) -> list[CatalogEntry]:
     ordered = sorted(
         plan.risk_actions,
@@ -179,8 +201,16 @@ def _action_item(
     action: Action,
     managed_block: str | None = None,
 ) -> dict[str, Any]:
+    merge_mode, managed_heading, managed_key = _managed_item_detail(
+        action,
+        managed_block,
+    )
     target_state = (
-        f"upstream managed block: {managed_block}"
+        (
+            f"upstream managed table row: {managed_heading} :: {managed_key}"
+            if managed_key is not None
+            else f"upstream managed block: {managed_heading}"
+        )
         if managed_block is not None
         else ("absent" if action.action == "retire" else action.after_sha256)
     )
@@ -204,21 +234,31 @@ def _action_item(
         "target": action.target,
         "impact": action.reason,
         "managed_blocks": (
-            [managed_block]
+            [managed_heading]
             if managed_block is not None
             else list(action.managed_blocks)
         ),
+        "merge_mode": merge_mode if managed_block is not None else None,
+        "managed_key": managed_key,
         "local_impact": action.local_impact,
         "recoverability": "transaction rollback before completion",
         "executor": "bridgeforge",
         "recommended": True,
         "recommendation_reason": (
-            "aggressive mode absorbs the current upstream managed blocks"
+            (
+                "aggressive mode resolves this same-key conflict in favor of upstream"
+                if merge_mode == "keyed_table"
+                else "aggressive mode absorbs the current upstream managed blocks"
+            )
             if action.classification == "absorb"
             else "required to reach the published managed state"
         ),
         "completion_criteria": (
-            f"managed block matches current upstream: {managed_block}"
+            (
+                f"managed table row matches current upstream: {managed_key}"
+                if managed_key is not None
+                else f"managed block matches current upstream: {managed_heading}"
+            )
             if managed_block is not None
             else (
                 f"target is {target_state}"
@@ -227,6 +267,30 @@ def _action_item(
             )
         ),
         "platform_permission": False,
+    }
+
+
+def _managed_block_effect(
+    item_id: str,
+    action: Action,
+    selection_label: str | None,
+    *,
+    selected: bool,
+    custom_decision: str | None,
+) -> dict[str, Any]:
+    merge_mode, managed_heading, managed_key = _managed_item_detail(
+        action,
+        selection_label,
+    )
+    return {
+        "id": item_id,
+        "asset_id": action.asset_id,
+        "target": action.target,
+        "managed_block": managed_heading,
+        "merge_mode": merge_mode,
+        "managed_key": managed_key,
+        "decision": custom_decision or ("absorb" if selected else "preserve"),
+        "effect": "absorbed_upstream" if selected else "preserved_local",
     }
 
 
@@ -545,7 +609,6 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             headings = managed_blocks.get("headings")
             if (
                 not isinstance(headings, list)
-                or not headings
                 or any(
                     not isinstance(heading, str)
                     or not re.fullmatch(r"#{1,6} [^\r\n]+", heading)
@@ -555,6 +618,42 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             ):
                 raise SyncBlocked(
                     f"asset {asset_id!r} managed_blocks headings are invalid"
+                )
+            keyed_tables = managed_blocks.get("keyed_tables", [])
+            if not isinstance(keyed_tables, list):
+                raise SyncBlocked(
+                    f"asset {asset_id!r} managed_blocks keyed_tables are invalid"
+                )
+            keyed_headings: list[str] = []
+            for table in keyed_tables:
+                if not isinstance(table, dict):
+                    raise SyncBlocked(
+                        f"asset {asset_id!r} keyed table contract is invalid"
+                    )
+                heading = table.get("heading")
+                key_column = table.get("key_column")
+                managed_keys = table.get("managed_keys")
+                if (
+                    not isinstance(heading, str)
+                    or not re.fullmatch(r"#{1,6} [^\r\n]+", heading)
+                    or key_column != 0
+                    or not isinstance(managed_keys, list)
+                    or not managed_keys
+                    or any(not isinstance(key, str) or not key.strip() for key in managed_keys)
+                    or len({_markdown_table_key(key) for key in managed_keys})
+                    != len(managed_keys)
+                ):
+                    raise SyncBlocked(
+                        f"asset {asset_id!r} keyed table contract is invalid: {heading!r}"
+                    )
+                keyed_headings.append(heading)
+            if (
+                not headings and not keyed_tables
+                or len(set(keyed_headings)) != len(keyed_headings)
+                or set(headings).intersection(keyed_headings)
+            ):
+                raise SyncBlocked(
+                    f"asset {asset_id!r} managed block ownership overlaps or is empty"
                 )
         if strategy == "retirement":
             if asset.get("source") is not None or asset.get("current_sha256") is not None:
@@ -574,14 +673,32 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             if _sha256_path(source_path) != current_hash:
                 raise SyncBlocked(f"asset {asset_id!r} current hash is stale")
             if managed_blocks is not None:
-                headings = tuple(str(item) for item in managed_blocks["headings"])
-                sections = _markdown_heading_sections(source_path.read_bytes(), headings)
-                missing = [heading for heading in headings if heading not in sections]
+                headings = tuple(str(item) for item in managed_blocks.get("headings", []))
+                keyed_tables = tuple(managed_blocks.get("keyed_tables", []))
+                registered = headings + tuple(
+                    str(item["heading"])
+                    for item in keyed_tables
+                )
+                source_payload = source_path.read_bytes()
+                sections = _markdown_heading_sections(source_payload, registered)
+                missing = [heading for heading in registered if heading not in sections]
                 if missing:
                     raise SyncBlocked(
                         f"asset {asset_id!r} source is missing managed headings: "
                         + ", ".join(missing)
                     )
+                for table in keyed_tables:
+                    parsed = _parse_keyed_table(source_payload, str(table["heading"]))
+                    parsed_keys = tuple(key for key, _row, _cells in parsed.rows)
+                    contract_keys = tuple(
+                        _markdown_table_key(str(key))
+                        for key in table["managed_keys"]
+                    )
+                    if parsed_keys != contract_keys:
+                        raise SyncBlocked(
+                            f"asset {asset_id!r} keyed table source keys do not match contract: "
+                            + str(table["heading"])
+                        )
             _history_hashes(asset)
         seen_ids.add(asset_id)
         seen_targets.add(target.casefold())
@@ -599,7 +716,10 @@ def _action(
     project_root: Path,
     *,
     managed_blocks: tuple[str, ...] = (),
+    managed_item_details: tuple[tuple[str, str, str, str], ...] = (),
+    keyed_table_contracts: tuple[tuple[str, tuple[str, ...]], ...] = (),
     local_impact: str | None = None,
+    source_payload: bytes | None = None,
 ) -> Action:
     return Action(
         asset_id=str(asset["id"]),
@@ -610,8 +730,11 @@ def _action(
         before_sha256=_target_hash(before, asset, project_root) if before is not None else None,
         after_sha256=_target_hash(after, asset, project_root) if after is not None else None,
         managed_blocks=managed_blocks,
+        managed_item_details=managed_item_details,
+        keyed_table_contracts=keyed_table_contracts,
         local_impact=local_impact,
         payload=after,
+        source_payload=source_payload,
     )
 
 
@@ -654,6 +777,191 @@ def _markdown_heading_sections(
     return {heading: spans[0] for heading, spans in matches.items() if spans}
 
 
+@dataclass(frozen=True)
+class _MarkdownTable:
+    heading: str
+    start: int
+    end: int
+    header: bytes
+    separator: bytes
+    rows: tuple[tuple[str, bytes, tuple[str, ...]], ...]
+    newline: bytes
+
+
+def _markdown_table_cells(line: bytes) -> tuple[str, ...]:
+    try:
+        text = line.rstrip(b"\r\n").decode("utf-8-sig").strip()
+    except UnicodeDecodeError as exc:
+        raise SyncBlocked("managed Markdown table is not valid UTF-8") from exc
+    if not text.startswith("|") or not text.endswith("|"):
+        raise SyncBlocked("managed Markdown table row is ambiguous")
+    cells_list: list[str] = []
+    cell: list[str] = []
+    escaped = False
+    for char in text[1:-1]:
+        if escaped:
+            if char == "|":
+                cell.append("|")
+            else:
+                cell.extend(("\\", char))
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "|":
+            cells_list.append("".join(cell).strip())
+            cell = []
+        else:
+            cell.append(char)
+    if escaped:
+        cell.append("\\")
+    cells_list.append("".join(cell).strip())
+    cells = tuple(cells_list)
+    if not cells or any(not item for item in cells):
+        raise SyncBlocked("managed Markdown table row has an empty cell")
+    return cells
+
+
+def _markdown_table_key(cell: str) -> str:
+    value = cell.strip()
+    if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+        value = value[1:-1].strip()
+    link = re.fullmatch(r"\[(?:[^\]]+)\]\(([^)]+)\)", value)
+    if link:
+        value = link.group(1).strip()
+    if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+        value = value[1:-1].strip()
+    value = value.replace("\\", "/").strip()
+    if not value:
+        raise SyncBlocked("managed Markdown table key is empty")
+    return value.casefold()
+
+
+def _parse_keyed_table(payload: bytes, heading: str) -> _MarkdownTable:
+    sections = _markdown_heading_sections(payload, (heading,))
+    span = sections.get(heading)
+    if span is None:
+        raise SyncBlocked(f"managed Markdown table heading is missing: {heading}")
+    section_start, section_end = span
+    section = payload[section_start:section_end]
+    lines = section.splitlines(keepends=True)
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line)
+
+    candidates: list[int] = []
+    for index in range(len(lines) - 1):
+        try:
+            header_cells = _markdown_table_cells(lines[index])
+            separator_cells = _markdown_table_cells(lines[index + 1])
+        except SyncBlocked:
+            continue
+        if len(header_cells) != len(separator_cells):
+            continue
+        if all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator_cells):
+            candidates.append(index)
+    if len(candidates) != 1:
+        raise SyncBlocked(
+            f"managed Markdown heading must contain exactly one unambiguous table: {heading}"
+        )
+
+    header_index = candidates[0]
+    header_cells = _markdown_table_cells(lines[header_index])
+    row_entries: list[tuple[str, bytes, tuple[str, ...]]] = []
+    seen: set[str] = set()
+    data_end = header_index + 2
+    while data_end < len(lines):
+        if not lines[data_end].rstrip(b"\r\n").lstrip().startswith(b"|"):
+            break
+        cells = _markdown_table_cells(lines[data_end])
+        if len(cells) != len(header_cells):
+            raise SyncBlocked(
+                f"managed Markdown table row has the wrong column count: {heading}"
+            )
+        key = _markdown_table_key(cells[0])
+        if key in seen:
+            raise SyncBlocked(f"managed Markdown table has a duplicate key: {heading} :: {key}")
+        seen.add(key)
+        row_entries.append((key, lines[data_end], cells))
+        data_end += 1
+
+    newline = b"\r\n" if lines[header_index].endswith(b"\r\n") else b"\n"
+    table_start = section_start + offsets[header_index]
+    table_end = (
+        section_start + offsets[data_end]
+        if data_end < len(lines)
+        else section_end
+    )
+    return _MarkdownTable(
+        heading=heading,
+        start=table_start,
+        end=table_end,
+        header=lines[header_index],
+        separator=lines[header_index + 1],
+        rows=tuple(row_entries),
+        newline=newline,
+    )
+
+
+def _render_table_row(row: bytes, newline: bytes) -> bytes:
+    return row.rstrip(b"\r\n") + newline
+
+
+def _merge_keyed_table(
+    before: bytes,
+    desired: bytes,
+    *,
+    heading: str,
+    managed_keys: tuple[str, ...],
+    selected_keys: set[str],
+) -> tuple[bytes, tuple[str, ...], tuple[str, ...]]:
+    source = _parse_keyed_table(desired, heading)
+    target = _parse_keyed_table(before, heading)
+    source_header = _markdown_table_cells(source.header)
+    target_header = _markdown_table_cells(target.header)
+    if source_header != target_header:
+        raise SyncBlocked(f"managed Markdown table header drifted: {heading}")
+
+    normalized_contract = tuple(_markdown_table_key(item) for item in managed_keys)
+    if len(set(normalized_contract)) != len(normalized_contract):
+        raise SyncBlocked(f"managed Markdown table contract has duplicate keys: {heading}")
+    source_rows = {key: (row, cells) for key, row, cells in source.rows}
+    target_rows = {key: (row, cells) for key, row, cells in target.rows}
+    if tuple(key for key, _row, _cells in source.rows) != normalized_contract:
+        raise SyncBlocked(
+            f"managed Markdown table source keys do not match the contract: {heading}"
+        )
+    unknown_selected = selected_keys - set(normalized_contract)
+    if unknown_selected:
+        raise SyncBlocked(
+            f"selected managed Markdown table keys are unknown: {heading} :: "
+            + ", ".join(sorted(unknown_selected))
+        )
+
+    missing = tuple(key for key in normalized_contract if key not in target_rows)
+    conflicts = tuple(
+        key
+        for key in normalized_contract
+        if key in target_rows and target_rows[key][1] != source_rows[key][1]
+    )
+    rows: list[bytes] = []
+    for key in normalized_contract:
+        if key in selected_keys or key not in target_rows:
+            rows.append(_render_table_row(source_rows[key][0], target.newline))
+        else:
+            rows.append(_render_table_row(target_rows[key][0], target.newline))
+    managed_set = set(normalized_contract)
+    rows.extend(
+        _render_table_row(row, target.newline)
+        for key, row, _cells in target.rows
+        if key not in managed_set
+    )
+    rendered = target.header + target.separator + b"".join(rows)
+    after = before[:target.start] + rendered + before[target.end:]
+    return after, missing, conflicts
+
+
 def _normalized_managed_block(payload: bytes) -> bytes:
     return _git_blob_bytes(payload).rstrip(b" \t\r\n")
 
@@ -676,6 +984,44 @@ def _append_managed_blocks(payload: bytes, blocks: list[bytes]) -> bytes:
     return payload + separator + rendered + b"\n"
 
 
+def _replace_heading_items(
+    before: bytes,
+    desired: bytes,
+    headings: tuple[str, ...],
+) -> bytes:
+    if not headings:
+        return before
+    desired_sections = _markdown_heading_sections(desired, headings)
+    current_sections = _markdown_heading_sections(before, headings)
+    replacements: list[tuple[int, int, bytes]] = []
+    appended: list[bytes] = []
+    for heading in headings:
+        desired_span = desired_sections.get(heading)
+        if desired_span is None:
+            raise SyncBlocked(f"selected absorption block is missing from source: {heading}")
+        desired_start, desired_end = desired_span
+        desired_block = desired[desired_start:desired_end]
+        current_span = current_sections.get(heading)
+        if current_span is None:
+            appended.append(desired_block)
+            continue
+        current_start, current_end = current_span
+        replacements.append(
+            (
+                current_start,
+                current_end,
+                _render_managed_block(
+                    desired_block,
+                    terminal=current_end == len(before),
+                ),
+            )
+        )
+    after = before
+    for start, finish, replacement in sorted(replacements, reverse=True):
+        after = after[:start] + replacement + after[finish:]
+    return _append_managed_blocks(after, appended)
+
+
 def _plan_managed_markdown_blocks(
     asset: dict[str, Any],
     desired: bytes,
@@ -684,10 +1030,19 @@ def _plan_managed_markdown_blocks(
     project_root: Path,
 ) -> tuple[list[Action], list[Gap]]:
     block_contract = asset.get("managed_blocks")
-    headings = tuple(str(item) for item in block_contract["headings"])
+    headings = tuple(str(item) for item in block_contract.get("headings", []))
+    keyed_tables = tuple(block_contract.get("keyed_tables", []))
+    keyed_contracts = tuple(
+        (
+            str(item["heading"]),
+            tuple(str(key) for key in item["managed_keys"]),
+        )
+        for item in keyed_tables
+    )
+    registered = headings + tuple(heading for heading, _keys in keyed_contracts)
     try:
-        source_sections = _markdown_heading_sections(desired, headings)
-        target_sections = _markdown_heading_sections(before, headings)
+        source_sections = _markdown_heading_sections(desired, registered)
+        target_sections = _markdown_heading_sections(before, registered)
     except SyncBlocked as exc:
         return [], [
             Gap(
@@ -696,7 +1051,7 @@ def _plan_managed_markdown_blocks(
                 f"managed block ownership is ambiguous: {exc}",
             )
         ]
-    missing_source = [heading for heading in headings if heading not in source_sections]
+    missing_source = [heading for heading in registered if heading not in source_sections]
     if missing_source:
         raise SyncBlocked(
             f"asset {asset['id']!r} source is missing managed headings: "
@@ -711,18 +1066,14 @@ def _plan_managed_markdown_blocks(
             )
         ]
 
-    replacements: list[tuple[int, int, bytes]] = []
-    appended: list[bytes] = []
-    changed: list[str] = []
-    semantic_change = False
+    safe_replacements: list[tuple[int, int, bytes]] = []
+    conflict_headings: list[str] = []
     for heading in headings:
         source_start, source_end = source_sections[heading]
         source_block = desired[source_start:source_end]
         target_span = target_sections.get(heading)
         if target_span is None:
-            appended.append(source_block)
-            changed.append(heading)
-            semantic_change = True
+            conflict_headings.append(heading)
             continue
         target_start, target_end = target_span
         target_block = before[target_start:target_end]
@@ -738,41 +1089,105 @@ def _plan_managed_markdown_blocks(
         )
         if same_content and _git_blob_bytes(target_block) == rendered:
             continue
-        replacements.append((target_start, target_end, rendered))
-        changed.append(heading)
-        semantic_change = semantic_change or not same_content
-    if not changed:
-        return [], []
+        if same_content:
+            safe_replacements.append((target_start, target_end, rendered))
+        else:
+            conflict_headings.append(heading)
 
-    after = before
-    for start, finish, replacement in sorted(replacements, reverse=True):
-        after = after[:start] + replacement + after[finish:]
-    after = _append_managed_blocks(after, appended)
-    return [
-        _action(
+    safe_after = before
+    keyed_safe_changed = False
+    for start, finish, replacement in sorted(safe_replacements, reverse=True):
+        safe_after = safe_after[:start] + replacement + safe_after[finish:]
+    all_after = _replace_heading_items(
+        safe_after,
+        desired,
+        tuple(conflict_headings),
+    )
+
+    item_labels: list[str] = list(conflict_headings)
+    item_details: list[tuple[str, str, str, str]] = []
+    try:
+        for heading, managed_keys in keyed_contracts:
+            current_sections = _markdown_heading_sections(safe_after, (heading,))
+            if heading not in current_sections:
+                source_start, source_end = source_sections[heading]
+                source_block = desired[source_start:source_end]
+                safe_after = _append_managed_blocks(safe_after, [source_block])
+                all_after = _append_managed_blocks(all_after, [source_block])
+                keyed_safe_changed = True
+                continue
+            before_safe_merge = safe_after
+            safe_after, _missing, conflicts = _merge_keyed_table(
+                safe_after,
+                desired,
+                heading=heading,
+                managed_keys=managed_keys,
+                selected_keys=set(),
+            )
+            keyed_safe_changed = keyed_safe_changed or safe_after != before_safe_merge
+            all_after, _all_missing, _all_conflicts = _merge_keyed_table(
+                all_after,
+                desired,
+                heading=heading,
+                managed_keys=managed_keys,
+                selected_keys=set(conflicts),
+            )
+            display_keys = {
+                _markdown_table_key(key): key
+                for key in managed_keys
+            }
+            for key in conflicts:
+                display_key = display_keys[key]
+                label = f"{heading} :: {display_key}"
+                item_labels.append(label)
+                item_details.append((label, "keyed_table", heading, display_key))
+    except SyncBlocked as exc:
+        return [], [
+            Gap(
+                asset["id"],
+                asset["target"],
+                f"managed keyed-table ownership is ambiguous: {exc}",
+            )
+        ]
+
+    actions: list[Action] = []
+    if safe_after != before:
+        actions.append(_action(
             asset,
             target,
             (
-                "absorb-upstream-blocks"
-                if semantic_change
+                "merge-managed-markdown-safe"
+                if keyed_safe_changed
                 else "normalize-managed-block-boundary"
             ),
-            "absorb" if semantic_change else "safe",
-            (
-                "upstream wins inside explicitly registered BridgeForge Markdown blocks"
-                if semantic_change
-                else "normalize a BridgeForge-managed terminal block generated by 0.94.0"
-            ),
+            "safe",
+            "add missing managed table keys and normalize managed block boundaries",
             before,
-            after,
+            safe_after,
             project_root,
-            managed_blocks=tuple(changed),
+            keyed_table_contracts=keyed_contracts,
+            local_impact="project-owned headings and table rows are preserved",
+        ))
+    if item_labels:
+        actions.append(_action(
+            asset,
+            target,
+            "absorb-upstream-items",
+            "absorb",
+            "upstream wins only for the selected managed block or same-key table row conflicts",
+            before,
+            all_after,
+            project_root,
+            managed_blocks=tuple(item_labels),
+            managed_item_details=tuple(item_details),
+            keyed_table_contracts=keyed_contracts,
+            source_payload=desired,
             local_impact=(
-                "local content inside the listed managed blocks will be replaced; "
-                "content outside those blocks is preserved byte-for-byte"
+                "selected replace-block content may be overwritten; keyed tables replace only "
+                "same-key conflicts and preserve downstream-only rows"
             ),
-        )
-    ], []
+        ))
+    return actions, []
 
 
 def _plan_whole(
@@ -1165,7 +1580,11 @@ def _fingerprint(plan: Plan) -> str:
         "previous_version": plan.previous_version,
         "contract_sha256": plan.contract_sha256,
         "actions": [
-            {key: value for key, value in asdict(item).items() if key != "payload"}
+            {
+                key: value
+                for key, value in asdict(item).items()
+                if key not in {"payload", "source_payload"}
+            }
             for item in plan.actions
         ],
         "gaps": [asdict(item) for item in plan.gaps],
@@ -1488,7 +1907,10 @@ def _verify_actions(project_root: Path, actions: Iterable[Action]) -> None:
 def _materialize_selected_actions(
     project_root: Path,
     entries: list[CatalogEntry],
+    *,
+    base_payloads: dict[tuple[str, str], bytes] | None = None,
 ) -> list[Action]:
+    base_payloads = base_payloads or {}
     materialized = [
         action
         for _item_id, action, block in entries
@@ -1511,44 +1933,50 @@ def _materialize_selected_actions(
             action.target,
             f"absorption target {action.asset_id}",
         )
-        before = target.read_bytes()
-        headings = tuple(action.managed_blocks)
-        desired_sections = _markdown_heading_sections(action.payload, headings)
-        current_sections = _markdown_heading_sections(before, headings)
-        replacements: list[tuple[int, int, bytes]] = []
-        appended: list[bytes] = []
+        before = base_payloads.get(key, target.read_bytes())
+        details = {
+            label: (mode, heading, managed_key)
+            for label, mode, heading, managed_key in action.managed_item_details
+        }
+        replace_headings = tuple(
+            block
+            for block in selected_blocks
+            if block not in details
+        )
+        desired_source = action.source_payload or action.payload
+        after = _replace_heading_items(before, desired_source, replace_headings)
+        selected_by_heading: dict[str, set[str]] = {}
         for block in selected_blocks:
-            desired_span = desired_sections.get(block)
-            if desired_span is None:
-                raise SyncBlocked(
-                    f"selected absorption block is missing from payload: {block}"
-                )
-            desired_start, desired_end = desired_span
-            desired_block = action.payload[desired_start:desired_end]
-            current_span = current_sections.get(block)
-            if current_span is None:
-                appended.append(desired_block)
-            else:
-                current_start, current_end = current_span
-                replacements.append(
-                    (
-                        current_start,
-                        current_end,
-                        _render_managed_block(
-                            desired_block,
-                            terminal=current_end == len(before),
-                        ),
-                    )
-                )
-        after = before
-        for start, finish, replacement in sorted(replacements, reverse=True):
-            after = after[:start] + replacement + after[finish:]
-        after = _append_managed_blocks(after, appended)
+            detail = details.get(block)
+            if detail is None:
+                continue
+            mode, heading, managed_key = detail
+            if mode != "keyed_table":
+                raise SyncBlocked(f"unsupported managed item mode: {mode}")
+            selected_by_heading.setdefault(heading, set()).add(
+                _markdown_table_key(managed_key)
+            )
+        for heading, managed_keys in action.keyed_table_contracts:
+            selected_keys = selected_by_heading.get(heading)
+            if not selected_keys:
+                continue
+            after, _missing, _conflicts = _merge_keyed_table(
+                after,
+                desired_source,
+                heading=heading,
+                managed_keys=managed_keys,
+                selected_keys=selected_keys,
+            )
         materialized.append(
             replace(
                 action,
                 after_sha256=_sha256_bytes(after),
                 managed_blocks=tuple(selected_blocks),
+                managed_item_details=tuple(
+                    detail
+                    for detail in action.managed_item_details
+                    if detail[0] in selected_blocks
+                ),
                 payload=after,
             )
         )
@@ -1634,8 +2062,26 @@ def _apply_rebuilt_plan(
         item for item in declined_executable if item[1].classification == "absorb"
     ]
     root = Path(rebuilt.project_root)
-    selected = list(rebuilt.safe_actions)
-    selected.extend(_materialize_selected_actions(root, selected_executable))
+    safe_payloads = {
+        (action.asset_id, action.target): action.payload
+        for action in rebuilt.safe_actions
+        if action.payload is not None
+    }
+    materialized = _materialize_selected_actions(
+        root,
+        selected_executable,
+        base_payloads=safe_payloads,
+    )
+    materialized_targets = {
+        (action.asset_id, action.target)
+        for action in materialized
+    }
+    selected = [
+        action
+        for action in rebuilt.safe_actions
+        if (action.asset_id, action.target) not in materialized_targets
+    ]
+    selected.extend(materialized)
     selected_action_ids = tuple(item_id for item_id, _action, _block in selected_executable)
     selected_absorption_ids = tuple(
         item_id for item_id, _action, _block in selected_absorptions
@@ -1769,21 +2215,13 @@ def _apply_rebuilt_plan(
         for item_id, action, block in _absorption_catalog(rebuilt)
     )
     managed_block_effects = tuple(
-        {
-            "id": item_id,
-            "asset_id": action.asset_id,
-            "target": action.target,
-            "managed_block": block,
-            "decision": (
-                custom_decisions.get(item_id)
-                or ("absorb" if item_id in selected_absorption_id_set else "preserve")
-            ),
-            "effect": (
-                "absorbed_upstream"
-                if item_id in selected_absorption_id_set
-                else "preserved_local"
-            ),
-        }
+        _managed_block_effect(
+            item_id,
+            action,
+            block,
+            selected=item_id in selected_absorption_id_set,
+            custom_decision=custom_decisions.get(item_id),
+        )
         for item_id, action, block in _absorption_catalog(rebuilt)
     )
     degraded = bool(receipt_gaps)
@@ -1854,7 +2292,13 @@ def _plan_payload(
         conflict_groups.setdefault(item["target"], []).append({
             "id": item["id"],
             "managed_block": block,
-            "upstream_effect": "replace this managed block with current upstream bytes",
+            "merge_mode": item["merge_mode"],
+            "managed_key": item["managed_key"],
+            "upstream_effect": (
+                "replace only this same-key managed table row with current upstream"
+                if item["merge_mode"] == "keyed_table"
+                else "replace this managed block with current upstream bytes"
+            ),
             "local_impact": item["local_impact"],
             "recoverability": item["recoverability"],
         })
@@ -1876,15 +2320,27 @@ def _plan_payload(
         "previous_version": plan.previous_version,
         "current_version": plan.current_version,
         "safe": [
-            {key: value for key, value in asdict(item).items() if key != "payload"}
+            {
+                key: value
+                for key, value in asdict(item).items()
+                if key not in {"payload", "source_payload"}
+            }
             for item in plan.safe_actions
         ],
         "risk": [
-            {key: value for key, value in asdict(item).items() if key != "payload"}
+            {
+                key: value
+                for key, value in asdict(item).items()
+                if key not in {"payload", "source_payload"}
+            }
             for item in plan.risk_actions
         ],
         "upstream_absorption": [
-            {key: value for key, value in asdict(item).items() if key != "payload"}
+            {
+                key: value
+                for key, value in asdict(item).items()
+                if key not in {"payload", "source_payload"}
+            }
             for item in plan.absorption_actions
         ],
         "gaps": [asdict(item) for item in plan.gaps],
@@ -1896,6 +2352,8 @@ def _plan_payload(
                 "id": item["id"],
                 "target": item["target"],
                 "managed_blocks": item["managed_blocks"],
+                "merge_mode": item["merge_mode"],
+                "managed_key": item["managed_key"],
                 "local_impact": item["local_impact"],
                 "recoverability": item["recoverability"],
             }
@@ -1913,7 +2371,8 @@ def _plan_payload(
             {
                 "business_confirmation_count": "one",
                 "warning": (
-                    "A 为激进模式（aggressive）：上游会覆盖所有列明受管区块，区块内本地定制可能丢失；"
+                    "A 为激进模式（aggressive）：普通受管区块以上游为准；keyed table 只覆盖同键冲突行，"
+                    "下游独有行会保留；"
                     "事务失败会回滚，但验证通过不代表本地业务语义完全保留。"
                 ),
                 "all": selected_ids,

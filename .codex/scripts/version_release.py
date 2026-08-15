@@ -195,6 +195,161 @@ def _markdown_heading_parts(
     return "\n\0".join(managed_chunks).encode("utf-8"), outside
 
 
+def _table_cells(line: bytes) -> tuple[str, ...]:
+    text = line.rstrip(b"\r\n").decode("utf-8-sig").strip()
+    if not text.startswith("|") or not text.endswith("|"):
+        raise ReleaseError("managed Markdown table row is ambiguous")
+    cells_list: list[str] = []
+    cell: list[str] = []
+    escaped = False
+    for char in text[1:-1]:
+        if escaped:
+            if char == "|":
+                cell.append("|")
+            else:
+                cell.extend(("\\", char))
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "|":
+            cells_list.append("".join(cell).strip())
+            cell = []
+        else:
+            cell.append(char)
+    if escaped:
+        cell.append("\\")
+    cells_list.append("".join(cell).strip())
+    cells = tuple(cells_list)
+    if not cells or any(not item for item in cells):
+        raise ReleaseError("managed Markdown table row has an empty cell")
+    return cells
+
+
+def _table_key(cell: str) -> str:
+    value = cell.strip()
+    if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+        value = value[1:-1].strip()
+    link = re.fullmatch(r"\[(?:[^\]]+)\]\(([^)]+)\)", value)
+    if link:
+        value = link.group(1).strip()
+    if len(value) >= 2 and value.startswith("`") and value.endswith("`"):
+        value = value[1:-1].strip()
+    value = value.replace("\\", "/").strip()
+    if not value:
+        raise ReleaseError("managed Markdown table key is empty")
+    return value.casefold()
+
+
+def _keyed_table_parts(
+    payload: bytes | None,
+    heading: str,
+    managed_keys: list[str],
+) -> tuple[bytes | None, bytes | None]:
+    if payload is None:
+        return None, None
+    payload = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    heading_bytes = heading.encode("utf-8")
+    lines = payload.splitlines(keepends=True)
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line)
+    heading_matches = [
+        index
+        for index, line in enumerate(lines)
+        if line.rstrip(b"\n") == heading_bytes
+    ]
+    if len(heading_matches) > 1:
+        raise ReleaseError(f"managed Markdown heading is duplicated: {heading}")
+    if not heading_matches:
+        return f"{heading}=<MISSING>".encode("utf-8"), payload
+    heading_index = heading_matches[0]
+    level = len(heading) - len(heading.lstrip("#"))
+    section_end_index = len(lines)
+    heading_re = re.compile(br"^(#{1,6}) [^\n]+$")
+    for later in range(heading_index + 1, len(lines)):
+        candidate = lines[later].rstrip(b"\n")
+        match = heading_re.fullmatch(candidate)
+        if match and len(match.group(1)) <= level:
+            section_end_index = later
+            break
+
+    candidates: list[int] = []
+    for index in range(heading_index + 1, section_end_index - 1):
+        try:
+            header_cells = _table_cells(lines[index])
+            separator_cells = _table_cells(lines[index + 1])
+        except (ReleaseError, UnicodeDecodeError):
+            continue
+        if (
+            len(header_cells) == len(separator_cells)
+            and all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator_cells)
+        ):
+            candidates.append(index)
+    if len(candidates) != 1:
+        raise ReleaseError(
+            f"managed Markdown heading must contain exactly one table: {heading}"
+        )
+    table_index = candidates[0]
+    header_cells = _table_cells(lines[table_index])
+    normalized_keys = [_table_key(item) for item in managed_keys]
+    if len(set(normalized_keys)) != len(normalized_keys):
+        raise ReleaseError(f"managed Markdown table contract has duplicate keys: {heading}")
+    managed_set = set(normalized_keys)
+    managed_rows: list[str] = []
+    project_rows: list[bytes] = []
+    seen: set[str] = set()
+    data_end = table_index + 2
+    while data_end < section_end_index:
+        if not lines[data_end].rstrip(b"\r\n").lstrip().startswith(b"|"):
+            break
+        cells = _table_cells(lines[data_end])
+        if len(cells) != len(header_cells):
+            raise ReleaseError(f"managed Markdown table row has wrong columns: {heading}")
+        key = _table_key(cells[0])
+        if key in seen:
+            raise ReleaseError(f"managed Markdown table has duplicate key: {heading} :: {key}")
+        seen.add(key)
+        if key in managed_set:
+            managed_rows.append(key + "=" + "|".join(cells))
+        else:
+            project_rows.append(lines[data_end])
+        data_end += 1
+    managed = (
+        heading
+        + "\nheader="
+        + "|".join(header_cells)
+        + "\n"
+        + "\n".join(managed_rows)
+    ).encode("utf-8")
+    table_start = offsets[table_index]
+    table_end = offsets[data_end] if data_end < len(lines) else len(payload)
+    project_table = b"<BRIDGEFORGE_MANAGED_KEYED_TABLE>\n" + b"".join(project_rows)
+    project = payload[:table_start] + project_table + payload[table_end:]
+    return managed, project
+
+
+def _managed_markdown_parts(
+    payload: bytes | None,
+    headings: list[str],
+    keyed_tables: list[dict[str, object]],
+) -> tuple[bytes | None, bytes | None]:
+    if headings:
+        managed_headings, project = _markdown_heading_parts(payload, headings)
+    else:
+        managed_headings, project = b"order=", payload
+    managed_chunks = [managed_headings or b""]
+    for table in keyed_tables:
+        heading = table.get("heading")
+        managed_keys = table.get("managed_keys")
+        if not isinstance(heading, str) or not isinstance(managed_keys, list):
+            raise ReleaseError("invalid managed keyed-table contract")
+        table_managed, project = _keyed_table_parts(project, heading, managed_keys)
+        managed_chunks.append(table_managed or b"")
+    return b"\n\0".join(managed_chunks), project
+
+
 def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
     configs: list[tuple[Path, dict[str, object]]] = []
     for host in (".codex", ".claude"):
@@ -224,7 +379,7 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
             raise ReleaseError(f"invalid schema v2 managed skeleton config: {path}")
         whole_files = [stamp, contract_target]
         managed_regions: list[dict[str, str]] = []
-        managed_headings: list[dict[str, object]] = []
+        managed_markdown: list[dict[str, object]] = []
         for asset in assets:
             if not isinstance(asset, dict):
                 raise ReleaseError(f"invalid schema v2 asset in {path}")
@@ -238,12 +393,20 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
                     not isinstance(managed_blocks, dict)
                     or managed_blocks.get("format") != "markdown-headings"
                     or not isinstance(managed_blocks.get("headings"), list)
-                    or not managed_blocks["headings"]
                     or not all(isinstance(item, str) and item for item in managed_blocks["headings"])
+                    or not isinstance(managed_blocks.get("keyed_tables", []), list)
+                    or (
+                        not managed_blocks["headings"]
+                        and not managed_blocks.get("keyed_tables", [])
+                    )
                 ):
                     raise ReleaseError(f"invalid schema v2 managed blocks in {path}")
-                managed_headings.append(
-                    {"path": target, "headings": list(managed_blocks["headings"])}
+                managed_markdown.append(
+                    {
+                        "path": target,
+                        "headings": list(managed_blocks["headings"]),
+                        "keyed_tables": list(managed_blocks.get("keyed_tables", [])),
+                    }
                 )
                 continue
             if strategy == "seed":
@@ -267,7 +430,7 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
                     "stamp": stamp,
                     "whole_files": sorted(set(whole_files)),
                     "managed_regions": managed_regions,
-                    "managed_headings": managed_headings,
+                    "managed_markdown": managed_markdown,
                 },
             )
         )
@@ -298,16 +461,21 @@ def _change_ownership(
                 before_managed != current_managed,
                 before_project != current_project,
             )
-        for raw_headings in config.get("managed_headings", []):  # type: ignore[union-attr]
-            if not isinstance(raw_headings, dict) or raw_headings.get("path") != path:
+        for raw_markdown in config.get("managed_markdown", []):  # type: ignore[union-attr]
+            if not isinstance(raw_markdown, dict) or raw_markdown.get("path") != path:
                 continue
-            headings = raw_headings.get("headings")
+            headings = raw_markdown.get("headings")
+            keyed_tables = raw_markdown.get("keyed_tables", [])
             if not isinstance(headings, list) or not all(
                 isinstance(item, str) for item in headings
-            ):
+            ) or not isinstance(keyed_tables, list):
                 raise ReleaseError(f"invalid managed Markdown headings in {config_path}")
-            before_managed, before_project = _markdown_heading_parts(before, headings)
-            current_managed, current_project = _markdown_heading_parts(current, headings)
+            before_managed, before_project = _managed_markdown_parts(
+                before, headings, keyed_tables
+            )
+            current_managed, current_project = _managed_markdown_parts(
+                current, headings, keyed_tables
+            )
             return (
                 config_path,
                 before_managed != current_managed,

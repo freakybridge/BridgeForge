@@ -83,12 +83,23 @@ receipt 同时输出：
 |---|---|
 | `whole` | 仅当前 hash 或已发布历史 hash 可自动替换 |
 | `whole` + `managed_blocks` | 未知 whole-file hash 可生成 U 项；只替换逐资产登记的 Markdown 标题区块 |
+| `whole` + `managed_blocks.keyed_tables` | 以显式 `managed_keys` 合并登记表格；缺失官方键 safe 加入、同键差异生成 U、下游独有键保留 |
 | `merge` | 只补缺失受管值；冲突字段保留为 gap |
 | `region` | 只替换唯一 marker 区域；区域外逐字节保留 |
 | `seed` | 只在缺失时创建；既有项目生成内容不再由上游覆盖，例如 memory 索引 |
 | `retirement` | 只删除命中已发布历史 hash 的副本，并进入 risk |
 
 禁止 glob ownership。版本戳只参与兼容边界判断，不作为覆盖证据。
+
+`managed_blocks.headings` 与 `managed_blocks.keyed_tables` 必须互斥。前者用于 BridgeForge
+规范正文，A 可让上游赢得整个标题区块；后者只用于规则索引、目录索引等具有稳定首列身份
+的表格。keyed table 只接受精确标题、`key_column=0` 和显式 `managed_keys`：上游缺失键
+作为 safe insert，同键异值才成为 U，下游非 managed key 始终保留。重复键、多个候选表格、
+损坏表头或列数不一致时保持原文件并进入 gap，禁止模糊匹配。
+
+当前上游未再列出的旧键不等于可删除项；没有显式 retirement key 与历史行证据时按下游行
+保留。version-release 使用同一键集合拆分 managed/project ownership，项目独有行的日常维护
+不得被误判为旁路修改骨架。
 
 历史 lineage 由 manifest 重建器维护：保留既有历史集合，并从 Git 的 `VERSION` 变更提交枚举全部 `0.86.0+` 已发布版本；当前工作版本只进入 `current_sha256`，下次 bump 后自动成为历史基线。`--check` 只比较，不写 manifest 或 contract。
 

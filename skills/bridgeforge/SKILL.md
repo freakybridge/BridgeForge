@@ -304,7 +304,8 @@ REFRESHED
 - `risk`：有精确 source/target/hash/影响/回滚边界的移动、删除、首次 native memories enable、
   public→private 或无法从项目事实确定且会改变结果的 init/adopt 参数。
 - `absorption`：whole-file 无历史 hash，但 schema v2 已逐资产登记可信 Markdown 受管区块；
-  只允许上游替换这些区块，区块外项目内容必须逐字保留。
+  普通受管标题允许上游替换该区块；显式 `keyed_tables` 只允许按稳定键合并，同键差异才
+  生成 U，下游独有行必须保留。
 - `gap`：无可信受管区块、低置信分类、目标冲突、map 损坏、来源不可信。gap 必须保留
   原样，不得进入执行选集，也不得再次询问。
 
@@ -322,8 +323,8 @@ Git ignored `__pycache__` / `.pyc` 只能是 `C` 类 advisory，禁止单独降�
 程序必须同时给出推荐清单和全部可执行项，然后只展示一张卡、只接受一次业务决定：
 
 ```text
-⚠️ A 为激进模式：上游将覆盖所有列明受管区块，区块内本地定制可能丢失；事务失败会
-回滚，但验证通过不代表本地业务语义完全保留。
+⚠️ A 为激进模式：普通受管区块以上游为准；keyed table 只覆盖同键冲突行，下游独有行
+会保留；事务失败会回滚，但验证通过不代表本地业务语义完全保留。
 
 A. 激进更新：执行全部 R/C/U，并默认吸收全部 U 项
 B. 温和更新：同一回复携带编号及可选逐项要求，例如 B：R1、U2；U3 只吸收 hooks 规则
@@ -333,6 +334,8 @@ C. 保守更新：保留已完成的 safe 更新，本轮不再执行 R/C/U
 Codex project-sync 返回 `confirmation.options` 时，主对话必须逐字展示这三条选项，禁止改写
 C 为“safe 也不执行”。`conflict_file_groups` 中每个 U 都必须展开完整项目相对路径、区块标题、
 上游效果、本地影响和可恢复性；禁止只显示 `U1-U5` 范围或把 `.codex/rules/` 缩成 basename。
+keyed-table U 还必须展示稳定键，并明确“只替换同键行、保留下游独有行”；禁止把它描述成
+整段索引覆盖。
 
 A 包含必要项、可选清理和所有可信上游吸收；B 接受当前卡内任意合法 R/C/U 组合，也接受
 同一回复中的逐项自然语言约束。每条 U 约束必须只指向一个已选 U，并明确收敛为“吸收上游”
@@ -382,7 +385,7 @@ BridgeForge 下沉时按业务专属性分层：
 | 上游项目 hooks/scripts | 与已知旧模板一致时 safe fast-forward；人工修改或无历史 hash 时保留为 gap |
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
-| rules、入口文件 | schema v2 有显式 Markdown 受管区块时生成 U 项；A 上游优先、B 选择吸收、C 保留；区块外逐字保留，无可信边界则 gap |
+| rules、入口文件 | 普通受管标题按区块生成 U；规则/目录索引按 schema v2 `keyed_tables` 稳定键 merge，同键冲突才生成 U，下游独有行保留；无可信边界则 gap |
 | memory | `MEMORY.md` 仅作首次 seed，既有索引属于项目生成数据；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
 | `doc/` | 新项目按事实推导布局；已有项目迁移清单进入唯一 risk 卡 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |

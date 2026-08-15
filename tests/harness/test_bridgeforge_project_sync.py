@@ -83,6 +83,12 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         active = next(item for item in contract["assets"] if item["id"] == "root.agents")
         self.assertIn("0.86.0", active["historical_sha256"])
         self.assertIn("0.90.0", active["historical_sha256"])
+        self.assertNotIn("## 1. 架构红线", active["managed_blocks"]["headings"])
+        self.assertNotIn("## 3. 快速命令", active["managed_blocks"]["headings"])
+        self.assertEqual(
+            active["managed_blocks"]["keyed_tables"][0]["heading"],
+            "## 2. 规则文件索引",
+        )
         retired = next(
             item
             for item in contract["assets"]
@@ -105,6 +111,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.90.0",
             "0.91.1",
             "0.93.0",
+            "0.94.0",
             "0.92.0",
             "0.92.1",
         }
@@ -365,6 +372,241 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "本地数据流定制，B 模式必须保留",
             target.read_text(encoding="utf-8"),
         )
+
+    def test_keyed_rule_index_merges_without_deleting_project_rows(self) -> None:
+        for decision in ("A", "B", "C"):
+            with self.subTest(decision=decision):
+                project = self.make_project()
+                self.apply_init(project)
+                target = project / "AGENTS.md"
+                text = target.read_text(encoding="utf-8")
+                text = text.replace(
+                    "职责边界 + 数据流方向（核心红线）",
+                    "项目定制的架构说明",
+                    1,
+                )
+                text = text.replace(
+                    "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+                    "| `rules/alerting.md` | 项目告警规则 | 始终加载 |\n"
+                    "| `rules/check_panel_ux.md` | 项目检查面板规则 | 编辑 `ui/**` |\n"
+                    "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+                    1,
+                )
+                text = text.replace(
+                    "<!-- 填 3-5 条“必须 X / 禁止 Y”硬约束（数据流方向 / 资源上限 / 时序约束），填好删注释。 -->",
+                    "- 项目架构红线必须保留。",
+                    1,
+                )
+                target.write_text(text, encoding="utf-8")
+
+                plan = sync.build_plan(project, ROOT, "update")
+                payload = sync._plan_payload(plan)
+                keyed = next(
+                    item
+                    for item in payload["upstream_absorption_actions"]
+                    if item["managed_key"] == "rules/architecture.md"
+                )
+                self.assertEqual(keyed["merge_mode"], "keyed_table")
+                self.assertEqual(keyed["managed_blocks"], ["## 2. 规则文件索引"])
+                self.assertNotIn("rules/alerting.md", str(payload["conflict_file_items"]))
+
+                if decision == "A":
+                    receipt = sync.apply_plan(
+                        plan,
+                        plan_fingerprint=plan.aggregate_fingerprint,
+                        confirmed_risk=True,
+                    )
+                elif decision == "B":
+                    receipt = sync.apply_plan(
+                        plan,
+                        plan_fingerprint=plan.aggregate_fingerprint,
+                        selected_risk_ids=(keyed["id"],),
+                    )
+                else:
+                    receipt = sync.apply_plan(
+                        plan,
+                        plan_fingerprint=plan.aggregate_fingerprint,
+                        decline_risk=True,
+                    )
+                result = target.read_text(encoding="utf-8")
+                self.assertIn("rules/alerting.md", result)
+                self.assertIn("rules/check_panel_ux.md", result)
+                self.assertIn("项目架构红线必须保留", result)
+                if decision in {"A", "B"}:
+                    self.assertIn("职责边界 + 数据流方向（核心红线）", result)
+                    self.assertNotIn("项目定制的架构说明", result)
+                else:
+                    self.assertIn("项目定制的架构说明", result)
+                effect = next(
+                    item
+                    for item in receipt.managed_block_effects
+                    if item.get("managed_key") == "rules/architecture.md"
+                )
+                self.assertEqual(effect["merge_mode"], "keyed_table")
+
+    def test_keyed_table_missing_managed_row_is_safe_and_local_rows_survive(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "AGENTS.md"
+        text = target.read_text(encoding="utf-8")
+        modules_row = next(
+            line for line in text.splitlines() if "`rules/modules.md`" in line
+        )
+        text = text.replace(modules_row + "\n", "", 1)
+        text = text.replace(
+            "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+            "| `rules/local_only.md` | 项目专属 | 始终加载 |\n"
+            "| `rules/anti_drift_hooks.md` | 反漂移 hook",
+            1,
+        )
+        target.write_text(text, encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(
+            any(
+                item.asset_id == "root.agents"
+                and item.action == "merge-managed-markdown-safe"
+                for item in plan.safe_actions
+            )
+        )
+        self.assertFalse(
+            any(item.asset_id == "root.agents" for item in plan.absorption_actions)
+        )
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        result = target.read_text(encoding="utf-8")
+        self.assertIn("rules/modules.md", result)
+        self.assertIn("rules/local_only.md", result)
+        self.assertTrue(receipt.stamp_written_last)
+
+    def test_keyed_table_duplicate_key_is_preserved_as_gap(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "AGENTS.md"
+        before = target.read_text(encoding="utf-8")
+        duplicate = before.replace(
+            "| `rules/modules.md` |",
+            "| `rules/modules.md` | 重复项目行 | 始终加载 |\n| `rules/modules.md` |",
+            1,
+        )
+        target.write_text(duplicate, encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(
+            any(
+                item.asset_id == "root.agents" and "duplicate key" in item.reason
+                for item in plan.gaps
+            )
+        )
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        self.assertEqual(target.read_text(encoding="utf-8"), duplicate)
+        self.assertFalse(receipt.stamp_written_last)
+
+    def test_keyed_table_escaped_pipe_is_parsed_without_duplicate_insert(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "AGENTS.md"
+        before = target.read_text(encoding="utf-8")
+        customized = before.replace(
+            "模块组织范式 + 目录职责 + 新模块接入流程",
+            "项目说明 \\| 仍是同一单元格",
+            1,
+        )
+        target.write_text(customized, encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertFalse(any(item.asset_id == "root.agents" for item in plan.gaps))
+        payload = sync._plan_payload(plan)
+        conflict = next(
+            item
+            for item in payload["upstream_absorption_actions"]
+            if item["managed_key"] == "rules/modules.md"
+        )
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            confirmed_risk=True,
+        )
+        result = target.read_text(encoding="utf-8")
+        self.assertEqual(result.count("`rules/modules.md`"), 1)
+        self.assertIn("模块组织范式 + 目录职责 + 新模块接入流程", result)
+        self.assertTrue(
+            any(item.get("id") == conflict["id"] for item in receipt.managed_block_effects)
+        )
+
+    def test_keyed_table_malformed_row_is_gap_and_does_not_write_stamp(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "AGENTS.md"
+        before = target.read_text(encoding="utf-8")
+        malformed = before.replace(
+            "| `rules/modules.md` | 模块组织范式 + 目录职责 + 新模块接入流程 | 始终加载 |",
+            "| `rules/modules.md` | 模块组织范式 + 目录职责 + 新模块接入流程 | 始终加载",
+            1,
+        )
+        target.write_text(malformed, encoding="utf-8")
+        stamp = project / ".codex/.bridgeforge_version"
+        stamp.write_text("0.94.0\n", encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(
+            any(
+                item.asset_id == "root.agents" and "ambiguous" in item.reason
+                for item in plan.gaps
+            )
+        )
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        self.assertEqual(target.read_text(encoding="utf-8"), malformed)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.94.0\n")
+        self.assertFalse(receipt.stamp_written_last)
+
+    def test_doc_index_keyed_merge_preserves_downstream_only_rows(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "doc/README.md"
+        text = target.read_text(encoding="utf-8")
+        text = text.replace(
+            "系统当前架构、关键接口、数据流与 ADR",
+            "项目定制的架构目录说明",
+            1,
+        )
+        text = text.replace(
+            "| [`4_archive/`](4_archive/) |",
+            "| [`quant_reports/`](quant_reports/) | 项目量化报告 | 活跃 |\n"
+            "| [`4_archive/`](4_archive/) |",
+            1,
+        )
+        text = text.replace(
+            "<!-- TODO: 已完成的 delivery 保持原 milestone/topic 层级归档；已解决 Bug 归档至 bugs/。 -->",
+            "项目归档索引由本项目维护。",
+            1,
+        )
+        target.write_text(text, encoding="utf-8")
+        plan = sync.build_plan(project, ROOT, "update")
+        payload = sync._plan_payload(plan)
+        conflict = next(
+            item
+            for item in payload["upstream_absorption_actions"]
+            if item["managed_key"] == "0_architecture/"
+        )
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            confirmed_risk=True,
+        )
+        result = target.read_text(encoding="utf-8")
+        self.assertIn("quant_reports/", result)
+        self.assertIn("系统当前架构、关键接口、数据流与 ADR", result)
+        self.assertNotIn("项目定制的架构目录说明", result)
+        self.assertIn("项目归档索引由本项目维护", result)
+        effect = next(
+            item for item in receipt.managed_block_effects if item["id"] == conflict["id"]
+        )
+        self.assertEqual(effect["managed_key"], "0_architecture/")
 
     def test_missing_blocks_append_cleanly_and_094_boundary_is_safe_repaired(self) -> None:
         project = self.make_project()
