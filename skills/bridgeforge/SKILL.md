@@ -100,6 +100,8 @@ $CURRENT_HOST = "codex"
 - Codex 只可为上述完整脚本路径加固定 `-Action refresh` 建议窄 `prefix_rule`；禁止放宽到
   `powershell`、解释器、其他 action、`bridgeforge_shared_update.ps1` 或任意尾参。
 - 禁止用 `git pull`、`git clone`、junction、`~/.agents` 或任何本地工作副本代替 updater。
+- updater 使用 GitHub `main` 的 partial+sparse canonical probe；只有远端 commit、manifest、ledger 或实际受管目录不一致时才展开完整 source 并进入事务。该 fast path 不使用持久 clone、TTL 或本地工作副本。
+- 成功输出必须包含 `BRIDGEFORGE_SHARED_UPDATE_RECEIPT` JSON，至少报告 `source_commit`、`mode=noop|updated`、`action_count` 与各阶段 `timings_ms`；缺失收据不得声称刷新完整。
 
 ## Step 2：工厂自检（硬闸）
 

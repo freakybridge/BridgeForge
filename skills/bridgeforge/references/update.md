@@ -247,6 +247,7 @@ $UPSTREAM_VERSION = (Get-Content -LiteralPath (Join-Path $BRIDGEFORGE_HOME "VERS
    分类 memory 与 topic memory，且未创建 `memory/_archive/`；junction 迁移还要
    确认系统路径已成为指向当前项目 memory 的 junction、项目内容校验通过，且未
    创建任何迁移备份。
+11. 统一执行器的 plan/apply JSON 必须保留 `timings_ms`：plan 报告 planner 总耗时；apply 至少报告紧邻 replan、资产写入、memory apply、memory/config 两个 canonical validator、validation wall time 与 total。缺失计时只允许报告功能结果，禁止声称延迟目标已验证。
 
 结束时给出收据：版本区间、命中的 `[product]` 条目、A-F 各类实际处理、
 memory 分类计划与 junction 计划 / 用户选择 / apply 状态、测试命令与退出码、

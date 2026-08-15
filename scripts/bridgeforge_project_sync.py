@@ -19,6 +19,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -89,6 +91,7 @@ class Receipt:
     gaps: tuple[dict[str, str], ...]
     stamp_written_last: bool
     rollback_performed: bool
+    timings_ms: dict[str, float]
 
 
 MEMORY_ACTION_ID = "codex.memory-schema-organize"
@@ -851,10 +854,10 @@ def _run_validation(
     template_root: Path,
     *,
     allow_memory_gap: bool,
-) -> None:
+) -> dict[str, float]:
     memory_lint = template_root / "templates" / "codex" / "hooks" / "memory_lint.py"
     health = template_root / "templates" / "codex" / "hooks" / "config_health_check.py"
-    for path, command, label in (
+    validators = (
         (
             memory_lint,
             [
@@ -873,9 +876,16 @@ def _run_validation(
             [sys.executable, str(health), "--strict"],
             "config health check",
         ),
-    ):
+    )
+    for path, _command, label in validators:
         if not path.is_file():
             raise SyncBlocked(f"{label} executable is missing after apply: {path}")
+
+    def run_validator(
+        command: list[str],
+        label: str,
+    ) -> tuple[str, subprocess.CompletedProcess[str], float]:
+        started = time.perf_counter()
         try:
             result = subprocess.run(
                 command,
@@ -889,6 +899,19 @@ def _run_validation(
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise SyncBlocked(f"{label} could not complete: {exc}") from exc
+        return label, result, (time.perf_counter() - started) * 1000
+
+    with ThreadPoolExecutor(max_workers=len(validators)) as executor:
+        futures = [
+            executor.submit(run_validator, command, label)
+            for _path, command, label in validators
+        ]
+        results = [future.result() for future in futures]
+
+    timings: dict[str, float] = {}
+    for label, result, elapsed_ms in results:
+        key = "memory_validation" if label == "memory schema audit" else "config_validation"
+        timings[key] = round(elapsed_ms, 1)
         expected_memory_gap = (
             label == "memory schema audit"
             and allow_memory_gap
@@ -897,6 +920,7 @@ def _run_validation(
         if result.returncode != 0 and not expected_memory_gap:
             detail = (result.stdout + result.stderr).strip()
             raise SyncBlocked(f"{label} failed with exit {result.returncode}: {detail}")
+    return timings
 
 
 def _verify_actions(project_root: Path, actions: Iterable[Action]) -> None:
@@ -923,13 +947,41 @@ def apply_plan(
     decline_risk: bool = False,
     checkpoint: Callable[[str], None] | None = None,
 ) -> Receipt:
+    apply_started = time.perf_counter()
+    replan_started = time.perf_counter()
+    rebuilt = build_plan(Path(planned.project_root), Path(planned.template_root), planned.mode)
+    replan_ms = (time.perf_counter() - replan_started) * 1000
+    return _apply_rebuilt_plan(
+        planned,
+        rebuilt,
+        plan_fingerprint=plan_fingerprint,
+        confirmed_risk=confirmed_risk,
+        decline_risk=decline_risk,
+        checkpoint=checkpoint,
+        replan_ms=replan_ms,
+        apply_started=apply_started,
+    )
+
+
+def _apply_rebuilt_plan(
+    planned: Plan,
+    rebuilt: Plan,
+    *,
+    plan_fingerprint: str,
+    confirmed_risk: bool = False,
+    decline_risk: bool = False,
+    checkpoint: Callable[[str], None] | None = None,
+    replan_ms: float,
+    apply_started: float,
+) -> Receipt:
+    timings: dict[str, float] = {}
     if confirmed_risk and decline_risk:
         raise SyncBlocked("risk cannot be both confirmed and declined")
     if planned.blockers:
         raise SyncBlocked("plan contains blockers")
     if planned.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("supplied aggregate fingerprint does not match the displayed plan")
-    rebuilt = build_plan(Path(planned.project_root), Path(planned.template_root), planned.mode)
+    timings["replan"] = round(replan_ms, 1)
     if rebuilt.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("aggregate fingerprint drifted; zero writes performed")
     if rebuilt.risk_actions and not (confirmed_risk or decline_risk):
@@ -948,6 +1000,7 @@ def apply_plan(
     transaction = _Transaction(root)
     stamp_written = False
     try:
+        action_started = time.perf_counter()
         if checkpoint:
             checkpoint("before-apply")
         memory_actions = [item for item in selected if item.action == "memory-organize"]
@@ -966,6 +1019,11 @@ def apply_plan(
                 transaction.write(target, action.payload)
             if checkpoint:
                 checkpoint(f"after-action:{action.asset_id}")
+        timings["asset_apply"] = round(
+            (time.perf_counter() - action_started) * 1000,
+            1,
+        )
+        memory_started = time.perf_counter()
         for action in memory_actions:
             dry_run = _run_memory_lint(root, Path(rebuilt.template_root))
             if (
@@ -979,16 +1037,25 @@ def apply_plan(
                 raise SyncBlocked(f"memory schema apply failed with exit {applied.returncode}: {detail}")
             if checkpoint:
                 checkpoint(f"after-action:{action.asset_id}")
+        timings["memory_apply"] = round(
+            (time.perf_counter() - memory_started) * 1000,
+            1,
+        )
         _verify_actions(root, selected)
         if checkpoint:
             checkpoint("before-validate")
-        _run_validation(
+        validation_started = time.perf_counter()
+        timings.update(_run_validation(
             root,
             Path(rebuilt.template_root),
             allow_memory_gap=(
                 any(item.asset_id == MEMORY_ACTION_ID for item in rebuilt.gaps)
                 or MEMORY_ACTION_ID in risk_declined
             ),
+        ))
+        timings["validation_wall"] = round(
+            (time.perf_counter() - validation_started) * 1000,
+            1,
         )
         if checkpoint:
             checkpoint("before-stamp")
@@ -1015,6 +1082,7 @@ def apply_plan(
         if item.asset_id in risk_declined
     )
     degraded = bool(receipt_gaps)
+    timings["total"] = round((time.perf_counter() - apply_started) * 1000, 1)
     return Receipt(
         status="completed_with_gaps" if degraded else "completed",
         readiness="degraded" if degraded else "ready",
@@ -1028,11 +1096,16 @@ def apply_plan(
         gaps=tuple(receipt_gaps),
         stamp_written_last=stamp_written,
         rollback_performed=False,
+        timings_ms=timings,
     )
 
 
-def _plan_payload(plan: Plan) -> dict[str, Any]:
-    return {
+def _plan_payload(
+    plan: Plan,
+    *,
+    timings_ms: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    payload = {
         "status": "blocked" if plan.blockers else ("completed_with_gaps" if plan.gaps else "planned"),
         "readiness": "blocked" if plan.blockers else ("degraded" if plan.gaps else "ready"),
         "mode": plan.mode,
@@ -1050,6 +1123,9 @@ def _plan_payload(plan: Plan) -> dict[str, Any]:
         "blockers": plan.blockers,
         "aggregate_fingerprint": plan.aggregate_fingerprint,
     }
+    if timings_ms is not None:
+        payload["timings_ms"] = timings_ms
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1068,17 +1144,28 @@ def main(argv: list[str] | None = None) -> int:
         print("BLOCKED: bridgeforge_project_sync requires Python 3.11+", file=sys.stderr)
         return 2
     try:
+        plan_started = time.perf_counter()
         plan = build_plan(args.project_root, args.template_root, args.mode)
+        plan_ms = round((time.perf_counter() - plan_started) * 1000, 1)
         if not args.apply:
-            print(json.dumps(_plan_payload(plan), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    _plan_payload(plan, timings_ms={"plan": plan_ms}),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
             return 2 if plan.blockers else 0
         if not args.plan_fingerprint:
             raise SyncBlocked("--apply requires --plan-fingerprint from the immediately preceding plan")
-        receipt = apply_plan(
+        receipt = _apply_rebuilt_plan(
+            plan,
             plan,
             plan_fingerprint=args.plan_fingerprint,
             confirmed_risk=args.confirmed_risk,
             decline_risk=args.decline_risk,
+            replan_ms=plan_ms,
+            apply_started=plan_started,
         )
         print(json.dumps(asdict(receipt), ensure_ascii=False, indent=2))
         return 0

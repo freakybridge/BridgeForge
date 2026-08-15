@@ -14,6 +14,8 @@
 - 禁止从 `~/.agents`、`~/.bridgeforge`、本地 clone、当前工作副本或项目目录读取共享 skill 内容。
 - 同一用户同一时刻只允许一个 updater 实例；并发调用必须在创建事务日志或写入受管目录前失败。
 - 同一 commit 且实际目录与 manifest hash 完全一致时跳过该 skill 的换包；账本一致但目录缺失、增删或 hash 不符时必须重装。
+- canonical refresh 先创建 partial+sparse 临时 probe，只展开 GitHub `main` 当前 commit 的根 manifest；两套 ledger、manifest 与实际目录全部一致时直接 no-op。只有远端变化、本地 drift、受管集合变化或账本缺口才允许展开完整 source，并在任何事务写入前逐文件验证 source hash。
+- 新 commit 中内容 hash 未变的 skill 禁止重复换包；完整 source 校验通过后只刷新账本 commit。禁止用 TTL、持久 clone、已有本地工作副本或单纯信任 ledger 代替 canonical manifest probe。
 - 每个 skill 必须先在 stage 验证完整目录 hash，再原子换包，并在写账本前重新验证 Codex / Claude 的全部实际目标。
 - 中断恢复只能使用与事务开始时目录 hash 一致的 backup；backup 缺失或损坏时必须保留当前目标并停止，禁止用空目录或未验证内容回滚。
 
@@ -27,6 +29,7 @@
 - Codex 与 Claude 实际受管目录是否均与 manifest 的完整文件集合和 hash 一致；
 - 未登记同名冲突、恢复日志或可写性错误；
 - 非 BridgeForge skill 未被修改。
+- `BRIDGEFORGE_SHARED_UPDATE_RECEIPT` 的 `mode`、`action_count` 与 `timings_ms`；计时至少覆盖 recovery、source probe、target plan、可选 source validate、transaction、cleanup 和 total。no-op 收据不得出现 `source_validate` / `transaction`。
 
 只可建议精确到完整 wrapper 路径和固定 `-Action refresh` 的 Codex `prefix_rule`。wrapper
 只接受 `refresh`，未知 action、source root、脚本路径、任意 payload 与尾参必须在写入前拒绝。

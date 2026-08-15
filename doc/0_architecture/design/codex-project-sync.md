@@ -1,7 +1,7 @@
 # Codex 项目骨架事务架构
 
-> 状态：implemented（BridgeForge 0.91.0）  
-> 入口：`scripts/bridgeforge_project_sync.py`  
+> 状态：implemented（BridgeForge 0.92.0）
+> 入口：`scripts/bridgeforge_project_sync.py`
 > ownership SoT：`templates/codex/managed-skeleton.json` schema v2
 
 ## 结论
@@ -68,6 +68,14 @@ detect mode/version
 - 验证器必须从 command bundle canonical 模板执行，禁止信任被下游修改的目标 hook 自证通过。
 - memory tree 在迁移前纳入事务快照；迁移后任一验证或写戳失败必须恢复路径与字节。
 - 仅 `readiness=ready` 时写 `.codex/.bridgeforge_version`，且必须是最后一次写入；存在 gap 或拒绝 risk 时保留旧戳/无戳。
+
+## 性能路径
+
+- 用户级分发始终从 GitHub `main` 建立临时 canonical probe，但稳态只 materialize 根 manifest；两套 ledger 和实际受管目录全部匹配时不展开完整 source、不建事务日志、不重写账本。
+- 远端 commit 变化、本地 drift、受管集合变化或账本缺口才关闭 sparse checkout 并验证完整 source。内容 hash 未变的 skill 只刷新 ledger commit，不做目录换包。
+- CLI apply 的 plan 本身就是紧邻 fingerprint 校验的唯一 replan；库级 `apply_plan()` 对外部调用仍默认自行 replan，防止展示与执行之间的状态漂移。
+- memory schema auditor 与 strict config health validator 在写入后并行启动，两个结果仍全部进入 ready 判定；任何一个失败都回滚，禁止用并行化弱化 stamp-last。
+- updater、planner 和 apply 均输出机器可读 `timings_ms`，性能回归以 phase receipt 为证，不以整轮主观等待时间代替脚本耗时。
 
 ## 发布防线
 

@@ -24,6 +24,42 @@ $CanonicalRemote = "https://github.com/freakybridge/BridgeForge.git"
 $CanonicalBranch = "main"
 $ManifestName = "shared-skill-manifest.json"
 $OperationLogName = ".bridgeforge-shared-update.json"
+$script:PhaseTimings = [ordered]@{}
+$script:UpdateTimer = [Diagnostics.Stopwatch]::StartNew()
+
+function Complete-PhaseTiming {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][Diagnostics.Stopwatch]$Stopwatch
+    )
+    $Stopwatch.Stop()
+    $script:PhaseTimings[$Name] = [math]::Round($Stopwatch.Elapsed.TotalMilliseconds, 1)
+}
+
+function Write-UpdateReceipt {
+    param(
+        [Parameter(Mandatory = $true)][string]$Status,
+        [string]$Commit,
+        [string]$Mode,
+        [int]$ActionCount = 0,
+        [string]$ErrorMessage
+    )
+    if ($script:UpdateTimer.IsRunning) {
+        $script:UpdateTimer.Stop()
+    }
+    $script:PhaseTimings["total"] = [math]::Round($script:UpdateTimer.Elapsed.TotalMilliseconds, 1)
+    $receipt = [ordered]@{
+        status = $Status
+        source_commit = if ([string]::IsNullOrWhiteSpace($Commit)) { $null } else { $Commit }
+        mode = if ([string]::IsNullOrWhiteSpace($Mode)) { $null } else { $Mode }
+        action_count = $ActionCount
+        timings_ms = $script:PhaseTimings
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ErrorMessage)) {
+        $receipt["error"] = $ErrorMessage
+    }
+    Write-Host "BRIDGEFORGE_SHARED_UPDATE_RECEIPT $($receipt | ConvertTo-Json -Depth 6 -Compress)"
+}
 
 function Assert-Windows {
     if ($TestNonWindows -or [Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
@@ -225,7 +261,10 @@ function Write-JsonAtomic {
 }
 
 function Assert-Repository {
-    param([Parameter(Mandatory = $true)][string]$Root)
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [switch]$SkipFetch
+    )
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
         throw "Source repository does not exist: $Root"
     }
@@ -238,13 +277,15 @@ function Assert-Repository {
     if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
         throw "Source repository origin is not the canonical BridgeForge remote."
     }
-    Invoke-Git -WorkingDirectory $Root -Arguments @(
-        "fetch",
-        "--no-tags",
-        "--prune",
-        "origin",
-        "+refs/heads/main:refs/remotes/origin/main"
-    ) | Out-Null
+    if (-not $SkipFetch) {
+        Invoke-Git -WorkingDirectory $Root -Arguments @(
+            "fetch",
+            "--no-tags",
+            "--prune",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main"
+        ) | Out-Null
+    }
     $branch = ((Invoke-Git -WorkingDirectory $Root -Arguments @("symbolic-ref", "--short", "HEAD")) -join "").Trim()
     if ($branch -ne $CanonicalBranch) {
         throw "Source repository must have main checked out; found '$branch'."
@@ -318,7 +359,8 @@ function Get-PlatformManifest {
 function Assert-Manifest {
     param(
         [Parameter(Mandatory = $true)][string]$RepositoryRoot,
-        [Parameter(Mandatory = $true)][string]$UserProfile
+        [Parameter(Mandatory = $true)][string]$UserProfile,
+        [switch]$ValidateSources
     )
     $manifestPath = Join-Path $RepositoryRoot $ManifestName
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -369,9 +411,6 @@ function Assert-Manifest {
                 }
                 $targets[$targetKey] = $true
                 $sourcePath = Get-PathUnderRoot -Root $RepositoryRoot -RelativePath $source
-                if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-                    throw "Manifest source file is missing: $source"
-                }
                 $expected = ([string]$file.sha256).ToLowerInvariant()
                 if ($expected.StartsWith("sha256:")) {
                     $expected = $expected.Substring(7)
@@ -379,8 +418,13 @@ function Assert-Manifest {
                 if ($expected -notmatch "^[0-9a-f]{64}$") {
                     throw "Invalid SHA-256 in manifest for '$source'."
                 }
-                if ((Get-Sha256 -Path $sourcePath) -ne $expected) {
-                    throw "Manifest SHA-256 mismatch for '$source'."
+                if ($ValidateSources) {
+                    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+                        throw "Manifest source file is missing: $source"
+                    }
+                    if ((Get-Sha256 -Path $sourcePath) -ne $expected) {
+                        throw "Manifest SHA-256 mismatch for '$source'."
+                    }
                 }
             }
         }
@@ -528,6 +572,7 @@ function New-UpdatePlan {
             $managed[$name.ToLowerInvariant()] = $true
         }
         $manifestNames = @{}
+        $ledgerNeedsUpdate = $false
         foreach ($skill in @($platformManifest.skills)) {
             $name = [string]$skill.name
             $manifestNames[$name.ToLowerInvariant()] = $true
@@ -542,6 +587,7 @@ function New-UpdatePlan {
         $actions = @()
         foreach ($name in $managedNames | Sort-Object) {
             if (-not $manifestNames.ContainsKey($name.ToLowerInvariant())) {
+                $ledgerNeedsUpdate = $true
                 $target = Join-Path $config.skills_root $name
                 if ((Test-Path -LiteralPath $target) -and (Test-ReparsePoint -Path $target)) {
                     throw "Managed skill target may not be a junction or symbolic link: $target"
@@ -568,11 +614,14 @@ function New-UpdatePlan {
             $desiredHash = Get-SkillContentHash -Skill $skill
             $ledgerRecord = Get-LedgerRecord -Ledger $ledger -Name $name
             if ($hadOriginal -and $null -ne $ledgerRecord -and
-                [string]$ledgerRecord.source_commit -eq $Commit -and
                 [string]$ledgerRecord.content_hash -eq $desiredHash -and
                 $originalHash -eq $desiredHash) {
+                if ([string]$ledgerRecord.source_commit -ne $Commit) {
+                    $ledgerNeedsUpdate = $true
+                }
                 continue
             }
+            $ledgerNeedsUpdate = $true
             $actions += [ordered]@{
                 kind = "upsert"
                 name = $name
@@ -595,6 +644,7 @@ function New-UpdatePlan {
             ledger_stage = "$($config.ledger).stage-$OperationId"
             ledger_backup = "$($config.ledger).backup-$OperationId"
             ledger_had_original = [bool](Test-Path -LiteralPath $config.ledger)
+            ledger_needs_update = $ledgerNeedsUpdate
             ledger_status = "pending"
             preserved_consents = if ($platform -eq "codex" -and $null -ne $ledger -and
                 $null -ne $ledger.PSObject.Properties["consents"]) {
@@ -828,30 +878,24 @@ function Invoke-UpdateTransaction {
         [Parameter(Mandatory = $true)][string]$Commit,
         [Parameter(Mandatory = $true)][string]$ManifestHash,
         [Parameter(Mandatory = $true)][string]$UserProfile,
-        [Parameter(Mandatory = $true)][string]$LogPath
-    )
-    $operationId = [Guid]::NewGuid().ToString("N")
-    $platformPlans = @(
-        New-UpdatePlan `
-            -Manifest $Manifest `
-            -UserProfile $UserProfile `
-            -OperationId $operationId `
-            -Commit $Commit
+        [Parameter(Mandatory = $true)][string]$LogPath,
+        [Parameter(Mandatory = $true)][string]$OperationId,
+        [Parameter(Mandatory = $true)]$PlatformPlans
     )
     $log = [ordered]@{
         schema_version = 1
-        operation_id = $operationId
+        operation_id = $OperationId
         source_commit = $Commit
         manifest_hash = $ManifestHash
         started_at = [DateTime]::UtcNow.ToString("o")
         committed = $false
-        platforms = $platformPlans
+        platforms = $PlatformPlans
     }
     Write-JsonAtomic -Path $LogPath -Value $log
     $completedActionCount = 0
 
     try {
-        foreach ($platformPlan in $platformPlans) {
+        foreach ($platformPlan in $PlatformPlans) {
             $platformManifest = Get-PlatformManifest -Manifest $Manifest -Platform ([string]$platformPlan.platform
             )
             $platformActionCount = 0
@@ -907,7 +951,7 @@ function Invoke-UpdateTransaction {
             }
         }
 
-        foreach ($platformPlan in $platformPlans) {
+        foreach ($platformPlan in $PlatformPlans) {
             $platformManifest = Get-PlatformManifest -Manifest $Manifest -Platform ([string]$platformPlan.platform)
             $ledgerValue = New-LedgerValue `
                 -Platform ([string]$platformPlan.platform) `
@@ -916,7 +960,7 @@ function Invoke-UpdateTransaction {
                 -PreservedConsents $platformPlan.preserved_consents
             Write-JsonAtomic -Path ([string]$platformPlan.ledger_stage) -Value $ledgerValue
         }
-        foreach ($platformPlan in $platformPlans) {
+        foreach ($platformPlan in $PlatformPlans) {
             if (Test-Path -LiteralPath ([string]$platformPlan.ledger)) {
                 Move-Item -LiteralPath ([string]$platformPlan.ledger) -Destination ([string]$platformPlan.ledger_backup)
             }
@@ -924,7 +968,7 @@ function Invoke-UpdateTransaction {
             $platformPlan.ledger_status = "complete"
             Write-JsonAtomic -Path $LogPath -Value $log
         }
-        foreach ($platformPlan in $platformPlans) {
+        foreach ($platformPlan in $PlatformPlans) {
             $platform = [string]$platformPlan.platform
             Assert-PlatformTargets `
                 -PlatformManifest (Get-PlatformManifest -Manifest $Manifest -Platform $platform) `
@@ -954,6 +998,8 @@ function New-CanonicalClone {
         "--branch", $CanonicalBranch,
         "--single-branch",
         "--depth", "1",
+        "--filter=blob:none",
+        "--sparse",
         "--no-recurse-submodules",
         $CanonicalRemote,
         $root
@@ -973,10 +1019,16 @@ function Invoke-Main {
             Start-Sleep -Milliseconds $TestHoldLockMilliseconds
         }
         $logPath = Join-Path $userProfile $OperationLogName
+        $phase = [Diagnostics.Stopwatch]::StartNew()
         Restore-InterruptedOperation -LogPath $logPath -UserProfile $userProfile
+        Complete-PhaseTiming -Name "recovery" -Stopwatch $phase
 
         $cloneRoot = $null
+        $commit = $null
+        $resultMode = $null
+        $actionCount = 0
         try {
+            $phase = [Diagnostics.Stopwatch]::StartNew()
             if ([string]::IsNullOrWhiteSpace($SourceRepositoryRoot)) {
                 $cloneRoot = New-CanonicalClone
                 $repositoryRoot = $cloneRoot
@@ -984,22 +1036,71 @@ function Invoke-Main {
             else {
                 $repositoryRoot = [IO.Path]::GetFullPath($SourceRepositoryRoot)
             }
-            $commit = Assert-Repository -Root $repositoryRoot
+            $commit = Assert-Repository -Root $repositoryRoot -SkipFetch:($null -ne $cloneRoot)
             $manifestResult = Assert-Manifest -RepositoryRoot $repositoryRoot -UserProfile $userProfile
-            Invoke-UpdateTransaction `
-                -RepositoryRoot $repositoryRoot `
-                -Manifest $manifestResult.value `
-                -Commit $commit `
-                -ManifestHash $manifestResult.hash `
-                -UserProfile $userProfile `
-                -LogPath $logPath
-            Write-Host "BridgeForge shared skills updated to commit $commit."
+            Complete-PhaseTiming -Name "source_probe" -Stopwatch $phase
+
+            $operationId = [Guid]::NewGuid().ToString("N")
+            $phase = [Diagnostics.Stopwatch]::StartNew()
+            $platformPlans = @(
+                New-UpdatePlan `
+                    -Manifest $manifestResult.value `
+                    -UserProfile $userProfile `
+                    -OperationId $operationId `
+                    -Commit $commit
+            )
+            $actionCount = @(
+                $platformPlans | ForEach-Object { @($_.actions).Count }
+            ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+            $needsTransaction = [bool]($actionCount -gt 0 -or @(
+                $platformPlans | Where-Object { [bool]$_.ledger_needs_update }
+            ).Count -gt 0)
+            Complete-PhaseTiming -Name "target_plan" -Stopwatch $phase
+
+            if (-not $needsTransaction) {
+                Write-Host "BridgeForge shared skills already current at commit $commit."
+                $resultMode = "noop"
+            }
+            else {
+                $phase = [Diagnostics.Stopwatch]::StartNew()
+                if ($cloneRoot) {
+                    Invoke-Git -WorkingDirectory $repositoryRoot -Arguments @(
+                        "-c", "core.autocrlf=false", "sparse-checkout", "disable"
+                    ) | Out-Null
+                }
+                $manifestResult = Assert-Manifest `
+                    -RepositoryRoot $repositoryRoot `
+                    -UserProfile $userProfile `
+                    -ValidateSources
+                Complete-PhaseTiming -Name "source_validate" -Stopwatch $phase
+
+                $phase = [Diagnostics.Stopwatch]::StartNew()
+                Invoke-UpdateTransaction `
+                    -RepositoryRoot $repositoryRoot `
+                    -Manifest $manifestResult.value `
+                    -Commit $commit `
+                    -ManifestHash $manifestResult.hash `
+                    -UserProfile $userProfile `
+                    -LogPath $logPath `
+                    -OperationId $operationId `
+                    -PlatformPlans $platformPlans
+                Complete-PhaseTiming -Name "transaction" -Stopwatch $phase
+                Write-Host "BridgeForge shared skills updated to commit $commit."
+                $resultMode = "updated"
+            }
         }
         finally {
+            $phase = [Diagnostics.Stopwatch]::StartNew()
             if ($cloneRoot -and (Test-Path -LiteralPath $cloneRoot)) {
                 Remove-SafeTree -Path $cloneRoot
             }
+            Complete-PhaseTiming -Name "cleanup" -Stopwatch $phase
         }
+        Write-UpdateReceipt `
+            -Status "completed" `
+            -Commit $commit `
+            -Mode $resultMode `
+            -ActionCount $actionCount
     }
     finally {
         $mutex.ReleaseMutex()
@@ -1012,6 +1113,7 @@ try {
     exit 0
 }
 catch {
+    Write-UpdateReceipt -Status "failed" -Mode "failed" -ErrorMessage $_.Exception.Message
     Write-Error $_.Exception.Message
     exit 1
 }

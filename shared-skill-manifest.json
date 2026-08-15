@@ -17,12 +17,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:432caa21feb90174c9d314de606fbaffd170766cd696d4e105eac3cac91bd54e"
+              "sha256": "sha256:0f23e8469199d99a7c6ac452446565f7e73aaca1b006127a37969e4dfbfe9c13"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:4ed628979cdd0f334562dd0543a20e1b69020d88eb6cb5ae8fc5ef9a16ab2c38"
+              "sha256": "sha256:058d83d75c216b9cd192cfa2d84d997c5912f32d319140d15ccbc3b3cc00399b"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -37,12 +37,12 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:7b2368e414f8683395ae3fa77b64b0781931bbea3ffd0a5d4faeaaea53946264"
+              "sha256": "sha256:d3b7a1d24439be8004f67a3afef6b0880a3cd37fac4c664bfbed944cb22e7d86"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
               "target": "scripts/bridgeforge_shared_update.ps1",
-              "sha256": "sha256:2281ac796b1f7be244b9d4f386771490065d4a1b01844d2ed671feaf2b133aa1"
+              "sha256": "sha256:4e205374ffd818823e9dddbe83347b3eec7935e46e478ec2fb48593e4f8e2e97"
             },
             {
               "source": "scripts/bridgeforge_switch.py",
@@ -62,7 +62,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:926fa132cced2739fa583287adfb7b1f42c65de59ff0d0357427b308e30ca8e5"
+              "sha256": "sha256:e0bedcd98bddbc8e6755a8d42fb3187f9782b28ceefa5b503c1034503ff33d08"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -82,12 +82,12 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:941c94d62a7b76f582ace31ba8b0172cba6cf9bcaaf4131f9b76ea644441c8ff"
+              "sha256": "sha256:c563e540aacfa73c68b12aa60608c86e13cb0bf6260c39e61dcac01bea720bae"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
               "target": "references/user-skill-maintenance.md",
-              "sha256": "sha256:1ecce561c7571ff6239f8215d9bef7013ed033fde115f9316a81025a6b8e7848"
+              "sha256": "sha256:25314e8e166fd2528412b1beec62d803aa2241a111dc2bf72efae472edcd1ebc"
             },
             {
               "source": "templates/claude/.githooks/pre-commit",
@@ -587,7 +587,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:8943b6ce3a4d54bbe370f1d3852ee298aa726363f6cb0cfd55a4e7fe64cfbef8"
+              "sha256": "sha256:f3815efcf4771656fbe1021b49ddaf494cae3b4e79a1fa16a512f48048872160"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -957,12 +957,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:432caa21feb90174c9d314de606fbaffd170766cd696d4e105eac3cac91bd54e"
+              "sha256": "sha256:0f23e8469199d99a7c6ac452446565f7e73aaca1b006127a37969e4dfbfe9c13"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:4ed628979cdd0f334562dd0543a20e1b69020d88eb6cb5ae8fc5ef9a16ab2c38"
+              "sha256": "sha256:058d83d75c216b9cd192cfa2d84d997c5912f32d319140d15ccbc3b3cc00399b"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -977,12 +977,12 @@
             {
               "source": "scripts/bridgeforge_project_sync.py",
               "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:7b2368e414f8683395ae3fa77b64b0781931bbea3ffd0a5d4faeaaea53946264"
+              "sha256": "sha256:d3b7a1d24439be8004f67a3afef6b0880a3cd37fac4c664bfbed944cb22e7d86"
             },
             {
               "source": "scripts/bridgeforge_shared_update.ps1",
               "target": "scripts/bridgeforge_shared_update.ps1",
-              "sha256": "sha256:2281ac796b1f7be244b9d4f386771490065d4a1b01844d2ed671feaf2b133aa1"
+              "sha256": "sha256:4e205374ffd818823e9dddbe83347b3eec7935e46e478ec2fb48593e4f8e2e97"
             },
             {
               "source": "scripts/bridgeforge_switch.py",
@@ -1002,7 +1002,7 @@
             {
               "source": "skills/bridgeforge/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:926fa132cced2739fa583287adfb7b1f42c65de59ff0d0357427b308e30ca8e5"
+              "sha256": "sha256:e0bedcd98bddbc8e6755a8d42fb3187f9782b28ceefa5b503c1034503ff33d08"
             },
             {
               "source": "skills/bridgeforge/references/adopt.md",
@@ -1022,12 +1022,12 @@
             {
               "source": "skills/bridgeforge/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:941c94d62a7b76f582ace31ba8b0172cba6cf9bcaaf4131f9b76ea644441c8ff"
+              "sha256": "sha256:c563e540aacfa73c68b12aa60608c86e13cb0bf6260c39e61dcac01bea720bae"
             },
             {
               "source": "skills/bridgeforge/references/user-skill-maintenance.md",
               "target": "references/user-skill-maintenance.md",
-              "sha256": "sha256:1ecce561c7571ff6239f8215d9bef7013ed033fde115f9316a81025a6b8e7848"
+              "sha256": "sha256:25314e8e166fd2528412b1beec62d803aa2241a111dc2bf72efae472edcd1ebc"
             },
             {
               "source": "templates/claude/.githooks/pre-commit",
@@ -1527,7 +1527,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:8943b6ce3a4d54bbe370f1d3852ee298aa726363f6cb0cfd55a4e7fe64cfbef8"
+              "sha256": "sha256:f3815efcf4771656fbe1021b49ddaf494cae3b4e79a1fa16a512f48048872160"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",

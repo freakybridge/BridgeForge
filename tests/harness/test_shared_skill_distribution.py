@@ -204,6 +204,33 @@ class SharedSkillDistributionTests(unittest.TestCase):
             env=env or self.env,
         )
 
+    def invoke_canonical_updater(
+        self,
+        *extra_arguments: str,
+    ) -> subprocess.CompletedProcess[str]:
+        return run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(UPDATER),
+                *extra_arguments,
+            ],
+            ROOT,
+            env=self.env,
+        )
+
+    def update_receipt(
+        self,
+        result: subprocess.CompletedProcess[str],
+    ) -> dict[str, object]:
+        prefix = "BRIDGEFORGE_SHARED_UPDATE_RECEIPT "
+        lines = [line for line in result.stdout.splitlines() if line.startswith(prefix)]
+        self.assertEqual(len(lines), 1, result.stderr + result.stdout)
+        return json.loads(lines[0][len(prefix) :])
+
     def updater_command(self, *extra_arguments: str) -> list[str]:
         return [
             "powershell.exe",
@@ -539,11 +566,63 @@ class SharedSkillDistributionTests(unittest.TestCase):
         second = self.invoke_updater("-TestFailAfterSwap", "codex:1")
 
         self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+        receipt = self.update_receipt(second)
+        self.assertEqual(receipt["mode"], "noop")
+        self.assertEqual(receipt["action_count"], 0)
+        self.assertNotIn("source_validate", receipt["timings_ms"])
         for platform in ("codex", "claude"):
             bundle = self.profile / f".{platform}" / "skills" / "bridgeforge"
             self.assertEqual((bundle / "SKILL.md").read_text(), "bridgeforge-v1")
             self.assertTrue((bundle / "references" / "user-skill-maintenance.md").is_file())
         self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
+
+    def test_canonical_sparse_probe_noop_and_drift_repair(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+
+        first = self.invoke_canonical_updater()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        self.assertEqual(self.update_receipt(first)["mode"], "updated")
+
+        second = self.invoke_canonical_updater()
+        self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+        second_receipt = self.update_receipt(second)
+        self.assertEqual(second_receipt["mode"], "noop")
+        self.assertEqual(second_receipt["action_count"], 0)
+        self.assertNotIn("source_validate", second_receipt["timings_ms"])
+
+        drifted = self.profile / ".codex" / "skills" / "common" / "SKILL.md"
+        drifted.write_text("local-drift", encoding="utf-8")
+        repaired = self.invoke_canonical_updater()
+        self.assertEqual(repaired.returncode, 0, repaired.stderr + repaired.stdout)
+        repaired_receipt = self.update_receipt(repaired)
+        self.assertEqual(repaired_receipt["mode"], "updated")
+        self.assertEqual(repaired_receipt["action_count"], 1)
+        self.assertIn("source_validate", repaired_receipt["timings_ms"])
+        self.assertEqual(drifted.read_text(encoding="utf-8"), "common-v1")
+
+    def test_new_commit_with_unchanged_manifest_updates_ledgers_without_swaps(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke_updater()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+
+        (self.source / "meta-only.md").write_text("metadata only\n", encoding="utf-8")
+        new_commit = self.commit_source("metadata-only change")
+        updated = self.invoke_updater("-TestFailAfterSwap", "codex:1")
+
+        self.assertEqual(updated.returncode, 0, updated.stderr + updated.stdout)
+        receipt = self.update_receipt(updated)
+        self.assertEqual(receipt["mode"], "updated")
+        self.assertEqual(receipt["action_count"], 0)
+        self.assertIn("source_validate", receipt["timings_ms"])
+        for platform in ("codex", "claude"):
+            self.assertTrue(
+                all(
+                    record["source_commit"] == new_commit
+                    for record in self.ledger(platform)["records"].values()
+                )
+            )
 
     def test_concurrent_update_is_rejected_before_transaction_writes(self) -> None:
         self.write_source()

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -100,6 +103,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.88.2",
             "0.88.4",
             "0.90.0",
+            "0.91.1",
         }
         self.assertEqual(
             set(manifest_builder._baseline_revisions(ROOT)),
@@ -445,6 +449,66 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(sync.SyncBlocked, "failed with exit 2"):
                 sync._run_validation(project, ROOT, allow_memory_gap=True)
+
+    def test_validators_run_concurrently_and_report_phase_timings(self) -> None:
+        project = self.make_project()
+        barrier = threading.Barrier(2)
+
+        def complete_together(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            barrier.wait(timeout=2)
+            return subprocess.CompletedProcess([], 0, "", "")
+
+        with mock.patch.object(sync.subprocess, "run", side_effect=complete_together):
+            timings = sync._run_validation(project, ROOT, allow_memory_gap=False)
+
+        self.assertEqual(set(timings), {"memory_validation", "config_validation"})
+        self.assertTrue(all(value >= 0 for value in timings.values()))
+
+    def test_cli_apply_builds_one_immediate_replan_and_emits_timings(self) -> None:
+        project = self.make_project()
+        displayed = sync.build_plan(project, ROOT, "init")
+        output = io.StringIO()
+
+        with mock.patch.object(sync, "build_plan", wraps=sync.build_plan) as build:
+            with redirect_stdout(output):
+                exit_code = sync.main(
+                    [
+                        "--project-root",
+                        str(project),
+                        "--template-root",
+                        str(ROOT),
+                        "--mode",
+                        "init",
+                        "--apply",
+                        "--plan-fingerprint",
+                        displayed.aggregate_fingerprint,
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0, output.getvalue())
+        self.assertEqual(build.call_count, 1)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(receipt["status"], "completed")
+        self.assertIn("replan", receipt["timings_ms"])
+        self.assertIn("validation_wall", receipt["timings_ms"])
+
+    def test_cli_plan_emits_timing_receipt(self) -> None:
+        project = self.make_project()
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = sync.main(
+                [
+                    "--project-root",
+                    str(project),
+                    "--template-root",
+                    str(ROOT),
+                    "--mode",
+                    "init",
+                ]
+            )
+        self.assertEqual(exit_code, 0, output.getvalue())
+        plan = json.loads(output.getvalue())
+        self.assertIn("plan", plan["timings_ms"])
 
 
 if __name__ == "__main__":
