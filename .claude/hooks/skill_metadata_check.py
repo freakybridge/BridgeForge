@@ -7,8 +7,9 @@ Scope:
   so this hook self-gates to no-op there.
 
 Hard gates are limited to metadata that controls discoverability and invocation:
-frontmatter exists, `name` matches the directory, `description` is present,
-`user_invocable: true` uses the current spelling, and `argument` is present.
+frontmatter exists, `name` matches the directory, and `description` is present.
+OpenAI's standard two-field frontmatter and complete legacy BridgeForge
+invocation metadata are both accepted.
 """
 from __future__ import annotations
 
@@ -86,11 +87,16 @@ def _validate_skill(skill_file: Path) -> list[str]:
 
     if "user-invocable" in meta:
         issues.append("use user_invocable, not legacy user-invocable")
-    if meta.get("user_invocable", "").lower() != "true":
-        issues.append("user_invocable: true is required")
 
-    if not meta.get("argument", ""):
-        issues.append("argument is required; use `argument: 无` for no-argument skills")
+    has_legacy_invocation = "user_invocable" in meta or "argument" in meta
+    if has_legacy_invocation:
+        if meta.get("user_invocable", "").lower() != "true":
+            issues.append("legacy invocation metadata requires user_invocable: true")
+        if not meta.get("argument", ""):
+            issues.append(
+                "legacy invocation metadata requires argument; "
+                "use `argument: 无` for no-argument skills"
+            )
 
     return [f"{rel}: {issue}" for issue in issues]
 
@@ -107,10 +113,13 @@ def main() -> int:
         if not issues:
             return 0
 
-        print("[skill-metadata] pre-commit 硬拦: 通用 skill frontmatter 不完整, 提交被阻断", file=sys.stderr)
+        print("[skill-metadata] pre-commit 硬拦: 通用 skill frontmatter 无效, 提交被阻断", file=sys.stderr)
         for issue in issues:
             print(f"[skill-metadata]   {issue}", file=sys.stderr)
-        print("[skill-metadata] 修法: 补齐 name/description/user_invocable/argument 后再提交。", file=sys.stderr)
+        print(
+            "[skill-metadata] 修法: 使用标准 name/description；若保留旧 invocation 字段则必须成对完整。",
+            file=sys.stderr,
+        )
         return 2
     except Exception:
         return 0

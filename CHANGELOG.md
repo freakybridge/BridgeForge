@@ -15,6 +15,16 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.87.0] - 2026-08-15
+
+### Added
+
+- [product][repo][meta] 新增 Codex-only `$create-worktree` 用户级 skill：在配置的永久根目录下创建无槽位 Git worktree 与独立 `codex/` 分支，并在 Git 验证后注册 Codex Desktop；同步确定性 Windows 脚本、临时仓库端到端测试与 shared-skill 分发验证。
+
+### Changed
+
+- [product][repo] skill metadata 门卫向后兼容既有 `user_invocable` / `argument` 格式与 OpenAI 当前标准 frontmatter，Codex/Claude 模板及 dogfood hook 同步更新。
+
 ## [0.86.7] - 2026-08-15
 
 ### Fixed

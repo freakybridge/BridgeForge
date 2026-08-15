@@ -8,7 +8,9 @@ Scope:
 
 Hard gates cover discoverability plus unsafe context growth: required metadata,
 single-line descriptions <= 500 chars, SKILL.md <= 500 lines, and live one-level
-`references/` links. Descriptions over 300 chars are soft warnings.
+`references/` links. Both OpenAI's `name`/`description` frontmatter and the
+legacy BridgeForge invocation fields are accepted. Descriptions over 300 chars
+are soft warnings.
 """
 from __future__ import annotations
 
@@ -99,11 +101,16 @@ def _validate_skill(skill_file: Path, expected_name: str | None = None) -> tuple
 
     if "user-invocable" in meta:
         issues.append("use user_invocable, not legacy user-invocable")
-    if meta.get("user_invocable", "").lower() != "true":
-        issues.append("user_invocable: true is required")
 
-    if not meta.get("argument", ""):
-        issues.append("argument is required; use `argument: 无` for no-argument skills")
+    has_legacy_invocation = "user_invocable" in meta or "argument" in meta
+    if has_legacy_invocation:
+        if meta.get("user_invocable", "").lower() != "true":
+            issues.append("legacy invocation metadata requires user_invocable: true")
+        if not meta.get("argument", ""):
+            issues.append(
+                "legacy invocation metadata requires argument; "
+                "use `argument: 无` for no-argument skills"
+            )
 
     try:
         text = skill_file.read_text(encoding="utf-8")
@@ -167,10 +174,14 @@ def main() -> int:
         if not issues:
             return 0
 
-        print("[skill-metadata] pre-commit 硬拦: 通用 skill frontmatter 不完整, 提交被阻断", file=sys.stderr)
+        print("[skill-metadata] pre-commit 硬拦: 通用 skill frontmatter 无效, 提交被阻断", file=sys.stderr)
         for issue in issues:
             print(f"[skill-metadata]   {issue}", file=sys.stderr)
-        print("[skill-metadata] 修法: 补 metadata、缩短入口，或把低频细节移到一层 references/。", file=sys.stderr)
+        print(
+            "[skill-metadata] 修法: 使用标准 name/description；若保留旧 invocation 字段则必须成对完整，"
+            "并缩短入口或把低频细节移到一层 references/。",
+            file=sys.stderr,
+        )
         return 2
     except Exception:
         return 0

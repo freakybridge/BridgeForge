@@ -61,6 +61,19 @@ class SharedSkillDistributionTests(unittest.TestCase):
         self.remote = self.base / "canonical.git"
         self.env = os.environ.copy()
         self.env["USERPROFILE"] = str(self.profile)
+        system_root = self.env.get("SystemRoot", r"C:\Windows")
+        self.env["PSModulePath"] = os.pathsep.join(
+            (
+                r"C:\Program Files\WindowsPowerShell\Modules",
+                str(
+                    Path(system_root)
+                    / "system32"
+                    / "WindowsPowerShell"
+                    / "v1.0"
+                    / "Modules"
+                ),
+            )
+        )
         self.env["GIT_CONFIG_COUNT"] = "1"
         self.env["GIT_CONFIG_KEY_0"] = f"url.{self.remote.as_uri()}.insteadOf"
         self.env["GIT_CONFIG_VALUE_0"] = CANONICAL_REMOTE
@@ -73,6 +86,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         bridgeforge_text: str = "bridgeforge-v1",
         common_text: str = "common-v1",
         include_common: bool = True,
+        codex_only_text: str | None = None,
     ) -> None:
         (self.source / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
         (self.source / "entry.md").write_text(bridgeforge_text, encoding="utf-8")
@@ -118,13 +132,31 @@ class SharedSkillDistributionTests(unittest.TestCase):
         skills = [bridgeforge]
         if include_common:
             skills.insert(0, common_skill)
+        codex_skills = list(skills)
+        claude_skills = list(skills)
+        if codex_only_text is not None:
+            codex_only = self.source / "skills" / "create-worktree" / "SKILL.md"
+            codex_only.parent.mkdir(parents=True, exist_ok=True)
+            codex_only.write_text(codex_only_text, encoding="utf-8")
+            codex_skills.append(
+                {
+                    "name": "create-worktree",
+                    "files": [
+                        {
+                            "source": "skills/create-worktree/SKILL.md",
+                            "target": "SKILL.md",
+                            "sha256": f"sha256:{sha256(codex_only)}",
+                        }
+                    ],
+                }
+            )
         manifest = {
             "schema_version": 1,
             "canonical_remote": CANONICAL_REMOTE,
             "branch": "main",
             "platforms": {
-                "codex": {"target": "~/.codex/skills", "skills": skills},
-                "claude": {"target": "~/.claude/skills", "skills": skills},
+                "codex": {"target": "~/.codex/skills", "skills": codex_skills},
+                "claude": {"target": "~/.claude/skills", "skills": claude_skills},
             },
         }
         (self.source / "shared-skill-manifest.json").write_text(
@@ -278,6 +310,8 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 for path in (ROOT / "skills").iterdir()
                 if path.is_dir() and path.name != "bridgeforge"
             }
+            if platform == "claude":
+                expected_skill_names.remove("create-worktree")
             self.assertEqual(set(skills) - {"bridgeforge"}, expected_skill_names)
             for name in expected_skill_names:
                 skill_root = ROOT / "skills" / name
@@ -293,7 +327,12 @@ class SharedSkillDistributionTests(unittest.TestCase):
                     self.assertEqual(item["source"], source_path.relative_to(ROOT).as_posix())
                     self.assertEqual(item["sha256"], f"sha256:{sha256(source_path)}")
 
-        self.assertEqual(platform_skills["codex"], platform_skills["claude"])
+        self.assertIn("create-worktree", platform_skills["codex"])
+        self.assertNotIn("create-worktree", platform_skills["claude"])
+        self.assertEqual(
+            set(platform_skills["codex"]) - {"create-worktree"},
+            set(platform_skills["claude"]),
+        )
 
     def test_retired_harvest_has_no_live_entrypoints(self) -> None:
         self.assertFalse((ROOT / "skills" / "harvest").exists())
@@ -371,6 +410,20 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 all(record["source_commit"] == commit for record in ledger["records"].values())
             )
         self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
+
+    def test_codex_only_skill_is_installed_only_on_codex_shelf(self) -> None:
+        self.write_source(codex_only_text="create-worktree-v1")
+        self.initialize_repository()
+
+        result = self.invoke_updater()
+
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        codex_skill = self.profile / ".codex" / "skills" / "create-worktree" / "SKILL.md"
+        claude_skill = self.profile / ".claude" / "skills" / "create-worktree" / "SKILL.md"
+        self.assertEqual(codex_skill.read_text(encoding="utf-8"), "create-worktree-v1")
+        self.assertFalse(claude_skill.exists())
+        self.assertIn("create-worktree", self.ledger("codex")["records"])
+        self.assertNotIn("create-worktree", self.ledger("claude")["records"])
 
     def test_identical_rerun_skips_all_bundle_swaps(self) -> None:
         self.write_source()
