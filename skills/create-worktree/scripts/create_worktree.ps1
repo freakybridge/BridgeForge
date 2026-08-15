@@ -370,10 +370,20 @@ try {
     }
 
     $previousErrorAction = $ErrorActionPreference
+    $codexOutput = @()
+    $codexExitCode = 1
     try {
-        $ErrorActionPreference = "Continue"
-        $codexOutput = @(& $codexCommand.Source app $targetPath 2>&1)
-        $codexExitCode = $LASTEXITCODE
+        $ErrorActionPreference = "Stop"
+        try {
+            $codexOutput = @(& $codexCommand.Source app $targetPath 2>&1)
+            $codexExitCode = $LASTEXITCODE
+            if ($null -eq $codexExitCode) {
+                $codexExitCode = 1
+            }
+        } catch {
+            $codexOutput = @($_.Exception.Message)
+            $codexExitCode = 1
+        }
     } finally {
         $ErrorActionPreference = $previousErrorAction
     }

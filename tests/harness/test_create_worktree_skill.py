@@ -64,6 +64,7 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         with_config: bool = True,
         root_exists: bool = True,
         codex_exit: int = 0,
+        codex_throw: bool = False,
         initial_branch: str = "main",
     ) -> dict[str, object]:
         self.counter += 1
@@ -105,12 +106,18 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             "exit /b %ERRORLEVEL%\n",
             encoding="ascii",
         )
-        (fake_bin / "codex.cmd").write_text(
-            "@echo off\n"
-            "echo %*>>\"%CREATE_WORKTREE_CODEX_LOG%\"\n"
-            "exit /b %CREATE_WORKTREE_CODEX_EXIT%\n",
-            encoding="ascii",
-        )
+        if codex_throw:
+            (fake_bin / "codex.ps1").write_text(
+                "throw 'simulated codex launch denial'\n",
+                encoding="ascii",
+            )
+        else:
+            (fake_bin / "codex.cmd").write_text(
+                "@echo off\n"
+                "echo %*>>\"%CREATE_WORKTREE_CODEX_LOG%\"\n"
+                "exit /b %CREATE_WORKTREE_CODEX_EXIT%\n",
+                encoding="ascii",
+            )
 
         env = os.environ.copy()
         env.update(
@@ -413,6 +420,17 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         self.assertTrue(target.is_dir())
         self.assertTrue(self.ref_exists(fixture["repo"], "codex/risk-suite-2"))
 
+    def test_codex_launch_exception_is_reported_as_partial_success(self) -> None:
+        fixture = self.make_fixture(codex_throw=True)
+        result = self.invoke(fixture)
+        target = fixture["worktree_root"] / "risk-suite"
+
+        self.assertEqual(result.returncode, 3, result.stderr + result.stdout)
+        self.assertIn("Partial success", result.stderr)
+        self.assertIn("simulated codex launch denial", result.stderr)
+        self.assertTrue(target.is_dir())
+        self.assertTrue(self.ref_exists(fixture["repo"], "codex/risk-suite-2"))
+
     def test_skill_contract_is_explicit_and_script_is_low_freedom(self) -> None:
         skill = SKILL_FILE.read_text(encoding="utf-8")
         openai_yaml = OPENAI_YAML.read_text(encoding="utf-8")
@@ -425,10 +443,13 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         self.assertIn("优先使用本地 `main`", skill)
         self.assertIn("使用本地 `master`", skill)
         self.assertIn("禁止要求用户输入 `worktree_name=`", skill)
+        self.assertIn("运行脚本前必须使用当前宿主的提升权限机制", skill)
+        self.assertIn("禁止先在默认沙箱运行再提升重试", skill)
         self.assertIn('display_name: "create-worktree"', openai_yaml)
         self.assertIn("$create-worktree", openai_yaml)
         self.assertIn("allow_implicit_invocation: false", openai_yaml)
         self.assertEqual(script.count('"worktree", "add", "-b"'), 1)
+        self.assertIn('$codexOutput = @($_.Exception.Message)', script)
         self.assertIn("[IO.FileAttributes]::ReparsePoint", script)
         self.assertIn(
             'Assert-NoReparsePointInExistingAncestors $repoRoot "Source repository root"',
