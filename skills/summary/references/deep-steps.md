@@ -37,12 +37,14 @@
 2. 将当前有效结论、原因、适用范围、例外和权威链接重写成一份连贯正文；禁止机械拼接。
 3. 遇到新旧结论冲突、时间语义不清或无法判断权威来源时立即停止，并单独请求用户裁决。
 4. 通过当前项目的确定性 writer 或已确认的项目级写入机制更新规范目标；只有写入成功且
-   内容核对通过后，才删除本批次中已被完整吸收、且用户已批准删除的旧碎片。禁止留下会
+   内容核对通过后，才删除本批次中已被完整吸收、且用户已批准删除的旧碎片。writer 收据
+   已包含索引重建时禁止随后重复 rebuild。禁止留下会
    继续参与加载或检索的 memory archive 副本；恢复渠道是 Git 历史。
 5. 从主契约宿主矩阵取当前宿主的 `<host-config-dir>`（`.codex` 或 `.claude`），严格按以下
    顺序校验，禁止并行、禁止切换到另一宿主：
-   1. 运行 `<host-config-dir>/scripts/memory_rebuild_index.py`。
-   2. 只有重建返回成功后，才运行 `<host-config-dir>/hooks/memory_lint.py`。
+   1. writer 已返回成功 `rebuild_command` 时复用该收据；否则只运行一次
+      `<host-config-dir>/scripts/memory_rebuild_index.py`。
+   2. 只有 writer/显式重建返回成功后，才运行 `<host-config-dir>/hooks/memory_lint.py`。
    3. lint 成功后再检查失效链接、重复主题与本批次 Git diff。
 
 若当前宿主的 `memory_rebuild_index.py` 失败，立即停止；必须把同宿主的 `memory_lint.py`

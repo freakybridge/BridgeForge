@@ -7,7 +7,7 @@
 - 状态：`OK`
 - Claude 有但 Codex 缺失：0
 - 未登记的 Codex-only 文件：0
-- 归一化后仍有差异的同名文件：26（未分类：0）
+- 归一化后仍有差异的同名文件：25（未分类：0）
 - skills 内容检查问题：0
 
 ## Inventory
@@ -49,7 +49,6 @@
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
 | `rules/portability.md` | 7 | -28 / +53 | `codex-only` | Codex config.toml and custom-agent portability guidance |
-| `scripts/archive_scan.py` | 1 | -1 / +4 | `cleanup-only` | formatting differs; candidate semantics are equivalent |
 | `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `expected-codex-adapter` | host paths, command syntax, and Codex active-character budget differ |
 | `scripts/memory_search.py` | 14 | -64 / +136 | `cleanup-only` | behavior OK; Codex uses neutral host_dir rather than Claude-specific name |
 

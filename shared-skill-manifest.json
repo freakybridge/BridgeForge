@@ -17,12 +17,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:0f23e8469199d99a7c6ac452446565f7e73aaca1b006127a37969e4dfbfe9c13"
+              "sha256": "sha256:7e184956ebab317362e56e7270bfc0b1acc763c4140c2e5f8e74f55272920969"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:058d83d75c216b9cd192cfa2d84d997c5912f32d319140d15ccbc3b3cc00399b"
+              "sha256": "sha256:e2838ed7c5be2511406357f78c090db048de374a32b51d4fa35f278e339dd55b"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -242,7 +242,7 @@
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:51697998699646effc659720501fe713bbb9eaf41dc1e38e40053c44c6e7436f"
+              "sha256": "sha256:746d90f4d127649d65efb91252b7eca720b1f1ad7ed74741773283b75e6c6c29"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
@@ -322,7 +322,7 @@
             {
               "source": "templates/claude/scripts/archive_scan.py",
               "target": "templates/claude/scripts/archive_scan.py",
-              "sha256": "sha256:9d73d49c16c4b442529af0110166287317befacc2aaa4b15e42acb643d154530"
+              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
             },
             {
               "source": "templates/claude/scripts/audit_user_allow.py",
@@ -557,7 +557,7 @@
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
+              "sha256": "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
@@ -587,7 +587,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:f3815efcf4771656fbe1021b49ddaf494cae3b4e79a1fa16a512f48048872160"
+              "sha256": "sha256:338a9cb636660a729ed399a5bc1f9597d00d5cf58fbaf2424f1e590393eb36ce"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -637,7 +637,7 @@
             {
               "source": "templates/codex/scripts/archive_scan.py",
               "target": "templates/codex/scripts/archive_scan.py",
-              "sha256": "sha256:feb72637e1eae35c22dd9c79a8311df35f5e210dd6ac78b2282a593c70103947"
+              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
             },
             {
               "source": "templates/codex/scripts/audit_user_allow.py",
@@ -722,7 +722,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:9a9d41fec712c91e31da56d3457bfa6df4490a11bbf167b147bd5996089212e8"
+              "sha256": "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2"
             }
           ]
         },
@@ -732,7 +732,7 @@
             {
               "source": "skills/archive-scan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c65a69170de32f2b0196f3d68d8bce7ed26cb15cb29f0414e04565a703935867"
+              "sha256": "sha256:53dd9ad1c9cb373c59dd3ca062dab7dc55c77a769630af9a6e1d92e6c00c2248"
             }
           ]
         },
@@ -782,7 +782,7 @@
             {
               "source": "skills/debate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:27934a2e69e6405d5e964ec277b54d64b1d31c480b52f343e9901fdbdd3df4fa"
+              "sha256": "sha256:7a4e158fd685b5803e30eb9751d7fbfd12c3f1958cef2f48c4b0ac3df9b9602b"
             }
           ]
         },
@@ -832,7 +832,7 @@
             {
               "source": "skills/find-doc/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:3a9d4fbeb8679a51d903ad916a54ee045f9de224d8e23df951015bc1003c82d3"
+              "sha256": "sha256:e4a78091ac056d087efe9b87fe0817953d2533519ff5b46559e57f5791a5c8e0"
             }
           ]
         },
@@ -842,7 +842,7 @@
             {
               "source": "skills/find-memory/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:17b8a75eb4d26b2026658e1f021a1b73c0bf4ba0bbcef60edec5fb57d8189db0"
+              "sha256": "sha256:03e0c0665cbb51be7da7cd40653daba0a5a93f7dd6d08a9cdcef2a8816771d05"
             }
           ]
         },
@@ -912,12 +912,12 @@
             {
               "source": "skills/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
-              "sha256": "sha256:8665a441a8551b7b6fcf94ff658aae9c915ab563882d19923e00d6875131eb96"
+              "sha256": "sha256:da59ab6e20485a4915b1e74921386327c226b285c5a88053c8c294bac0843860"
             },
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:e270839c327a5eb6293fa7913c9231e919b053b907bf04ff524a0e0012226ff6"
+              "sha256": "sha256:852b4811e538ad77f78cd9a6f560f846a17fb1da71fd8e24bd2acc3a892dc8f9"
             }
           ]
         },
@@ -937,7 +937,7 @@
             {
               "source": "skills/todo/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:a055e443f1c72dc597cedd080c86402322db123edbb46dae78f0a9bf5edf81d7"
+              "sha256": "sha256:f7404d40d262f221b8ff5d81b0b62cf7342de6083bc3447c08c54f88d65cb098"
             }
           ]
         }
@@ -957,12 +957,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:0f23e8469199d99a7c6ac452446565f7e73aaca1b006127a37969e4dfbfe9c13"
+              "sha256": "sha256:7e184956ebab317362e56e7270bfc0b1acc763c4140c2e5f8e74f55272920969"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:058d83d75c216b9cd192cfa2d84d997c5912f32d319140d15ccbc3b3cc00399b"
+              "sha256": "sha256:e2838ed7c5be2511406357f78c090db048de374a32b51d4fa35f278e339dd55b"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -1182,7 +1182,7 @@
             {
               "source": "templates/claude/hooks/show_state.py",
               "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:51697998699646effc659720501fe713bbb9eaf41dc1e38e40053c44c6e7436f"
+              "sha256": "sha256:746d90f4d127649d65efb91252b7eca720b1f1ad7ed74741773283b75e6c6c29"
             },
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
@@ -1262,7 +1262,7 @@
             {
               "source": "templates/claude/scripts/archive_scan.py",
               "target": "templates/claude/scripts/archive_scan.py",
-              "sha256": "sha256:9d73d49c16c4b442529af0110166287317befacc2aaa4b15e42acb643d154530"
+              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
             },
             {
               "source": "templates/claude/scripts/audit_user_allow.py",
@@ -1497,7 +1497,7 @@
             {
               "source": "templates/codex/hooks/show_state.py",
               "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
+              "sha256": "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897"
             },
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
@@ -1527,7 +1527,7 @@
             {
               "source": "templates/codex/managed-skeleton.json",
               "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:f3815efcf4771656fbe1021b49ddaf494cae3b4e79a1fa16a512f48048872160"
+              "sha256": "sha256:338a9cb636660a729ed399a5bc1f9597d00d5cf58fbaf2424f1e590393eb36ce"
             },
             {
               "source": "templates/codex/memory/MEMORY.md",
@@ -1577,7 +1577,7 @@
             {
               "source": "templates/codex/scripts/archive_scan.py",
               "target": "templates/codex/scripts/archive_scan.py",
-              "sha256": "sha256:feb72637e1eae35c22dd9c79a8311df35f5e210dd6ac78b2282a593c70103947"
+              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
             },
             {
               "source": "templates/codex/scripts/audit_user_allow.py",
@@ -1662,7 +1662,7 @@
             {
               "source": "templates/codex/skill-routing.json",
               "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:9a9d41fec712c91e31da56d3457bfa6df4490a11bbf167b147bd5996089212e8"
+              "sha256": "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2"
             }
           ]
         },
@@ -1672,7 +1672,7 @@
             {
               "source": "skills/archive-scan/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:c65a69170de32f2b0196f3d68d8bce7ed26cb15cb29f0414e04565a703935867"
+              "sha256": "sha256:53dd9ad1c9cb373c59dd3ca062dab7dc55c77a769630af9a6e1d92e6c00c2248"
             }
           ]
         },
@@ -1702,7 +1702,7 @@
             {
               "source": "skills/debate/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:27934a2e69e6405d5e964ec277b54d64b1d31c480b52f343e9901fdbdd3df4fa"
+              "sha256": "sha256:7a4e158fd685b5803e30eb9751d7fbfd12c3f1958cef2f48c4b0ac3df9b9602b"
             }
           ]
         },
@@ -1752,7 +1752,7 @@
             {
               "source": "skills/find-doc/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:3a9d4fbeb8679a51d903ad916a54ee045f9de224d8e23df951015bc1003c82d3"
+              "sha256": "sha256:e4a78091ac056d087efe9b87fe0817953d2533519ff5b46559e57f5791a5c8e0"
             }
           ]
         },
@@ -1762,7 +1762,7 @@
             {
               "source": "skills/find-memory/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:17b8a75eb4d26b2026658e1f021a1b73c0bf4ba0bbcef60edec5fb57d8189db0"
+              "sha256": "sha256:03e0c0665cbb51be7da7cd40653daba0a5a93f7dd6d08a9cdcef2a8816771d05"
             }
           ]
         },
@@ -1832,12 +1832,12 @@
             {
               "source": "skills/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
-              "sha256": "sha256:8665a441a8551b7b6fcf94ff658aae9c915ab563882d19923e00d6875131eb96"
+              "sha256": "sha256:da59ab6e20485a4915b1e74921386327c226b285c5a88053c8c294bac0843860"
             },
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:e270839c327a5eb6293fa7913c9231e919b053b907bf04ff524a0e0012226ff6"
+              "sha256": "sha256:852b4811e538ad77f78cd9a6f560f846a17fb1da71fd8e24bd2acc3a892dc8f9"
             }
           ]
         },
@@ -1857,7 +1857,7 @@
             {
               "source": "skills/todo/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:a055e443f1c72dc597cedd080c86402322db123edbb46dae78f0a9bf5edf81d7"
+              "sha256": "sha256:f7404d40d262f221b8ff5d81b0b62cf7342de6083bc3447c08c54f88d65cb098"
             }
           ]
         }

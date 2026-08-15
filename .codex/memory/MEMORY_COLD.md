@@ -4,6 +4,7 @@
 - [topics/bridgeforge-single-confirmation/summary](topics/bridgeforge-single-confirmation/summary.md) — BridgeForge 四种维护模式统一为常规零确认、风险最多一次汇总确认；人工差异保留为 gap，用户级权限仅开放封闭入口。
 - [topics/codex-skeleton-refactor/summary](topics/codex-skeleton-refactor/summary.md) — BridgeForge Codex 骨架已收敛为 schema v2 单事务执行器，并完成独立审计、全量 fixture 与双真实样本回滚和幂等验收。
 - [topics/create-worktree-skill/summary](topics/create-worktree-skill/summary.md) — Codex-only create-worktree 已验收：支持斜杠位置调用、安全创建永久 worktree，并通过 Windows 协议激活 Codex Desktop。
+- [topics/skill-runtime-efficiency/summary](topics/skill-runtime-efficiency/summary.md) — BridgeForge 非根 skill 已通过条件式 fast path、Git 子进程合并和 memory 索引去重降低固定运行开销，并由用户明确验收。
 - [topics/memory-rule-organization/summary](topics/memory-rule-organization/summary.md) — BridgeForge 双 memory 架构交付完成；Codex 原生 memories 支持合法空快照收敛，并以不受 Git 换行转换影响的 opaque bytes 同步私有 GitHub 整树快照。
 - [topics/bridgeforge-doc-runtime-packaging/summary](topics/bridgeforge-doc-runtime-packaging/summary.md) — BridgeForge 的运行手册统一位于 doc/0_playbook；只有该编号子树随 bridgeforge command bundle 分发，其余 doc 只留在工厂仓库。
 - [topics/bridgeforge-switch-semantic-migration/summary](topics/bridgeforge-switch-semantic-migration/summary.md) — BridgeForge 跨 Claude/Codex 切换采用语义迁移 manifest 与可回滚事务；可执行约束在无可信沙箱时必须 fail-closed。

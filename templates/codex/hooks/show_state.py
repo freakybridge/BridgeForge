@@ -11,6 +11,7 @@
   prefix = "prompt-state" → UserPromptSubmit 调用（只打基本状态行）
   prefix = "session-start" → SessionStart 调用（额外打 snapshot / archive 提示）
 """
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -43,6 +44,30 @@ def _version() -> str:
     except Exception:
         return "?"
     return version or "?"
+
+
+def _parse_git_status(raw: str) -> tuple[str, int, str]:
+    """Parse one ``git status --porcelain=v2 --branch`` receipt."""
+    branch = "?"
+    dirty = 0
+    ahead_behind = "no-upstream"
+    for line in raw.splitlines():
+        if line.startswith("# branch.head "):
+            value = line.removeprefix("# branch.head ").strip()
+            if value and value != "(detached)":
+                branch = value
+        elif line.startswith("# branch.ab "):
+            match = re.fullmatch(r"\+(\d+) -(\d+)", line.removeprefix("# branch.ab ").strip())
+            if match:
+                ahead_behind = f"{match.group(1)}/{match.group(2)}"
+        elif line and not line.startswith("# "):
+            dirty += 1
+    return branch, dirty, ahead_behind
+
+
+def _git_state() -> tuple[str, int, str]:
+    raw = _run(["git", "status", "--porcelain=v2", "--branch"])
+    return _parse_git_status(raw)
 
 
 def _latest_snapshot() -> str:
@@ -84,11 +109,7 @@ def _archive_hint() -> str:
 
 def main() -> int:
     prefix = sys.argv[1] if len(sys.argv) > 1 else "state"
-    branch = _run(["git", "branch", "--show-current"]) or "?"
-    dirty_lines = _run(["git", "status", "--short"]).splitlines()
-    dirty = len(dirty_lines)
-    ab = _run(["git", "rev-list", "--left-right", "--count", "HEAD...@{u}"])
-    ab = ab.replace("\t", "/") if ab else "no-upstream"
+    branch, dirty, ab = _git_state()
     v = _version()
     print(f"[{prefix}] branch={branch} | dirty={dirty} | ahead/behind={ab} | skeleton=v{v}")
 

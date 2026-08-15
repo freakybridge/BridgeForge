@@ -89,7 +89,7 @@ class SummarySkillContractTests(unittest.TestCase):
 
     def test_independent_consolidation_short_circuits_before_lint(self) -> None:
         rebuild = self.deep_steps.index(
-            "运行 `<host-config-dir>/scripts/memory_rebuild_index.py`"
+            "`<host-config-dir>/scripts/memory_rebuild_index.py`"
         )
         lint = self.deep_steps.index(
             "才运行 `<host-config-dir>/hooks/memory_lint.py`"
@@ -97,6 +97,7 @@ class SummarySkillContractTests(unittest.TestCase):
         self.assertLess(rebuild, lint)
         for marker in (
             "禁止并行、禁止切换到另一宿主",
+            "writer 已返回成功 `rebuild_command` 时复用该收据",
             "若当前宿主的 `memory_rebuild_index.py` 失败，立即停止",
             "标记为“跳过”",
             "继续 lint 或宣称整理成功",

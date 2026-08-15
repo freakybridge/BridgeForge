@@ -44,7 +44,8 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
 
 1. 当前宿主 writer 存在时，必须把最终正文交给它；无论 marker 是否存在，都禁止直接 Write/Edit 当前宿主 memory
    正文或自动索引。writer 能力本身授权受限的项目内写入；检查收据中的 `host`、目标路径、
-   SHA-256 与索引结果。另一宿主的 writer 不构成当前宿主能力。
+   SHA-256、`rebuild_command` 与索引结果。该 writer 已负责本次唯一一次索引重建；成功后
+   禁止再次单独运行 `memory_rebuild_index.py`。另一宿主的 writer 不构成当前宿主能力。
 2. 当前宿主 writer 不存在但 marker 存在时，必须 **fail closed**：停止全部项目 memory
    写入，提示用户执行无参数 `/bridgeforge`。禁止回退到用户级 memory，也禁止跨宿主
    fallback、伪造或补写 marker。writer 与 marker 都不存在时，只能使用当前宿主已提供且
@@ -122,7 +123,8 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
 2. 读取 `MEMORY.md` 与唯一候选正文并查重。当前工作属于已确认 topic 时只更新当前
    `topics/<topic>/summary.md` 且保持 `status: active`；否则最多更新一个最相关模块
    memory。目标不唯一时先问一个问题，确认前零写入。
-3. 通过当前宿主 writer 写入唯一主 memory，并运行同一机械索引器。普通模式禁止修改
+3. 通过当前宿主 writer 写入唯一主 memory，并采用其内置的单次机械索引收据；禁止在
+   writer 成功后再次运行索引器。普通模式禁止修改
    TODO、rules、需求、设计、计划或其他 docs；需要同步的内容只列候选。
 4. 对账 active topic，但只列疑似状态漂移候选；禁止自动关闭。禁止为保存本次会话而新建
    topic，也禁止自动归档或调用 `$archive-scan`。
@@ -141,7 +143,8 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
    事实源或路径映射不唯一时先问一个问题，禁止自行创建文档、扩大目录或顺带同步其他主题。
 6. 只有长期稳定的“必须 / 禁止”红线可同步到 rule；按路径加载的 rule 必须带机器可解析
    `paths` frontmatter，并最多用一行 `Why` 指向 memory。事故、案例和方案比较禁止进 rule。
-7. 写入完成后重建冷热索引。`completed` / `superseded` topic 必须进入
+7. 写入完成后检查 writer 已生成的冷热索引收据；仅无 writer、无 marker 且既有项目机制
+   未自带 rebuild 时，才显式运行一次同宿主索引器。`completed` / `superseded` topic 必须进入
    `MEMORY_COLD.md`；不移动 topic 目录、不自动归档、不调用 `$archive-scan`。
 
 ## 用户级 memory

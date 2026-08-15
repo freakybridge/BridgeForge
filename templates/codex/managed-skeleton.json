@@ -13,6 +13,9 @@
     ],
     "0.91.1": [
       "sha256:8943b6ce3a4d54bbe370f1d3852ee298aa726363f6cb0cfd55a4e7fe64cfbef8"
+    ],
+    "0.92.0": [
+      "sha256:f3815efcf4771656fbe1021b49ddaf494cae3b4e79a1fa16a512f48048872160"
     ]
   },
   "assets": [
@@ -86,7 +89,7 @@
       "source": "templates/codex/skill-routing.json",
       "target": ".codex/skill-routing.json",
       "strategy": "whole",
-      "current_sha256": "sha256:9a9d41fec712c91e31da56d3457bfa6df4490a11bbf167b147bd5996089212e8",
+      "current_sha256": "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2",
       "historical_sha256": {
         "0.86.0": [
           "sha256:3195a8c42453389f8e582925d2afa92d5bd000ba66ae350cd67411daa9bd6581"
@@ -681,7 +684,7 @@
       "source": "templates/codex/hooks/show_state.py",
       "target": ".codex/hooks/show_state.py",
       "strategy": "whole",
-      "current_sha256": "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627",
+      "current_sha256": "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897",
       "historical_sha256": {
         "0.86.0": [
           "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
@@ -774,7 +777,7 @@
       "source": "templates/codex/scripts/archive_scan.py",
       "target": ".codex/scripts/archive_scan.py",
       "strategy": "whole",
-      "current_sha256": "sha256:feb72637e1eae35c22dd9c79a8311df35f5e210dd6ac78b2282a593c70103947",
+      "current_sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20",
       "historical_sha256": {
         "0.86.0": [
           "sha256:feb72637e1eae35c22dd9c79a8311df35f5e210dd6ac78b2282a593c70103947"

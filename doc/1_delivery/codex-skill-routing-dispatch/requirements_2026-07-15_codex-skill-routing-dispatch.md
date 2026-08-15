@@ -87,3 +87,9 @@
 ## 用户试用反馈
 
 - 请在已复制骨架的下游 Codex 项目中依次运行 `$find-doc <已知主题>`、`$archive-scan`、`$develop <小型需求>`，检查 Subagents 面板是否分别出现 manifest 指定的 agent 名称，并记录结果完整性。若能导出 root + children 汇总 token，再用同输入的新线程单线基线对比；否则仅报告路由 / 质量已验证，成本待验证。
+
+## 后续修订
+
+- 2026-08-15：运行效率复核发现“每个 Luna 阶段无条件分派”对确定性单命中任务有固定往返成本。
+  新规则由 `skill-runtime-efficiency` 确认卡接管：单一高置信结果留在主对话；歧义、多候选、
+  递归冷检索仍必须分派 `light-explorer`。本节只修订触发条件，不降低 fallback 的模型档位或审查强度。
