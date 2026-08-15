@@ -2124,9 +2124,11 @@ def _candidate_existing_paths(token: str, skill_dir: Path) -> list[Path]:
         return [REPO_ROOT / "templates" / "codex" / rest]
     if norm.startswith("references/"):
         return [skill_dir / norm]
+    if norm.startswith("scripts/"):
+        return [skill_dir / norm, REPO_ROOT / norm]
     if norm.startswith(("./", "../")):
         return [(skill_dir / norm).resolve()]
-    if norm.startswith(("doc/", "templates/", "skills/", "scripts/")) or norm in {
+    if norm.startswith(("doc/", "templates/", "skills/")) or norm in {
         "README.md",
         "CHANGELOG.md",
         "VERSION",
@@ -2197,7 +2199,7 @@ def check_skill_metadata() -> CheckResult:
         "---\n"
         "name: bad-skill\n"
         "description: fixture bad skill\n"
-        "argument: 无\n"
+        "user_invocable: true\n"
         "---\n\n"
         "# Bad Skill\n",
         encoding="utf-8",
@@ -2207,9 +2209,7 @@ def check_skill_metadata() -> CheckResult:
     bad_skill.write_text(
         "---\n"
         "name: bad-skill\n"
-        "description: fixture good skill\n"
-        "user_invocable: true\n"
-        "argument: 无\n"
+        "description: fixture OpenAI standard skill\n"
         "---\n\n"
         "# Good Skill\n",
         encoding="utf-8",
@@ -2218,13 +2218,13 @@ def check_skill_metadata() -> CheckResult:
 
     ok = (
         bad.returncode == 2
-        and "user_invocable: true is required" in (bad.stdout + bad.stderr)
+        and "legacy invocation metadata requires argument" in (bad.stdout + bad.stderr)
         and good.returncode == 0
     )
     return CheckResult(
         "skill_metadata_health",
         ok,
-        "skill metadata hook passes source/good fixture and blocks missing user_invocable"
+        "skill metadata hook accepts OpenAI standard metadata and blocks incomplete legacy metadata"
         if ok
         else (
             f"expected bad exit 2 and good exit 0, got bad={bad.returncode}, "

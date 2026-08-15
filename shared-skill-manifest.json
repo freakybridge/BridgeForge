@@ -12,12 +12,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:8d39da40bcc9ba9363ccca1c16fc74567f0dc5e3d6865ff24e4a88af88d55913"
+              "sha256": "sha256:621d994fd708d0b8d00f2f911f44fdbdc9e1638823657e47a5c9bbf557ebed17"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:b45c12e462f5ebe18ac0d5c4f2d3f3d6a1cdf0af1a5628323e14e78c7ebe4f67"
+              "sha256": "sha256:7f70261c5320ab7fa538e77c6d78782efac8f58c1685a00de788444c3af5fb37"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -232,7 +232,7 @@
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
               "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:b6770fab3d4911536bb59d0d536667d8cdcf89061b85ddc35736f40eaf755810"
+              "sha256": "sha256:d1b9409e744cb9459e042e0af49eac9a9079413cdb65ef71661f5bf686ba806c"
             },
             {
               "source": "templates/claude/hooks/skill_sync_check.py",
@@ -552,7 +552,7 @@
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
               "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:d2931f533766e3ff22c5999cfd47b703d23f97c9a092533004de2c1e2f964d21"
+              "sha256": "sha256:3b142981be4f0636bf90f9cb87fb45de32e0a3bf4e47787bcf4b93c9431daed0"
             },
             {
               "source": "templates/codex/hooks/skill_sync_check.py",
@@ -757,6 +757,26 @@
           ]
         },
         {
+          "name": "create-worktree",
+          "files": [
+            {
+              "source": "skills/create-worktree/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:5b225a048d1ff6e7313369ab0456425669f165c9e099bfaff65523036d968d92"
+            },
+            {
+              "source": "skills/create-worktree/agents/openai.yaml",
+              "target": "agents/openai.yaml",
+              "sha256": "sha256:7c6ce97b727a1b1699f89b1fc36d300f6bda6ade446b7e5c71b2f0551952ca29"
+            },
+            {
+              "source": "skills/create-worktree/scripts/create_worktree.ps1",
+              "target": "scripts/create_worktree.ps1",
+              "sha256": "sha256:44dcaf694e08a79dafa1ca5a74f65983363609d0fca457f4d6b8a8acde87a4af"
+            }
+          ]
+        },
+        {
           "name": "debate",
           "files": [
             {
@@ -932,12 +952,12 @@
             {
               "source": "CHANGELOG.md",
               "target": "CHANGELOG.md",
-              "sha256": "sha256:8d39da40bcc9ba9363ccca1c16fc74567f0dc5e3d6865ff24e4a88af88d55913"
+              "sha256": "sha256:621d994fd708d0b8d00f2f911f44fdbdc9e1638823657e47a5c9bbf557ebed17"
             },
             {
               "source": "VERSION",
               "target": "VERSION",
-              "sha256": "sha256:b45c12e462f5ebe18ac0d5c4f2d3f3d6a1cdf0af1a5628323e14e78c7ebe4f67"
+              "sha256": "sha256:7f70261c5320ab7fa538e77c6d78782efac8f58c1685a00de788444c3af5fb37"
             },
             {
               "source": "scripts/bridgeforge_migrate_layout.py",
@@ -1152,7 +1172,7 @@
             {
               "source": "templates/claude/hooks/skill_metadata_check.py",
               "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:b6770fab3d4911536bb59d0d536667d8cdcf89061b85ddc35736f40eaf755810"
+              "sha256": "sha256:d1b9409e744cb9459e042e0af49eac9a9079413cdb65ef71661f5bf686ba806c"
             },
             {
               "source": "templates/claude/hooks/skill_sync_check.py",
@@ -1472,7 +1492,7 @@
             {
               "source": "templates/codex/hooks/skill_metadata_check.py",
               "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:d2931f533766e3ff22c5999cfd47b703d23f97c9a092533004de2c1e2f964d21"
+              "sha256": "sha256:3b142981be4f0636bf90f9cb87fb45de32e0a3bf4e47787bcf4b93c9431daed0"
             },
             {
               "source": "templates/codex/hooks/skill_sync_check.py",
