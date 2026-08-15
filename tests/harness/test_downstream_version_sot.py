@@ -15,10 +15,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSION_CHECKS = (
-    ROOT / "templates" / "codex" / "hooks" / "version_check.py",
-    ROOT / ".codex" / "hooks" / "version_check.py",
     ROOT / "templates" / "claude" / "hooks" / "version_check.py",
     ROOT / ".claude" / "hooks" / "version_check.py",
+)
+CODEX_RETIRED_VERSION_CHECKS = (
+    ROOT / "templates" / "codex" / "hooks" / "version_check.py",
+    ROOT / ".codex" / "hooks" / "version_check.py",
 )
 SETTINGS = (
     ROOT / "templates" / "codex" / "settings.json",
@@ -78,9 +80,10 @@ class DownstreamVersionSotTests(unittest.TestCase):
 
     def test_template_and_dogfood_hooks_are_mirrored(self) -> None:
         self.assertEqual(VERSION_CHECKS[0].read_bytes(), VERSION_CHECKS[1].read_bytes())
-        self.assertEqual(VERSION_CHECKS[2].read_bytes(), VERSION_CHECKS[3].read_bytes())
         for script in VERSION_CHECKS:
             self.assertIn("Compatibility shim", script.read_text(encoding="utf-8"))
+        for retired in CODEX_RETIRED_VERSION_CHECKS:
+            self.assertFalse(retired.exists())
         for settings in SETTINGS:
             self.assertNotIn("version_check.py", settings.read_text(encoding="utf-8"))
         for script in SHOW_STATES:

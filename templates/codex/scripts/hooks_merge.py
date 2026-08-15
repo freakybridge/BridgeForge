@@ -2,8 +2,8 @@
 """Plan/apply the Codex project hook single-source migration.
 
 The default mode is read-only and prints a unified diff.  ``--apply`` requires
-``--confirmed`` and writes the BridgeForge version stamp only after every
-configuration invariant has passed.
+``--confirmed`` and updates only hook configuration.  The project transaction
+executor owns validation, rollback, and the final BridgeForge version stamp.
 """
 from __future__ import annotations
 

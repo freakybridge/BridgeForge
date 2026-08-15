@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -144,6 +145,64 @@ class SkillMetadataBudgetTests(unittest.TestCase):
         result = self.run_hook(repo)
         self.assertEqual(result.returncode, 2)
         self.assertIn("skill catalog descriptions exceed 4000", result.stderr)
+
+    def test_factory_distribution_routing_and_global_agents_are_one_contract(self) -> None:
+        repo = self.make_repo()
+        self.write_skill(repo, "demo", skill_text("demo"))
+        self.write_skill(repo, "bridgeforge", skill_text("bridgeforge"))
+        manifest = {
+            "platforms": {
+                "codex": {
+                    "skills": [
+                        {"name": "demo"},
+                        {"name": "bridgeforge"},
+                        {"name": "create-worktree"},
+                    ]
+                }
+            }
+        }
+        (repo / "shared-skill-manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        routing = {
+            "skills": [{"skill": "demo"}],
+            "global_entries": [{"skill": "bridgeforge"}],
+        }
+        template = repo / "templates/codex"
+        template.mkdir(parents=True)
+        for path in (repo / ".codex/skill-routing.json", template / "skill-routing.json"):
+            path.write_text(json.dumps(routing), encoding="utf-8")
+        (repo / "AGENTS.md").write_text("demo bridgeforge\n", encoding="utf-8")
+        (template / "AGENTS.md").write_text(
+            "demo bridgeforge\n",
+            encoding="utf-8",
+        )
+
+        missing = self.run_hook(repo)
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("missing from routing: create-worktree", missing.stderr)
+
+        routing["global_entries"].append({"skill": "create-worktree"})
+        for path in (repo / ".codex/skill-routing.json", template / "skill-routing.json"):
+            path.write_text(json.dumps(routing), encoding="utf-8")
+        omitted = self.run_hook(repo)
+        self.assertEqual(omitted.returncode, 2)
+        self.assertIn("omits global entries: create-worktree", omitted.stderr)
+
+        (repo / "AGENTS.md").write_text(
+            "demo bridgeforge create-worktree\n",
+            encoding="utf-8",
+        )
+        (template / "AGENTS.md").write_text(
+            "demo bridgeforge create-worktree\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(self.run_hook(repo).returncode, 0)
+
+        (repo / ".codex/skill-routing.json").unlink()
+        absent_sot = self.run_hook(repo)
+        self.assertEqual(absent_sot.returncode, 2)
+        self.assertIn("factory skill routing SoT is missing", absent_sot.stderr)
 
 
 if __name__ == "__main__":

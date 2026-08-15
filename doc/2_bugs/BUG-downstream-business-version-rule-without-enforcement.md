@@ -1,5 +1,5 @@
 ---
-status: open
+status: resolved-scope-clarified-project-remediation-pending
 scope: downstream business version policy enforcement
 source_project: D:\Quant\StratusAgent
 incident_date: 2026-08-12
@@ -22,6 +22,12 @@ StratusAgent 只有“提交前必须升级版本”的项目 Rule，没有对�
 本事件揭示的骨架问题不是“BridgeForge 应替所有项目自动升级版本”，而是下游
 很容易把兼容空壳误认为有效保护，同时骨架没有清晰暴露“业务版本策略未安装强制
 执行器”的状态。
+
+## 2026-08-15 系统重构复核
+
+- Codex `version_check.py` 未注册 no-op 已从模板与 dogfood 退役；已知受管历史副本只在单次 risk 确认后删除，人工修改副本保留为 gap。
+- BridgeForge 只为 `version_release.py` 明确支持的版本源提供自动一致性；项目新增的自定义业务版本 Rule 必须同时提供项目自有 pre-commit/测试执行器。
+- 删除误导空壳解决的是“虚假保护”；StratusAgent 是否已安装项目自有版本闸不属于通用模板自动写入范围，仍需项目侧补救收据。
 
 ## 事件经过
 
@@ -150,4 +156,3 @@ BridgeForge 正确地退役了通用版本自动递增，因为不同项目的�
 
 两者共同说明：BridgeForge 负责可靠承载和传播边界，下游项目负责业务版本策略与
 具体执行器；两边都不能只靠 Rule 文本代替运行时检查。
-

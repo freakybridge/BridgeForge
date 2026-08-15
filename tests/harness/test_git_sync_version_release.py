@@ -168,6 +168,46 @@ class VersionReleaseTests(unittest.TestCase):
             self.assertIsNotNone(mixed)
             self.assertEqual(mixed.classification, "mixed")
 
+    def test_schema_v2_contract_drives_git_sync_ownership(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            host = repo / ".codex"
+            (host / "hooks").mkdir(parents=True)
+            (host / "managed-skeleton.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "stamp": ".codex/.bridgeforge_version",
+                        "contract_target": ".codex/managed-skeleton.json",
+                        "assets": [
+                            {
+                                "id": "hook.guard",
+                                "target": ".codex/hooks/guard.py",
+                                "strategy": "whole",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            guard = host / "hooks/guard.py"
+            stamp = host / ".bridgeforge_version"
+            guard.write_text("old\n", encoding="utf-8")
+            stamp.write_text("0.90.0\n", encoding="utf-8")
+            (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "baseline")
+
+            guard.write_text("new\n", encoding="utf-8")
+            stamp.write_text("0.91.0\n", encoding="utf-8")
+            plan = VERSION_RELEASE.build_release_plan(
+                repo,
+                "chore: 更新骨架",
+                {".codex/hooks/guard.py", ".codex/.bridgeforge_version"},
+            )
+            self.assertIsNone(plan)
+
     def test_managed_file_without_stamp_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

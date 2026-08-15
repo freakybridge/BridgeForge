@@ -1,6 +1,6 @@
 # `$summary` 将项目经验写入全局 memory 队列而非项目 memory
 
-**状态**：Open  
+**状态**：source-fixed-downstream-recovery-pending
 **日期**：2026-07-29  
 **影响范围**：使用 BridgeForge Codex 骨架、同时存在用户级与项目级 memory 的下游项目。
 
@@ -32,6 +32,13 @@ D:\Quant\CausisRiskSuite\.codex\memory\domain\security_blocklist_ajzq_email_sour
 这是 memory 目标解析的规约缺口：项目模板已经定义了项目 memory 的存储与索引机制，但 `$summary` 没有把“项目内调用时的唯一默认写入目标”写成可执行的硬约束。
 
 当运行环境同时提供用户级 memory 更新队列时，agent 可将“当前 agent memory”解释为全局队列。该回退既不符合项目 summary 的预期，也没有后续同步链路，因此形成静默分叉。
+
+## 2026-08-15 系统重构复核
+
+- 源码：`summary` 已锁定当前宿主的 project memory writer，失败时禁止回退到用户级 `extensions/ad_hoc/notes`。
+- 产品传播/dogfood：Codex template 与工厂当前骨架均使用项目内 `.codex/memory/`。
+- fixture：writer、索引重建与零用户级写入已有自动化覆盖。
+- 遗留/runtime：历史全局 note 是否迁回原项目仍需用户确认；真实新会话 trust 未复验，因此不标 fully closed。
 
 本次直接写错路径是执行偏离；但骨架缺少明确目标、禁止回退和自动化验收，未能阻止这类偏离。
 

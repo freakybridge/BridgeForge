@@ -124,24 +124,24 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
         self.assertEqual({path.name for path in references.glob("*.md")}, expected)
         self.assertFalse(any(path.is_dir() for path in references.iterdir()))
 
-    def test_update_memory_audit_precedes_the_only_version_finalizer(self) -> None:
-        update = (
-            ROOT / "skills" / "bridgeforge" / "references" / "update.md"
-        ).read_text(encoding="utf-8")
-        audit = update.index("templates\\$TEMPLATE_AGENT\\hooks\\memory_lint.py")
-        finalizer = update.index("scripts\\bridgeforge_project_finalize.py")
-        self.assertLess(audit, finalizer)
-        latest = update.index("已是最新（vX.Y.Z）")
-        self.assertIn("判断“已是最新”前必须先执行 U2.1", update[:latest])
-        for marker in (
-            "--organize --project-root . --host $CURRENT_HOST",
-            "--apply --confirmed",
-            "memory_schema=clean",
-            "config_health=clean",
-            "completed_with_gaps",
-            "禁止绕过 `bridgeforge_project_finalize.py` 手工写",
-        ):
-            self.assertIn(marker, update)
+    def test_codex_project_modes_use_the_single_transaction_executor(self) -> None:
+        root_skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("scripts/bridgeforge_project_sync.py", root_skill)
+        self.assertIn("禁止人工串联 copy / merge / finalizer", root_skill)
+        for mode in ("init", "adopt", "update"):
+            text = (
+                ROOT / "skills" / "bridgeforge" / "references" / f"{mode}.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("scripts\\bridgeforge_project_sync.py", text)
+            self.assertIn(f"--mode {mode}", text)
+            self.assertIn("--plan-fingerprint $PLAN.aggregate_fingerprint", text)
+            self.assertIn("--confirmed-risk", text)
+            self.assertIn("--decline-risk", text)
+            self.assertIn("fingerprint 漂移零写入", text)
+            self.assertIn("最后写版本戳", text)
+            self.assertIn("以下旧步骤只服务 Claude 兼容路径", text)
 
 
 if __name__ == "__main__":

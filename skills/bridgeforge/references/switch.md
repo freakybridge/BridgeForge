@@ -27,7 +27,7 @@ target 必须等于实际承载本轮对话的宿主：
 主对话按当前宿主执行 command bundle 内对应模板脚本：
 
 ```powershell
-& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_switch.py") `
   $CURRENT_HOST `
   --current-host $CURRENT_HOST `
   --template-root "$BRIDGEFORGE_HOME"

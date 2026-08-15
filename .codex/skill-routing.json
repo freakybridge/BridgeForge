@@ -35,6 +35,7 @@
     {"skill": "todo", "stage": "classification-and-recording", "agent": "main", "mode": "main", "root_must_do": "write TODO and references"}
   ],
   "global_entries": [
-    {"skill": "bridgeforge", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "orchestrate pull, init, update, adopt, switch, conflicts and user confirmations"}
+    {"skill": "bridgeforge", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "orchestrate pull, init, update, adopt, switch, conflicts and user confirmations"},
+    {"skill": "create-worktree", "stage": "all", "agent": "main", "mode": "main", "root_must_do": "collect missing arguments, run the single Windows transaction, handle elevation and report the Desktop deep-link receipt"}
   ]
 }

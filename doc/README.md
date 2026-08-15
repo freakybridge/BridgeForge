@@ -18,7 +18,7 @@ delivery_layout: flat
 
 ## 架构
 
-- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 `design-rationale.md`、上游同步 playbook、已退役反哺历史记录、harness、memory 与文档体系设计。
+- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 [`codex-project-sync.md`](0_architecture/design/codex-project-sync.md)、`design-rationale.md`、上游同步 playbook、harness、memory 与文档体系设计。
 - `$bridgeforge` 的运行手册属于产品源码，位于 [`skills/bridgeforge/references/`](../skills/bridgeforge/references/)，不纳入 `doc/`。
 
 ## Delivery topic
@@ -29,6 +29,7 @@ delivery_layout: flat
 | `bridgeforge-single-confirmation` | `init`、`adopt`、`update`、`switch` 的零确认安全路径、单次风险确认与 Codex 窄权限规则需求（2026-08-15） |
 | `bridgeforge-switch-direct-sync`、`bridgeforge-switch-semantic-migration` | 双宿主切换；各含 `debates/`；Markdown Rule 投影增强建议（2026-07-30） |
 | `codex-harness-parity`、`codex-model-routing`、`codex-model-routing-56`、`codex-cost-routing`、`codex-subscription-routing` | Codex harness 与模型路由；下游业务版本与 BridgeForge 骨架版本分离（2026-07-30） |
+| `codex-skeleton-refactor` | Codex 骨架系统性重构、11 条 Bug 全量闭环、`0.86.0+` 迁移、`create-worktree` 与双真实下游验证（2026-08-15） |
 | `codex-skill-routing-dispatch` | skill routing 设计与 `debates/` |
 | `confirm-workflow`、`develop-demand-discovery`、`explain-skill` | 需求确认与通用 skill 演进；后两者含 `research/` |
 | `cross-project-write-guard`、`non-ascii-shell-guard` | 安全防护；后者新增 [memory writer stdin 编码旁路报告](1_delivery/non-ascii-shell-guard/research/2026-08-04_memory-writer-stdin-encoding-bypass-report.md) |

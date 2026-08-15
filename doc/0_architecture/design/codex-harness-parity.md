@@ -4,19 +4,19 @@
 
 ## Summary
 
-- 状态：`REVIEW`
-- Claude 有但 Codex 缺失：1
-- 未登记的 Codex-only 文件：9
-- 归一化后仍有差异的同名文件：28（未分类：4）
+- 状态：`OK`
+- Claude 有但 Codex 缺失：0
+- 未登记的 Codex-only 文件：0
+- 归一化后仍有差异的同名文件：26（未分类：0）
 - skills 内容检查问题：0
 
 ## Inventory
 
 | 层 | Claude 文件数 | Codex 文件数 | Codex 缺失 | Codex-only |
 |---|---:|---:|---|---|
-| `hooks` | 28 | 30 | `memory_junction_check.py` | `hook_dispatcher.py`, `model_policy_check.py`, `user_config_write_guard.py` |
+| `hooks` | 28 | 28 | - | `hook_dispatcher.py`, `user_config_write_guard.py` |
 | `rules` | 8 | 8 | - | - |
-| `scripts` | 9 | 17 | - | `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `memory_context.py`, `memory_router.py`, `memory_usage.py`, `project_memory_recovery.py` |
+| `scripts` | 9 | 16 | - | `context_cost_report.py`, `harness_parity_check.py`, `hook_config_policy.py`, `hooks_merge.py`, `memory_context.py`, `memory_router.py`, `memory_usage.py`, `project_memory_recovery.py` |
 | `memory` | 1 | 1 | - | - |
 | `skills` | 20 | 20 | - | 共享单一源 |
 
@@ -36,7 +36,7 @@
 | `hooks/find_doc_reminder.py` | 4 | -6 / +7 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_* fallback |
 | `hooks/focus_reminder.py` | 1 | -1 / +1 | `expected-codex-adapter` | Codex text and skill command surface differ |
 | `hooks/git_add_all_guard.py` | 10 | -30 / +54 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback and broader git flag parsing |
-| `hooks/githooks_path_check.py` | 1 | -1 / +1 | `needs-review` | new or unclassified semantic difference |
+| `hooks/githooks_path_check.py` | 1 | -1 / +1 | `expected-codex-adapter` | host directory and explanatory wording differ |
 | `hooks/memory_dup_check.py` | 10 | -17 / +43 | `expected-codex-adapter` | Codex memory path plus hyphen/underscore topic splitting |
 | `hooks/memory_lint.py` | 5 | -7 / +7 | `expected-codex-adapter` | Codex memory path and CODEX_TOOL_INPUT fallback |
 | `hooks/mirror_drift_check.py` | 1 | -1 / +1 | `expected-codex-adapter` | Codex dogfood paths and AGENTS.md wording differ |
@@ -44,16 +44,20 @@
 | `hooks/rule_index_check.py` | 2 | -4 / +5 | `cleanup-only` | behavior OK; local variable naming still carries claude_md |
 | `hooks/rule_size_check.py` | 2 | -4 / +5 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
 | `hooks/show_state.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex startup hints use $ skills and .codex scripts |
-| `hooks/skill_metadata_check.py` | 12 | -11 / +73 | `needs-review` | new or unclassified semantic difference |
 | `hooks/test_receipt.py` | 3 | -3 / +4 | `expected-codex-adapter` | Codex stdin JSON + CODEX_TOOL_INPUT fallback |
-| `hooks/version_check.py` | 2 | -2 / +2 | `expected-codex-adapter` | Codex command payload fallback differs |
 | `rules/anti_drift_hooks.md` | 3 | -3 / +5 | `expected-codex-adapter` | Codex rule paths, AGENTS.md refs, and $ skills differ |
 | `rules/debugging.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule text references AGENTS.md and $debate |
 | `rules/meta_rule_design.md` | 2 | -2 / +2 | `expected-codex-adapter` | Codex rule paths and AGENTS.md terminology differ |
 | `rules/portability.md` | 7 | -28 / +53 | `codex-only` | Codex config.toml and custom-agent portability guidance |
-| `scripts/archive_scan.py` | 1 | -1 / +4 | `needs-review` | new or unclassified semantic difference |
-| `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `needs-review` | new or unclassified semantic difference |
+| `scripts/archive_scan.py` | 1 | -1 / +4 | `cleanup-only` | formatting differs; candidate semantics are equivalent |
+| `scripts/memory_rebuild_index.py` | 6 | -17 / +9 | `expected-codex-adapter` | host paths, command syntax, and Codex active-character budget differ |
 | `scripts/memory_search.py` | 14 | -64 / +136 | `cleanup-only` | behavior OK; Codex uses neutral host_dir rather than Claude-specific name |
+
+## Expected Missing in Codex
+
+- `hooks/memory_junction_check.py`: Codex native memories forbid the Claude project junction
+- `hooks/version_check.py`: Codex retired the unregistered downstream business-version no-op
+- `scripts/bridgeforge_switch.py`: Codex switch uses the command-bundle canonical scripts/bridgeforge_switch.py
 
 ## Shared Skills Checks
 

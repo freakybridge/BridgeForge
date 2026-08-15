@@ -15,6 +15,34 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.91.1] - 2026-08-15
+
+### Changed
+
+- [product][repo][meta] 重构 Codex 骨架事务与迁移防线
+
+## [0.91.0] - 2026-08-15
+
+### Added
+
+- [product][repo][meta] 新增 Codex 项目骨架唯一事务执行器 `bridgeforge_project_sync.py` 与逐资产 `managed-skeleton.json` schema v2：统一 `init/adopt/update` 的 safe/risk/gap、aggregate fingerprint 重检、memory 迁移、事务回滚、canonical 验证、ready-only stamp-last 和 JSON receipt；自动迁移 lineage 从 Git 发布史覆盖全部 `0.86.0+` 实际版本。
+- [repo] 新增 BridgeForge 产品改动 rule，并扩展 skill metadata hook，硬拦 Codex 分发、routing、global entry 与双 AGENTS 登记漂移。
+
+### Changed
+
+- [product] `/bridgeforge` 的 Codex 手册收敛为薄编排；switch 改用 command bundle 根 `scripts/bridgeforge_switch.py`，Codex 项目内重复副本通过已发布 hash 受控退役；`create-worktree` 登记为第二个 global entry。
+- [product][repo] shared manifest 重建器同时维护 asset contract 的跨发布历史 lineage；`--check` 改为严格零写入，schema template 与 dogfood 由同一生成结果同步。
+- [product][meta] harness parity 结案全部 expected-missing、Codex-only 与 adapter 分类；11 条 Bug 分别记录源码、传播、fixture、真实下游与 runtime 状态。
+
+### Fixed
+
+- [product][repo] `version_release.py` 同时理解历史 schema v1 与 Codex schema v2 ownership，避免 `$git-sync` 把合法的新骨架 contract 误判为不支持配置；四份模板/dogfood 镜像同步并由真实 downstream runner 验证。
+- [product][repo][meta] 独立审计补齐全部实际 `0.86.0+` 发布 lineage、memory move risk 分类、root reparse/path escape、validator exit-code 与 metadata fail-closed 防线；低/高定制真实样本均完成回滚、apply、gap 保留和二次幂等验证。
+
+### Removed
+
+- [product][repo] 退役 Codex 未注册 no-op `model_policy_check.py`、`version_check.py`、项目内 `bridgeforge_switch.py` 副本及不可达的旧 model/subscription fixture；人工修改副本保留为 gap。
+
 ## [0.90.0] - 2026-08-15
 
 ### Added

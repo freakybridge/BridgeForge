@@ -1,5 +1,5 @@
 ---
-status: source-fixed-downstream-remediation-pending
+status: bridgeforge-resolved-downstream-business-recovery-pending
 scope: bridgeforge migration and downstream pre-commit extension preservation
 ---
 
@@ -32,6 +32,13 @@ BridgeForge 模板管理”的版本递增步骤。结果是后续 `$git-sync` �
    因此问题不是 hook 没有被 Git 调用，而是被调用的脚本中已没有该项目扩展。
 5. 当前 `$git-sync` 只做版本一致性检查、fetch、提交和 push；它不负责递增项目
    `VERSION`，所以无法弥补该遗漏。
+
+## 2026-08-15 系统重构复核
+
+- Codex 项目事务把 `.githooks/pre-commit` 定义为唯一显式 region ownership，只替换受管 marker 区域，`PROJECT_EXTENSION` 区域外字节保持不变。
+- planner/apply/rollback fixture 已覆盖项目扩展保留与失败恢复。
+- 低/高定制真实样本均已完成回滚演练和正式 apply；两份 `.githooks/pre-commit` 的 managed region 外归一化字节与各自 HEAD 一致，证明本次更新没有再次覆盖项目扩展。
+- CausisRiskSuite 在旧事故中已经丢失的业务版本递增段不能由 BridgeForge 猜测恢复；BridgeForge 防复发已闭环，下游业务恢复仍需项目自身单独确认。
 
 ## 根因
 

@@ -1,6 +1,6 @@
 # BUG：Codex 原生 memories 合法空快照无法完成 reconcile
 
-**状态**：Fixed（BridgeForge `0.86.3`）  
+**状态**：source-and-fixture-fixed-installed-hook-smoke-pending
 **发现日期**：2026-08-15  
 **影响版本**：BridgeForge `0.86.2`  
 **影响范围**：启用 Codex 原生 memories GitHub 同步，且处于空快照或 Git 换行转换环境的用户
@@ -10,6 +10,12 @@
 远端存在合法的空快照时，`codex_memory_sync.py reconcile` 会把正常的“零文件”状态
 误判为同步失败，持续保留 `pending=true`。现场未发生数据丢失，项目级
 `.codex/memory/` 不受影响；缺陷仅影响用户级 `~/.codex/memories/` 同步状态收敛。
+
+## 2026-08-15 系统重构复核
+
+- 合法空 manifest、autocrlf 与 reconcile 的源码/fixture 修复保持有效。
+- 用户级 native memories 仍是独立外部授权事务，不并入项目骨架 sync。
+- 安装后的 Stop/SessionStart hook 现场 smoke 尚未复验，禁止把 fixture 通过写成 hook runtime 已验收。
 
 ## 现场证据
 

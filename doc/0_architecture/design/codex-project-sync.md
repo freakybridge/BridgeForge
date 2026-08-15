@@ -1,0 +1,81 @@
+# Codex 项目骨架事务架构
+
+> 状态：implemented（BridgeForge 0.91.0）  
+> 入口：`scripts/bridgeforge_project_sync.py`  
+> ownership SoT：`templates/codex/managed-skeleton.json` schema v2
+
+## 结论
+
+Codex 的 `init`、`adopt`、`update` 共用一个项目事务执行器。`/bridgeforge` 只负责平台检查、用户级分发、模式判断和一次 risk 决策，不再由 agent 人工串联 copy、merge、memory lint、finalizer 和版本戳。
+
+`switch` 使用 command bundle 根 `scripts/bridgeforge_switch.py`；Codex 项目内副本已退役。用户级 native memories 与 `create-worktree` 保持独立事务，因为它们分别拥有外部授权/Git 远端和永久 worktree 边界。
+
+## 五个执行域
+
+| 域 | 唯一执行入口 | 边界 |
+|---|---|---|
+| 用户级 skill 分发 | `bridgeforge_shared_update.ps1` | 用户目录、mutex、账本、目录事务 |
+| Codex 项目骨架 | `bridgeforge_project_sync.py` | `init/adopt/update`、逐资产 ownership、ready-only stamp-last |
+| 双宿主投影 | 根 `bridgeforge_switch.py` | `.claude` / `.codex` live projection 与 map |
+| Codex native memories | `codex_memory_sync.py` | 用户级 memories、GitHub、consent |
+| 永久 worktree | `create_worktree.ps1` | Git worktree 与 Codex Desktop deep-link |
+
+## 项目事务
+
+```text
+detect mode/version
+  -> load schema v2 contract
+  -> plan every asset as safe/risk/gap
+  -> plan canonical memory organization
+  -> emit aggregate fingerprint
+  -> optional single risk decision
+  -> replan and compare fingerprint
+  -> snapshot owned pre-state
+  -> apply file/region/merge/memory actions
+  -> run canonical validators
+  -> ready: write .bridgeforge_version last
+  -> degraded: preserve old/no stamp
+  -> JSON receipt
+  -> caught failure restores every owned pre-state
+```
+
+### 分类
+
+- `safe`：缺失资产创建、已发布历史 hash fast-forward、显式 region 更新、只增不删 JSON merge。
+- `risk`：已知受管历史副本的删除，以及明确/高置信 memory 归位。全轮只允许一次接受或拒绝。
+- `gap`：未知 hash、人工修改、JSON 冲突、ambiguous memory、非普通文件或 ownership 不足。原样保留，收据降级。
+- `blocker`：版本低于 `0.86.0`、版本倒退、路径逃逸/reparse、contract 损坏、验证器不可用。
+
+## schema v2
+
+每个资产必须有稳定 `id`、显式 `target` 和一个 strategy：
+
+| strategy | 所有权语义 |
+|---|---|
+| `whole` | 仅当前 hash 或已发布历史 hash 可自动替换 |
+| `merge` | 只补缺失受管值；冲突字段保留为 gap |
+| `region` | 只替换唯一 marker 区域；区域外逐字节保留 |
+| `retirement` | 只删除命中已发布历史 hash 的副本，并进入 risk |
+
+禁止 glob ownership。版本戳只参与兼容边界判断，不作为覆盖证据。
+
+历史 lineage 由 manifest 重建器维护：保留既有历史集合，并从 Git 的 `VERSION` 变更提交枚举全部 `0.86.0+` 已发布版本；当前工作版本只进入 `current_sha256`，下次 bump 后自动成为历史基线。`--check` 只比较，不写 manifest 或 contract。
+
+## 事务与验证红线
+
+- apply 必须携带刚展示的 aggregate fingerprint；执行器紧邻 replan，漂移零写入。
+- memory 迁移计划只接受 canonical auditor 的 `explicit` / `high-confidence` 动作并统一列为 risk；ambiguous 结果保留为 gap。
+- 验证器必须从 command bundle canonical 模板执行，禁止信任被下游修改的目标 hook 自证通过。
+- memory tree 在迁移前纳入事务快照；迁移后任一验证或写戳失败必须恢复路径与字节。
+- 仅 `readiness=ready` 时写 `.codex/.bridgeforge_version`，且必须是最后一次写入；存在 gap 或拒绝 risk 时保留旧戳/无戳。
+
+## 发布防线
+
+- `skill_metadata_check.py` 硬拦 Codex 分发集合、routing 集合、两份 routing 镜像和 global entry 的 AGENTS 登记漂移。
+- `managed-skeleton.json` 与 dogfood 镜像由同一重建器生成。
+- harness parity 只允许显式 expected-missing、Codex-only 和已分类 adapter。
+- Bug 状态必须拆分源码、传播、dogfood、fixture、真实下游和 runtime；静态测试不得冒充 Desktop/hook trust 现场收据。
+
+## 当前现场边界
+
+自动化不能证明 Codex Desktop deep-link 已显示正确项目，也不能替代 `/hooks` trust 与新会话 lifecycle 现场观察。没有现场收据时必须标为未验证。

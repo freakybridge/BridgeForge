@@ -23,6 +23,11 @@ model: sonnet
 
 本文件只保留共享更新、判场、分流、硬红线和验证入口。命中具体模式后，只读取对应 reference；禁止为方便一次性加载全部 references。
 
+Codex 的 init / adopt / update 项目写入只有一个入口：
+`scripts/bridgeforge_project_sync.py`。根 skill 只负责共享用户级分发、native memories、
+switch、模式选择和最多一次 risk 确认；禁止人工串联 copy / merge / finalizer，禁止手写
+`.codex/.bridgeforge_version`。Claude 维持既有兼容路径，本轮不改其项目事务。
+
 ## 渐进读取路由
 
 | 命中条件 | 必须读取 |
@@ -210,7 +215,7 @@ fingerprint 漂移则零写入。禁止调用 switch 代替迁移，禁止枚举
 是否去掉 `--dry-run` apply。必须传入入口固定的宿主证据：
 
 ```powershell
-& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
+& $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_switch.py") `
   $CURRENT_HOST `
   --current-host $CURRENT_HOST `
   --template-root "$BRIDGEFORGE_HOME" `

@@ -2,7 +2,7 @@
 
 <!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
 
-> Active: 7 | Cold: 8
+> Active: 7 | Cold: 9
 
 ## Active（按新增时间，新在前；主索引上限 6000 字符）
 - [architecture/bridgeforge-switch-direct-sync](architecture/bridgeforge-switch-direct-sync.md) — BridgeForge switch 采用双骨架直接同步；目标端 map 只记录可验证映射与生成基线，绝不替代真实项目资产。
@@ -13,5 +13,5 @@
 - [engineering/skill-metadata-precommit-gate](engineering/skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
 - [operations/codex-bridgeforge-slash-entry-debug](operations/codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。
 
-## 🔍 Cold（8 条，用 /find-memory 搜索）
+## 🔍 Cold（9 条，用 /find-memory 搜索）
 详见 MEMORY_COLD.md

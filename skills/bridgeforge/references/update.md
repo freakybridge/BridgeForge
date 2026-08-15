@@ -2,6 +2,29 @@
 
 仅当根 `SKILL.md` 检测到 `$PROJECT_AGENT_DIR/.bridgeforge_version` 时读取。执行前必须完成 Windows 平台硬闸、无参数共享 updater、工厂自检、Python 3.11+ preflight、agent 分流和当前项目遗留 `.agents/` 检查；本手册只使用已锁定的 `$HOOK_PYTHON`。
 
+## Codex 项目事务唯一入口
+
+当 `$CURRENT_HOST = "codex"` 时，本手册后续的逐文件步骤全部跳过；只能调用：
+
+```powershell
+$PROJECT_SYNC = Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_project_sync.py"
+$PLAN_JSON = (& $HOOK_PYTHON $PROJECT_SYNC --project-root . `
+  --template-root $BRIDGEFORGE_HOME --mode update | Out-String)
+if ($LASTEXITCODE -ne 0) { throw $PLAN_JSON }
+$PLAN = $PLAN_JSON | ConvertFrom-Json
+$PLAN_JSON
+```
+
+将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。没有 risk 时立即以
+`--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；存在 risk 时只展示一次
+汇总卡，用户接受追加 `--confirmed-risk`，拒绝追加 `--decline-risk`。执行器会紧邻
+replan；fingerprint 漂移零写入，任何失败回滚。仅 ready 结果在验证后最后写版本戳；存在 gap 或拒绝 risk 时保留旧戳/无戳并输出 degraded JSON receipt。
+
+Codex 禁止再单独调用 `hooks_merge.py`、`precommit_merge.py`、
+`bridgeforge_project_finalize.py`，也禁止手工复制、删除或写
+`.codex/.bridgeforge_version`。以下旧步骤只服务 Claude 兼容路径，不适用于 Codex。
+
+
 机械半场（从已安装 command bundle 读取模板、diff、分类、呈现）由本 skill 执行；判断半场（入口/rules 选择性吸收）必须交给用户。详细边界依据是 `doc/0_architecture/design/sync-from-upstream-playbook.md`。禁止在本模式执行 `git pull` / `git clone`，也禁止从 `~/.bridgeforge`、`~/.agents` 或本地工作副本加载模板。
 
 ## U1. 计算产品增量

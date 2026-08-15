@@ -14,6 +14,7 @@ are soft warnings.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -140,6 +141,71 @@ def _validate_skill(skill_file: Path, expected_name: str | None = None) -> tuple
     return [prefix + issue for issue in issues], [prefix + warning for warning in warnings]
 
 
+def _validate_factory_routing() -> list[str]:
+    manifest_path = REPO_ROOT / "shared-skill-manifest.json"
+    routing_path = REPO_ROOT / ".codex" / "skill-routing.json"
+    template_routing_path = REPO_ROOT / "templates" / "codex" / "skill-routing.json"
+    is_factory = (
+        (REPO_ROOT / "skills" / "bridgeforge" / "SKILL.md").is_file()
+        and (REPO_ROOT / "templates" / "codex").is_dir()
+    )
+    if not is_factory:
+        return []
+    missing = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (manifest_path, routing_path, template_routing_path)
+        if not path.is_file()
+    ]
+    if missing:
+        return ["factory skill routing SoT is missing: " + ", ".join(missing)]
+    issues: list[str] = []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+        routing = json.loads(routing_path.read_text(encoding="utf-8-sig"))
+        template_routing = json.loads(
+            template_routing_path.read_text(encoding="utf-8-sig")
+        )
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return [f"factory skill routing metadata is unreadable: {exc}"]
+    if routing != template_routing:
+        issues.append(".codex/skill-routing.json must structurally match templates/codex/skill-routing.json")
+    try:
+        distributed = {
+            str(item["name"])
+            for item in manifest["platforms"]["codex"]["skills"]
+        }
+        routed = {
+            str(item["skill"])
+            for item in (*routing["skills"], *routing.get("global_entries", []))
+        }
+    except (KeyError, TypeError) as exc:
+        return issues + [f"factory skill routing schema is invalid: {exc}"]
+    missing = sorted(distributed - routed)
+    stale = sorted(routed - distributed)
+    if missing:
+        issues.append("Codex-distributed skills missing from routing: " + ", ".join(missing))
+    if stale:
+        issues.append("Codex routing contains undistributed skills: " + ", ".join(stale))
+    global_entries = {
+        str(item["skill"])
+        for item in routing.get("global_entries", [])
+        if isinstance(item, dict) and "skill" in item
+    }
+    for agents_path in (REPO_ROOT / "AGENTS.md", REPO_ROOT / "templates/codex/AGENTS.md"):
+        try:
+            agents_text = agents_path.read_text(encoding="utf-8-sig")
+        except OSError as exc:
+            issues.append(f"cannot read {agents_path.relative_to(REPO_ROOT).as_posix()}: {exc}")
+            continue
+        absent = sorted(name for name in global_entries if name not in agents_text)
+        if absent:
+            issues.append(
+                f"{agents_path.relative_to(REPO_ROOT).as_posix()} omits global entries: "
+                + ", ".join(absent)
+            )
+    return issues
+
+
 def main() -> int:
     try:
         if not SKILLS_DIR.is_dir():
@@ -147,6 +213,7 @@ def main() -> int:
 
         issues: list[str] = []
         warnings: list[str] = []
+        issues.extend(_validate_factory_routing())
         for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
             skill_issues, skill_warnings = _validate_skill(skill_file)
             issues.extend(skill_issues)
@@ -183,8 +250,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    except Exception:
-        return 0
+    except Exception as exc:
+        print(f"[skill-metadata] internal gate failure: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

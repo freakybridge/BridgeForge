@@ -20,7 +20,7 @@
 ## 修复
 
 1. `.gitattributes` 统一 Git 管理的文本为 LF。
-2. 安装器使用 `git -c core.autocrlf=false clone ...`，不继承用户换行符策略。
+2. 发布源依赖 `.gitattributes` 固定 LF；安装回归在用户全局 `core.autocrlf=true` 下验证 GitHub 等价字节，不再把某个 clone 参数写成唯一保证。
 3. 新增 `scripts/rebuild_shared_skill_manifest.py`，将文本 CRLF 规范化为 LF 后
    计算 manifest 哈希；repo 的 `codex_git_sync.py` 在暂存前自动运行该脚本。
 
@@ -29,3 +29,9 @@
 回归测试创建 CRLF 源文件，并模拟用户全局 `core.autocrlf=true`。GitHub 等价
 LF manifest 经安装器 clone 后完成两端（Codex / Claude）安装，验证不再出现
 SHA-256 mismatch。
+
+## 2026-08-15 系统重构复核
+
+- `rebuild_shared_skill_manifest.py` 继续按 Git blob 等价 LF 字节计算 hash。
+- 重建器 `--check` 已收紧为只读；发现 stale 时只返回非零，不再顺手改 manifest/contract。
+- CRLF、LF 与 `core.autocrlf=true` 回归仍属于发布硬闸，本 Bug 保持 `fixed`。

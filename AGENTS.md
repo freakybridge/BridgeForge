@@ -64,6 +64,14 @@
 
 ---
 
+## 2. 规则文件索引
+
+| 规则文件 | 用途 | 触发范围 |
+|---|---|---|
+| `.codex/rules/bridgeforge-product-change.md` | 工厂产品层、dogfood、ownership、发布与验收红线 | BridgeForge 产品资产、工厂配置、版本和 CHANGELOG |
+
+---
+
 ## §2 分层地图（哪个目录 = 哪一层）
 
 | 目录 / 文件 | 层 | 改动会不会传到下游 |
@@ -119,5 +127,14 @@
 
 - `light-explorer` 仅做只读阶段；`implementation-worker` 仅做实现；`review-auditor` 仅做独立审计。
 - `$git-sync` 由主对话完成只读审查后直接且只运行当前宿主的 `.<host>/scripts/codex_git_sync.py`；禁止拆成手工 Git 命令或再次委派，任何分叉、冲突或失败仍由主对话处理。
-- `$bridgeforge` 是用户级全局入口，保持主对话编排，不属于下游 18-skill 清单。
+- `$bridgeforge` 与 `$create-worktree` 是用户级全局入口，保持主对话编排，不属于下游 18-skill 清单；两者禁止再拆给子 agent。
 - 不得自动分派 `xhigh-auditor`；运行时分派须另留 smoke-test 收据，静态 hook 不能伪称验证了实际调用。
+
+## §7 Codex 产品发布完整性（always-on）
+
+- 新增、删除或改名 Codex 用户级 skill 时，**必须**同轮同步 `skills/`、`shared-skill-manifest.json`、两份 `skill-routing.json`；全局入口还必须同步根与模板 `AGENTS.md`。
+- Codex 项目资产 ownership **必须**逐资产登记在 schema v2；禁止新增 glob ownership，禁止只凭版本戳覆盖未知或人工修改文件。
+- `init/adopt/update` **必须**只经 `scripts/bridgeforge_project_sync.py` apply；禁止恢复手工 copy/merge/finalizer 串联，禁止在验证前写 `.bridgeforge_version`。
+- manifest/schema 重建器的 `--check` **必须只读**；检查模式禁止顺手修复派生文件。
+- Bug 关闭 **必须**分别记录源码、产品传播、dogfood、fixture、真实下游和 runtime 证据；缺证据的维度必须标为未验证。
+- 发布前 **必须**通过 skill metadata 路由一致性硬闸、manifest `--check`、mirror drift、harness parity、完整 fixture 与独立审计。

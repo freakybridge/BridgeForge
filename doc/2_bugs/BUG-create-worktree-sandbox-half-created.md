@@ -1,7 +1,7 @@
 # BUG：create-worktree 默认沙箱留下半创建状态
 
 > 日期：2026-08-15
-> 状态：已解决并验收
+> 状态：核心 Git 事务已验收；Desktop 成功打开现场 smoke 待补
 
 ## 现象
 
@@ -32,3 +32,9 @@
 - 启动方式已从 `codex app <PATH>` 改为通过 Windows Shell 打开 `codex://threads/new?path=<encoded-path>`；该协议由 Codex Desktop 注册，不再解析或直接执行 WindowsApps 物理路径。
 - 回归测试使用可控 `Start-Process` 替身验证路径编码、协议调用、启动异常时退出码 `3` 以及 Git 成果保留。
 - 用户确认删除试用产生且无独有改动的 `D:\Quant\CodexWorktree\aaa` 与 `codex/bbb`；清理后只剩主工作树，并再次执行 `$summary 同意验收`。
+
+## 2026-08-15 系统重构复核
+
+- `create-worktree` 已登记为第二个 Codex `global_entries` 主对话入口，并由 skill metadata hook 机检分发/routing/AGENTS 三方一致。
+- 零写入预检、整条脚本提升、Git 成功/Desktop 失败 exit 3、Unicode/reparse/路径冲突均有自动化。
+- 自动化只能证明 deep-link 构造与 `Start-Process` 调用，不能证明 Codex Desktop 实际显示了目标项目；该现场项保持未验证。

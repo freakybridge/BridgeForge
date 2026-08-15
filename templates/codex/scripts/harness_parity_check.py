@@ -38,9 +38,22 @@ REPORT = REPO_ROOT / "doc" / "0_architecture" / "design" / "codex-harness-parity
 COMPARE_DIRS = ("hooks", "rules", "scripts", "memory")
 CODEX_ONLY_EXPECTED = {
     "config.toml",
+    "hooks/hook_dispatcher.py",
     "hooks/user_config_write_guard.py",
     "scripts/codex_git_sync.py",
+    "scripts/context_cost_report.py",
     "scripts/harness_parity_check.py",
+    "scripts/hook_config_policy.py",
+    "scripts/hooks_merge.py",
+    "scripts/memory_context.py",
+    "scripts/memory_router.py",
+    "scripts/memory_usage.py",
+    "scripts/project_memory_recovery.py",
+}
+CODEX_MISSING_EXPECTED = {
+    "hooks/memory_junction_check.py": "Codex native memories forbid the Claude project junction",
+    "hooks/version_check.py": "Codex retired the unregistered downstream business-version no-op",
+    "scripts/bridgeforge_switch.py": "Codex switch uses the command-bundle canonical scripts/bridgeforge_switch.py",
 }
 
 SKILL_SLASH_TO_DOLLAR = (
@@ -81,6 +94,7 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/find_doc_reminder.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_* fallback"),
     "hooks/focus_reminder.py": ("expected-codex-adapter", "Codex text and skill command surface differ"),
     "hooks/git_add_all_guard.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback and broader git flag parsing"),
+    "hooks/githooks_path_check.py": ("expected-codex-adapter", "host directory and explanatory wording differ"),
     "hooks/memory_dup_check.py": ("expected-codex-adapter", "Codex memory path plus hyphen/underscore topic splitting"),
     "hooks/memory_lint.py": ("expected-codex-adapter", "Codex memory path and CODEX_TOOL_INPUT fallback"),
     "hooks/mirror_drift_check.py": ("expected-codex-adapter", "Codex dogfood paths and AGENTS.md wording differ"),
@@ -91,11 +105,12 @@ DIFF_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "hooks/show_state.py": ("expected-codex-adapter", "Codex startup hints use $ skills and .codex scripts"),
     "hooks/test_receipt.py": ("expected-codex-adapter", "Codex stdin JSON + CODEX_TOOL_INPUT fallback"),
     "hooks/enforce_no_effortlevel.py": ("expected-codex-adapter", "Codex removes only the legacy project effortLevel while leaving user config read-only"),
-    "hooks/version_check.py": ("expected-codex-adapter", "Codex command payload fallback differs"),
     "rules/anti_drift_hooks.md": ("expected-codex-adapter", "Codex rule paths, AGENTS.md refs, and $ skills differ"),
     "rules/debugging.md": ("expected-codex-adapter", "Codex rule text references AGENTS.md and $debate"),
     "rules/meta_rule_design.md": ("expected-codex-adapter", "Codex rule paths and AGENTS.md terminology differ"),
     "rules/portability.md": ("codex-only", "Codex config.toml and custom-agent portability guidance"),
+    "scripts/archive_scan.py": ("cleanup-only", "formatting differs; candidate semantics are equivalent"),
+    "scripts/memory_rebuild_index.py": ("expected-codex-adapter", "host paths, command syntax, and Codex active-character budget differ"),
 }
 
 
@@ -183,13 +198,18 @@ def build_report() -> str | None:
         claude_files = _file_set(CLAUDE_ROOT, subdir)
         codex_files = _file_set(CODEX_ROOT, subdir)
         missing = sorted(claude_files - codex_files)
+        unapproved_missing = [
+            name
+            for name in missing
+            if f"{subdir}/{name}" not in CODEX_MISSING_EXPECTED
+        ]
         codex_only = sorted(codex_files - claude_files)
         unexpected = [name for name in codex_only if f"{subdir}/{name}" not in expected_codex_only]
-        missing_total += len(missing)
+        missing_total += len(unapproved_missing)
         unexpected_total += len(unexpected)
         inventory_rows.append(
             f"| `{subdir}` | {len(claude_files)} | {len(codex_files)} | "
-            f"{', '.join(f'`{x}`' for x in missing) or '-'} | "
+            f"{', '.join(f'`{x}`' for x in unapproved_missing) or '-'} | "
             f"{', '.join(f'`{x}`' for x in codex_only) or '-'} |"
         )
 
@@ -245,6 +265,13 @@ def build_report() -> str | None:
         lines.append("| - | 0 | 0 | 无 |")
     lines.extend(
         [
+            "",
+            "## Expected Missing in Codex",
+            "",
+            *(
+                f"- `{path}`: {reason}"
+                for path, reason in sorted(CODEX_MISSING_EXPECTED.items())
+            ),
             "",
             "## Shared Skills Checks",
             "",

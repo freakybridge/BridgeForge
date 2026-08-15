@@ -1,6 +1,6 @@
 # git-sync 沙箱 Git 元数据权限验证报告
 
-**状态**：pending  
+**状态**：source-fixed-runtime-smoke-pending
 **日期**：2026-07-17  
 **来源**：下游 `D:\Quant\StratusAgent` 实机验证
 
@@ -9,6 +9,12 @@
 `git-sync` 在受限 Codex 沙箱中失败的根因，是 `git fetch` 无法写入仓库的 `.git/FETCH_HEAD`；不是下游仓库状态、`codex_git_sync.py` 逻辑、分支分叉或 Git TLS 后端问题。
 
 同一条同步命令以沙箱外权限重试后成功返回 `[git-sync] synced; working tree clean`。因此，骨架的 `git-sync` skill 应定义一个窄的恢复规则：首次在 `git fetch` / `.git/FETCH_HEAD` 权限阶段失败时，使用完全相同的 repo-local 同步脚本申请沙箱外执行后重试。
+
+## 2026-08-15 系统重构复核
+
+- 产品源码已要求只运行 repo-local `codex_git_sync.py`，在 `.git/FETCH_HEAD` 权限失败时以完全相同命令申请窄提升；禁止拆成手工 Git 命令。
+- fixture/静态契约已覆盖“同脚本重试”路径。
+- 当前 Codex 新会话中的真实 `prefix_rule` 持久时序未复验，状态保持 `runtime-smoke-pending`。
 
 ## 验证环境与证据
 

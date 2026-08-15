@@ -1,14 +1,24 @@
 # switch codex 后残留 .claude live 目录问题报告
 
+> **状态**：`superseded`（2026-08-15）
+> 当前 switch 契约要求 `.claude` 与 `.codex` 两套 live 骨架共存；以下“必须归档删除 source”是历史设计，不再是验收条件。
+
 日期：2026-07-09
 来源项目：D:\Quant\StratusAgent
 目标项目：D:\Quant\BridgeForge
 
 ## 结论
 
-`bridgeforge switch codex` 执行后，项目根目录仍残留 `.claude/`，这不符合 switch 的语义。
+历史版本曾把 `bridgeforge switch codex` 后保留 `.claude/` 判为错误；该语义已被 direct-sync 设计取代。
 
-显式 switch 到 Codex 后，Claude 侧骨架不应该继续以 live 目录存在。旧 Claude 内容只能进入归档区，不能继续留在项目根目录参与后续判断。
+当前显式 switch 只更新目标宿主 projection 与 map，source 侧保持 live 且不被删除、移动或归档。
+
+## 2026-08-15 系统重构复核
+
+- 根因分类：旧 switch 把“切换当前宿主”误等同于“删除另一宿主”。
+- 源码/传播：当前 skill 与 switch 手册统一为双 live；Codex 运行入口收敛到 command bundle 根 `scripts/bridgeforge_switch.py`。
+- fixture：direct-switch fixture 保留两侧 source/target，并校验 canonical 根脚本。
+- 真实下游/runtime：本轮双样本 `switch` 现场尚未执行；不得用本文 `superseded` 冒充 runtime smoke。
 
 ## 现象
 

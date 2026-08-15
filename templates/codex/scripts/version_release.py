@@ -136,9 +136,54 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
             value = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ReleaseError(f"invalid managed skeleton config {path}: {exc}") from exc
-        if not isinstance(value, dict) or value.get("schema_version") != 1:
+        if not isinstance(value, dict):
             raise ReleaseError(f"unsupported managed skeleton config: {path}")
-        configs.append((path, value))
+        schema_version = value.get("schema_version")
+        if schema_version == 1:
+            configs.append((path, value))
+            continue
+        if schema_version != 2:
+            raise ReleaseError(f"unsupported managed skeleton config: {path}")
+        stamp = value.get("stamp")
+        contract_target = value.get("contract_target")
+        assets = value.get("assets")
+        if (
+            not isinstance(stamp, str)
+            or not isinstance(contract_target, str)
+            or not isinstance(assets, list)
+        ):
+            raise ReleaseError(f"invalid schema v2 managed skeleton config: {path}")
+        whole_files = [stamp, contract_target]
+        managed_regions: list[dict[str, str]] = []
+        for asset in assets:
+            if not isinstance(asset, dict):
+                raise ReleaseError(f"invalid schema v2 asset in {path}")
+            target = asset.get("target")
+            strategy = asset.get("strategy")
+            if not isinstance(target, str) or not isinstance(strategy, str):
+                raise ReleaseError(f"invalid schema v2 asset in {path}")
+            if strategy in {"whole", "merge", "retirement"}:
+                whole_files.append(target)
+                continue
+            if strategy != "region" or not isinstance(asset.get("region"), dict):
+                raise ReleaseError(f"unsupported schema v2 asset strategy in {path}")
+            region = asset["region"]
+            begin = region.get("begin")
+            end = region.get("end")
+            if not isinstance(begin, str) or not isinstance(end, str):
+                raise ReleaseError(f"invalid schema v2 managed region in {path}")
+            managed_regions.append({"path": target, "begin": begin, "end": end})
+        configs.append(
+            (
+                path,
+                {
+                    "schema_version": 1,
+                    "stamp": stamp,
+                    "whole_files": sorted(set(whole_files)),
+                    "managed_regions": managed_regions,
+                },
+            )
+        )
     return configs
 
 

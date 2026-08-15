@@ -3,7 +3,7 @@
 ## 状态
 
 - 发现日期：2026-08-15
-- 状态：已修复
+- 状态：source-fixed-protected-host-smoke-pending
 - 影响版本：至少 `0.86.4`
 - 影响宿主：已在 Codex / Windows 复现；Claude 是否同样受影响尚未验证
 - 发现项目：`D:\Quant\CodexWorktree\1d62\StratusAgent`
@@ -31,6 +31,12 @@ StratusAgent 从 BridgeForge `0.86.2` 更新至 `0.86.4` 时：
 
 用户级 shared skills、Codex native memories 和项目 `.gitignore` 更新不受版本戳回滚；
 被阻断的是“最终验收并写入新骨架版本”的步骤。
+
+## 2026-08-15 系统重构复核
+
+- Codex 项目更新不再调用独立 finalizer；统一事务的临时文件固定在项目根 staging，再原子替换目标。
+- 任一捕获失败恢复已写资产，版本戳最后写；fixture 覆盖 apply、validate、stamp 前后故障注入。
+- 真实受保护 StratusAgent worktree 的 ACL 现场仍需本轮样本收据；Claude 兼容 finalizer 不在本次重构范围。
 
 ## 排除项
 

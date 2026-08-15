@@ -5,6 +5,29 @@
 
 仅当根 `SKILL.md` 判定“当前 agent 无 `.bridgeforge_version`，但 BridgeForge 衍生指纹至少命中 2 项”时读取。执行前必须完成根入口规定的公共用户级 skill 维护。
 
+## Codex 项目事务唯一入口
+
+当 `$CURRENT_HOST = "codex"` 时，本手册后续的逐文件步骤全部跳过；只能调用：
+
+```powershell
+$PROJECT_SYNC = Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_project_sync.py"
+$PLAN_JSON = (& $HOOK_PYTHON $PROJECT_SYNC --project-root . `
+  --template-root $BRIDGEFORGE_HOME --mode adopt | Out-String)
+if ($LASTEXITCODE -ne 0) { throw $PLAN_JSON }
+$PLAN = $PLAN_JSON | ConvertFrom-Json
+$PLAN_JSON
+```
+
+将 `MODE` 替换为本手册对应的 `init`、`adopt` 或 `update`。没有 risk 时立即以
+`--apply --plan-fingerprint $PLAN.aggregate_fingerprint` 执行；存在 risk 时只展示一次
+汇总卡，用户接受追加 `--confirmed-risk`，拒绝追加 `--decline-risk`。执行器会紧邻
+replan；fingerprint 漂移零写入，任何失败回滚。仅 ready 结果在验证后最后写版本戳；存在 gap 或拒绝 risk 时保留旧戳/无戳并输出 degraded JSON receipt。
+
+Codex 禁止再单独调用 `hooks_merge.py`、`precommit_merge.py`、
+`bridgeforge_project_finalize.py`，也禁止手工复制、删除或写
+`.codex/.bridgeforge_version`。以下旧步骤只服务 Claude 兼容路径，不适用于 Codex。
+
+
 ## 核心语义
 
 收编只登记同步基线，绝不覆盖已有文件。典型对象是 v0.14.0 以前的无版本戳安装，或手动复制过 BridgeForge 模板的项目。

@@ -9,7 +9,6 @@ exercise the parts that are easy to miss in the source repo:
 * settings.json matcher coverage for Edit|Write|MultiEdit.
 * Root pre-commit coverage for both Claude and Codex dogfood gates.
 * Repository text surfaces must be UTF-8 without BOM.
-* Codex model / reasoning-effort routing policy.
 * User-level Codex model configuration must remain read-only to skeleton hooks.
 * high-confidence `skills/**/SKILL.md` metadata and local reference health.
 * User-skill maintenance contract plus executable missing/divergent no-write checks.
@@ -1760,21 +1759,29 @@ def check_switch_direct_script_mirrors() -> CheckResult:
     paths = [
         REPO_ROOT / "scripts" / "bridgeforge_switch.py",
         CLAUDE_TEMPLATE / "scripts" / "bridgeforge_switch.py",
-        CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py",
-        REPO_ROOT / ".codex" / "scripts" / "bridgeforge_switch.py",
         REPO_ROOT / ".claude" / "scripts" / "bridgeforge_switch.py",
     ]
     contents = [path.read_bytes() for path in paths]
-    ok = all(content == contents[0] for content in contents[1:])
+    retired_codex = (
+        CODEX_TEMPLATE / "scripts" / "bridgeforge_switch.py",
+        REPO_ROOT / ".codex" / "scripts" / "bridgeforge_switch.py",
+    )
+    ok = all(content == contents[0] for content in contents[1:]) and all(
+        not path.exists() for path in retired_codex
+    )
     return CheckResult(
         "switch_direct_script_mirrors",
         ok,
-        "root, both templates, .codex, and .claude switch scripts are byte-identical"
+        "command-bundle root is canonical; Claude compatibility mirrors match and Codex project copies are retired"
         if ok
         else "switch script mirror drift: "
         + ", ".join(
             f"{path.relative_to(REPO_ROOT)}={_switch_sha(content)}"
             for path, content in zip(paths, contents)
+        )
+        + "; Codex retired copies present: "
+        + ", ".join(
+            str(path.relative_to(REPO_ROOT)) for path in retired_codex if path.exists()
         ),
     )
 
@@ -2456,247 +2463,6 @@ def check_platform_default() -> CheckResult:
     )
 
 
-def _legacy_check_model_policy() -> CheckResult:
-    source = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], REPO_ROOT)
-    if source.returncode != 0:
-        return CheckResult(
-            "model_policy_health",
-            False,
-            f"source model policy should pass, got exit {source.returncode}: {(source.stdout + source.stderr).strip()}",
-        )
-
-    fixture = build_codex_fixture()
-    good = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    xhigh = fixture / ".codex" / "agents" / "xhigh-auditor.toml"
-    text = xhigh.read_text(encoding="utf-8")
-    xhigh.write_text(
-        text.replace(
-            "Use only after explicit user confirmation for xhigh / super-strong reasoning in the current request.",
-            "Extra-high-effort audit subagent for rare expert review.",
-        ),
-        encoding="utf-8",
-    )
-    bad_description = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    fixture = build_codex_fixture()
-    xhigh = fixture / ".codex" / "agents" / "xhigh-auditor.toml"
-    text = xhigh.read_text(encoding="utf-8")
-    xhigh.write_text(
-        text.replace(
-            "- You may be spawned only after explicit user confirmation in the current request.\n"
-            "- If the parent prompt does not include that confirmation, stop and report that xhigh requires user confirmation.\n",
-            "- Run a deep audit when requested by the parent.\n",
-        ),
-        encoding="utf-8",
-    )
-    bad_instructions = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    fixture = build_codex_fixture()
-    settings_path = fixture / ".codex" / "settings.json"
-    settings = json.loads(settings_path.read_text(encoding="utf-8-sig"))
-    for block in settings["hooks"]["PreToolUse"]:
-        if block.get("matcher") == "Bash":
-            block["hooks"] = [
-                hook
-                for hook in block["hooks"]
-                if not hook.get("command", "").endswith(".codex/hooks/user_config_write_guard.py")
-            ]
-    settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    bad_registration = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    fixture = build_codex_fixture()
-    routing_path = fixture / ".codex" / "skill-routing.json"
-    routing = json.loads(routing_path.read_text(encoding="utf-8"))
-    routing["skills"] = [entry for entry in routing["skills"] if entry["skill"] != "find-doc"]
-    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    bad_missing_find_doc = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    fixture = build_codex_fixture()
-    routing_path = fixture / ".codex" / "skill-routing.json"
-    routing = json.loads(routing_path.read_text(encoding="utf-8"))
-    review_route = next(
-        entry
-        for entry in routing["skills"]
-        if entry["skill"] == "develop" and entry["stage"] == "delivery-review"
-    )
-    review_route["agent"] = "light-explorer"
-    review_route["mode"] = "read-only"
-    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    bad_review_luna = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    fixture = build_codex_fixture()
-    routing_path = fixture / ".codex" / "skill-routing.json"
-    routing = json.loads(routing_path.read_text(encoding="utf-8"))
-    routing["skills"].append(
-        {
-            "skill": "find-doc",
-            "stage": "forbidden-xhigh",
-            "agent": "xhigh-auditor",
-            "mode": "audit",
-            "root_must_do": "none",
-        }
-    )
-    routing_path.write_text(json.dumps(routing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    bad_auto_xhigh = run([sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"], fixture)
-
-    ok = (
-        good.returncode == 0
-        and bad_description.returncode == 2
-        and bad_instructions.returncode == 2
-        and bad_registration.returncode == 2
-        and bad_missing_find_doc.returncode == 2
-        and bad_review_luna.returncode == 2
-        and bad_auto_xhigh.returncode == 2
-        and "description must state" in (bad_description.stdout + bad_description.stderr)
-        and "developer_instructions must state" in (bad_instructions.stdout + bad_instructions.stderr)
-        and "must register user_config_write_guard.py for Bash" in (bad_registration.stdout + bad_registration.stderr)
-        and "find-doc/search-and-candidate-summary must use light-explorer" in (bad_missing_find_doc.stdout + bad_missing_find_doc.stderr)
-        and "develop/delivery-review must use review-auditor" in (bad_review_luna.stdout + bad_review_luna.stderr)
-        and "must not auto-route to xhigh-auditor" in (bad_auto_xhigh.stdout + bad_auto_xhigh.stderr)
-    )
-    return CheckResult(
-        "model_policy_health",
-        ok,
-        "model policy hook passes source/good fixture and blocks xhigh confirmation, guard registration, missing Luna routing, downgraded review, and automatic xhigh routing"
-        if ok
-        else (
-            f"expected good exit 0 and policy bad exit 2 cases, got good={good.returncode}, "
-            f"bad_description={bad_description.returncode}, bad_instructions={bad_instructions.returncode}, "
-            f"bad_registration={bad_registration.returncode}, bad_missing_find_doc={bad_missing_find_doc.returncode}, "
-            f"bad_review_luna={bad_review_luna.returncode}, bad_auto_xhigh={bad_auto_xhigh.returncode}: "
-            f"{(good.stdout + good.stderr + bad_description.stdout + bad_description.stderr + bad_instructions.stdout + bad_instructions.stderr + bad_registration.stdout + bad_registration.stderr + bad_missing_find_doc.stdout + bad_missing_find_doc.stderr + bad_review_luna.stdout + bad_review_luna.stderr + bad_auto_xhigh.stdout + bad_auto_xhigh.stderr).strip()}"
-        ),
-    )
-
-
-def _legacy_check_subscription_routing() -> CheckResult:
-    script = CODEX_TEMPLATE / "scripts" / "subscription_routing.py"
-    command = [
-        sys.executable,
-        str(script),
-        "--project-root",
-        str(CODEX_FIXTURE),
-        "--template-root",
-        str(CODEX_TEMPLATE),
-    ]
-
-    fixture = build_codex_fixture()
-    high = run([*command, "--tier", "high"], fixture)
-    high_policy = run(
-        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
-        fixture,
-    )
-    high_config = (fixture / ".codex" / "config.toml").read_text(encoding="utf-8")
-    high_agent = (
-        fixture / ".codex" / "agents" / "implementation-worker.toml"
-    ).read_text(encoding="utf-8")
-
-    fixture = build_codex_fixture()
-    conservative = run([*command, "--tier", "conservative"], fixture)
-    conservative_policy = run(
-        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
-        fixture,
-    )
-    conservative_marker = (fixture / ".codex" / "subscription-tier.toml").read_text(
-        encoding="utf-8"
-    )
-    conservative_config = (fixture / ".codex" / "config.toml").read_text(encoding="utf-8")
-    conservative_agent = (
-        fixture / ".codex" / "agents" / "implementation-worker.toml"
-    ).read_text(encoding="utf-8")
-
-    fixture = build_codex_fixture()
-    marker = fixture / ".codex" / "subscription-tier.toml"
-    marker.unlink()
-    missing_marker = run(
-        [sys.executable, ".codex/hooks/model_policy_check.py", "--pre-commit"],
-        fixture,
-    )
-
-    fixture = build_codex_fixture()
-    protected_files = [
-        fixture / ".codex" / "subscription-tier.toml",
-        fixture / ".codex" / "config.toml",
-        fixture / ".codex" / "agents" / "implementation-worker.toml",
-    ]
-    before_invalid = [path.read_bytes() for path in protected_files]
-    invalid = run([*command, "--tier", "enterprise"], fixture)
-    after_invalid = [path.read_bytes() for path in protected_files]
-
-    user_config = Path.home() / ".codex" / "config.toml"
-    user_before = user_config.read_bytes() if user_config.exists() else None
-    user_project_block = run(
-        [
-            sys.executable,
-            str(script),
-            "--tier",
-            "high",
-            "--project-root",
-            str(Path.home()),
-            "--template-root",
-            str(CODEX_TEMPLATE),
-        ],
-        fixture,
-    )
-    user_template_block = run(
-        [
-            sys.executable,
-            str(script),
-            "--tier",
-            "high",
-            "--project-root",
-            str(fixture),
-            "--template-root",
-            str(Path.home() / ".codex"),
-        ],
-        fixture,
-    )
-    user_after = user_config.read_bytes() if user_config.exists() else None
-
-    missing_output = missing_marker.stdout + missing_marker.stderr
-    protected_output = (
-        user_project_block.stdout
-        + user_project_block.stderr
-        + user_template_block.stdout
-        + user_template_block.stderr
-    )
-    ok = (
-        high.returncode == 0
-        and high_policy.returncode == 0
-        and 'model_reasoning_effort = "high"' in high_config
-        and 'model = "gpt-5.6-sol"' in high_agent
-        and conservative.returncode == 0
-        and conservative_policy.returncode == 0
-        and 'tier = "conservative"' in conservative_marker
-        and 'model_reasoning_effort = "medium"' in conservative_config
-        and 'model = "gpt-5.6-terra"' in conservative_agent
-        and missing_marker.returncode == 2
-        and "run /bridgeforge and choose a Codex subscription tier" in missing_output
-        and invalid.returncode == 2
-        and before_invalid == after_invalid
-        and user_project_block.returncode == 2
-        and user_template_block.returncode == 2
-        and "refusing user-level Codex path" in protected_output
-        and user_before == user_after
-    )
-    return CheckResult(
-        "subscription_routing",
-        ok,
-        "high/conservative tiers apply and pass policy; missing marker, invalid tier, and user-level read/write paths are blocked"
-        if ok
-        else (
-            f"high={high.returncode}/{high_policy.returncode} "
-            f"conservative={conservative.returncode}/{conservative_policy.returncode} "
-            f"missing={missing_marker.returncode} invalid={invalid.returncode} "
-            f"user_project={user_project_block.returncode} "
-            f"user_template={user_template_block.returncode} unchanged={user_before == user_after}: "
-            f"{(high.stdout + high.stderr + high_policy.stdout + high_policy.stderr + conservative.stdout + conservative.stderr + conservative_policy.stdout + conservative_policy.stderr + missing_output + invalid.stdout + invalid.stderr + protected_output).strip()}"
-        ),
-    )
-
-
-def check_user_config_write_guard() -> CheckResult:
     fixture = build_codex_fixture()
     guard = fixture / ".codex" / "hooks" / "user_config_write_guard.py"
     user_config = Path.home() / ".codex" / "config.toml"
@@ -2969,6 +2735,91 @@ def check_codex_git_sync_runner() -> CheckResult:
             f"version_preflight={preflight.returncode}/{preflight_output.strip()} "
             f"sync={sync.returncode} status={status.stdout!r} ahead={ahead.stdout!r} "
             f"remote_log={remote_log.stdout!r} output={(sync.stdout + sync.stderr).strip()}"
+        ),
+    )
+
+
+def check_user_config_write_guard() -> CheckResult:
+    fixture = build_codex_fixture()
+    guard = fixture / ".codex" / "hooks" / "user_config_write_guard.py"
+    user_config = Path.home() / ".codex" / "config.toml"
+    before = user_config.read_bytes() if user_config.exists() else None
+
+    read_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": f"Get-Content -LiteralPath '{user_config}'"},
+        }
+    )
+    write_payload = json.dumps(
+        {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(user_config)},
+        }
+    )
+    shell_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": f"Set-Content -LiteralPath '{user_config}' -Value 'fixture'"},
+        }
+    )
+    home_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {
+                "command": 'Set-Content -LiteralPath "$HOME\\.codex\\config.toml" -Value fixture'
+            },
+        }
+    )
+    redirect_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {"command": '"fixture" > "$env:USERPROFILE\\.codex\\config.toml"'},
+        }
+    )
+    tilde_write_payload = json.dumps(
+        {
+            "tool_name": "PowerShell",
+            "tool_input": {
+                "command": 'Set-Content -LiteralPath "~\\.codex\\config.toml" -Value fixture'
+            },
+        }
+    )
+
+    read = run_with_input([sys.executable, str(guard)], fixture, read_payload)
+    blocked_write = run_with_input([sys.executable, str(guard)], fixture, write_payload)
+    blocked_shell = run_with_input([sys.executable, str(guard)], fixture, shell_write_payload)
+    blocked_home = run_with_input([sys.executable, str(guard)], fixture, home_write_payload)
+    blocked_redirect = run_with_input([sys.executable, str(guard)], fixture, redirect_write_payload)
+    blocked_tilde = run_with_input([sys.executable, str(guard)], fixture, tilde_write_payload)
+    after = user_config.read_bytes() if user_config.exists() else None
+
+    hooks = json.loads((fixture / ".codex" / "hooks.json").read_text(encoding="utf-8-sig"))
+    registered = any(
+        isinstance(hook, dict) and "hook_dispatcher.py" in hook.get("command", "")
+        for block in hooks.get("hooks", {}).get("PreToolUse", [])
+        for hook in block.get("hooks", [])
+    )
+    ok = (
+        read.returncode == 0
+        and blocked_write.returncode == 2
+        and blocked_shell.returncode == 2
+        and blocked_home.returncode == 2
+        and blocked_redirect.returncode == 2
+        and blocked_tilde.returncode == 2
+        and before == after
+        and registered
+    )
+    return CheckResult(
+        "user_config_write_guard",
+        ok,
+        "user config reads pass, writes are blocked, hooks.json dispatcher is registered, and the sentinel is unchanged"
+        if ok
+        else (
+            f"read={read.returncode} write={blocked_write.returncode} shell={blocked_shell.returncode} "
+            f"home={blocked_home.returncode} redirect={blocked_redirect.returncode} tilde={blocked_tilde.returncode} "
+            f"unchanged={before == after} registered={registered}: "
+            f"{(read.stdout + read.stderr + blocked_write.stdout + blocked_write.stderr + blocked_shell.stdout + blocked_shell.stderr + blocked_home.stdout + blocked_home.stderr + blocked_redirect.stdout + blocked_redirect.stderr + blocked_tilde.stdout + blocked_tilde.stderr).strip()}"
         ),
     )
 

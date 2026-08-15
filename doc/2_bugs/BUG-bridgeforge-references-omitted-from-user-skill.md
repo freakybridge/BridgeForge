@@ -5,6 +5,12 @@
 **修复日期**：2026-08-12  
 **影响范围**：Codex 用户级 `~/.codex/skills/bridgeforge/`；Claude 安装结果未受损
 
+## 2026-08-15 系统重构复核
+
+- `shared-skill-manifest.json` 继续显式分发全部 references、canonical 执行器与模板资产。
+- updater 的 mutex、目录 hash、backup/restore 与账本事务保持为用户级分发唯一入口。
+- manifest 重建器现同时维护 Codex asset contract lineage，且 `--check` 零写入；本 Bug 保持 `Resolved`。
+
 ## 现象
 
 下游项目 `D:\Quant\ClaudeBridgeAssist` 运行无参 `/bridgeforge` 后，Codex 安装目录

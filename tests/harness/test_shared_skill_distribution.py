@@ -251,6 +251,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         self.assertEqual(manifest["branch"], "main")
 
         expected_bundle = {
+            ".githooks/pre-commit",
             "VERSION",
             "CHANGELOG.md",
             "skills/bridgeforge/SKILL.md",
@@ -268,6 +269,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
             )
         expected_bundle.update(
             {
+                "scripts/bridgeforge_project_sync.py",
                 "scripts/bridgeforge_switch.py",
                 "scripts/bridgeforge_migrate_layout.py",
                 "scripts/bridgeforge_project_finalize.py",
@@ -370,7 +372,6 @@ class SharedSkillDistributionTests(unittest.TestCase):
             expected,
         )
         self.initialize_repository()
-
         self.env["GIT_CONFIG_COUNT"] = "2"
         self.env["GIT_CONFIG_KEY_1"] = "core.autocrlf"
         self.env["GIT_CONFIG_VALUE_1"] = "true"
@@ -382,6 +383,28 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 (self.profile / f".{platform}" / "skills" / "bridgeforge" / "SKILL.md").read_text(),
                 "bridgeforge-v1\n",
             )
+
+    def test_manifest_check_reports_stale_without_writing(self) -> None:
+        self.write_source()
+        manifest_path = self.source / "shared-skill-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["platforms"]["codex"]["skills"][0]["files"][0]["sha256"] = (
+            "sha256:" + "0" * 64
+        )
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        before = manifest_path.read_bytes()
+        checked = run(
+            [
+                sys.executable,
+                str(MANIFEST_REBUILDER),
+                "--manifest",
+                str(manifest_path),
+                "--check",
+            ],
+            ROOT,
+        )
+        self.assertEqual(checked.returncode, 1, checked.stderr + checked.stdout)
+        self.assertEqual(manifest_path.read_bytes(), before)
 
     def test_installs_both_platforms_and_preserves_third_party(self) -> None:
         self.write_source()
