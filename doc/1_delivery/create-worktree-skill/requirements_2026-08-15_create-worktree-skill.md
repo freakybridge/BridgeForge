@@ -44,7 +44,7 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 - BridgeForge 的 `skills/**` 是下游可分发的产品层，适合作为本 skill 的单一事实源。
 - BridgeForge 使用 `doc/1_delivery/<topic>/` 扁平交付布局。
 - Codex 用户配置可通过 `~/.codex/config.toml` 的 `desktop.git-worktree-root` 提供永久 worktree 根目录。
-- `codex app <PATH>` 可用于注册并打开本地工作区。
+- Codex Desktop 注册的 `codex://threads/new?path=<encoded-path>` 协议可用于打开本地工作区，并避免执行器直接启动 WindowsApps 可执行文件。
 
 ## 用户可见行为
 
@@ -91,8 +91,8 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 
 - 通过 Git 原生命令一次性创建目标 worktree 和 `codex/` 新分支。
 - 创建成功后验证目标路径、当前分支、HEAD 和 `git worktree list --porcelain` 登记结果。
-- Git 验证通过后执行 `codex app <目标路径>`，注册并打开 Codex 项目。
-- 如果 `codex app` 失败，必须保留已创建的工作树与分支，报告“部分成功”，并输出可复制的重试命令。
+- Git 验证通过后通过 Windows Shell 启动 `codex://threads/new?path=<encoded-path>`，注册并打开 Codex 项目。
+- 如果 Codex Desktop 协议激活失败，必须保留已创建的工作树与分支，报告“部分成功”，并输出可复制的重试命令。
 - 禁止因为 Codex 打开失败而自动删除有效的 Git 成果。
 
 ## 自动化边界
@@ -135,7 +135,7 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 - [x] 非 Git 目录、缺失根目录配置、非法目录名、非法分支名、本地基准分支缺失均零写入失败。
 - [x] 目标路径冲突和目标分支冲突均零写入失败，不自动修复。
 - [x] 测试证明创建过程没有执行 `fetch`、`pull`、commit、merge 或 push。
-- [x] `codex app` 成功时调用注册打开命令；失败时保留 Git 成果并给出重试命令。
+- [x] Codex Desktop 协议激活成功时调用注册打开命令；失败时保留 Git 成果并给出重试命令。
 - [x] BridgeForge skill 元数据检查、PowerShell 脚本测试和临时仓库端到端测试通过；OpenAI 当前 `quick_validate.py` 对 `user_invocable` / `argument` 报不支持，不伪报为通过。
 - [x] shared-skill 分发验证证明该 skill 只安装到 Codex 用户级目录。
 - [x] `git diff --check` 通过，并形成包含命令、断言和覆盖场景的验证收据。
@@ -156,6 +156,8 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 - 2026-08-15：用户要求与 `summary` 一样进入斜杠命令清单，改为两个必填位置参数和一个可选基准分支，并明确缺省顺序为 `main` 后 `master`。
 - 2026-08-15：用户要求 Skill 选择后的 UI 展示文本为精确的 `create-worktree`，不使用中文展示名。
 - 2026-08-15：用户显式调用 `$summary 同意验收`，本交付关闭。
+- 2026-08-15：用户验收协议启动补丁；确认清理试用产生的 `D:\Quant\CodexWorktree\aaa` 与 `codex/bbb` 后，再次执行 `$summary 同意验收`。
+- 2026-08-15：用户验收协议启动补丁；确认清理试用产生的 `D:\Quant\CodexWorktree\aaa` 与 `codex/bbb` 后，再次执行 `$summary 同意验收`。
 
 ## 实施计划
 
@@ -186,6 +188,7 @@ Codex Desktop 自动创建的 worktree 可能使用短槽位目录，并可能�
 
 ## 剩余风险与试用边界
 
-- 自动化测试使用真实 Windows Git 与假 `codex` CLI，已验证 `codex app <目标路径>` 的参数、成功/失败分支及失败保留；未在测试中实际打开 Codex Desktop GUI，真实注册显示留给用户试用确认。
+- 自动化测试使用真实 Windows Git 与可控的 `Start-Process` 替身，已验证 deep link 的路径编码、成功/异常分支及失败保留；未在测试中实际打开 Codex Desktop GUI，真实注册显示留给用户试用确认。
+- 2026-08-15 补充修复：用户实测提升权限后的 `codex app` 仍因执行器直接访问 WindowsApps `codex.exe` 而报 `Access is denied`；实现改为通过 Windows 注册协议 `codex://threads/new?path=...` 激活 Desktop，`test_create_worktree_skill.py` 13/13 通过。
 - Codex Desktop 斜杠菜单发现依赖用户级 Skill 刷新；安装后若当前对话未刷新，需重启 Codex 再试。
 - reparse point 采用 fail-closed：源仓库或配置根目录的任一现存祖先带 junction/symlink 属性时拒绝创建，不尝试解析或接受该路径。

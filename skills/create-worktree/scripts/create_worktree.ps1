@@ -360,38 +360,15 @@ try {
         Stop-CreateWorktree "Post-create verification failed: source worktree state changed; Git results were preserved" 4
     }
 
-    $retryPath = $targetPath.Replace("'", "''")
-    $retryCommand = "codex app '$retryPath'"
-    $codexCommand = Get-Command codex -ErrorAction SilentlyContinue
-    if (-not $codexCommand) {
-        [Console]::Error.WriteLine("[create-worktree] Partial success: worktree and branch were created, but codex CLI was not found.")
-        [Console]::Error.WriteLine("[create-worktree] Retry command: $retryCommand")
-        exit 3
-    }
-
-    $previousErrorAction = $ErrorActionPreference
-    $codexOutput = @()
-    $codexExitCode = 1
+    $encodedTargetPath = [Uri]::EscapeDataString($targetPath)
+    $desktopDeepLink = "codex://threads/new?path=$encodedTargetPath"
+    $retryDeepLink = $desktopDeepLink.Replace("'", "''")
+    $retryCommand = "Start-Process -FilePath '$retryDeepLink'"
     try {
-        $ErrorActionPreference = "Stop"
-        try {
-            $codexOutput = @(& $codexCommand.Source app $targetPath 2>&1)
-            $codexExitCode = $LASTEXITCODE
-            if ($null -eq $codexExitCode) {
-                $codexExitCode = 1
-            }
-        } catch {
-            $codexOutput = @($_.Exception.Message)
-            $codexExitCode = 1
-        }
-    } finally {
-        $ErrorActionPreference = $previousErrorAction
-    }
-    if ($codexExitCode -ne 0) {
-        [Console]::Error.WriteLine("[create-worktree] Partial success: worktree and branch were created, but codex app failed.")
-        if ($codexOutput) {
-            [Console]::Error.WriteLine([string]($codexOutput -join [Environment]::NewLine))
-        }
+        Start-Process -FilePath $desktopDeepLink -ErrorAction Stop | Out-Null
+    } catch {
+        [Console]::Error.WriteLine("[create-worktree] Partial success: worktree and branch were created, but Codex Desktop protocol activation failed.")
+        [Console]::Error.WriteLine($_.Exception.Message)
         [Console]::Error.WriteLine("[create-worktree] Retry command: $retryCommand")
         exit 3
     }

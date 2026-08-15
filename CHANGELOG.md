@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.88.4] - 2026-08-15
+
+### Fixed
+
+- [product][repo][meta] 修复 create-worktree Desktop 协议启动
+
+## [0.88.3] - 2026-08-15
+
+### Fixed
+
+- [product][meta] 修复 `create-worktree` 在 Codex 执行器中直接启动 WindowsApps `codex.exe` 被拒绝的问题：改用 Windows 注册的 `codex://threads/new?path=...` 协议激活 Codex Desktop，并保留协议启动失败时的部分成功保护与可复制重试命令。
+
 ## [0.88.2] - 2026-08-15
 
 ### Fixed

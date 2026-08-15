@@ -7,7 +7,7 @@ argument: 两个必填位置参数，可选第三个基准分支
 
 # 创建永久 Git Worktree
 
-只执行随 skill 提供的 `scripts/create_worktree.ps1`。禁止自行拼装另一套 Git 流程，禁止访问远端，禁止清理失败成果。
+只执行随 skill 提供的 `scripts/create_worktree.ps1`。禁止自行拼装另一套 Git 流程，禁止访问远端，禁止清理失败成果。脚本通过 Windows 注册的 `codex://` 协议激活 Codex Desktop，禁止解析或直接执行 `WindowsApps` 内的 `codex.exe`。
 
 ## 调用格式
 
@@ -50,7 +50,7 @@ $create-worktree <工作树名> <分支名> [基准分支]
 
 - 退出码 `0`：报告脚本输出的工作树、分支和基准提交。
 - 退出码 `2`：创建前检查失败或 Git 创建失败。原样报告错误；禁止自动修复、改名、加数字后缀、清理或重试其他命令。
-- 退出码 `3`：Git 成果有效，但 `codex app` 失败。明确报告“部分成功”，保留工作树和分支，并原样给出脚本输出的重试命令。
+- 退出码 `3`：Git 成果有效，但 Codex Desktop 协议激活失败。明确报告“部分成功”，保留工作树和分支，并原样给出脚本输出的重试命令。
 - 退出码 `4`：Git 创建后验证失败。报告诊断和已保留的成果；禁止自动删除或回滚。
 
 禁止执行 `fetch`、`pull`、`commit`、`merge`、`push`、`prune`、`remove`、`delete`、`reset` 或任何远端、清理、迁移命令。

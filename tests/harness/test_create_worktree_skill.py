@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import quote
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,8 +64,7 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         *,
         with_config: bool = True,
         root_exists: bool = True,
-        codex_exit: int = 0,
-        codex_throw: bool = False,
+        desktop_launch_throws: bool = False,
         initial_branch: str = "main",
     ) -> dict[str, object]:
         self.counter += 1
@@ -98,7 +98,7 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         fake_bin = fixture / "fake bin"
         fake_bin.mkdir()
         git_log = fixture / "git-commands.log"
-        codex_log = fixture / "codex-commands.log"
+        desktop_log = fixture / "desktop-deep-link.log"
         (fake_bin / "git.cmd").write_text(
             "@echo off\n"
             "echo %*>>\"%CREATE_WORKTREE_GIT_LOG%\"\n"
@@ -106,18 +106,35 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             "exit /b %ERRORLEVEL%\n",
             encoding="ascii",
         )
-        if codex_throw:
-            (fake_bin / "codex.ps1").write_text(
-                "throw 'simulated codex launch denial'\n",
-                encoding="ascii",
-            )
-        else:
-            (fake_bin / "codex.cmd").write_text(
-                "@echo off\n"
-                "echo %*>>\"%CREATE_WORKTREE_CODEX_LOG%\"\n"
-                "exit /b %CREATE_WORKTREE_CODEX_EXIT%\n",
-                encoding="ascii",
-            )
+        launcher_wrapper = fixture / "invoke-create-worktree.ps1"
+        launcher_wrapper.write_text(
+            "param(\n"
+            "    [string]$SkillScript,\n"
+            "    [string]$WorktreeName,\n"
+            "    [string]$BranchName,\n"
+            "    [string]$BaseBranch\n"
+            ")\n"
+            "function Start-Process {\n"
+            "    [CmdletBinding()]\n"
+            "    param([Parameter(Mandatory = $true)][string]$FilePath)\n"
+            "    if ($env:CREATE_WORKTREE_DESKTOP_THROW -eq '1') {\n"
+            "        throw 'simulated Codex Desktop protocol denial'\n"
+            "    }\n"
+            "    [IO.File]::WriteAllText(\n"
+            "        $env:CREATE_WORKTREE_DESKTOP_LOG,\n"
+            "        $FilePath,\n"
+            "        (New-Object Text.UTF8Encoding($false))\n"
+            "    )\n"
+            "}\n"
+            "$skillArguments = @{\n"
+            "    worktree_name = $WorktreeName\n"
+            "    branch_name = $BranchName\n"
+            "}\n"
+            "if ($BaseBranch) { $skillArguments.base_branch = $BaseBranch }\n"
+            "& $SkillScript @skillArguments\n"
+            "exit $LASTEXITCODE\n",
+            encoding="ascii",
+        )
 
         env = os.environ.copy()
         env.update(
@@ -128,8 +145,8 @@ class CreateWorktreeSkillTests(unittest.TestCase):
                 "PATH": f"{fake_bin}{os.pathsep}{env.get('PATH', '')}",
                 "CREATE_WORKTREE_REAL_GIT": str(self.git),
                 "CREATE_WORKTREE_GIT_LOG": str(git_log),
-                "CREATE_WORKTREE_CODEX_LOG": str(codex_log),
-                "CREATE_WORKTREE_CODEX_EXIT": str(codex_exit),
+                "CREATE_WORKTREE_DESKTOP_LOG": str(desktop_log),
+                "CREATE_WORKTREE_DESKTOP_THROW": "1" if desktop_launch_throws else "0",
                 "GIT_CONFIG_GLOBAL": "NUL",
                 "GIT_CONFIG_SYSTEM": "NUL",
                 "GIT_TERMINAL_PROMPT": "0",
@@ -142,7 +159,8 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             "profile": profile,
             "worktree_root": worktree_root,
             "git_log": git_log,
-            "codex_log": codex_log,
+            "desktop_log": desktop_log,
+            "launcher_wrapper": launcher_wrapper,
             "env": env,
         }
 
@@ -161,14 +179,16 @@ class CreateWorktreeSkillTests(unittest.TestCase):
             "-ExecutionPolicy",
             "Bypass",
             "-File",
+            str(fixture["launcher_wrapper"]),
+            "-SkillScript",
             str(SCRIPT),
-            "-worktree_name",
+            "-WorktreeName",
             worktree_name,
-            "-branch_name",
+            "-BranchName",
             branch_name,
         ]
         if base_branch is not None:
-            command.extend(["-base_branch", base_branch])
+            command.extend(["-BaseBranch", base_branch])
         return run(command, cwd or fixture["repo"], fixture["env"])
 
     def ref_exists(self, repo: Path, branch: str) -> bool:
@@ -215,8 +235,8 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         self.assertIn(str(target).replace("\\", "/"), listed.replace("\\", "/"))
         self.assertNotIn("risk-suite/slot", listed.replace("\\", "/"))
         self.assertEqual(
-            fixture["codex_log"].read_text(encoding="utf-8").strip(),
-            f'app "{target}"',
+            fixture["desktop_log"].read_text(encoding="utf-8").strip(),
+            f"codex://threads/new?path={quote(str(target), safe='')}",
         )
 
         commands = fixture["git_log"].read_text(encoding="utf-8", errors="replace").splitlines()
@@ -409,25 +429,15 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         self.assertFalse((fixture["worktree_root"] / "risk-suite").exists())
         self.assertFalse(self.ref_exists(fixture["repo"], "codex/risk-suite-2"))
 
-    def test_codex_failure_preserves_git_results_and_prints_retry(self) -> None:
-        fixture = self.make_fixture(codex_exit=9)
+    def test_desktop_protocol_failure_preserves_git_results_and_prints_retry(self) -> None:
+        fixture = self.make_fixture(desktop_launch_throws=True)
         result = self.invoke(fixture)
         target = fixture["worktree_root"] / "risk-suite"
 
         self.assertEqual(result.returncode, 3, result.stderr + result.stdout)
         self.assertIn("Partial success", result.stderr)
-        self.assertIn(f"codex app '{target}'", result.stderr)
-        self.assertTrue(target.is_dir())
-        self.assertTrue(self.ref_exists(fixture["repo"], "codex/risk-suite-2"))
-
-    def test_codex_launch_exception_is_reported_as_partial_success(self) -> None:
-        fixture = self.make_fixture(codex_throw=True)
-        result = self.invoke(fixture)
-        target = fixture["worktree_root"] / "risk-suite"
-
-        self.assertEqual(result.returncode, 3, result.stderr + result.stdout)
-        self.assertIn("Partial success", result.stderr)
-        self.assertIn("simulated codex launch denial", result.stderr)
+        self.assertIn("simulated Codex Desktop protocol denial", result.stderr)
+        self.assertIn("Start-Process -FilePath 'codex://threads/new?path=", result.stderr)
         self.assertTrue(target.is_dir())
         self.assertTrue(self.ref_exists(fixture["repo"], "codex/risk-suite-2"))
 
@@ -449,7 +459,9 @@ class CreateWorktreeSkillTests(unittest.TestCase):
         self.assertIn("$create-worktree", openai_yaml)
         self.assertIn("allow_implicit_invocation: false", openai_yaml)
         self.assertEqual(script.count('"worktree", "add", "-b"'), 1)
-        self.assertIn('$codexOutput = @($_.Exception.Message)', script)
+        self.assertIn('"codex://threads/new?path=$encodedTargetPath"', script)
+        self.assertIn("Start-Process -FilePath $desktopDeepLink", script)
+        self.assertNotIn("Get-Command codex", script)
         self.assertIn("[IO.FileAttributes]::ReparsePoint", script)
         self.assertIn(
             'Assert-NoReparsePointInExistingAncestors $repoRoot "Source repository root"',

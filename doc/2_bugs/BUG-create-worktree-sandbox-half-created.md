@@ -25,3 +25,10 @@
 - 确认 `codex/aaa` 是 `main` 的 ancestor 后，执行 `git worktree prune --verbose --expire now` 和 `git branch -d codex/aaa`；分支删除时指向 `4051fd0`。
 - 清理后 `git worktree list --porcelain` 只剩主工作树，`refs/heads/codex/aaa`、`.git/worktrees/aaa` 与 `D:\Quant\CodexWorktree\aaa` 均不存在。
 - 2026-08-15，用户明确执行 `$summary 同意验收`，本 Bug 关闭。
+
+## 验收后补充修复
+
+- 后续调用 `/create-worktree aaa bbb` 时，worktree 与 `codex/bbb` 已正确创建，但提升后的执行器仍无法直接执行 WindowsApps 中的 `codex.exe`，因此对话显示失败。
+- 启动方式已从 `codex app <PATH>` 改为通过 Windows Shell 打开 `codex://threads/new?path=<encoded-path>`；该协议由 Codex Desktop 注册，不再解析或直接执行 WindowsApps 物理路径。
+- 回归测试使用可控 `Start-Process` 替身验证路径编码、协议调用、启动异常时退出码 `3` 以及 Git 成果保留。
+- 用户确认删除试用产生且无独有改动的 `D:\Quant\CodexWorktree\aaa` 与 `codex/bbb`；清理后只剩主工作树，并再次执行 `$summary 同意验收`。
