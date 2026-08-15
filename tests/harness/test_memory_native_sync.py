@@ -91,6 +91,19 @@ class ProjectMemoryTests(unittest.TestCase):
 
 
 class NativeMemorySyncTests(unittest.TestCase):
+    def _write_ledger(self, codex: Path, consent: str | None = None) -> Path:
+        codex.mkdir(parents=True, exist_ok=True)
+        ledger: dict[str, object] = {
+            "schema_version": 1,
+            "platform": "codex",
+            "records": {},
+        }
+        if consent is not None:
+            ledger["consents"] = {"native_memories": consent}
+        path = codex / "bridgeforge-managed.json"
+        path.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+        return path
+
     def _create_empty_remote(
         self,
         base: Path,
@@ -169,7 +182,7 @@ class NativeMemorySyncTests(unittest.TestCase):
     def test_status_reports_setup_hook_and_remote_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
-            codex.mkdir()
+            self._write_ledger(codex, "approved")
             (codex / "config.toml").write_text(
                 "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
                 encoding="utf-8",
@@ -181,16 +194,117 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertTrue(receipt["enabled"])
             self.assertFalse(receipt["hookInstalled"])
             self.assertFalse(receipt["remoteConfigured"])
+            self.assertEqual(receipt["consent"], "approved")
             self.assertEqual(receipt["setupPython"], str(Path(sync_mod.sys.executable).resolve()))
             self.assertEqual(receipt["hookPython"], str(sync_mod.stable_hook_python()))
+
+    def test_status_is_strictly_read_only(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            self._write_ledger(codex, "declined")
+            before = {
+                path.relative_to(codex).as_posix(): path.read_bytes()
+                for path in codex.rglob("*")
+                if path.is_file()
+            }
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}):
+                self.assertEqual(sync_mod.main(["status"]), 0)
+            after = {
+                path.relative_to(codex).as_posix(): path.read_bytes()
+                for path in codex.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(after, before)
+
+    def test_legacy_enabled_status_keeps_null_consent_without_prompt_or_write(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            self._write_ledger(codex)
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            before = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
+            output = io.StringIO()
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), contextlib.redirect_stdout(output):
+                self.assertEqual(sync_mod.main(["status"]), 0)
+            receipt = json.loads(output.getvalue())
+            self.assertTrue(receipt["enabled"])
+            self.assertIsNone(receipt["consent"])
+            after = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
+            self.assertEqual(after, before)
+
+    def test_approved_enabled_maintain_repairs_runtime_and_reconciles(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            self._write_ledger(codex, "approved")
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            hook_python = Path(sync_mod.sys.executable).resolve()
+            output = io.StringIO()
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
+                sync_mod, "stable_hook_python", return_value=hook_python
+            ), mock.patch.object(
+                sync_mod,
+                "ensure_github_repository",
+                return_value=("git@example.invalid:private/memories.git", "reused"),
+            ) as github, mock.patch.object(sync_mod, "merge_user_hooks") as hooks, mock.patch.object(
+                sync_mod, "reconcile", return_value="noop"
+            ) as reconcile, contextlib.redirect_stdout(output):
+                self.assertEqual(sync_mod.main(["maintain"]), 0)
+            github.assert_called_once_with(confirmed_public_to_private=False)
+            hooks.assert_called_once_with(
+                codex / "hooks.json",
+                Path(sync_mod.__file__).resolve(),
+                hook_python=hook_python,
+            )
+            reconcile.assert_called_once_with(
+                codex / "memories",
+                codex / ".bridgeforge" / "memory-sync",
+                "git@example.invalid:private/memories.git",
+            )
+            self.assertEqual(
+                (codex / ".bridgeforge" / "memory-sync" / "remote.txt").read_text(encoding="utf-8"),
+                "git@example.invalid:private/memories.git\n",
+            )
+            self.assertIn("reconcile=noop", output.getvalue())
+
+    def test_legacy_enabled_maintain_fails_closed_without_external_or_user_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            self._write_ledger(codex)
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            before = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
+                sync_mod, "ensure_github_repository"
+            ) as github, mock.patch.object(sync_mod, "merge_user_hooks") as hooks:
+                self.assertEqual(sync_mod.main(["maintain"]), 2)
+            github.assert_not_called()
+            hooks.assert_not_called()
+            after = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
+            self.assertEqual(after, before)
+            self.assertFalse((codex / ".bridgeforge").exists())
+
+    def test_status_is_read_only_even_when_codex_home_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / "missing-codex"
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}):
+                self.assertEqual(sync_mod.main(["status"]), 2)
+            self.assertFalse(codex.exists())
 
     def test_setup_leaves_config_untouched_when_github_preflight_fails(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
+            self._write_ledger(codex)
             with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
                 sync_mod, "ensure_github_repository", side_effect=sync_mod.SyncError("gh unavailable")
             ):
-                self.assertEqual(sync_mod.main(["setup", "--confirmed-enable"]), 0)
+                self.assertEqual(sync_mod.main(["setup", "--confirmed-enable"]), 2)
             self.assertFalse((codex / "config.toml").exists())
             self.assertFalse((codex / "hooks.json").exists())
 
@@ -198,6 +312,7 @@ class NativeMemorySyncTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             codex = root / ".codex"
+            self._write_ledger(codex)
             venv_python = root / "project/.venv/Scripts/python.exe"
             base_python = root / "Python312/python.exe"
             venv_python.parent.mkdir(parents=True)
@@ -237,6 +352,36 @@ class NativeMemorySyncTests(unittest.TestCase):
                 (codex / ".bridgeforge/memory-sync/remote.txt").read_text(encoding="utf-8"),
                 "git@example.invalid:private/memories.git\n",
             )
+            self.assertEqual(
+                sync_mod.native_memories_consent(codex / "bridgeforge-managed.json"),
+                "approved",
+            )
+
+    def test_declined_consent_is_persisted_without_external_or_config_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            ledger = self._write_ledger(codex)
+            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
+                sync_mod,
+                "ensure_github_repository",
+            ) as github, mock.patch.object(sync_mod, "merge_user_hooks") as hooks:
+                self.assertEqual(sync_mod.main(["decline", "--confirmed"]), 0)
+            github.assert_not_called()
+            hooks.assert_not_called()
+            self.assertEqual(sync_mod.native_memories_consent(ledger), "declined")
+            self.assertFalse((codex / "config.toml").exists())
+            self.assertFalse((codex / "hooks.json").exists())
+            self.assertFalse((codex / ".bridgeforge").exists())
+
+    def test_consent_ledger_validation_is_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            ledger = self._write_ledger(codex)
+            data = json.loads(ledger.read_text(encoding="utf-8"))
+            data["consents"] = {"native_memories": "maybe"}
+            ledger.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(sync_mod.SyncError, "invalid native memories consent"):
+                sync_mod.native_memories_consent(ledger)
 
     def test_config_merge_requires_confirmation_and_preserves_other_toml(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

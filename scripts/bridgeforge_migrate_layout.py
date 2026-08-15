@@ -39,6 +39,9 @@ class MigrationPlan:
     manifest: str | None
     actions: list[Action]
     blockers: list[str]
+    gaps: list[str]
+    input_fingerprint: str
+    plan_fingerprint: str
 
 
 def _relative(path: Path, root: Path) -> str:
@@ -216,12 +219,52 @@ def _nonempty_entries(path: Path) -> list[Path]:
         return [path]
 
 
+def _input_fingerprint(root: Path, legacy: Path, manifest_path: Path) -> str:
+    evidence: list[dict[str, str]] = []
+    if manifest_path.is_file() and not _is_reparse_point(manifest_path):
+        evidence.append({"path": "<manifest>", "sha256": _manifest_sha256(manifest_path)})
+    if legacy.exists():
+        pending = [legacy]
+        while pending:
+            current = pending.pop()
+            rel = _relative(current, root)
+            if _is_reparse_point(current):
+                evidence.append({"path": rel, "state": "link"})
+                continue
+            if current.is_file():
+                evidence.append({"path": rel, "sha256": hashlib.sha256(current.read_bytes()).hexdigest()})
+                continue
+            evidence.append({"path": rel, "state": "directory"})
+            try:
+                pending.extend(sorted((Path(entry.path) for entry in os.scandir(current)), reverse=True))
+            except OSError:
+                evidence.append({"path": rel, "state": "unreadable"})
+    payload = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _plan_fingerprint(plan: MigrationPlan) -> str:
+    payload = {
+        "project_root": plan.project_root,
+        "legacy_root": plan.legacy_root,
+        "target_platform": plan.target_platform,
+        "manifest": plan.manifest,
+        "actions": [asdict(action) for action in plan.actions],
+        "blockers": plan.blockers,
+        "gaps": plan.gaps,
+        "input_fingerprint": plan.input_fingerprint,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
     root = project_root.resolve()
     legacy = root / ".agents"
     manifest_path = _manifest_path(script_path)
     actions: list[Action] = []
     blockers: list[str] = []
+    gaps: list[str] = []
 
     plan = MigrationPlan(
         project_root=str(root),
@@ -230,15 +273,21 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
         manifest=str(manifest_path),
         actions=actions,
         blockers=blockers,
+        gaps=gaps,
+        input_fingerprint=_input_fingerprint(root, legacy, manifest_path),
+        plan_fingerprint="",
     )
     if _archive_ancestor(root):
         blockers.append("拒绝迁移 .bridgeforge/archive 内的历史项目快照")
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
     if not legacy.exists():
         plan.manifest = None
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
     if not legacy.is_dir() or _is_reparse_point(legacy):
         blockers.append(".agents 不是普通目录，禁止迁移")
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
 
     links = _scan_links(legacy)
@@ -247,6 +296,7 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
             f"发现链接、junction、reparse point 或不可读取路径：{_relative(path, root)}"
             for path in links
         )
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
 
     skills_root = legacy / "skills"
@@ -256,50 +306,54 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
         for path in legacy_entries
         if path != skills_root and (path.is_file() or _nonempty_entries(path))
     ]
-    blockers.extend(
+    gaps.extend(
         f".agents 下存在无法分类内容：{_relative(path, root)}"
         for path in unexpected_roots
     )
 
     if not skills_root.exists():
-        if not blockers:
+        if not blockers and not gaps:
             actions.append(Action("delete_empty_legacy_root", ".agents"))
         plan.manifest = None
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
     if not skills_root.is_dir():
         blockers.append(".agents/skills 不是普通目录")
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
 
     skill_entries = _nonempty_entries(skills_root)
     if not skill_entries:
-        if not blockers:
+        if not blockers and not gaps:
             actions.append(Action("delete_empty_legacy_root", ".agents"))
         plan.manifest = None
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
 
     managed_skills, manifest_error = _codex_managed_skills(manifest_path)
     if manifest_error:
         blockers.append(manifest_error)
+        plan.plan_fingerprint = _plan_fingerprint(plan)
         return plan
 
     private_skills: list[Path] = []
     for path in skill_entries:
         rel = _relative(path, root)
         if not path.is_dir():
-            blockers.append(f".agents/skills 下存在未知文件：{rel}")
+            gaps.append(f".agents/skills 下存在未知文件，已保留：{rel}")
             continue
         if path.name in managed_skills:
             if _matches_manifest_copy(path, managed_skills[path.name]):
                 actions.append(Action("delete_managed_skill_copy", rel))
             else:
-                blockers.append(
+                gaps.append(
                     "同名 BridgeForge skill 与 manifest 文件清单或哈希不一致，"
-                    f"禁止删除：{rel}"
+                    f"已保留：{rel}"
                 )
             continue
         skill_file = path / "SKILL.md"
         if not skill_file.is_file() or _is_reparse_point(skill_file):
-            blockers.append(f"无法把目录分类为项目私有 skill：{rel}")
+            gaps.append(f"无法把目录分类为项目私有 skill，已保留：{rel}")
             continue
         private_skills.append(path)
 
@@ -307,14 +361,14 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
         platform, platform_error = _detect_platform(root)
         plan.target_platform = platform
         if platform_error:
-            blockers.append(platform_error)
+            gaps.append(platform_error + "；项目私有 skill 已保留")
         else:
             assert platform is not None
             target_root = root / f".{platform}" / "skills"
             for path in private_skills:
                 destination = target_root / path.name
                 if destination.exists():
-                    blockers.append(
+                    gaps.append(
                         "项目私有 skill 目标已存在，禁止覆盖："
                         f"{_relative(destination, root)}"
                     )
@@ -326,8 +380,9 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
                         _relative(destination, root),
                     )
                 )
-    if not blockers:
+    if not blockers and not gaps:
         actions.append(Action("delete_empty_legacy_root", ".agents"))
+    plan.plan_fingerprint = _plan_fingerprint(plan)
     return plan
 
 
@@ -342,7 +397,11 @@ def _remove_empty_tree(root: Path) -> None:
     root.rmdir()
 
 
-def apply_plan(plan: MigrationPlan) -> None:
+def apply_plan(plan: MigrationPlan, *, confirmed: bool, plan_fingerprint: str) -> None:
+    if not confirmed:
+        raise RuntimeError("迁移 apply 需要显式 confirmed")
+    if plan.plan_fingerprint != plan_fingerprint:
+        raise RuntimeError("迁移计划 fingerprint 不匹配")
     if plan.blockers:
         raise RuntimeError("迁移计划存在 blocker，拒绝写入")
     root = Path(plan.project_root)
@@ -378,7 +437,12 @@ def apply_plan(plan: MigrationPlan) -> None:
             os.replace(source, destination)
             completed_moves.append((source, destination))
             created_targets.append(destination.parent)
-        _remove_empty_tree(legacy)
+        if any(action.action == "delete_empty_legacy_root" for action in plan.actions):
+            _remove_empty_tree(legacy)
+        else:
+            skills_root = legacy / "skills"
+            if skills_root.is_dir() and not any(skills_root.iterdir()):
+                skills_root.rmdir()
     except Exception:
         for source, destination in reversed(completed_moves):
             if destination.exists() and not source.exists():
@@ -420,6 +484,8 @@ def parse_args() -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
+    parser.add_argument("--confirmed", action="store_true")
+    parser.add_argument("--plan-fingerprint")
     return parser.parse_args()
 
 
@@ -438,8 +504,19 @@ def main() -> int:
         return 2
     if args.dry_run:
         return 0
+    if not args.confirmed or not args.plan_fingerprint:
+        print("ERROR: --apply requires --confirmed and --plan-fingerprint.", file=sys.stderr)
+        return 2
+    refreshed = build_plan(project_root, Path(__file__))
+    if refreshed.plan_fingerprint != args.plan_fingerprint:
+        print("ERROR: migration plan drifted before apply; no writes performed.", file=sys.stderr)
+        return 2
     try:
-        apply_plan(plan)
+        apply_plan(
+            refreshed,
+            confirmed=True,
+            plan_fingerprint=args.plan_fingerprint,
+        )
     except Exception as exc:
         print(f"ERROR: migration failed: {exc}", file=sys.stderr)
         return 2

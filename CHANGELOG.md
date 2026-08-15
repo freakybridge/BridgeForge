@@ -15,6 +15,20 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [0.90.0] - 2026-08-15
+
+### Added
+
+- [product][repo][meta] 将 BridgeForge 更新收口为单次确认
+
+## [0.89.0] - 2026-08-15
+
+### Changed
+
+- [product][meta] `/bridgeforge` 的 `init`、`adopt`、`update`、`switch` 统一为 safe/risk/gap accumulator：常规路径零业务确认，确定性风险动作只展示一张汇总卡，人工修改与低置信项保留为 `completed_with_gaps`；apply 前重跑 planner 并核对 aggregate fingerprint，拒绝风险动作后 safe 项仍继续。
+- [product] Codex 原生 memories consent 复用既有 schema-v1 managed ledger 的 `consents.native_memories=approved|declined`，shared updater 验证并跨刷新保留；拒绝态不调用 GitHub、不改 config/hooks，Claude ledger 禁止 consent。已批准且仍启用的安装仅在只读健康检查发现漂移时运行非持久 `maintain`，修复受管 hook/remote 并 reconcile；legacy 无 consent 的不完整安装只记 gap。
+- [product] 新增参数面封闭的 `bridgeforge_user_maintenance.ps1`，持久权限入口仅允许 manifest refresh，禁止从用户 hooks 配置执行 Python；遗留 `.agents/` 迁移新增 confirmed/fingerprint 重检并把未知内容保留为 gap；`stall_warning.py` 仅对冻结历史 hash 的受管副本退役，人工修改副本不再强删。
+
 ## [0.88.4] - 2026-08-15
 
 ### Fixed

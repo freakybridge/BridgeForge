@@ -11,15 +11,13 @@
 
 ## 1. 核对 cwd 与冲突
 
-确认 cwd 是目标项目根，检查入口文件、配置目录、`doc/` 和 Git 状态。
+只读确认 cwd 是目标项目根，检查入口文件、配置目录、`doc/` 和 Git 状态，并把结果交给
+根入口统一 accumulator。
 
-若已存在当前 agent 的 `$PROJECT_ENTRY_FILE` 或 `$PROJECT_AGENT_DIR/rules/`，且项目没有 `.bridgeforge_version`，必须停下让用户选：
-
-- A：保留现有内容，只补缺失骨架并 merge 配置。
-- B：备份后覆盖入口文件/rules。
-- C：退出。
-
-禁止把“已有文件”当成覆盖授权。
+若已存在 `$PROJECT_ENTRY_FILE` 或 `$PROJECT_AGENT_DIR/rules/` 且没有版本戳：缺失文件可
+safe 补齐；与已知历史模板 hash 一致的文件可 safe fast-forward；普通 whole-file 没有可靠
+历史 hash 或已被人工修改时必须原样保留为 gap。禁止提出“整份备份后覆盖”选项，也禁止
+把“已有文件”当成覆盖授权。
 
 若 `$PROJECT_AGENT_DIR/settings.json` 已存在，必须读取并 merge：
 
@@ -32,8 +30,8 @@ Codex 的项目级 hook 注册只允许 merge 到 `.codex/hooks.json`。先把�
 `.codex/settings.json: hooks` 的第三方事件与 handler 合并进 `hooks.json`，再移除
 整个旧 `hooks` 块；permissions 与其他字段逐字保留。随后按 `command` 身份增补或
 替换全部 BridgeForge 受管 dispatcher，保留 `hooks.json` 中所有第三方事件、handler
-和其他配置。受管 command 已存在但内容与模板不同时，必须展示 diff 并取得覆盖确认；
-拒绝或冲突时文件与旧 `.bridgeforge_version` 均保持不变。`.codex/config.toml` 含
+和其他配置。受管 command 已存在但内容与模板不同时，保留原样并记 gap；
+不得另行询问覆盖。`.codex/config.toml` 含
 `[hooks]` 时必须阻断并要求先迁入 `hooks.json`。保存前给用户完整 merge 预览。
 
 Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工拼接 JSON：
@@ -41,7 +39,7 @@ Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工�
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\hooks_merge.py") `
   --project-root . --template-hooks (Join-Path $BRIDGEFORGE_HOME "templates\codex\hooks.json")
-# 用户确认完整 diff 后才追加：--apply --confirmed
+# accumulator 复核后，只有 safe merge 才追加：--apply --confirmed
 ```
 
 `.githooks/pre-commit` 同样只能用受管区块合并，禁止整份复制或覆盖。模板中的
@@ -54,21 +52,18 @@ Codex 必须用 command bundle 内的确定性工具生成预览，禁止手工�
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `
   --project-root . --template-precommit (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\.githooks\pre-commit")
-# 用户确认完整 diff 后才追加：--apply --confirmed
+# accumulator 复核后，只有 safe merge 才追加：--apply --confirmed
 ```
 
 全新且不存在 `.githooks/pre-commit` 的项目可由该工具创建模板文件；已有未标记 hook
 必须保持原样并报告冲突，交由用户先明确划分项目扩展区后再维护。
 
-## 2. 一次性收集项目元信息
+## 2. 从项目事实推导元信息
 
-一次问齐：
-
-1. 项目名。
-2. 主语言/技术栈：`python` / `rust` / `node` / `go` / `mixed` 等。
-3. 目标系统：`windows` / `macos` / `linux` / `cross-platform`。
-4. 是否需要换机 checklist（默认需要）。
-5. 交付是否按 Milestone 管理：`milestone`（`1_delivery/M1/<topic>/`）或 `flat`（`1_delivery/<topic>/`）。
+先从 cwd 名称、现有 manifest/lockfile/源码扩展名、CI 配置、`doc/README.md` 与 Git 事实推导：
+项目名、主语言、目标系统、换机 checklist（默认需要）和 `delivery_layout`。能唯一确定的直接
+采用；无法确定且会改变结果的参数只进入根入口唯一风险卡，并提供明确推荐值。用户拒绝
+推荐值时跳过依赖该参数的动作并形成 gap，禁止第二轮追问。
 
 `mixed` 保留全部 LANG 段；`cross-platform` 保留全部 PLATFORM 段。
 
@@ -76,7 +71,7 @@ BridgeForge 强制铺设 `doc/` 分层，不接受跳过。用户明确不要文
 
 ## 3. Python 3.11+ preflight 收据
 
-根入口 Step 2.25 已在任何项目写入前完成一次性检查并锁定 `$HOOK_PYTHON`：
+根入口 Step 2.1 已在任何项目写入前完成一次性检查并锁定 `$HOOK_PYTHON`：
 
 1. 项目 `.venv` 存在时，只接受 `.venv/Scripts/python.exe` 且版本必须 ≥3.11；
    缺失、损坏或低版本禁止 PATH 回退。
@@ -104,7 +99,7 @@ BridgeForge 的 `version_check`、ctx 预警、snapshot、memory/rules lint 都�
 | `settings.json` | `$PROJECT_AGENT_DIR/settings.json` | 总是；已存在只 merge |
 | `hooks.json` | `.codex/hooks.json` | 仅 Codex；按 command 身份 merge 受管项，保留第三方事件与 hook |
 | `config.toml` | `.codex/config.toml` | 仅 Codex；已存在按字段 merge，保留项目覆盖 |
-| `agents/*.toml` | `.codex/agents/` | 仅 Codex；同名文件冲突必须展示 diff 后决定；BridgeForge 不在 agent 文件中固定模型或思考强度 |
+| `agents/*.toml` | `.codex/agents/` | 仅 Codex；同名文件冲突时展示 diff、保留原文件并记 gap，不再询问覆盖；BridgeForge 不在 agent 文件中固定模型或思考强度 |
 | `skill-routing.json` | `.codex/skill-routing.json` | 仅 Codex；与 agents 一起复制并验证引用完整 |
 | `.githooks/pre-commit` | 项目根 `.githooks/pre-commit` | 仅模板存在时；已有文件只合并 BridgeForge 检查段 |
 | `doc/README.md` | `doc/README.md` | 总是；将 `delivery_layout` 替换为用户选择 |
@@ -221,7 +216,7 @@ Claude Code 继续只读盘点 junction 状态：
    记录“待维护”，完成其余 init 后提示无参数运行 `/bridgeforge`。
 
 Claude 的 `init` 和 `SessionStart` 都禁止复制、合并或删除系统 memory。实目录迁移只能由
-无参数 `/bridgeforge` 的既有项目维护分支展示逐文件计划并取得用户确认后，调用当前宿主脚本
+无参数 `/bridgeforge` 的既有项目维护分支把确定性逐文件计划纳入唯一 risk 卡；获准后调用当前宿主脚本
 `--mode migrate --confirmed`；禁止创建 `.bak` 或其他备份，同路径异内容、路径异常、
 错误或断裂 junction 必须阻断且零写入。
 
@@ -239,7 +234,8 @@ git status
 
 ## 12. 写版本戳与交付
 
-所有前置步骤成功后才写；Codex 还必须确认根入口 Step 4.5 已成功写入订阅档位 marker 和对应模型配置：
+所有可执行前置步骤成功且不存在阻断版本戳的 gap 后才写；Codex 使用平台默认调度，
+不得创建或检查任何订阅 marker：
 
 ```bash
 cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
@@ -266,11 +262,10 @@ cp "$BRIDGEFORGE_HOME/VERSION" "$PROJECT_AGENT_DIR/.bridgeforge_version"
 ## 14. 停止条件
 
 - 不是目标项目根。
-- 当前 agent 文件冲突但用户尚未选保留补缺/备份覆盖/退出。
-- settings merge 尚未 review。
+- 当前 agent 文件冲突：保留为 gap，不再追问覆盖。
+- settings merge 无法在稳定身份下保留第三方字段。
 - 用户拒绝强制 doc 分层或 Python 硬依赖。
 - 缺 Python，或 hook 脚本 smoke test 失败。
-- Codex 订阅档位未由用户选择，或订阅路由脚本失败。
 - 任何步骤需要静默覆盖用户已有内容。
 
 Codex `.codex/hooks.json` 或 Claude hook 配置的 review / trust 与新会话 smoke 未完成时，

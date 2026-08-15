@@ -80,15 +80,20 @@ $CURRENT_HOST = "codex"
 
 ## Step 1：无参数时更新用户级受管 skill
 
-仅无参数 `/bridgeforge` 执行本步；`switch` 不联网更新。显式运行 command bundle 内的 updater：
+仅无参数 `/bridgeforge` 执行本步；`switch` 不联网更新。显式运行 command bundle 内参数面
+封闭的唯一用户级维护入口：
 
 ```powershell
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_shared_update.ps1")
+& powershell -NoProfile -ExecutionPolicy Bypass -File `
+  (Join-Path $BRIDGEFORGE_HOME "scripts\bridgeforge_user_maintenance.ps1") `
+  -Action refresh
 ```
 
 - exit `0`：重新读取同一路径下更新后的 `SKILL.md`，再读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md) 的分发边界与收据章节；本轮直接从 Step 2 继续，不重复执行 updater。
 - 非 `0`：报告 updater 输出并停止，不维护当前项目。
 - updater 只允许修改 manifest 管理的用户级 skill 与托管账本；不得修改当前项目或其他项目。
+- Codex 只可为上述完整脚本路径加固定 `-Action refresh` 建议窄 `prefix_rule`；禁止放宽到
+  `powershell`、解释器、其他 action、`bridgeforge_shared_update.ps1` 或任意尾参。
 - 禁止用 `git pull`、`git clone`、junction、`~/.agents` 或任何本地工作副本代替 updater。
 
 ## Step 2：工厂自检（硬闸）
@@ -145,7 +150,7 @@ if (Test-Path -LiteralPath $projectVenv) {
 - preflight 成功后，本轮所有 Python 命令统一用 `& $HOOK_PYTHON`；禁止重新探测、切换
   解释器或使用裸 `python`。原生 memories、init、update、adopt 与 switch 流程继承同一个值。
 
-## Step 2.2：Codex 原生 memories 配置与补同步
+## Step 2.2：Codex 原生 memories 只读 planner
 
 仅无参数且当前宿主为 Codex 时执行，并复用 Step 2.1 锁定的 `$HOOK_PYTHON` 运行
 `scripts/codex_memory_sync.py`；项目 `.venv` 只负责本轮 setup，脚本必须把该 venv 对应的
@@ -153,26 +158,46 @@ Python 3.11+ 基础解释器写入用户级 hook，禁止把任何项目 `.venv`
 `~/.codex/hooks.json`。基础解释器不存在或不稳定时只报告本次原生 memories 配置未完成，
 继续项目骨架维护，禁止安装依赖项目目录的用户级 hook。
 
-先运行 `status`。三个开关未全开时每次提示；拒绝则零配置写入、跳过本次原生同步并
-继续项目维护，同意才给 `setup` 追加 `--confirmed-enable`。三个开关已全开时也必须无参数
-运行一次 `setup`，用来检查并修复仓库状态、基础解释器路径和受管 hook 漂移，禁止只因
-`hooks.json` 文件存在就跳过。`gh` 缺失或未登录时停止本次 memories 配置且禁止自动登录。
-同名仓库不存在时创建 private，private 时复用，public 时必须另取明确确认才追加
-`--confirmed-public-to-private`。setup 幂等 merge 用户 hooks 并保留第三方字段；用户仍须
-`/hooks` review/trust。最后运行 `reconcile --trigger bridgeforge` 补同步，并报告 setup
-解释器、用户 hook 基础解释器、hook 健康状态和远端配置状态。
+先读取 Codex `bridgeforge-managed.json` schema v1 的
+`consents.native_memories`，再运行只读 `status`；status 分类完成前禁止 setup 或其他写入。
+分类完成后也只有下述 `approved + enabled + drift` 分支允许运行 `maintain`：
+
+- `declined`：只记录 gap“用户已选择不启用”，禁止调用 `gh`、修改 config/hooks 或再次询问。
+- `approved` 且已启用：先直接只读检查 config、三个精确受管 hook、remote 与 pending/last-sync
+  收据。全部健康时不运行用户级 Python，同步由既有 SessionStart / SessionEnd / Stop hook
+  幂等补齐；有漂移或配置不完整时，把 command bundle 的
+  `codex_memory_sync.py maintain` 归为 safe 幂等修复并 reconcile，不新增业务确认。该动作写
+  用户目录且可能访问 GitHub，只能使用窄的非持久平台审批，禁止加入 refresh 的持久规则。
+- `approved` 但用户后来关闭任一开关：视为 `disabled_by_user` gap；禁止重复询问、擅自重开
+  开关、调用 setup 或 reconcile。只有用户明确要求重新开启时才生成新的 risk。
+- 未记录 consent 且未启用：把首次 enable、private 仓库创建与用户级 hook 安装合并为一项
+  risk；不得在此处单独询问。
+- 未记录 consent 但已启用：健康时视为旧版安装的既有授权，禁止重复询问并只读报告
+  `legacy_enabled`；hook/remote 不完整时保留现状并记 gap，禁止冒充健康或擅自运行 maintain。
+  用户明确要求关闭或重开时再改变状态。
+- 同名 public 仓库：把 public→private 并入同一 risk，禁止另取第二次确认。
+
+唯一风险卡必须提前写明：若用户拒绝首次 enable，BridgeForge 会在既有 ledger 记录
+`declined` 以免后续重复询问。用户拒绝后，以非持久平台审批运行
+`codex_memory_sync.py decline --confirmed`，仅在既有 Codex ledger 写入 `declined`；明确要求
+重新开启时才允许重新生成 risk 计划。用户确认 enable 后才允许执行 setup，并在成功后写
+`approved`。Claude ledger 禁止出现 `consents`。
 
 SessionEnd 最多 3 秒内落待同步标记并启动脱离会话的后台 reconciliation，不等待
 GitHub 成功回执；最终一致仍由 Stop、下次 SessionStart 或本步骤补齐。关闭任一开关后
 已有仓库/hook 保留且 hook no-op。
 
-## Step 2.5：当前项目遗留 `.agents/` 硬闸
+## Step 2.5：当前项目遗留 `.agents/` 只读 planner
 
-工厂自检未命中后，只检查当前工作目录根部是否存在 `.agents/`。若存在，先读取 [用户级 skill 分发收据与当前项目遗留布局](references/user-skill-maintenance.md)，运行专用迁移脚本的 `--dry-run` 并展示完整计划；只有用户确认后才允许 `--apply`。
+工厂自检未命中后，只检查当前 cwd 根部 `.agents/`。存在时运行专用脚本 `--dry-run`：
+已知公共副本删除与无冲突私有 skill 移动进入 risk accumulator；未知、人工修改、目标冲突
+或归属不明内容原样保留并进入 gap accumulator，不再硬阻断其他模式。链接、路径逃逸或
+planner 自身失败仍是 blocked，且全部项目写入为零。
 
-未知文件、链接或无法归类内容必须阻断。禁止调用 switch 脚本代替迁移，禁止枚举或修改其他项目。迁移未成功完成前，不得进入 switch、init、adopt 或 update。
+apply 必须同时传 `--confirmed --plan-fingerprint <dry-run 收据>`；脚本会紧邻重建计划，
+fingerprint 漂移则零写入。禁止调用 switch 代替迁移，禁止枚举或修改其他项目。
 
-## Step 3：显式 switch 优先
+## Step 3：显式 switch planner 优先
 
 若参数以 `switch` 开头，先完成 Step 0 的宿主匹配硬闸，再读取 [switch 手册](references/switch.md) 并执行直接同步。用户命令面只有：
 
@@ -181,13 +206,15 @@ GitHub 成功回执；最终一致仍由 Stop、下次 SessionStart 或本步骤
 /bridgeforge switch codex
 ```
 
-主对话按当前宿主调用 command bundle 内的底层脚本，必须传入入口固定的宿主证据：
+主对话先给底层脚本追加 `--dry-run` 生成只读计划；完成统一累计后才按 Step 4.5 决定
+是否去掉 `--dry-run` apply。必须传入入口固定的宿主证据：
 
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\bridgeforge_switch.py") `
   $CURRENT_HOST `
   --current-host $CURRENT_HOST `
-  --template-root "$BRIDGEFORGE_HOME"
+  --template-root "$BRIDGEFORGE_HOME" `
+  --dry-run
 ```
 
 禁止要求用户生成、编辑或传入 manifest；`--current-host`、`--template-root` 与其他脚本参数均不属于用户命令面。
@@ -200,7 +227,8 @@ switch 每次从 `.claude/`、`.codex/` 及两侧 `.bridgeforge-map.json` 的当
 
 项目根已有旧 `.bridgeforge/` 时只提示遗留目录；switch 禁止读取、写入、迁移或删除它，也不得创建新的根 `.bridgeforge/`、archive、receipt、lineage 或 transaction journal。可捕获异常必须精确回滚本次 target/map 改动；kill、强制终止、系统崩溃或断电不承诺自动恢复，下次运行按 map/live 不一致保留并报告 `interrupted-or-modified`。
 
-switch 完成后在当前宿主继续工作，不启动另一宿主，也不进入 init、adopt 或 update。
+switch planner 完成后进入 Step 4.8；apply 完成后留在当前宿主，不启动另一宿主，也不进入
+init、adopt 或 update。
 
 ## Step 4：识别 live 骨架与模式
 
@@ -235,12 +263,12 @@ Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\workflow.md") -PathT
 
 | 场景 | 判据 | 路由 |
 |---|---|---|
-| update | 当前有 `.bridgeforge_version` | 遗留布局硬闸后读 `update.md` |
-| adopt | 无戳，当前指纹 ≥2 | 遗留布局硬闸后读 `adopt.md` |
-| 当前文件冲突 | 无戳，当前入口/rules 存在但指纹不足 | 遗留布局硬闸后读 `init.md`，必须先问保留补缺/备份覆盖/退出 |
+| update | 当前有 `.bridgeforge_version` | `.agents` planner 后读 `update.md`，统一累计 |
+| adopt | 无戳，当前指纹 ≥2 | `.agents` planner 后读 `adopt.md`，统一累计 |
+| 当前文件冲突 | 无戳，当前入口/rules 存在但指纹不足 | 读 `init.md`；补缺为 safe，whole-file 差异保留 gap |
 | 当前缺失、另一套存在 | 当前宿主骨架不存在，另一套存在 | 停止并提示显式运行 `/bridgeforge switch $CURRENT_HOST`；禁止隐式同步 |
-| 全新 init | 两套都不存在，cwd 基本为空 | 遗留布局硬闸后读 `init.md` |
-| 既有项目首次接入 | 两套都不存在，但有业务文件/Git/配置 | 说明保留已有内容；遗留布局硬闸后读 `init.md`，冲突逐项问 |
+| 全新 init | 两套都不存在，cwd 基本为空 | `.agents` planner 后读 `init.md`，统一累计 |
+| 既有项目首次接入 | 两套都不存在，但有业务文件/Git/配置 | 保留已有内容；冲突进入 gap，不逐项问 |
 
 普通 `/bridgeforge` 只维护当前 agent。发现另一套时保持原样；禁止把当前宿主的普通 update/adopt/init 扩大成双向同步。
 
@@ -250,9 +278,9 @@ Test-Path -LiteralPath (Join-Path $PROJECT_AGENT_DIR "rules\workflow.md") -PathT
 REFRESHED
   ├─ FACTORY_SELF -> STOP
   ├─ PYTHON PREFLIGHT -> `$HOOK_PYTHON` (3.11+) 或 STOP（零项目写入）
-  ├─ CODEX NATIVE MEMORIES -> status / setup / reconcile（仅无参数 Codex）
-  ├─ LEGACY .agents -> dry-run -> 用户确认 -> apply 或 STOP
-  ├─ EXPLICIT SWITCH -> switch 手册 -> DONE
+  ├─ CODEX NATIVE MEMORIES -> consent/status planner（仅无参数 Codex）
+  ├─ LEGACY .agents -> dry-run -> risk / gap accumulator
+  ├─ EXPLICIT SWITCH -> switch dry-run -> accumulator
   ├─ UPDATE -> update 手册
   ├─ ADOPT -> adopt 手册
   └─ INIT / EXISTING-ONBOARD -> init 手册
@@ -260,13 +288,38 @@ REFRESHED
 
 禁止在同一轮把 init、adopt、update 混着执行。模式执行中若新证据改变判定，先停止并重新报告判场依据；不得凭惯性继续原分支。
 
-## Step 4.5：Codex 平台默认调度（仅 init / adopt / update）
+## Step 4.5：统一 safe / risk / gap accumulator
+
+读取本轮唯一模式手册并完成所有只读 planner 后，必须把全部结果归入一个 accumulator：
+
+- `safe`：当前项目内可证明确定、幂等且无需业务判断的补缺、known-hash fast-forward、
+  稳定身份 merge、manifest 受管 refresh、无冲突 map projection、验证与 finalization。
+- `risk`：有精确 source/target/hash/影响/回滚边界的移动、删除、首次 native memories enable、
+  public→private 或无法从项目事实确定且会改变结果的 init/adopt 参数。
+- `gap`：人工修改、whole-file 无历史 hash、低置信分类、目标冲突、map 损坏、来源不可信。
+  gap 必须保留原样，不得进入 risk，也不得再次询问。
+
+对所有 planner 输出做确定性排序与 canonical JSON 序列化，计算单一
+`aggregate_fingerprint=sha256:<64hex>`。没有 risk 时直接执行 safe，业务确认次数为 0。
+存在 risk 时只展示一张卡，逐项列路径、动作、影响、可恢复性、fingerprint 与推荐处理，
+并且只问一次：`我要执行 [汇总风险动作]，这可能导致 [列明影响]，是否继续?`
+
+用户确认后必须紧邻重跑全部 planner 并重算 aggregate fingerprint；不一致时风险项零写入
+并停止，禁止沿用旧授权。用户拒绝时 risk 跳过，safe 继续，gap 与拒绝项合并到收据；
+禁止第二轮逐项确认。每个底层 apply 仍须传自己的 confirmed/fingerprint/recheck 参数。
+switch dry-run 输出 `risk_fingerprint` 时，真实 apply 必须去掉 `--dry-run` 并精确追加
+`--confirmed-risk-fingerprint <本轮值>`；缺失、旧值或不同值必须在任何写入前失败。
+所有模式统一输出 `status=completed|completed_with_gaps|failed`、
+`readiness=ready|degraded|blocked` 与逐项 gaps。
+
+## Step 4.6：Codex 平台默认调度（仅 init / adopt / update）
 
 Claude 跳过本节。BridgeForge 不再创建、读取或修改项目级模型、reasoning effort 或订阅档位配置；新项目和更新后的受管配置均让 Codex 平台自行按任务选择。若用户要固定模型或思考强度，必须在项目骨架之外自行明确配置，且该选择不属于 BridgeForge 管理范围。
 
 ## Step 5：执行唯一模式
 
-用户级 skill 已由 Step 1 的 updater 处理，当前项目遗留 `.agents/` 已由 Step 2.5 阻断或迁移。本步不得再次复制、覆盖或删除用户级 skill。
+用户级 skill 已由 Step 1 的固定入口处理；本步执行 Step 4.5 已授权的 safe/risk 动作，
+并保留所有 gaps。本步不得再次复制、覆盖或删除用户级 skill。
 
 只读取本轮模式手册：
 
@@ -282,12 +335,12 @@ BridgeForge 下沉时按业务专属性分层：
 
 | 内容 | 允许动作 |
 |---|---|
-| 上游项目 hooks/scripts | 比对后覆盖；存在差异先展示并确认 |
+| 上游项目 hooks/scripts | 与已知旧模板一致时 safe fast-forward；人工修改或无历史 hash 时保留为 gap |
 | manifest 管理的用户级 skill | 只由共享 updater 强制同步；不在项目模式中比对或写入 |
 | settings / hooks | merge，不覆盖；Codex hook 只进 `.codex/hooks.json`，settings 移除 hooks；Claude 注册不变；保留 permissions/env/additionalDirectories/第三方 hook |
-| rules、入口文件 | 只 diff，用户逐段决定 |
+| rules、入口文件 | 只 diff；人工差异或无历史 hash 时原样保留为 gap |
 | memory | init 只创建 `MEMORY.md`；update 每次先运行上游规范审计并展示完整分类计划；Codex 项目 memory 不建用户级 junction |
-| `doc/` | 新项目按模板创建；已有项目仅按 `references/update.md` 展示迁移清单并经用户确认后移动 |
+| `doc/` | 新项目按事实推导布局；已有项目迁移清单进入唯一 risk 卡 |
 | 项目专属 skill | 不属于通用去重范围，绝对不动 |
 
 项目骨架通用改进的运行时来源必须是 `$BRIDGEFORGE_HOME/templates/`；用户级 skill 的上游来源必须是 updater 校验的 GitHub `main` manifest。下游副本只是消费者。一次只维护当前 cwd，禁止 AI 自动跨多个项目同步。
@@ -295,7 +348,7 @@ BridgeForge 下沉时按业务专属性分层：
 ## 通用危险红线
 
 - 禁止静默覆盖已有入口文件、rules、settings 或同名定制 skill。
-- 禁止批量/静默删除项目级重复 skill、用户级扁平 shadow 或退役 skill；每项单独确认。
+- 禁止静默删除人工修改内容；确定性删除只能进入唯一 risk 卡，未知项保留为 gap。
 - 禁止代编架构红线、快速命令和项目结构。
 - 禁止跳过 doc 分层、Python 硬依赖或项目 memory 的 context/router；Claude junction 规则保持不变。
 - 禁止在 BridgeForge 源头仓库自身运行 bootstrap/update/adopt/switch。
@@ -318,7 +371,7 @@ BridgeForge 下沉时按业务专属性分层：
 | adopt | 命中指纹、用户确认、写入基线；确认未改既有内容 |
 | update | 版本区间与 `[product]`；A-F 分类；上游规范 memory plan / 用户确认 / apply 状态；hook smoke test；finalizer 收据或保留旧戳的 gaps；git diff |
 | 用户级 skill 更新 | updater 退出码；目标 commit；Codex/Claude 托管账本结果；第三方 skill 未触碰 |
-| `.agents` 迁移 | 当前项目 dry-run 清单；用户确认；apply 退出码；未知内容阻断结果 |
-| Codex 订阅档位 | marker 的 `tier`；脚本退出码；config/implementation 实际模型与 effort；用户级配置未触碰 |
+| `.agents` 迁移 | 当前项目 dry-run、plan fingerprint、唯一卡决定、apply 退出码、未知内容保留 gap |
+| 统一确认 | safe/risk/gap 数量；aggregate fingerprint；业务确认次数 0 或 1；`status` / `readiness` / gaps |
 
 最终输出遵循“已做什么 / 验证了什么 / 还剩什么风险”。任何停止条件命中时，说明缺少的证据或用户决定，不得伪称完成。

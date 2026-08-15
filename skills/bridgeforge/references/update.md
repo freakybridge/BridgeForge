@@ -18,38 +18,32 @@
 
 ## U2. 按类型 diff
 
-先给总览，再逐项处理：
+先给完整总览并一次性分类，禁止边发现边询问：
 
-### U2.0 强制退役：`stall_warning.py`
+### U2.0 证据式退役：`stall_warning.py`
 
-在 A-F 分类、diff 和任何用户确认前，先对项目中已存在的两套宿主目录执行
-以下强制退役；缺失时静默 no-op：
-
-1. 无条件删除 `.codex/hooks/stall_warning.py` 与
-   `.claude/hooks/stall_warning.py`。不得比较 hash、展示 diff、保留备份或因
-   下游人工修改而跳过。
-2. 分别从 `.codex/settings.json` 和 `.claude/settings.json` 的
-   `UserPromptSubmit` hook 列表移除引用对应 `stall_warning.py` 的受管注册；
-   保留同一事件的所有其他 hook 与下游自定义配置。
-3. 该退役不写入 host map 的资产所有权，也不等待 A/B 类覆盖确认；它是用户已确认
-   的安全策略变更。收据须逐宿主报告脚本和注册各自的“已移除 / 原本不存在”。
+在 A-F 分类时同时盘点两套宿主目录。只有文件 SHA-256 等于 BridgeForge 冻结的历史
+LF/CRLF hash，且注册可由稳定身份识别时，才把删除与注销列入唯一 risk 卡。文件被人工
+修改、hash 未知或注册归属不明时必须原样保留为 gap；禁止无条件删除、备份后覆盖或追加
+第二次询问。未修改受管副本仅在唯一卡获准且 aggregate fingerprint 未漂移后退役。
 
 | 类 | 文件 | 策略 |
 |---|---|---|
-| A | hooks、scripts；Codex `agents/*.toml`、`skill-routing.json` | 下游与旧模板一致时提议覆盖并确认；被改过时展示 diff，禁止无脑覆盖；Codex agents 与 routing 必须配套检查。BridgeForge 不管理模型或思考强度。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
-| B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 先把 settings 旧 `hooks` 的第三方项迁入 `.codex/hooks.json`，再删除整个旧块；按 `command` 身份增补/替换全部受管 dispatcher，保留第三方事件、handler 与其他配置。受管内容漂移必须展示 diff 并确认；config `[hooks]` 直接阻断。Claude 注册方式不变。保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
-| C | rules、入口文件 | 只 diff；按通用增量/业务补充/上游脱敏减弱三类让用户逐段决定 |
-| D | memory | 展示分类计划；Codex 校验 context/router/usage 且不建 junction；Claude junction 迁移继续按确认后 apply |
+| A | hooks、scripts；Codex `agents/*.toml`、`skill-routing.json` | 与已知旧模板一致时 safe fast-forward；被改过或无历史 hash 时保留为 gap；Codex agents 与 routing 必须配套检查。BridgeForge 不管理模型或思考强度。用户级 skills 已由共享 updater 处理，不属于项目模板 diff |
+| B | settings.json；Codex `hooks.json` / `config.toml`；`.githooks/pre-commit` | merge 不覆盖；Codex 先把 settings 旧 `hooks` 的第三方项迁入 `.codex/hooks.json`，再删除整个旧块；按 `command` 身份增补/替换全部受管 dispatcher，保留第三方事件、handler 与其他配置。受管内容漂移必须展示 diff、保留原内容并记 gap，不再询问覆盖；config `[hooks]` 直接阻断。Claude 注册方式不变。保留下游 permissions、additionalDirectories。项目模型选择保持用户或 Codex 平台默认 |
+| C | rules、入口文件 | 只 diff；whole-file 无历史 hash 或人工修改时保留为 gap，不逐段追问 |
+| D | memory | 只读分类计划；确定性迁移进入唯一 risk 卡，低置信分类保留为 gap；Codex 校验 context/router/usage 且不建 junction |
 | E | `.gitignore` | 按 init 手册的 BridgeForge 机制块幂等补缺，不删项目项 |
-| F | `doc/` 布局 | 检测 `doc/README.md:delivery_layout` 和旧目录；展示迁移清单，用户确认后才 `git mv`，不得静默混用 |
+| F | `doc/` 布局 | 检测 `delivery_layout` 和旧目录；确定性移动进入唯一 risk 卡，冲突保留为 gap |
 
-Codex B 类必须用 command bundle 内的确定性工具先只读输出完整 diff；只有用户确认后
-才 apply，禁止手工拼接 JSON 或把 `--confirmed` 当成自动授权：
+Codex B 类必须用 command bundle 内的确定性工具先只读输出完整 diff；稳定身份 merge
+属于 safe，人工漂移属于 gap。safe apply 的 `--confirmed` 表示 accumulator 已复核，
+禁止把它变成第二次业务询问：
 
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\codex\scripts\hooks_merge.py") `
   --project-root . --template-hooks (Join-Path $BRIDGEFORGE_HOME "templates\codex\hooks.json")
-# 用户确认完整 diff 后才追加：--apply --confirmed
+# accumulator 复核后，只有 safe merge 才追加：--apply --confirmed
 ```
 
 `.githooks/pre-commit` 的 B 类 merge 必须改用当前宿主模板内的
@@ -63,7 +57,7 @@ pre-commit 整份复制到下游：
 ```powershell
 & $HOOK_PYTHON (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\scripts\precommit_merge.py") `
   --project-root . --template-precommit (Join-Path $BRIDGEFORGE_HOME "templates\$TEMPLATE_AGENT\.githooks\pre-commit")
-# 用户确认完整 diff 后才追加：--apply --confirmed
+# accumulator 复核后，只有 safe merge 才追加：--apply --confirmed
 ```
 
 类 C 判据：
@@ -72,7 +66,8 @@ pre-commit 整份复制到下游：
 - 下游业务专属补充：保留。
 - 上游脱敏版比下游弱：保留下游。
 
-任何类 C 修改都要展示具体 diff 并等用户决定。禁止跨多个项目批量同步。
+任何类 C 差异都要展示具体 diff；无法凭历史 hash 自动判断时保留为 gap，不在本轮追问。
+禁止跨多个项目批量同步。
 
 ### U2.1 Memory 迁移计划
 
@@ -90,13 +85,13 @@ pre-commit 整份复制到下游：
    `domain`、`operations` 进入 `memory/<category>/`；`topic` 必须同时有
    `topic: <exact-slug>`，且唯一规范文件是
    `memory/topics/<exact-slug>/summary.md`。
-2. 缺失或非法 `category` 时展示候选。低置信项必须由用户逐项选择
-   `category`；选择 `topic` 时还必须确认 exact slug。未决项阻断 apply。
+2. 缺失或非法 `category` 时展示候选。低置信项与无法确定 exact slug 的项原样保留为
+   gap；禁止逐项追问或猜测分类。
 3. 每个 memory 必须有非空单行 `description`。计划必须列出每个文件的原路径、
    目标路径、拟补写的 `category` / `topic` / `status` / `description`，以及会新建的
    非空目录；嵌套的 `memory/.codex/memory/` 或 `memory/.claude/memory/`、非法 slug、
    同一 topic 多文件竞争 `summary.md`、目标已存在均必须明确报告并阻断 apply。
-4. dry-run 非零时必须把完整输出展示给用户。只有用户明确确认整份计划后，才允许
+4. dry-run 非零时必须把完整输出展示给用户。只有确定性计划进入唯一 risk 卡并获准后，才允许
    使用同一上游审计器附加 `--apply --confirmed`，并为需人工判断的单文件附加明确的
    `--category` / `--topic` / `--status` / `--description`；补写 metadata、创建实际需要
    的目录、移动文件后再重建索引。禁止预建未使用的分类目录，禁止把
@@ -108,8 +103,8 @@ pre-commit 整份复制到下游：
 6. 原始需求、讨论、计划和验收仍保留在 `doc/1_delivery/<topic>/`；
    topic memory 只提供可独立阅读的恢复摘要，禁止用它替代或删除 delivery 证据。
 
-用户拒绝或未确认迁移时，保持 memory 逐字不变并继续报告为未迁移；不得把
-“展示了计划”写成“已迁移”。
+用户拒绝唯一风险卡时，保持 memory 逐字不变，继续执行无依赖 safe 项并报告 gap；不得
+把“展示了计划”写成“已迁移”，也不得再次逐项询问。
 
 ### U2.2 项目 memory 运行机制
 
@@ -132,15 +127,15 @@ Codex 更新必须退役 `memory_junction_check.py`，安装 index/context/route
    且内容相同则跳过；同路径内容不同则标记冲突并阻断整次迁移。路径异常、错误
    junction、断裂 junction或其他无法归类状态同样阻断且零写入。
 4. 计划必须明确最后会删除系统 memory 实目录、不会创建备份，并列出建链与验证
-   动作。只有用户明确确认整份计划后才允许 apply。
+   动作。确定性迁移进入唯一 risk 卡；获准后才允许 apply。
 5. apply 时只复制系统独有文件并跳过同内容文件；复制后必须重新校验项目 memory
    包含系统 memory 的全部文件且内容逐一相同。只有校验通过后才允许删除系统
    memory、建立 junction，并验证最终目标。
 6. 禁止创建 `.bak`、`memory.premigrate.bak` 或其他迁移备份；冲突或校验失败时
    禁止删除系统 memory。
 
-用户确认后调用当前宿主脚本的显式迁移模式；`--confirmed` 只能表达已经取得的
-用户确认，禁止用它绕过计划展示：
+唯一 risk 卡获准且 aggregate fingerprint 复核后，调用当前宿主脚本的显式迁移模式；
+`--confirmed` 只能表达该统一授权，禁止用它绕过计划展示：
 
 ```bash
 & $HOOK_PYTHON ".claude/hooks/memory_junction_check.py" --mode migrate --confirmed
@@ -149,7 +144,7 @@ Codex 更新必须退役 `memory_junction_check.py`，安装 index/context/route
 Claude `SessionStart` 禁止执行上述含复制、合并或删除的迁移。它只允许对正确 junction
 no-op，或在系统 memory 不存在且项目 memory 已存在时建链；遇到实目录必须
 fail-closed 并提示无参数运行 `/bridgeforge`。实目录迁移只能在本既有项目维护流程中，
-取得用户确认后执行 `--mode migrate --confirmed`。
+唯一 risk 卡获准后执行 `--mode migrate --confirmed`。
 
 ### U2.3 Codex 用户级遗留 note 恢复与空孤儿目录清理
 
@@ -164,18 +159,18 @@ fail-closed 并提示无参数运行 `/bridgeforge`。实目录迁移只能在�
    一律不是归属证据。
 2. 计划必须逐项展示 source、SHA-256、候选项目和建议的项目 memory 目标。没有候选
    时零写入；不符合格式或属于其他项目的 note 必须原样保留。
-3. 用户明确确认后，先由主对话生成同主题的最终合并正文，再以 source 路径、计划
+3. 确定性恢复列入唯一 risk 卡；获准后先由主对话生成同主题的最终合并正文，再以 source 路径、计划
    SHA-256、项目内相对目标和最终正文调用 `notes-apply --confirmed`。脚本必须通过
    项目写入器完成写入、索引重建和索引引用验证后，才允许删除原 note。任一 hash
    变化、路径异常、链接、写入器失败或索引验证失败都必须零删除。
 4. 另对 `~/.codex/memory` 运行 `orphan-plan`。只有它是非 junction 普通目录，且
    内容严格为 `MEMORY.md`、`MEMORY_COLD.md`、`_stats.json` 并且 `_stats.json` 的
-   `files` 为空时，才能展示为清理候选。用户确认后才允许以计划 fingerprint 调用
+   `files` 为空时，才能展示为清理候选。唯一 risk 卡获准后才允许以 plan fingerprint 调用
    `orphan-apply --confirmed`；重新校验不通过时必须保留目录。
 5. `~/.codex/memories` 是用户级 Codex memory 存储，禁止整体迁移、删除或把它当作
    项目 `$summary` 的默认目标。
 
-本节所有复制/删除都属于用户级外部路径操作：没有明确确认不得 apply。用户级 memory
+本节所有复制/删除都属于用户级外部路径操作：未纳入唯一风险卡并获准不得 apply。用户级 memory
 写入仅在用户明确要求跨项目 / 全局经验时允许，并且输出必须标为用户级收据。
 
 ## U3. 路径适配
@@ -203,10 +198,10 @@ Codex 每个受管 handler 的 `command` 与 `commandWindows` 都必须从
    完成新会话 smoke 时，收据只能写“trust 未验证”，禁止把 JSON 可解析或脚本直跑
    当成已信任。Claude hook 配置变更保持对应的配置 review / trust 与新会话 smoke
    流程；未完成时同样报告“trust 未验证”。
-4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，展示差异并由用户决定是否保留。
+4. Codex 验证项目 `.codex/config.toml` 和 `.codex/agents/*.toml` 未被 BridgeForge 写入模型或思考强度字段；若下游自行固定过这些字段，必须原样保留并记 gap，不再询问是否保留。
 5. `.githooks/pre-commit` 有变更时确认 `PROJECT_EXTENSION` hash 与 merge 前一致，并实际运行一次无暂存改动的 no-op 路径。
 6. 禁止任何 merge 脚本或人工命令直接写 `$PROJECT_AGENT_DIR/.bridgeforge_version`。
-   所有 A-D 冲突解决、受管 hook 覆盖确认后，只能调用唯一 finalizer；它会重新运行
+   所有 safe apply 完成且 gap 已明确保留后，只能调用唯一 finalizer；它会重新运行
    上游规范 memory 审计与项目 `config_health_check.py --strict`，两者均 exit 0 后才
    原子写入版本戳：
 
@@ -237,8 +232,8 @@ hook trust / 新会话 smoke 状态、新版本戳。
 ## 禁止
 
 - 禁止自动覆盖 rules 或入口文件。
-- 禁止在用户确认类 D 迁移计划前修改 memory；系统 memory 不存在时直接建链除外。
-  `doc/` 仅可按类 F 经用户确认迁移。
+- 禁止在唯一 risk 卡获准前修改类 D memory；系统 memory 不存在时直接建链除外。
+  `doc/` 仅可按类 F 纳入同一风险卡后迁移。
 - 禁止由 `SessionStart` 复制、合并或删除系统 memory。
 - 禁止为 junction 迁移创建备份；校验完成前禁止删除系统 memory。
 - 禁止把完成的 topic memory 移入 archive，或创建 `memory/_archive/`。

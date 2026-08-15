@@ -32,6 +32,7 @@ WORKDIR_PREFIX = "bridgeforge-memory-sync-"
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.json"}
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
 Run = Callable[..., subprocess.CompletedProcess[str]]
+CONSENT_VALUES = {"approved", "declined"}
 
 
 class SyncError(RuntimeError):
@@ -97,6 +98,70 @@ def _atomic_json(path: Path, value: object) -> None:
 def codex_paths(home: Path | None = None) -> tuple[Path, Path, Path]:
     codex = Path(os.environ.get("CODEX_HOME", "")) if os.environ.get("CODEX_HOME") else (home or Path.home()) / ".codex"
     return codex, codex / "memories", codex / ".bridgeforge" / "memory-sync"
+
+
+def managed_ledger(path: Path) -> dict[str, object]:
+    """Read the existing schema-v1 Codex ledger without inventing preference state."""
+    if not path.is_file() or _is_link_or_reparse(path):
+        raise SyncError(f"managed ledger is missing or unsafe: {path}")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SyncError(f"invalid managed ledger: {exc}") from exc
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        raise SyncError("managed ledger must use schema_version 1")
+    if data.get("platform") != "codex" or not isinstance(data.get("records"), dict):
+        raise SyncError("managed ledger is not a Codex schema-v1 ledger")
+    allowed_keys = {"schema_version", "platform", "records", "consents"}
+    if not set(data).issubset(allowed_keys):
+        raise SyncError("managed ledger contains unsupported top-level fields")
+    for name, record in data["records"].items():
+        if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name) is None:
+            raise SyncError("managed ledger contains an invalid record name")
+        if not isinstance(record, dict):
+            raise SyncError(f"managed ledger record is invalid: {name}")
+        if (
+            re.fullmatch(r"[0-9a-f]{40}", str(record.get("source_commit", ""))) is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", str(record.get("content_hash", ""))) is None
+            or not isinstance(record.get("installed_at"), str)
+            or not record["installed_at"].strip()
+        ):
+            raise SyncError(f"managed ledger record is invalid: {name}")
+    consents = data.get("consents")
+    if consents is not None:
+        if (
+            not isinstance(consents, dict)
+            or set(consents) != {"native_memories"}
+            or consents.get("native_memories") not in CONSENT_VALUES
+        ):
+            raise SyncError("managed ledger has invalid native memories consent")
+    return data
+
+
+def native_memories_consent(ledger_path: Path) -> str | None:
+    data = managed_ledger(ledger_path)
+    consents = data.get("consents")
+    return str(consents["native_memories"]) if isinstance(consents, dict) else None
+
+
+def record_native_memories_consent(
+    ledger_path: Path,
+    value: str,
+    *,
+    confirmed: bool,
+) -> bool:
+    if not confirmed:
+        raise SyncError("consent changes require explicit confirmation")
+    if value not in CONSENT_VALUES:
+        raise SyncError(f"unsupported native memories consent: {value}")
+    data = managed_ledger(ledger_path)
+    before = data.get("consents")
+    desired = {"native_memories": value}
+    if before == desired:
+        return False
+    data["consents"] = desired
+    _atomic_json(ledger_path, data)
+    return True
 
 
 def memory_switches(config_path: Path) -> tuple[bool, dict[str, object]]:
@@ -769,6 +834,9 @@ def main(argv: list[str] | None = None) -> int:
     setup = sub.add_parser("setup")
     setup.add_argument("--confirmed-enable", action="store_true")
     setup.add_argument("--confirmed-public-to-private", action="store_true")
+    decline = sub.add_parser("decline")
+    decline.add_argument("--confirmed", action="store_true")
+    sub.add_parser("maintain")
     reconcile_cmd = sub.add_parser("reconcile")
     reconcile_cmd.add_argument("--trigger", default="bridgeforge")
     mark = sub.add_parser("mark")
@@ -778,10 +846,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     args = parser.parse_args(argv)
     codex, memories, state_dir = codex_paths()
+    ledger_path = codex / "bridgeforge-managed.json"
     try:
-        _real_directory(codex, create=True)
-        enabled, _ = memory_switches(codex / "config.toml")
         if args.command == "status":
+            if not codex.is_dir() or _is_link_or_reparse(codex):
+                raise SyncError(f"Codex home is missing or unsafe: {codex}")
+            enabled, _ = memory_switches(codex / "config.toml")
             hook_python = stable_hook_python()
             remote_configured = (state_dir / "remote.txt").is_file()
             print(json.dumps({
@@ -795,7 +865,40 @@ def main(argv: list[str] | None = None) -> int:
                 "setupPython": str(Path(sys.executable).resolve()),
                 "hookPython": str(hook_python),
                 "remoteConfigured": remote_configured,
+                "consent": native_memories_consent(ledger_path),
             }, ensure_ascii=False))
+            return 0
+        if args.command == "decline":
+            changed = record_native_memories_consent(
+                ledger_path,
+                "declined",
+                confirmed=args.confirmed,
+            )
+            print(f"[memory-sync] native memories declined; changed={str(changed).lower()}")
+            return 0
+        _real_directory(codex, create=True)
+        enabled, _ = memory_switches(codex / "config.toml")
+        if args.command == "maintain":
+            if native_memories_consent(ledger_path) != "approved":
+                raise SyncError("native memories maintenance requires approved consent")
+            if not enabled:
+                raise SyncError("native memories were disabled by the user")
+            hook_python = stable_hook_python()
+            remote, remote_action = ensure_github_repository(
+                confirmed_public_to_private=False
+            )
+            merge_user_hooks(
+                codex / "hooks.json",
+                Path(__file__).resolve(),
+                hook_python=hook_python,
+            )
+            _atomic_text(state_dir / "remote.txt", remote + "\n")
+            action = reconcile(memories, state_dir, remote)
+            print(
+                "[memory-sync] maintained; "
+                f"hook_python={hook_python}; remote_action={remote_action}; "
+                f"reconcile={action}"
+            )
             return 0
         if args.command in {"mark", "kick"}:
             if enabled:
@@ -819,6 +922,11 @@ def main(argv: list[str] | None = None) -> int:
                 hook_python=hook_python,
             )
             _atomic_text(state_dir / "remote.txt", remote + "\n")
+            record_native_memories_consent(
+                ledger_path,
+                "approved",
+                confirmed=True,
+            )
             print(
                 "[memory-sync] configured; "
                 f"setup_python={Path(sys.executable).resolve()}; "
@@ -840,12 +948,13 @@ def main(argv: list[str] | None = None) -> int:
             print("{}")
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError, SyncError) as exc:
-        try:
-            mark_pending(state_dir, getattr(args, "trigger", args.command))
-        except Exception:
-            pass
+        if args.command not in {"status", "decline", "maintain"}:
+            try:
+                mark_pending(state_dir, getattr(args, "trigger", args.command))
+            except Exception:
+                pass
         print(f"[memory-sync] WARNING: {exc}", file=sys.stderr)
-        return 0
+        return 2 if args.command in {"status", "decline", "setup", "maintain"} else 0
 
 
 if __name__ == "__main__":

@@ -70,6 +70,7 @@ def rebuild_manifest(manifest_path: Path) -> bool:
                 "scripts/bridgeforge_migrate_layout.py",
                 "scripts/bridgeforge_project_finalize.py",
                 "scripts/bridgeforge_shared_update.ps1",
+                "scripts/bridgeforge_user_maintenance.ps1",
                 "scripts/codex_memory_sync.py",
             }
         )

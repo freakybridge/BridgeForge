@@ -35,9 +35,9 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
     def test_python_preflight_precedes_every_project_write_mode(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
         preflight = skill.index("Step 2.1：项目 Python 3.11+ 一次性 preflight")
-        native_memories = skill.index("Step 2.2：Codex 原生 memories 配置与补同步")
-        legacy_write = skill.index("Step 2.5：当前项目遗留 `.agents/` 硬闸")
-        switch = skill.index("Step 3：显式 switch 优先")
+        native_memories = skill.index("Step 2.2：Codex 原生 memories 只读 planner")
+        legacy_write = skill.index("Step 2.5：当前项目遗留 `.agents/` 只读 planner")
+        switch = skill.index("Step 3：显式 switch planner 优先")
         self.assertLess(preflight, native_memories)
         self.assertLess(native_memories, legacy_write)
         self.assertLess(preflight, legacy_write)
@@ -60,6 +60,53 @@ class BridgeForgeRootSkillTests(unittest.TestCase):
             text = (references / name).read_text(encoding="utf-8")
             self.assertIn("$HOOK_PYTHON", text)
             self.assertIn("Python 3.11+", text)
+
+    def test_all_modes_share_zero_or_one_confirmation_accumulator(self) -> None:
+        skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
+        for marker in (
+            "统一 safe / risk / gap accumulator",
+            "aggregate_fingerprint=sha256:<64hex>",
+            "业务确认次数为 0",
+            "只展示一张卡",
+            "紧邻重跑全部 planner",
+            "用户拒绝时 risk 跳过，safe 继续",
+            "status=completed|completed_with_gaps|failed",
+            "readiness=ready|degraded|blocked",
+        ):
+            self.assertIn(marker, skill)
+        for name in ("init.md", "adopt.md", "update.md", "switch.md"):
+            text = (ROOT / "skills" / "bridgeforge" / "references" / name).read_text(encoding="utf-8")
+            self.assertNotIn("无条件删除 `.codex/hooks/stall_warning.py`", text)
+        combined = "\n".join(
+            (ROOT / "skills" / "bridgeforge" / "references" / name).read_text(encoding="utf-8")
+            for name in ("init.md", "adopt.md", "update.md", "switch.md")
+        )
+        for forbidden in (
+            "展示 diff 并确认",
+            "展示 diff 后决定",
+            "由用户决定是否保留",
+            "让用户逐段吸收",
+        ):
+            self.assertNotIn(forbidden, combined)
+
+    def test_user_maintenance_and_native_consent_use_narrow_existing_state(self) -> None:
+        skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
+        maintenance = (ROOT / "skills" / "bridgeforge" / "references" / "user-skill-maintenance.md").read_text(encoding="utf-8")
+        self.assertIn("bridgeforge_user_maintenance.ps1", skill)
+        self.assertIn("consents.native_memories", skill)
+        self.assertIn("declined", skill)
+        self.assertIn("禁止调用 `gh`", skill)
+        self.assertIn("SourceRepositoryRoot", maintenance)
+        self.assertIn("未知 action", maintenance)
+        self.assertIn("非持久平台审批", maintenance)
+        self.assertIn("只接受 `refresh`", maintenance)
+        self.assertIn("未记录 consent 但已启用", skill)
+        self.assertIn("legacy_enabled", skill)
+        self.assertNotIn("-Action native-status", skill)
+        self.assertNotIn("-Action native-reconcile", skill)
+        self.assertIn("codex_memory_sync.py maintain", skill)
+        self.assertIn("窄的非持久平台审批", skill)
+        self.assertIn("禁止加入 refresh 的持久规则", skill)
 
     def test_codex_platform_default_policy_is_main_dialog_and_all_modes(self) -> None:
         skill = (ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")

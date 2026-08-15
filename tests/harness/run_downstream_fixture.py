@@ -361,7 +361,7 @@ def check_python_311_hook_baseline() -> CheckResult:
                     errors.append("Codex managed hook command does not use project .venv")
 
     skill = (REPO_ROOT / "skills" / "bridgeforge" / "SKILL.md").read_text(encoding="utf-8")
-    if skill.index("Step 2.25：项目 Python 3.11+") > skill.index("Step 2.5：当前项目遗留"):
+    if skill.index("Step 2.1：项目 Python 3.11+") > skill.index("Step 2.5：当前项目遗留"):
         errors.append("BridgeForge Python preflight runs after a project write path")
     for marker in ("$HOOK_PYTHON", "禁止复制、删除、merge"):
         if marker not in skill:
@@ -504,7 +504,7 @@ def check_encoding_garble_scan() -> CheckResult:
     target = fixture / ".codex" / "settings.json"
     target.write_text(
         target.read_text(encoding="utf-8").replace(
-            "Encoding hygiene",
+            "acceptEdits",
             "?" * 3,
             1,
         ),
@@ -548,6 +548,7 @@ def _run_direct_switch(
     attested_host: str | None = None,
     dry_run: bool = False,
     fail_at: str | None = None,
+    risk_fingerprint: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -562,6 +563,8 @@ def _run_direct_switch(
     ]
     if dry_run:
         command.append("--dry-run")
+    if risk_fingerprint is not None:
+        command.extend(["--confirmed-risk-fingerprint", risk_fingerprint])
     env = {"BRIDGEFORGE_SWITCH_FAIL_AT": fail_at} if fail_at else None
     return run(command, fixture, env=env)
 
@@ -1650,27 +1653,38 @@ def check_switch_direct_portable_rule_candidates() -> CheckResult:
 
 
 def check_switch_direct_retired_stall_warning_cleanup() -> CheckResult:
-    """Retired stall hooks must be removed even after a local edit."""
-    fixture = _build_direct_switch_fixture()
+    """Only byte-identical historical stall hooks may be retired."""
     module = _direct_switch_module()
-    hooks: dict[str, tuple[Path, Path]] = {}
-    for host in ("claude", "codex"):
-        hook_dir = fixture / f".{host}" / "hooks"
-        hook_dir.mkdir()
-        retired = hook_dir / "stall_warning.py"
-        unrelated = hook_dir / "keep_me.py"
-        retired.write_text(
-            f"locally modified retired {host} hook\n",
-            encoding="utf-8",
-        )
-        unrelated.write_text(
-            f"unrelated {host} hook\n",
-            encoding="utf-8",
-        )
-        hooks[host] = (retired, unrelated)
+    historical = subprocess.run(
+        [
+            "git",
+            "show",
+            "1a7b833^:templates/codex/hooks/stall_warning.py",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=False,
+    ).stdout
 
     failures: list[str] = []
-    for target_host in ("codex", "claude"):
+    for target_host, modified in (("codex", False), ("claude", True)):
+        fixture = _build_direct_switch_fixture()
+        hooks: dict[str, tuple[Path, Path]] = {}
+        for host in ("claude", "codex"):
+            hook_dir = fixture / f".{host}" / "hooks"
+            hook_dir.mkdir()
+            retired = hook_dir / "stall_warning.py"
+            unrelated = hook_dir / "keep_me.py"
+            if host == target_host and not modified:
+                retired.write_bytes(historical)
+            else:
+                retired.write_text(
+                    f"locally modified retired {host} hook\n",
+                    encoding="utf-8",
+                )
+            unrelated.write_text(f"unrelated {host} hook\n", encoding="utf-8")
+            hooks[host] = (retired, unrelated)
+
         retired, unrelated = hooks[target_host]
         other_host = "claude" if target_host == "codex" else "codex"
         other_retired, other_unrelated = hooks[other_host]
@@ -1685,14 +1699,34 @@ def check_switch_direct_retired_stall_warning_cleanup() -> CheckResult:
         )
         dry_run = _run_direct_switch(fixture, target_host, dry_run=True)
         retired_after_dry_run = retired.exists()
-        applied = _run_direct_switch(fixture, target_host)
-        output = dry_run.stdout + dry_run.stderr + applied.stdout + applied.stderr
-        if not (
-            target_rel in plan.deletes
+        blocked = _run_direct_switch(fixture, target_host) if not modified else None
+        blocked_preserved = retired.exists()
+        applied = _run_direct_switch(
+            fixture,
+            target_host,
+            risk_fingerprint=module._risk_fingerprint(plan),
+        )
+        output = (
+            dry_run.stdout
+            + dry_run.stderr
+            + ((blocked.stdout + blocked.stderr) if blocked is not None else "")
+            + applied.stdout
+            + applied.stderr
+        )
+        expected = (
+            (target_rel in plan.deletes) is (not modified)
             and dry_run.returncode == 0
             and retired_after_dry_run
             and applied.returncode == 0
-            and not retired.exists()
+            and (
+                blocked is None
+                or (
+                    blocked.returncode == 2
+                    and blocked_preserved
+                    and "requires the current --confirmed-risk-fingerprint" in output
+                )
+            )
+            and retired.exists() is modified
             and unrelated.read_text(encoding="utf-8")
             == f"unrelated {target_host} hook\n"
             and (
@@ -1701,18 +1735,22 @@ def check_switch_direct_retired_stall_warning_cleanup() -> CheckResult:
             == other_retired_before
             and other_unrelated.read_text(encoding="utf-8")
             == f"unrelated {other_host} hook\n"
-            and f"retired-managed-file:{target_rel}" in output
-        ):
+            and (
+                f"gap:retired-file-modified:{target_rel}:preserved" in output
+                if modified
+                else f"retired-managed-file:{target_rel}" in output
+            )
+        )
+        if not expected:
             failures.append(
-                f"{target_host} retirement did not force-delete only its "
-                f"modified stall hook: {output.strip()}"
+                f"{target_host} retirement did not follow managed-hash ownership: "
+                f"{output.strip()}"
             )
 
     return CheckResult(
         "switch_direct_retired_stall_warning_cleanup",
         not failures,
-        "both host targets force-delete locally modified retired stall hooks, "
-        "keep unrelated hooks, and expose each deletion in the sync plan"
+        "known historical stall hook is retired; modified hook and unrelated hooks are preserved with an explicit gap"
         if not failures
         else "; ".join(failures),
     )
@@ -1906,17 +1944,25 @@ def _stage_manifest_skill(destination: Path, name: str) -> None:
         shutil.copy2(source, target)
 
 
-def _run_layout_migration(fixture: Path, mode: str) -> subprocess.CompletedProcess[str]:
-    return run(
-        [
+def _run_layout_migration(
+    fixture: Path,
+    mode: str,
+    plan_fingerprint: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    command = [
             sys.executable,
             str(REPO_ROOT / "scripts" / "bridgeforge_migrate_layout.py"),
             "--project-root",
             str(fixture),
             mode,
-        ],
-        fixture,
-    )
+        ]
+    if mode == "--apply":
+        command.extend(["--confirmed", "--plan-fingerprint", plan_fingerprint or ""])
+    return run(command, fixture)
+
+
+def _layout_fingerprint(result: subprocess.CompletedProcess[str]) -> str:
+    return str(json.loads(result.stdout)["plan_fingerprint"])
 
 
 def check_layout_migration_dry_run_apply() -> CheckResult:
@@ -1928,7 +1974,7 @@ def check_layout_migration_dry_run_apply() -> CheckResult:
         and (fixture / ".agents" / "skills" / "project-only" / "SKILL.md").is_file()
         and not (fixture / ".codex" / "skills").exists()
     )
-    applied = _run_layout_migration(fixture, "--apply")
+    applied = _run_layout_migration(fixture, "--apply", _layout_fingerprint(dry_run))
     applied_text = applied.stdout + applied.stderr
     codex_ok = (
         dry_run.returncode == 0
@@ -1942,7 +1988,12 @@ def check_layout_migration_dry_run_apply() -> CheckResult:
         and "Migration applied" in applied_text
     )
     claude_fixture = _build_layout_migration_fixture("claude")
-    claude_applied = _run_layout_migration(claude_fixture, "--apply")
+    claude_dry = _run_layout_migration(claude_fixture, "--dry-run")
+    claude_applied = _run_layout_migration(
+        claude_fixture,
+        "--apply",
+        _layout_fingerprint(claude_dry),
+    )
     claude_text = claude_applied.stdout + claude_applied.stderr
     claude_ok = (
         claude_applied.returncode == 0
@@ -1958,11 +2009,27 @@ def check_layout_migration_dry_run_apply() -> CheckResult:
             claude_fixture / ".claude" / "skills" / "explain"
         ).exists()
     )
-    ok = codex_ok and claude_ok
+    drift_fixture = _build_layout_migration_fixture()
+    drift_dry = _run_layout_migration(drift_fixture, "--dry-run")
+    drift_source = drift_fixture / ".agents" / "skills" / "project-only" / "SKILL.md"
+    drift_source.write_text("drift after plan\n", encoding="utf-8")
+    drift_apply = _run_layout_migration(
+        drift_fixture,
+        "--apply",
+        _layout_fingerprint(drift_dry),
+    )
+    drift_ok = (
+        drift_apply.returncode == 2
+        and "plan drifted" in (drift_apply.stdout + drift_apply.stderr)
+        and drift_source.read_text(encoding="utf-8") == "drift after plan\n"
+        and (drift_fixture / ".agents" / "skills" / "explain" / "SKILL.md").is_file()
+        and not (drift_fixture / ".codex" / "skills").exists()
+    )
+    ok = codex_ok and claude_ok and drift_ok
     return CheckResult(
         "layout_migration_dry_run_apply",
         ok,
-        "dry-run classifies without writes; --apply removes managed copies, moves private skill into .codex/skills, and retires .agents"
+        "dry-run classifies without writes; confirmed fingerprint apply migrates known content, while input drift is zero-write blocked"
         if ok
         else (
             f"expected dry-run/apply migration contract, dry={dry_run.returncode}, "
@@ -1992,15 +2059,20 @@ def check_layout_migration_blockers_are_local() -> CheckResult:
     sibling_marker.parent.mkdir(parents=True)
     sibling_marker.write_text("untouched\n", encoding="utf-8")
 
-    applied = _run_layout_migration(fixture, "--apply")
+    dry_run = _run_layout_migration(fixture, "--dry-run")
+    applied = _run_layout_migration(
+        fixture,
+        "--apply",
+        _layout_fingerprint(dry_run),
+    )
     text = applied.stdout + applied.stderr
     ok = (
-        applied.returncode == 2
+        applied.returncode == 0
         and "无法分类内容" in text
         and "目标已存在" in text
         and text.count("与 manifest 文件清单或哈希不一致") == 2
         and unknown.read_text(encoding="utf-8") == "do not delete\n"
-        and (fixture / ".agents" / "skills" / "explain" / "SKILL.md").is_file()
+        and not (fixture / ".agents" / "skills" / "explain").exists()
         and (fixture / ".agents" / "skills" / "bridgeforge" / "SKILL.md").read_text(
             encoding="utf-8"
         )
@@ -2015,9 +2087,9 @@ def check_layout_migration_blockers_are_local() -> CheckResult:
     return CheckResult(
         "layout_migration_blockers_are_local",
         ok,
-        "unknown content and destination conflicts block all writes, and another project's .agents remains untouched"
+        "unknown content and destination conflicts remain as gaps while independent known copies retire; another project's .agents remains untouched"
         if ok
-        else f"expected local blocker with zero writes, got exit {applied.returncode}: {text.strip()}",
+        else f"expected local gaps with scoped safe writes, got exit {applied.returncode}: {text.strip()}",
     )
 
 
@@ -2046,7 +2118,11 @@ def check_layout_migration_transaction_rollback() -> CheckResult:
     module._remove_empty_tree = injected_failure
     failed = False
     try:
-        module.apply_plan(plan)
+        module.apply_plan(
+            plan,
+            confirmed=True,
+            plan_fingerprint=plan.plan_fingerprint,
+        )
     except OSError:
         failed = True
     finally:

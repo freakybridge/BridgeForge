@@ -1,6 +1,8 @@
 # 用户级 skill 分发收据与当前项目遗留布局
 
-根入口完成平台检查、无参数共享更新和模式判定后，init / update / adopt 模式读取本文件。本文件不再自行复制用户级 skill；用户级分发的唯一写入口是 command bundle 内的 `scripts/bridgeforge_shared_update.ps1`。
+根入口完成平台检查、无参数共享更新和模式判定后，init / update / adopt 模式读取本文件。
+用户级分发的唯一公开写入口是参数面封闭的
+`scripts/bridgeforge_user_maintenance.ps1 -Action refresh`；它内部只能调用受管 shared updater。
 
 ## 1. 用户级分发边界
 
@@ -26,6 +28,13 @@
 - 未登记同名冲突、恢复日志或可写性错误；
 - 非 BridgeForge skill 未被修改。
 
+只可建议精确到完整 wrapper 路径和固定 `-Action refresh` 的 Codex `prefix_rule`。wrapper
+只接受 `refresh`，未知 action、source root、脚本路径、任意 payload 与尾参必须在写入前拒绝。
+native memories 状态由 `/bridgeforge` 直接只读检查，既有同步由受管 hook 承担，不得从持久
+wrapper 执行用户 hooks.json 提供的解释器。首次 native enable 和 public→private 不属于可持久化
+action，必须走唯一业务风险卡与窄的非持久平台审批；绝不能给带
+`-SourceRepositoryRoot` 的 shared updater 建宽规则。
+
 updater 非 `0` 时立即停止。不得拿旧 command bundle 继续维护项目，也不得回退到任何本地内容源。
 
 ## 3. 当前项目 `.agents/` 检查
@@ -48,21 +57,26 @@ dry-run 必须把内容分为：
 | Claude 项目私有内容 | 迁入当前项目 `.claude/` 或 `CLAUDE.md` 的候选 |
 | 未知文件、链接、路径逃逸或无法归类内容 | 阻断 |
 
-dry-run 只能展示计划，禁止写入、移动或删除。若脚本非 `0` 或出现阻断项，报告后停止。
+dry-run 只能展示计划，禁止写入、移动或删除。已知动作进入 risk accumulator；未知文件、
+人工修改副本、归属不明或目标冲突原样保留为 gap，不阻断无依赖 safe 项。链接、路径逃逸、
+manifest 损坏或 planner 失败仍 blocked。
 
-## 4. 用户确认后的迁移
+## 4. 唯一风险卡获准后的迁移
 
-把完整 dry-run 清单展示给用户，并明确说明迁移只影响当前项目。只有用户明确确认该清单后才运行：
+把完整 dry-run 清单并入根入口唯一风险卡。获准后必须紧邻重跑 dry-run 并核对
+`plan_fingerprint`，一致才运行：
 
 ```powershell
-python "$BRIDGEFORGE_HOME\scripts\bridgeforge_migrate_layout.py" --project-root "$PWD" --apply
+& $HOOK_PYTHON "$BRIDGEFORGE_HOME\scripts\bridgeforge_migrate_layout.py" `
+  --project-root "$PWD" --apply --confirmed --plan-fingerprint $PLAN_FINGERPRINT
 ```
 
 禁止把用户对 `/bridgeforge` 的调用本身视为删除授权。禁止调用 `bridgeforge_switch.py` 代替本迁移。apply 失败时保留脚本诊断并停止；不得手工补删或跨项目重试。
 
+用户拒绝时跳过所有 risk，保留 `.agents/` 与 gaps，继续其他无依赖 safe 更新；禁止再次询问。
 成功后重新检查当前项目：
 
-- `.agents/` 不再存在；
+- 没有 gap 时 `.agents/` 不再存在；存在 gap 时未知内容仍逐字保留；
 - 项目私有 Codex 资产只在 `.codex/`；
 - 项目私有 Claude 资产只在 `.claude/` 与 `CLAUDE.md`；
 - 当前项目之外没有文件变化。
@@ -83,4 +97,5 @@ python "$BRIDGEFORGE_HOME\scripts\bridgeforge_migrate_layout.py" --project-root 
 - 若执行 apply，其退出码、迁移结果和当前项目外零修改断言；
 - 是否需要重启 agent 才能重新扫描更新后的 skill。
 
-任何未登记同名冲突、更新失败、未知迁移内容或未取得确认都必须停止；禁止把“单一源”解释成项目级静默覆盖或删除授权。
+未登记同名冲突、未知迁移内容和目标冲突必须保留为 gap；只有更新失败、路径安全失败或
+fingerprint 漂移才 blocked。禁止把“单一源”解释成项目级静默覆盖或删除授权。

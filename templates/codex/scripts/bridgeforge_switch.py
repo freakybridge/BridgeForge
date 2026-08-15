@@ -68,6 +68,16 @@ RETIRED_TARGET_FILES = {
     "claude": (".claude/hooks/stall_warning.py",),
     "codex": (".codex/hooks/stall_warning.py",),
 }
+RETIRED_TARGET_HASHES = {
+    ".claude/hooks/stall_warning.py": {
+        "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0",
+        "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926",
+    },
+    ".codex/hooks/stall_warning.py": {
+        "sha256:79a8be652b3777e77791058fe0b75e7fd79cb6626592301b40335262d58812b0",
+        "sha256:ccc02b726a0185c2dd9652ac58e5038ba27045124d122bdd2e78926ac3714926",
+    },
+}
 
 
 @dataclass
@@ -93,6 +103,7 @@ class SyncPlan:
     target_prestate: dict[str, str | None] = field(default_factory=dict)
     writes: dict[str, bytes] = field(default_factory=dict)
     deletes: set[str] = field(default_factory=set)
+    retired_deletes: set[str] = field(default_factory=set)
     assets: list[dict[str, Any]] = field(default_factory=list)
     messages: list[str] = field(default_factory=list)
     map_bytes: bytes | None = None
@@ -107,7 +118,9 @@ class SyncPlan:
                 "forked_projection",
             }
             for asset in self.assets
-        ) or any(message.startswith("map-error:") for message in self.messages)
+        ) or any(
+            message.startswith(("map-error:", "gap:")) for message in self.messages
+        )
 
 
 class SyncError(ValueError):
@@ -590,17 +603,33 @@ def _file_state(path: Path) -> tuple[str, str | None]:
 
 
 def _schedule_retired_target_deletes(plan: SyncPlan) -> None:
-    """Delete explicitly retired host files without map ownership checks."""
+    """Retire only byte-identical historical managed files."""
     for rel in RETIRED_TARGET_FILES[plan.current_host]:
         path = plan.project_root / rel
         _assert_project_local(path, plan.project_root, "retired target")
-        state, _ = _file_state(path)
+        state, digest = _file_state(path)
         if state == "missing":
             continue
         if state != "file":
             raise SyncError(f"retired target is unsafe ({state}): {rel}")
+        if digest not in RETIRED_TARGET_HASHES[rel]:
+            plan.messages.append(
+                f"gap:retired-file-modified:{rel}:preserved:{digest}"
+            )
+            continue
         plan.deletes.add(rel)
+        plan.retired_deletes.add(rel)
         plan.messages.append(f"retired-managed-file:{rel}")
+
+
+def _risk_fingerprint(plan: SyncPlan) -> str | None:
+    if not plan.retired_deletes:
+        return None
+    payload = [
+        {"action": "delete-retired-managed-file", "path": rel, "sha256": plan.target_prestate.get(rel)}
+        for rel in sorted(plan.retired_deletes)
+    ]
+    return _sha_bytes(_canonical_json(payload))
 
 
 def _load_map(root: Path, host: str) -> LoadedMap:
@@ -1616,6 +1645,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--template-root",
         help="BridgeForge repository root containing templates/",
     )
+    parser.add_argument(
+        "--confirmed-risk-fingerprint",
+        help="single-card authorization fingerprint for deterministic risk actions",
+    )
     return parser.parse_args(argv)
 
 
@@ -1629,6 +1662,8 @@ def _print_summary(plan: SyncPlan, dry_run: bool) -> None:
     prefix = "Dry-run" if dry_run else "Switch"
     print(f"{prefix} {status}: {plan.current_host}")
     print(f"readiness={readiness}")
+    risk_fingerprint = _risk_fingerprint(plan)
+    print(f"risk_fingerprint={risk_fingerprint or 'none'}")
     print(
         "assets="
         + ",".join(f"{key}:{value}" for key, value in counts.items() if value)
@@ -1681,6 +1716,12 @@ def main(argv: list[str]) -> int:
             )
         plan = build_plan(args.current_host, project_root, template_root)
         if not args.dry_run:
+            risk_fingerprint = _risk_fingerprint(plan)
+            if risk_fingerprint is not None and args.confirmed_risk_fingerprint != risk_fingerprint:
+                raise SyncError(
+                    "retired managed-file deletion requires the current "
+                    "--confirmed-risk-fingerprint from the single risk card"
+                )
             apply_plan(plan)
     except SyncError as exc:
         print(f"ERROR: direct sync blocked: {exc}", file=sys.stderr)

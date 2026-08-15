@@ -77,7 +77,9 @@ map 纳入 Git，使用确定性格式化 JSON；禁止写入绝对机器路径�
 
 ## 4. 同步计划与受控提交
 
-底层脚本一次完成 plan、校验和 apply，不向用户暴露中间 manifest：
+底层脚本支持 `--dry-run` 只读计划；主对话必须先把它与其他 planner 汇总，禁止边盘点边
+询问。safe projection 在无 risk 时零确认 apply；确定性删除进入唯一 risk 卡；冲突只形成
+gap。apply 仍由底层一次完成校验和提交，不向用户暴露可编辑 manifest：
 
 1. 校验 target/current-host、模板来源、项目边界、双 map schema、相对路径、Windows canonical collision、link/junction/reparse point、adapter、selector 与 hash。
 2. 盘点 source/target 当前真实文件，识别 clean projection、forked projection、目标人工修改、untranslated 与可安全更新的语义组。
@@ -86,6 +88,12 @@ map 纳入 Git，使用确定性格式化 JSON；禁止写入绝对机器路径�
 5. map 最后原子替换；随后核对 map 与 live target 的完整关系。只有核对通过才报告该语义组完成。
 
 source 全程只读并在结束时复核 hash。禁止移动、删除、重写或归档 source；source hash 漂移时停止使用旧计划，不得把旧盘点结果强行落到 target。
+
+历史 `stall_warning.py` 只有在 target 字节 hash 等于 BridgeForge 冻结的 LF/CRLF 受管
+副本时才可列为退役 risk；人工修改副本必须保留并报告
+`gap:retired-file-modified`。获准后应重跑 `--dry-run` 并核对 aggregate fingerprint，再执行
+apply，并传该计划输出的 `--confirmed-risk-fingerprint`；脚本缺少或收到旧 fingerprint 时
+必须零写入失败。禁止因“已退役”无条件强删。
 
 ## 5. 缺口、冲突与 readiness
 

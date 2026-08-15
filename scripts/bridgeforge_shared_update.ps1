@@ -417,6 +417,18 @@ function Read-Ledger {
             throw "Invalid record '$name' in managed ledger for $platform."
         }
     }
+    $consentsProperty = $ledger.PSObject.Properties["consents"]
+    if ($null -ne $consentsProperty) {
+        if ($Platform -ne "codex") {
+            throw "Managed ledger consents are only valid for codex: $Path"
+        }
+        $consents = $consentsProperty.Value
+        $names = @($consents.PSObject.Properties | ForEach-Object { $_.Name })
+        if ($names.Count -ne 1 -or $names[0] -ne "native_memories" -or
+            [string]$consents.native_memories -notin @("approved", "declined")) {
+            throw "Invalid managed ledger consents for ${platform}: $Path"
+        }
+    }
     return $ledger
 }
 
@@ -584,6 +596,10 @@ function New-UpdatePlan {
             ledger_backup = "$($config.ledger).backup-$OperationId"
             ledger_had_original = [bool](Test-Path -LiteralPath $config.ledger)
             ledger_status = "pending"
+            preserved_consents = if ($platform -eq "codex" -and $null -ne $ledger -and
+                $null -ne $ledger.PSObject.Properties["consents"]) {
+                [ordered]@{ native_memories = [string]$ledger.consents.native_memories }
+            } else { $null }
             actions = $actions
         }
     }
@@ -780,7 +796,8 @@ function New-LedgerValue {
     param(
         [Parameter(Mandatory = $true)][string]$Platform,
         [Parameter(Mandatory = $true)]$PlatformManifest,
-        [Parameter(Mandatory = $true)][string]$Commit
+        [Parameter(Mandatory = $true)][string]$Commit,
+        $PreservedConsents
     )
     $records = [ordered]@{}
     $installedAt = [DateTime]::UtcNow.ToString("o")
@@ -791,11 +808,17 @@ function New-LedgerValue {
             installed_at = $installedAt
         }
     }
-    return [ordered]@{
+    $ledger = [ordered]@{
         schema_version = 1
         platform = $Platform
         records = $records
     }
+    if ($Platform -eq "codex" -and $null -ne $PreservedConsents) {
+        $ledger.consents = [ordered]@{
+            native_memories = [string]$PreservedConsents.native_memories
+        }
+    }
+    return $ledger
 }
 
 function Invoke-UpdateTransaction {
@@ -886,7 +909,11 @@ function Invoke-UpdateTransaction {
 
         foreach ($platformPlan in $platformPlans) {
             $platformManifest = Get-PlatformManifest -Manifest $Manifest -Platform ([string]$platformPlan.platform)
-            $ledgerValue = New-LedgerValue -Platform ([string]$platformPlan.platform) -PlatformManifest $platformManifest -Commit $Commit
+            $ledgerValue = New-LedgerValue `
+                -Platform ([string]$platformPlan.platform) `
+                -PlatformManifest $platformManifest `
+                -Commit $Commit `
+                -PreservedConsents $platformPlan.preserved_consents
             Write-JsonAtomic -Path ([string]$platformPlan.ledger_stage) -Value $ledgerValue
         }
         foreach ($platformPlan in $platformPlans) {

@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 UPDATER = ROOT / "scripts" / "bridgeforge_shared_update.ps1"
+MAINTENANCE = ROOT / "scripts" / "bridgeforge_user_maintenance.ps1"
 INSTALLER = ROOT / "scripts" / "install-shared-skills.ps1"
 MANIFEST_REBUILDER = ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
 CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForge.git"
@@ -271,6 +272,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 "scripts/bridgeforge_migrate_layout.py",
                 "scripts/bridgeforge_project_finalize.py",
                 "scripts/bridgeforge_shared_update.ps1",
+                "scripts/bridgeforge_user_maintenance.ps1",
                 "scripts/codex_memory_sync.py",
             }
         )
@@ -410,6 +412,86 @@ class SharedSkillDistributionTests(unittest.TestCase):
                 all(record["source_commit"] == commit for record in ledger["records"].values())
             )
         self.assertFalse((self.profile / ".bridgeforge-shared-update.json").exists())
+
+    def test_codex_native_consent_survives_refresh_and_is_forbidden_in_claude_ledger(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke_updater()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        codex_ledger = self.ledger("codex")
+        codex_ledger["consents"] = {"native_memories": "declined"}
+        (self.profile / ".codex" / "bridgeforge-managed.json").write_text(
+            json.dumps(codex_ledger, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        refreshed = self.invoke_updater()
+        self.assertEqual(refreshed.returncode, 0, refreshed.stderr + refreshed.stdout)
+        self.assertEqual(
+            self.ledger("codex")["consents"],
+            {"native_memories": "declined"},
+        )
+        self.assertNotIn("consents", self.ledger("claude"))
+
+        claude_ledger = self.ledger("claude")
+        claude_ledger["consents"] = {"native_memories": "approved"}
+        (self.profile / ".claude" / "bridgeforge-managed.json").write_text(
+            json.dumps(claude_ledger, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        blocked = self.invoke_updater()
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("consents are only valid for codex", blocked.stderr + blocked.stdout)
+
+    def test_user_maintenance_entry_rejects_open_ended_parameters(self) -> None:
+        text = MAINTENANCE.read_text(encoding="utf-8")
+        self.assertIn('ValidateSet("refresh")', text)
+        self.assertNotIn("SourceRepositoryRoot", text)
+        self.assertNotIn("ScriptPath", text)
+        self.assertNotIn("Payload", text)
+        self.assertNotIn("Get-NativePython", text)
+        self.assertNotIn("hooks.json", text)
+        self.assertNotIn("codex_memory_sync.py", text)
+        for arguments in (
+            ["-Action", "unknown"],
+            ["-Action", "refresh", "-SourceRepositoryRoot", str(self.source)],
+            ["-Action", "refresh", "arbitrary-payload"],
+        ):
+            result = run(
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(MAINTENANCE),
+                    *arguments,
+                ],
+                ROOT,
+                env=self.env,
+            )
+            self.assertNotEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertFalse((self.profile / ".codex").exists())
+        self.assertFalse((self.profile / ".claude").exists())
+
+    def test_user_maintenance_rejects_native_actions_before_user_state_writes(self) -> None:
+        result = run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(MAINTENANCE),
+                "-Action",
+                "native-status",
+            ],
+            ROOT,
+            env=self.env,
+        )
+        self.assertNotEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertFalse((self.profile / ".codex").exists())
+        self.assertFalse((self.profile / ".claude").exists())
 
     def test_codex_only_skill_is_installed_only_on_codex_shelf(self) -> None:
         self.write_source(codex_only_text="create-worktree-v1")
