@@ -1,22 +1,24 @@
 # Step 4 映射文件检测与提醒（任务收尾，低频）
 
-仅当**无当前 agent 映射表（Claude `.claude/find-doc.map.md`，Codex `.codex/find-doc.map.md`）且本次有明确 topic**时触发。聚合输出已呈现给用户后，**额外**做一件事：
+仅当**无 `.codex/find-doc.map.md` 且本次有明确 topic**时触发。聚合输出已呈现给用户后，**额外**做一件事：
 
 1. 检查项目根是否存在当前 agent 映射表
-2. **不存在 且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 rule 文件** → 在回复末尾追加提醒，附带可直接落盘的模板：
+2. **不存在 且** 本次任务实际接触到了 **≥ 1 个明确的 topic / 关联到具体 AGENTS、skill 或 doc 文件** → 在回复末尾追加提醒，附带可直接落盘的模板：
 
    ```
    💡 映射提醒：本项目还没有当前 agent 的 find-doc.map.md，find-doc 只能走 grep fallback。
    本次涉及 <topic_a> / <topic_b>，要不要我建这个文件？初始内容候选：
 
-   # find-doc 项目映射表（topic → 关联 rules）
-   topic_to_rules:
+   # find-doc 项目映射表（topic → 关联资源）
+   topic_to_resources:
      <topic_a>:
-      - <agent-dir>/rules/<guessed_rule_a>.md
+      - AGENTS.md
+      - doc/0_architecture/<guessed_doc_a>.md
      <topic_b>:
-      - <agent-dir>/rules/<guessed_rule_b>.md
+      - skills/<guessed_skill>/SKILL.md
      default (无 topic 命中):
-      - <agent-dir>/rules/architecture.md
+      - AGENTS.md
+      - doc/README.md
    ```
 
 3. **已存在但本次 topic 不在表里** → 提醒"要不要顺手给当前 agent 的 find-doc.map.md 加 `<topic>` 这几行"。

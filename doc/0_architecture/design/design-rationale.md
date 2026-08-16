@@ -1,6 +1,9 @@
 # 设计原则
 
-> 解释为什么 bridgeforge 这样分层。读这个能让你判断"什么该写进哪里"。
+> **BridgeForgeCodex 1.0.0 现行边界**：产品只支持 Codex，活跃资产只有
+> `templates/`、`skills/` 与 `$bridgeforge-codex`。本文下方出现的 Claude、switch、
+> parity 和旧 `$bridgeforge` 正常产品流程均为 1.0.0 前历史依据，不再构成实现契约；现行
+> 项目事务以 [codex-project-sync.md](codex-project-sync.md) 为准。
 
 ---
 
@@ -17,16 +20,14 @@ bridgeforge **不动全局**——全局是个人偏好，应一次性配好；b
 
 ---
 
-## 2. Rules 分层加载
+## 2. Codex 原生指令分层
 
-CLAUDE.md 太长会被 Claude 截断（实测 200 行后部分加载就降级），所以用"按需加载"模式：
+- 全项目常驻红线写入根 `AGENTS.md`。
+- 目录专属约束写入该目录的嵌套 `AGENTS.md`。
+- 可机器判断的约束交 hook / pre-commit，操作流程交 skill，长说明交 doc。
+- Markdown frontmatter `paths:` 不是 Codex 指令加载机制；禁止建立或宣称隐式 path-rule 加载。
 
-- CLAUDE.md 维护一个**索引表**，每行一条 rule + 加载条件
-- 具体规则写在 `.claude/rules/<topic>.md`，文件 frontmatter 用 `paths:` 列表声明触发条件
-- "始终加载"的 rule 是真正的红线（约 2-3 个，如 architecture / modules）
-- "路径触发"的 rule 是局部约束（如 debug 时才加载 debugging.md）
-
-**升级路径**：feedback memory 沉淀够多 → 升级为 path-rule。例如，连续 5 次踩同一个 API 行为坑就升 path-rule，让所有未来编辑同一类文件的对话都自动加载。
+完整迁移映射见 [codex-native-instruction-architecture.md](codex-native-instruction-architecture.md)。
 
 ---
 
@@ -73,16 +74,9 @@ doc/
 
 ---
 
-## 5. 工作流红线为什么写进 CLAUDE.md（不是 rules）
+## 5. 工作流红线为什么写进 AGENTS.md
 
-CLAUDE.md §8 鬼打墙红线、§9 UI 主动问范式 这两条特别重要的元规则**直接写进 CLAUDE.md**，而不是放 rules/。
-
-原因：
-- rules/ 是按需加载的，只在编辑特定文件时才出现
-- 鬼打墙红线**永远要遵守**，不能等"编辑某个文件时"才加载
-- CLAUDE.md 永远在 context 里，写在这里相当于"永远 on"
-
-**判断标准**：什么事 Claude 在**任何任务里**都不应该做？写 CLAUDE.md。什么事只在**编辑某类代码时**要注意？写 rules/。
+鬼打墙、证据边界等任何任务都必须遵守的约束直接写进根 `AGENTS.md`。只对某个目录成立的约束写入嵌套 `AGENTS.md`，不再写 Markdown rule 索引。
 
 ---
 

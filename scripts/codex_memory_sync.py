@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""BridgeForge single-writer sync for opaque Codex native memories.
+"""BridgeForgeCodex single-writer sync for opaque Codex native memories.
 
-The runtime is distributed inside the user-level BridgeForge command bundle.
+The runtime is distributed inside the user-level BridgeForgeCodex command bundle.
 Setup may be launched by a project virtual environment, but installed user
 hooks always use that environment's stable base interpreter and never import
 project code.
@@ -27,8 +27,11 @@ from typing import Callable
 MIN_PYTHON = (3, 11)
 EXTERNAL_COMMAND_TIMEOUT = 45
 REPOSITORY = "bridgeforge-codex-memories"
-HOOK_ID = "bridgeforge.codex-native-memory-sync.v1"
-WORKDIR_PREFIX = "bridgeforge-memory-sync-"
+HOOK_ID = "bridgeforge-codex.native-memory-sync.v1"
+LEGACY_HOOK_ID = "bridgeforge.codex-native-memory-sync.v1"
+HOOK_MARKER_KEY = "bridgeforgeCodexId"
+LEGACY_HOOK_MARKER_KEY = "bridgeforgeId"
+WORKDIR_PREFIX = "bridgeforge-codex-memory-sync-"
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.json"}
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
 Run = Callable[..., subprocess.CompletedProcess[str]]
@@ -97,7 +100,34 @@ def _atomic_json(path: Path, value: object) -> None:
 
 def codex_paths(home: Path | None = None) -> tuple[Path, Path, Path]:
     codex = Path(os.environ.get("CODEX_HOME", "")) if os.environ.get("CODEX_HOME") else (home or Path.home()) / ".codex"
-    return codex, codex / "memories", codex / ".bridgeforge" / "memory-sync"
+    return codex, codex / "memories", codex / ".bridgeforge-codex" / "memory-sync"
+
+
+def _legacy_state_dir(codex: Path) -> Path:
+    return codex / ".bridgeforge" / "memory-sync"
+
+
+def _read_state_dir(codex: Path, current: Path) -> Path:
+    legacy = _legacy_state_dir(codex)
+    if current.exists() or not legacy.exists():
+        return current
+    return legacy
+
+
+def _migrate_state_dir(codex: Path, current: Path) -> Path:
+    legacy = _legacy_state_dir(codex)
+    if current.exists() and legacy.exists():
+        raise SyncError("native memories has both legacy and current state directories")
+    if not legacy.exists():
+        return current
+    _real_directory(legacy)
+    _real_directory(current.parent, create=True)
+    os.replace(legacy, current)
+    try:
+        legacy.parent.rmdir()
+    except OSError:
+        pass
+    return current
 
 
 def managed_ledger(path: Path) -> dict[str, object]:
@@ -255,7 +285,11 @@ def _hook_handler(
         args = f"reconcile --trigger {event.lower()}"
     runtime = (hook_python or stable_hook_python()).resolve()
     command = f'"{runtime}" "{script}" {args}'
-    handler: dict[str, object] = {"type": "command", "command": command, "bridgeforgeId": f"{HOOK_ID}:{event}"}
+    handler: dict[str, object] = {
+        "type": "command",
+        "command": command,
+        HOOK_MARKER_KEY: f"{HOOK_ID}:{event}",
+    }
     if event == "Stop":
         handler["async"] = True
         handler["timeout"] = 120
@@ -299,7 +333,16 @@ def merge_user_hooks(
                 continue
             rebuilt_handlers: list[object] = []
             for handler in handlers:
-                if isinstance(handler, dict) and handler.get("bridgeforgeId") == expected["bridgeforgeId"]:
+                marker = handler.get(HOOK_MARKER_KEY) if isinstance(handler, dict) else None
+                legacy_marker = (
+                    handler.get(LEGACY_HOOK_MARKER_KEY)
+                    if isinstance(handler, dict)
+                    else None
+                )
+                if (
+                    marker == expected[HOOK_MARKER_KEY]
+                    or legacy_marker == f"{LEGACY_HOOK_ID}:{event}"
+                ):
                     if not found:
                         rebuilt_handlers.append(expected)
                         found = True
@@ -334,7 +377,8 @@ def user_hooks_healthy(
                 for entry in hooks.get(event, [])
                 if isinstance(entry, dict) and isinstance(entry.get("hooks"), list)
                 for handler in entry["hooks"]
-                if isinstance(handler, dict) and handler.get("bridgeforgeId") == expected["bridgeforgeId"]
+                if isinstance(handler, dict)
+                and handler.get(HOOK_MARKER_KEY) == expected[HOOK_MARKER_KEY]
             ]
             if matches != [expected]:
                 return False
@@ -345,7 +389,10 @@ def user_hooks_healthy(
 
 def _excluded(relative: Path) -> bool:
     return (
-        any(part in {"__pycache__", ".git", ".bridgeforge"} for part in relative.parts)
+        any(
+            part in {"__pycache__", ".git", ".bridgeforge", ".bridgeforge-codex"}
+            for part in relative.parts
+        )
         or relative.name in EXCLUDED_NAMES
         or relative.suffix.lower() in EXCLUDED_SUFFIXES
         or relative.name.startswith(".~")
@@ -690,8 +737,8 @@ def _push_snapshot(snapshot: Path, state_dir: Path, remote: str, expected: str |
     _git(["-c", "core.autocrlf=false", "add", "--all"], publish)
     tree = _git(["write-tree"], publish)
     env = os.environ.copy()
-    env.update({"GIT_AUTHOR_NAME": "BridgeForge Memory Sync", "GIT_AUTHOR_EMAIL": "bridgeforge@invalid", "GIT_COMMITTER_NAME": "BridgeForge Memory Sync", "GIT_COMMITTER_EMAIL": "bridgeforge@invalid"})
-    commit = _git(["commit-tree", tree, "-m", "BridgeForge Codex memories snapshot"], publish, env=env)
+    env.update({"GIT_AUTHOR_NAME": "BridgeForgeCodex Memory Sync", "GIT_AUTHOR_EMAIL": "bridgeforge-codex@invalid", "GIT_COMMITTER_NAME": "BridgeForgeCodex Memory Sync", "GIT_COMMITTER_EMAIL": "bridgeforge-codex@invalid"})
+    commit = _git(["commit-tree", tree, "-m", "BridgeForgeCodex memories snapshot"], publish, env=env)
     _git(["update-ref", "refs/heads/main", commit], publish)
     _git(["remote", "add", "origin", remote], publish)
     lease = f"--force-with-lease=refs/heads/main:{expected}" if expected else "--force-with-lease=refs/heads/main:"
@@ -702,8 +749,8 @@ def _push_snapshot(snapshot: Path, state_dir: Path, remote: str, expected: str |
 def _restore_snapshot(extracted: Path, memories: Path) -> None:
     incoming = extracted / "memories"
     capture_manifest(incoming, 0)
-    stage = memories.parent / f".{memories.name}.bridgeforge-incoming"
-    old = memories.parent / f".{memories.name}.bridgeforge-replaced"
+    stage = memories.parent / f".{memories.name}.bridgeforge-codex-incoming"
+    old = memories.parent / f".{memories.name}.bridgeforge-codex-replaced"
     for path in (stage, old):
         if path.exists():
             _remove_tree(path)
@@ -838,15 +885,16 @@ def main(argv: list[str] | None = None) -> int:
     decline.add_argument("--confirmed", action="store_true")
     sub.add_parser("maintain")
     reconcile_cmd = sub.add_parser("reconcile")
-    reconcile_cmd.add_argument("--trigger", default="bridgeforge")
+    reconcile_cmd.add_argument("--trigger", default="bridgeforge-codex")
     mark = sub.add_parser("mark")
     mark.add_argument("--trigger", required=True)
     kick = sub.add_parser("kick")
     kick.add_argument("--trigger", required=True)
     sub.add_parser("status")
     args = parser.parse_args(argv)
-    codex, memories, state_dir = codex_paths()
-    ledger_path = codex / "bridgeforge-managed.json"
+    codex, memories, current_state_dir = codex_paths()
+    state_dir = _read_state_dir(codex, current_state_dir)
+    ledger_path = codex / "bridgeforge-codex-managed.json"
     try:
         if args.command == "status":
             if not codex.is_dir() or _is_link_or_reparse(codex):
@@ -883,6 +931,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise SyncError("native memories maintenance requires approved consent")
             if not enabled:
                 raise SyncError("native memories were disabled by the user")
+            state_dir = _migrate_state_dir(codex, current_state_dir)
             hook_python = stable_hook_python()
             remote, remote_action = ensure_github_repository(
                 confirmed_public_to_private=False
@@ -907,6 +956,7 @@ def main(argv: list[str] | None = None) -> int:
                     launch_background_reconcile(args.trigger)
             return 0
         if args.command == "setup":
+            state_dir = _migrate_state_dir(codex, current_state_dir)
             hook_python = stable_hook_python()
             if not enabled:
                 if not args.confirmed_enable:
@@ -939,7 +989,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         remote_file = state_dir / "remote.txt"
         if not remote_file.is_file():
-            print("[memory-sync] WARNING: setup is incomplete; run $bridgeforge", file=sys.stderr)
+            print("[memory-sync] WARNING: setup is incomplete; run $bridgeforge-codex", file=sys.stderr)
             return 0
         action = reconcile(memories, state_dir, remote_file.read_text(encoding="utf-8").strip())
         if args.trigger == "bridgeforge":

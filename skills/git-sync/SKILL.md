@@ -3,7 +3,6 @@ name: git-sync
 description: 分析当前 Git 变更，生成简体中文提交消息与代码变动效果摘要，并安全完成 fetch、必要的快进更新、commit、push 和最终同步核验；用户明确调用 /git-sync 或 $git-sync 时使用。
 user_invocable: true
 argument: 无
-model: sonnet
 ---
 
 # git-sync — 提交并推送
@@ -28,13 +27,13 @@ model: sonnet
 
 ### 2. 当前宿主确定性脚本路径
 
-Codex 项目使用 `.codex/scripts/codex_git_sync.py`，Claude 项目使用 `.claude/scripts/codex_git_sync.py`。当前宿主脚本存在时，主 agent 完成只读范围审查和提交消息决策后，必须直接且只运行对应脚本：
+Codex 项目使用 `.codex/scripts/codex_git_sync.py`。脚本存在时，主 agent 完成只读范围审查和提交消息决策后，必须直接且只运行该脚本：
 
 ```text
-python .<host>/scripts/codex_git_sync.py --message "<类型>: <描述>"
+python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
 ```
 
-需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、自动版本升级与原生版本同步、CHANGELOG 和衍生产物刷新、add、commit、push 和最终检查。它只在创建新提交时升级版本；纯 `/bridgeforge` 骨架更新不升级项目版本。
+需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、自动版本升级与原生版本同步、CHANGELOG 和衍生产物刷新、add、commit、push 和最终检查。它只在创建新提交时升级版本；纯 `$bridgeforge-codex` 骨架更新不升级项目版本。
 
 若首次运行在 `git fetch`、`.git/FETCH_HEAD`、`Permission denied` 或 `Access is denied` 阶段失败，主 agent 必须立即以**完全相同的 repo-local 脚本命令**、`require_escalated` 重试。审批说明仅限：允许 Git 更新当前项目的 `.git/FETCH_HEAD` 等元数据，以完成用户已授权的同步。不得改走手工 Git 命令、修改 `.git` ACL 或扩大到无关目录。重试仍失败时保留原始错误与现场并停止；不得把网络、分叉或凭据错误伪报为权限恢复成功。
 

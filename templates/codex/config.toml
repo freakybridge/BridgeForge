@@ -1,9 +1,0 @@
-# Codex project defaults managed by BridgeForge.
-#
-# Keep model defaults here, not in .codex/settings.json. hooks are registered in
-# .codex/hooks.json; settings.json keeps permissions and other non-hook settings.
-# Codex model defaults use config.toml.
-
-[agents]
-max_threads = 6
-max_depth = 1

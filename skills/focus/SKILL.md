@@ -3,7 +3,6 @@ name: focus
 description: 查看、设置或清除当前会话的任务锚，并对照任务锚手动检查是否漂移；用户想核对当前主线、纠正自动任务锚或让后续消息重新捕获任务时使用。
 user_invocable: true
 argument: 可选——查看、设置或重置任务锚的说明
-model: sonnet
 ---
 
 # 任务锚控制

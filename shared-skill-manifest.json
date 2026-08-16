@@ -1,736 +1,30 @@
 {
   "schema_version": 1,
   "canonical_remote": "https://github.com/freakybridge/BridgeForge.git",
+  "product_remote": "https://github.com/freakybridge/BridgeForgeCodex.git",
   "branch": "main",
   "platforms": {
     "codex": {
       "target": "~/.codex/skills",
+      "retired_compatibility_surface": true,
       "skills": [
         {
           "name": "bridgeforge",
+          "legacy_transition": true,
           "files": [
             {
-              "source": ".githooks/pre-commit",
-              "target": ".githooks/pre-commit",
-              "sha256": "sha256:c3f2f62eb95db6e99db50e1196592df352e59d2eff441cd47d1702e370415d16"
-            },
-            {
-              "source": "CHANGELOG.md",
-              "target": "CHANGELOG.md",
-              "sha256": "sha256:e332079b44c52a4599027328ded7069e6bb74082a9541105072535c716bd9ef7"
-            },
-            {
-              "source": "VERSION",
-              "target": "VERSION",
-              "sha256": "sha256:2b148f4b4c1222f9da652fb5f89bf93637bce3b0de7b3f57ef8116251433b9da"
-            },
-            {
-              "source": "scripts/bridgeforge_migrate_layout.py",
-              "target": "scripts/bridgeforge_migrate_layout.py",
-              "sha256": "sha256:b7641a51e01d8e7ea21b67134e1c0a0d44f430f2cd5891be6aa975335d16f63b"
-            },
-            {
-              "source": "scripts/bridgeforge_project_finalize.py",
-              "target": "scripts/bridgeforge_project_finalize.py",
-              "sha256": "sha256:d260393f6eee387f1f2915f667f632741e7f13f12b99ac2c270d6fea860d4d34"
-            },
-            {
-              "source": "scripts/bridgeforge_project_sync.py",
-              "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:5f80df83acb3d90a507123d576a1c11692b22f6395efcab0f6f73c8dd20890ac"
-            },
-            {
-              "source": "scripts/bridgeforge_shared_update.ps1",
-              "target": "scripts/bridgeforge_shared_update.ps1",
-              "sha256": "sha256:4e205374ffd818823e9dddbe83347b3eec7935e46e478ec2fb48593e4f8e2e97"
-            },
-            {
-              "source": "scripts/bridgeforge_switch.py",
-              "target": "scripts/bridgeforge_switch.py",
-              "sha256": "sha256:0f5129fe4607d757129e3bcf5daea8010f91ac0f40e0e142bd9223d196aa6486"
-            },
-            {
-              "source": "scripts/bridgeforge_user_maintenance.ps1",
-              "target": "scripts/bridgeforge_user_maintenance.ps1",
-              "sha256": "sha256:ecdf46c559a87bccc37e700bbac9bc89abd8c33c67045a41ca3e5f9b3eb7fde8"
-            },
-            {
-              "source": "scripts/codex_memory_sync.py",
-              "target": "scripts/codex_memory_sync.py",
-              "sha256": "sha256:ef0b867a654ee8bd6d458c8a0d736aaa259e5e9c593d97ae3eb668259fdd29e8"
-            },
-            {
-              "source": "skills/bridgeforge/SKILL.md",
+              "source": "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:13fb25bd07a6fbb52c1b2611ae0b777a604a0744dd04f7b9865eb43170154ab0"
-            },
-            {
-              "source": "skills/bridgeforge/references/adopt.md",
-              "target": "references/adopt.md",
-              "sha256": "sha256:41c62f4e7e7df99aee78b6ab7fc1644bfd63e7375542e86e46797e7049746241"
-            },
-            {
-              "source": "skills/bridgeforge/references/init.md",
-              "target": "references/init.md",
-              "sha256": "sha256:46343bebe7084cbcb81a73a8b4b392fe07a50cc120dcd269ec3fa38dec2a2c52"
-            },
-            {
-              "source": "skills/bridgeforge/references/switch.md",
-              "target": "references/switch.md",
-              "sha256": "sha256:07c93568440f9a3189656e403ac42049cefcda30c3e6d8de47eb106a7450f0fe"
-            },
-            {
-              "source": "skills/bridgeforge/references/update.md",
-              "target": "references/update.md",
-              "sha256": "sha256:19de2398008b79131fbcf423666cc94f9b19102a3e5210fc11c868bc02dc28bd"
-            },
-            {
-              "source": "skills/bridgeforge/references/user-skill-maintenance.md",
-              "target": "references/user-skill-maintenance.md",
-              "sha256": "sha256:25314e8e166fd2528412b1beec62d803aa2241a111dc2bf72efae472edcd1ebc"
-            },
-            {
-              "source": "templates/claude/.githooks/pre-commit",
-              "target": "templates/claude/.githooks/pre-commit",
-              "sha256": "sha256:665004b8820958946f6c7e03f96616fe6af7fdc8a3f079f2a613433b1f626f7e"
-            },
-            {
-              "source": "templates/claude/CLAUDE.md",
-              "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:ec9a4d8bb291aca6cfeea08861e7306ac7efbcaddf95b2703482df5deeb49b5f"
-            },
-            {
-              "source": "templates/claude/doc/0_architecture/.gitkeep",
-              "target": "templates/claude/doc/0_architecture/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/1_delivery/.gitkeep",
-              "target": "templates/claude/doc/1_delivery/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/2_bugs/.gitkeep",
-              "target": "templates/claude/doc/2_bugs/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/3_reference/.gitkeep",
-              "target": "templates/claude/doc/3_reference/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/4_archive/.gitkeep",
-              "target": "templates/claude/doc/4_archive/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/README.md",
-              "target": "templates/claude/doc/README.md",
-              "sha256": "sha256:a2518043abb4d301e69391847bad4c2d6d22c80f8434be1ae42edd1b9cdd8d2d"
-            },
-            {
-              "source": "templates/claude/hooks/allow_memory_write.py",
-              "target": "templates/claude/hooks/allow_memory_write.py",
-              "sha256": "sha256:5106e6f924809ce16f45f6da01dc88b98b77b4e3f07c72b94527634bfc90575e"
-            },
-            {
-              "source": "templates/claude/hooks/cargo_default_run_check.py",
-              "target": "templates/claude/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:d2f2123876cf4b5fff19a3d90b3e360b04bf7ef48719fe4a07cda37839e19a20"
-            },
-            {
-              "source": "templates/claude/hooks/clarify_reminder.py",
-              "target": "templates/claude/hooks/clarify_reminder.py",
-              "sha256": "sha256:3367a36bec50be0aa1d6c1c76e59bde144187b567cad5bb8810ad63fa3b49e54"
-            },
-            {
-              "source": "templates/claude/hooks/config_health_check.py",
-              "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:b5f266127ec6447616a81e500b0f17198ebfb8e0160e0e0526363fdc53d2a56e"
-            },
-            {
-              "source": "templates/claude/hooks/context_warning.py",
-              "target": "templates/claude/hooks/context_warning.py",
-              "sha256": "sha256:392f108a6f9cccb4addf0d65e0e19a9b0c63296d3b9402b9740afa2bbc1f8b2a"
-            },
-            {
-              "source": "templates/claude/hooks/cross_project_write_guard.py",
-              "target": "templates/claude/hooks/cross_project_write_guard.py",
-              "sha256": "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
-            },
-            {
-              "source": "templates/claude/hooks/encoding_check.py",
-              "target": "templates/claude/hooks/encoding_check.py",
-              "sha256": "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
-            },
-            {
-              "source": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "target": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:27d63a283ebf60111bff9a151049dfd852e7b2bdee1b8b0e17b290bd8670ad22"
-            },
-            {
-              "source": "templates/claude/hooks/fallback_smell_check.py",
-              "target": "templates/claude/hooks/fallback_smell_check.py",
-              "sha256": "sha256:2128651d5428e46fa91b59ae0af620299d36a563ffa62a5c8b0a277a9194f4d6"
-            },
-            {
-              "source": "templates/claude/hooks/find_doc_reminder.py",
-              "target": "templates/claude/hooks/find_doc_reminder.py",
-              "sha256": "sha256:ffa2b9f74cd1555808147a48e874b720e6789caa4f022faaa2e52c1f9265cb66"
-            },
-            {
-              "source": "templates/claude/hooks/focus_reminder.py",
-              "target": "templates/claude/hooks/focus_reminder.py",
-              "sha256": "sha256:100832c933eaa04d50800c66d531578a7181cd9460ea1bfba7cf2fd6c8f64f3b"
-            },
-            {
-              "source": "templates/claude/hooks/git_add_all_guard.py",
-              "target": "templates/claude/hooks/git_add_all_guard.py",
-              "sha256": "sha256:1a942ecfbbd7e3e23d3716ddcb209df63b75c63e5f108bc3d8996986c1d435b8"
-            },
-            {
-              "source": "templates/claude/hooks/githooks_path_check.py",
-              "target": "templates/claude/hooks/githooks_path_check.py",
-              "sha256": "sha256:db1dbdacc350ee6cb51e59c41773878f0b1fb0582e74ef3792c263d91a4a7871"
-            },
-            {
-              "source": "templates/claude/hooks/memory_dup_check.py",
-              "target": "templates/claude/hooks/memory_dup_check.py",
-              "sha256": "sha256:4146d8660114cc0b4ffb27c4a3d1726ee0c71b27b431bfec1feb61f455d2efc0"
-            },
-            {
-              "source": "templates/claude/hooks/memory_junction_check.py",
-              "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
-            },
-            {
-              "source": "templates/claude/hooks/memory_lint.py",
-              "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:7d794ff3805481af6cb1c230f4785f163daef6c8772e592d514a9f267e3cf922"
-            },
-            {
-              "source": "templates/claude/hooks/mirror_drift_check.py",
-              "target": "templates/claude/hooks/mirror_drift_check.py",
-              "sha256": "sha256:5a9a18cb9b617d7407dbb40cb0070b22ace702ada18de290b8dc257e9e134938"
-            },
-            {
-              "source": "templates/claude/hooks/non_ascii_shell_guard.py",
-              "target": "templates/claude/hooks/non_ascii_shell_guard.py",
-              "sha256": "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
-            },
-            {
-              "source": "templates/claude/hooks/requirements_check.py",
-              "target": "templates/claude/hooks/requirements_check.py",
-              "sha256": "sha256:5ce95ae0288c92335a18b4bc96cb3a153e122b99c3bba292dfa27f25228e0a1b"
-            },
-            {
-              "source": "templates/claude/hooks/rule_index_check.py",
-              "target": "templates/claude/hooks/rule_index_check.py",
-              "sha256": "sha256:ab7bba63405cf48e6da852ab63e1859a9a5457c3c3086add61346c9683e4d351"
-            },
-            {
-              "source": "templates/claude/hooks/rule_size_check.py",
-              "target": "templates/claude/hooks/rule_size_check.py",
-              "sha256": "sha256:5f088bd17d6b26394a50f1127a82cfdbfaa356e052a9d606b0f9ad277f63cff7"
-            },
-            {
-              "source": "templates/claude/hooks/session_snapshot.py",
-              "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:b4fa7eb3403c09e3ffcf3c062b129463fc99ee37af2839a7908c348a83945013"
-            },
-            {
-              "source": "templates/claude/hooks/show_state.py",
-              "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:746d90f4d127649d65efb91252b7eca720b1f1ad7ed74741773283b75e6c6c29"
-            },
-            {
-              "source": "templates/claude/hooks/skill_metadata_check.py",
-              "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:1c8cc2bad6b7a1aa23de01cdcf16752503e249ee39f9402ba8883bba36059e4a"
-            },
-            {
-              "source": "templates/claude/hooks/skill_sync_check.py",
-              "target": "templates/claude/hooks/skill_sync_check.py",
-              "sha256": "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
-            },
-            {
-              "source": "templates/claude/hooks/target_cleanup.py",
-              "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:49f144da4ec775ac39ff9b5c0c790cb04a6c07a398a0c32c2485565920c54556"
-            },
-            {
-              "source": "templates/claude/hooks/test_receipt.py",
-              "target": "templates/claude/hooks/test_receipt.py",
-              "sha256": "sha256:dd8e6360e7938ab35e7786595066513654f0acc182d4ac1420328896461f4d0a"
-            },
-            {
-              "source": "templates/claude/hooks/version_check.py",
-              "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:2d4be74e1352dd4fd4e5315c417f4f5526105316572eef795ce6677cecea26ea"
-            },
-            {
-              "source": "templates/claude/managed-skeleton.json",
-              "target": "templates/claude/managed-skeleton.json",
-              "sha256": "sha256:d269dcf6c57dbae961ccf6b40db07476569a579e513d6772a746b47a21fc9d40"
-            },
-            {
-              "source": "templates/claude/memory/MEMORY.md",
-              "target": "templates/claude/memory/MEMORY.md",
-              "sha256": "sha256:4cf0484b59eb81666e8f4d0f6b953ea890acffbc717f186c9b40c75c0850485c"
-            },
-            {
-              "source": "templates/claude/rules/anti_drift_hooks.md",
-              "target": "templates/claude/rules/anti_drift_hooks.md",
-              "sha256": "sha256:04e0fea88e62378fddcb9cc6807285672b61b2c11d6213eebc5cf5aa788ee070"
-            },
-            {
-              "source": "templates/claude/rules/anti_fabrication.md",
-              "target": "templates/claude/rules/anti_fabrication.md",
-              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
-            },
-            {
-              "source": "templates/claude/rules/architecture.md",
-              "target": "templates/claude/rules/architecture.md",
-              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
-            },
-            {
-              "source": "templates/claude/rules/debugging.md",
-              "target": "templates/claude/rules/debugging.md",
-              "sha256": "sha256:b75e64fe6583c6eed95fa10e1c479612affc61a46391cf74d793dc0393f1d0ac"
-            },
-            {
-              "source": "templates/claude/rules/meta_rule_design.md",
-              "target": "templates/claude/rules/meta_rule_design.md",
-              "sha256": "sha256:791ab7819979ab1e87283c570114a4d2f44349cc39329c952338b3edeb86572f"
-            },
-            {
-              "source": "templates/claude/rules/modules.md",
-              "target": "templates/claude/rules/modules.md",
-              "sha256": "sha256:35d18762819700682fb51a2ecc87107b23d974a37b6e234c4c3b8d7d681c9a9f"
-            },
-            {
-              "source": "templates/claude/rules/portability.md",
-              "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:2f3d2df28de95cbecb72f07d551da258f739d61d77d71ce0aeefb56aabc3298c"
-            },
-            {
-              "source": "templates/claude/rules/workflow.md",
-              "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:b0df818d63fe7f73bbba9d0261f32d1f04402f9f6bc23ba2b78c0f3d4ca85166"
-            },
-            {
-              "source": "templates/claude/scripts/archive_scan.py",
-              "target": "templates/claude/scripts/archive_scan.py",
-              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
-            },
-            {
-              "source": "templates/claude/scripts/audit_user_allow.py",
-              "target": "templates/claude/scripts/audit_user_allow.py",
-              "sha256": "sha256:50d7bfab1d56be4f864279f25e0ab3c78331d375439ae1d59ebb42ebfcea5a8b"
-            },
-            {
-              "source": "templates/claude/scripts/bridgeforge_switch.py",
-              "target": "templates/claude/scripts/bridgeforge_switch.py",
-              "sha256": "sha256:0f5129fe4607d757129e3bcf5daea8010f91ac0f40e0e142bd9223d196aa6486"
-            },
-            {
-              "source": "templates/claude/scripts/codex_git_sync.py",
-              "target": "templates/claude/scripts/codex_git_sync.py",
-              "sha256": "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
-            },
-            {
-              "source": "templates/claude/scripts/memory_rebuild_index.py",
-              "target": "templates/claude/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:7795f7dfa7eacf515e27d7fede5bb60140bd84b69508fd59871c6fd4a621c5df"
-            },
-            {
-              "source": "templates/claude/scripts/memory_search.py",
-              "target": "templates/claude/scripts/memory_search.py",
-              "sha256": "sha256:13cd73f0255fa6593f18da042b83f2ef06e99bcb82dbd0bc95e5ad789ff709ae"
-            },
-            {
-              "source": "templates/claude/scripts/precommit_merge.py",
-              "target": "templates/claude/scripts/precommit_merge.py",
-              "sha256": "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
-            },
-            {
-              "source": "templates/claude/scripts/project_memory_writer.py",
-              "target": "templates/claude/scripts/project_memory_writer.py",
-              "sha256": "sha256:9abce0859e6e83c4f5803d3eed89708d7f964b5d717e6478424fcedc27d6944e"
-            },
-            {
-              "source": "templates/claude/scripts/version_release.py",
-              "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
-            },
-            {
-              "source": "templates/claude/settings.json",
-              "target": "templates/claude/settings.json",
-              "sha256": "sha256:45c8f7c37b6dd6a37d40096f07fe7e82ea97556cc9b0d033348c17c52f8ac42d"
-            },
-            {
-              "source": "templates/codex/.githooks/pre-commit",
-              "target": "templates/codex/.githooks/pre-commit",
-              "sha256": "sha256:6b2d4f2d6376b9bee9dc2167c48968403792c603ae87c75fffc71c5f7181bc7d"
-            },
-            {
-              "source": "templates/codex/AGENTS.md",
-              "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:67d091b3b456d5e9cf31812eec6dc18e50f7bd4e9005e5216d2e19a673d426d7"
-            },
-            {
-              "source": "templates/codex/agents/implementation-worker.toml",
-              "target": "templates/codex/agents/implementation-worker.toml",
-              "sha256": "sha256:4adc0bd16c07b43ebe8495dc0e42ec04b1b0ec216a8cc0e56d6bc739539107cc"
-            },
-            {
-              "source": "templates/codex/agents/light-explorer.toml",
-              "target": "templates/codex/agents/light-explorer.toml",
-              "sha256": "sha256:71f1c0886bfca3b15067b90d9902fd76999a87aaeba33b399ca630090e627c2e"
-            },
-            {
-              "source": "templates/codex/agents/mechanical-sync-worker.toml",
-              "target": "templates/codex/agents/mechanical-sync-worker.toml",
-              "sha256": "sha256:4c553960c7733ad76bed8bdb078709836df6a75560390e99f348d19918e80ecf"
-            },
-            {
-              "source": "templates/codex/agents/review-auditor.toml",
-              "target": "templates/codex/agents/review-auditor.toml",
-              "sha256": "sha256:0a3487cecbe7ea8a1f1262d31417742e04d64681a5cdcea0bf64fe7f4b29a9b6"
-            },
-            {
-              "source": "templates/codex/agents/xhigh-auditor.toml",
-              "target": "templates/codex/agents/xhigh-auditor.toml",
-              "sha256": "sha256:ba6c288791702f39ac9b51bf64693edfc54422b9b735d54533c0fd682544485f"
-            },
-            {
-              "source": "templates/codex/config.toml",
-              "target": "templates/codex/config.toml",
-              "sha256": "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe"
-            },
-            {
-              "source": "templates/codex/doc/0_architecture/.gitkeep",
-              "target": "templates/codex/doc/0_architecture/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/1_delivery/.gitkeep",
-              "target": "templates/codex/doc/1_delivery/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/2_bugs/.gitkeep",
-              "target": "templates/codex/doc/2_bugs/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/3_reference/.gitkeep",
-              "target": "templates/codex/doc/3_reference/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/4_archive/.gitkeep",
-              "target": "templates/codex/doc/4_archive/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/README.md",
-              "target": "templates/codex/doc/README.md",
-              "sha256": "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344"
-            },
-            {
-              "source": "templates/codex/hooks.json",
-              "target": "templates/codex/hooks.json",
-              "sha256": "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
-            },
-            {
-              "source": "templates/codex/hooks/allow_memory_write.py",
-              "target": "templates/codex/hooks/allow_memory_write.py",
-              "sha256": "sha256:bccd485efdba2957fd27730613f2625f15d6786b343e55b1fc10ab1a7165bf23"
-            },
-            {
-              "source": "templates/codex/hooks/cargo_default_run_check.py",
-              "target": "templates/codex/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:2f638330359472b740e20fff5fe79b1cc7b15241f8a600b404c31f7324ab2894"
-            },
-            {
-              "source": "templates/codex/hooks/clarify_reminder.py",
-              "target": "templates/codex/hooks/clarify_reminder.py",
-              "sha256": "sha256:cc60e6c961a7649d227bbea827c367fb2e6807cc0a181455ed66f1b02b4b862e"
-            },
-            {
-              "source": "templates/codex/hooks/config_health_check.py",
-              "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:2e0d2b5abe3935e2c8018b0a6268e37c0590638fa5f8d888885f59e3d661f2d3"
-            },
-            {
-              "source": "templates/codex/hooks/context_warning.py",
-              "target": "templates/codex/hooks/context_warning.py",
-              "sha256": "sha256:a8716f29e84e251ca20350b491a6b645769459f1eae845b8f2bfc07c253c697a"
-            },
-            {
-              "source": "templates/codex/hooks/cross_project_write_guard.py",
-              "target": "templates/codex/hooks/cross_project_write_guard.py",
-              "sha256": "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
-            },
-            {
-              "source": "templates/codex/hooks/encoding_check.py",
-              "target": "templates/codex/hooks/encoding_check.py",
-              "sha256": "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
-            },
-            {
-              "source": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "target": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:db9744afe10521856e9a82966b281732e92f80beac089d920b6529b73b773d7f"
-            },
-            {
-              "source": "templates/codex/hooks/fallback_smell_check.py",
-              "target": "templates/codex/hooks/fallback_smell_check.py",
-              "sha256": "sha256:138bbc4c882992da5d1204ee82247499e17b9e302d2429467a545ce2facfd478"
-            },
-            {
-              "source": "templates/codex/hooks/find_doc_reminder.py",
-              "target": "templates/codex/hooks/find_doc_reminder.py",
-              "sha256": "sha256:2904455166af196c785a22067b3a8ab147b85acfd88fa6af57b5e9e6db3e0c63"
-            },
-            {
-              "source": "templates/codex/hooks/focus_reminder.py",
-              "target": "templates/codex/hooks/focus_reminder.py",
-              "sha256": "sha256:03b4708856e4a7a6709485afae3b6b296d948374ffc819737c0cdae5081ac9e3"
-            },
-            {
-              "source": "templates/codex/hooks/git_add_all_guard.py",
-              "target": "templates/codex/hooks/git_add_all_guard.py",
-              "sha256": "sha256:fc917a8d3f97c11fc88b954822d9171b1b8ed9904c6dae20bd351a8be4ac5d8c"
-            },
-            {
-              "source": "templates/codex/hooks/githooks_path_check.py",
-              "target": "templates/codex/hooks/githooks_path_check.py",
-              "sha256": "sha256:1ae179f114d24308bec7919aad2c0c31546216610ba626997edf335dc26c872e"
-            },
-            {
-              "source": "templates/codex/hooks/hook_dispatcher.py",
-              "target": "templates/codex/hooks/hook_dispatcher.py",
-              "sha256": "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
-            },
-            {
-              "source": "templates/codex/hooks/memory_dup_check.py",
-              "target": "templates/codex/hooks/memory_dup_check.py",
-              "sha256": "sha256:4e60bd0d701731fa2f21796f0ebffc2a1d80b0a58971152f67f8eba931e4fd87"
-            },
-            {
-              "source": "templates/codex/hooks/memory_lint.py",
-              "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:836ecf7810b96c006d1b880267b579c83480285242a66bc397e4c02b5e08a54a"
-            },
-            {
-              "source": "templates/codex/hooks/mirror_drift_check.py",
-              "target": "templates/codex/hooks/mirror_drift_check.py",
-              "sha256": "sha256:10feaf89afdb7350470fd9821ffe2247a8fce27797871c3a146e52dab9494f0f"
-            },
-            {
-              "source": "templates/codex/hooks/non_ascii_shell_guard.py",
-              "target": "templates/codex/hooks/non_ascii_shell_guard.py",
-              "sha256": "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
-            },
-            {
-              "source": "templates/codex/hooks/requirements_check.py",
-              "target": "templates/codex/hooks/requirements_check.py",
-              "sha256": "sha256:6ccaaa8b06a406ca144afc18b28355145e18da9e544290cff95f76bfce9ad622"
-            },
-            {
-              "source": "templates/codex/hooks/rule_index_check.py",
-              "target": "templates/codex/hooks/rule_index_check.py",
-              "sha256": "sha256:296a31ad33a61c1a6c428d9d590888806d2eb43a14635d34dfefb80a49b4dd2e"
-            },
-            {
-              "source": "templates/codex/hooks/rule_size_check.py",
-              "target": "templates/codex/hooks/rule_size_check.py",
-              "sha256": "sha256:e821bcb2966239fb80c727e49cb42c7e5b20c9bcff49cf348b21ff87cb3298c9"
-            },
-            {
-              "source": "templates/codex/hooks/session_snapshot.py",
-              "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
-            },
-            {
-              "source": "templates/codex/hooks/show_state.py",
-              "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897"
-            },
-            {
-              "source": "templates/codex/hooks/skill_metadata_check.py",
-              "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:1c8cc2bad6b7a1aa23de01cdcf16752503e249ee39f9402ba8883bba36059e4a"
-            },
-            {
-              "source": "templates/codex/hooks/skill_sync_check.py",
-              "target": "templates/codex/hooks/skill_sync_check.py",
-              "sha256": "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
-            },
-            {
-              "source": "templates/codex/hooks/target_cleanup.py",
-              "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c"
-            },
-            {
-              "source": "templates/codex/hooks/test_receipt.py",
-              "target": "templates/codex/hooks/test_receipt.py",
-              "sha256": "sha256:340a463ca6708ad0a0ea3b93188cbe738247d53bad18dbe650839adad63cf102"
-            },
-            {
-              "source": "templates/codex/hooks/user_config_write_guard.py",
-              "target": "templates/codex/hooks/user_config_write_guard.py",
-              "sha256": "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
-            },
-            {
-              "source": "templates/codex/managed-skeleton.json",
-              "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:500faa802a325f7959c24c904bc9adeb80497932d9230c25813b2b9745de66a4"
-            },
-            {
-              "source": "templates/codex/memory/MEMORY.md",
-              "target": "templates/codex/memory/MEMORY.md",
-              "sha256": "sha256:a20832447a3aea084c1280e28e811bd0dc57a41777d59398c8d12f2896a95b45"
-            },
-            {
-              "source": "templates/codex/rules/anti_drift_hooks.md",
-              "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:8e8dd74a0549171b832d3461da6232e28e4c399e83fa5f99d9e5c2ec9c0d781e"
-            },
-            {
-              "source": "templates/codex/rules/anti_fabrication.md",
-              "target": "templates/codex/rules/anti_fabrication.md",
-              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
-            },
-            {
-              "source": "templates/codex/rules/architecture.md",
-              "target": "templates/codex/rules/architecture.md",
-              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
-            },
-            {
-              "source": "templates/codex/rules/debugging.md",
-              "target": "templates/codex/rules/debugging.md",
-              "sha256": "sha256:a3f066fb196fd0da13f5d54c92e08d8f091f78b5c9ba0cacd77554fdb0517a1a"
-            },
-            {
-              "source": "templates/codex/rules/meta_rule_design.md",
-              "target": "templates/codex/rules/meta_rule_design.md",
-              "sha256": "sha256:28d6b3d748de0d0fdc91c4d11a521ebb9109096cdfbcd1bf9ce8de995c5788c4"
-            },
-            {
-              "source": "templates/codex/rules/modules.md",
-              "target": "templates/codex/rules/modules.md",
-              "sha256": "sha256:c1a182060fec53a4fbddc08c48486cb320326d4d02838f8b3aaa1463f95b8880"
-            },
-            {
-              "source": "templates/codex/rules/portability.md",
-              "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:1f3977b4249a2cf2f987f7541ccad66d8d0fe32021e3de91b589c1744301aaab"
-            },
-            {
-              "source": "templates/codex/rules/workflow.md",
-              "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:443eec12b4b8abc0751134419e948c1e1e244eb9e17c2bfd23a82fa64a4c747b"
-            },
-            {
-              "source": "templates/codex/scripts/archive_scan.py",
-              "target": "templates/codex/scripts/archive_scan.py",
-              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
-            },
-            {
-              "source": "templates/codex/scripts/audit_user_allow.py",
-              "target": "templates/codex/scripts/audit_user_allow.py",
-              "sha256": "sha256:9004d94f16c3e631cfd1430bedabb3db2e9adec1181ca3bb45c77607d2113068"
-            },
-            {
-              "source": "templates/codex/scripts/codex_git_sync.py",
-              "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
-            },
-            {
-              "source": "templates/codex/scripts/context_cost_report.py",
-              "target": "templates/codex/scripts/context_cost_report.py",
-              "sha256": "sha256:d2c71a7ba20c8030b397390eb64ebf707bff7e6c86915209c91da19da0662527"
-            },
-            {
-              "source": "templates/codex/scripts/harness_parity_check.py",
-              "target": "templates/codex/scripts/harness_parity_check.py",
-              "sha256": "sha256:ff073b4f2a0787e95fd4f1e6f93333965ad390080900b41c14dbd2f49f5a1d5a"
-            },
-            {
-              "source": "templates/codex/scripts/hook_config_policy.py",
-              "target": "templates/codex/scripts/hook_config_policy.py",
-              "sha256": "sha256:1a06a4960fc90c6e6513e3331810b0a664e96302b819a97557fe9af3fe372ffb"
-            },
-            {
-              "source": "templates/codex/scripts/hooks_merge.py",
-              "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:0742cde9fde77bc90472947d545f9749151d213d4b7837eba2ac366024ee29f0"
-            },
-            {
-              "source": "templates/codex/scripts/memory_context.py",
-              "target": "templates/codex/scripts/memory_context.py",
-              "sha256": "sha256:2a47d5a9e85853a6147e39454224ad9197c6ad096167e6fbc0c40c42ec7052f0"
-            },
-            {
-              "source": "templates/codex/scripts/memory_rebuild_index.py",
-              "target": "templates/codex/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
-            },
-            {
-              "source": "templates/codex/scripts/memory_router.py",
-              "target": "templates/codex/scripts/memory_router.py",
-              "sha256": "sha256:552b56479cbc1d9f80d956bf9f9de3d3862a4bc9c893e80f3f0430240c13a7f6"
-            },
-            {
-              "source": "templates/codex/scripts/memory_search.py",
-              "target": "templates/codex/scripts/memory_search.py",
-              "sha256": "sha256:0d228044b317cdb19b7ed034ebbf524b4162f1a992fac54eb65b1d1bc4de0574"
-            },
-            {
-              "source": "templates/codex/scripts/memory_usage.py",
-              "target": "templates/codex/scripts/memory_usage.py",
-              "sha256": "sha256:152b96ac3e1fb7599575d218761a5d7ab606060b452b2a7e78a006f0e4fa4fe7"
-            },
-            {
-              "source": "templates/codex/scripts/precommit_merge.py",
-              "target": "templates/codex/scripts/precommit_merge.py",
-              "sha256": "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
-            },
-            {
-              "source": "templates/codex/scripts/project_memory_recovery.py",
-              "target": "templates/codex/scripts/project_memory_recovery.py",
-              "sha256": "sha256:23e89d5b453581771610bd35876993888a02ace27aff6be7dc654d3c64f1a92c"
-            },
-            {
-              "source": "templates/codex/scripts/project_memory_writer.py",
-              "target": "templates/codex/scripts/project_memory_writer.py",
-              "sha256": "sha256:9abce0859e6e83c4f5803d3eed89708d7f964b5d717e6478424fcedc27d6944e"
-            },
-            {
-              "source": "templates/codex/scripts/version_release.py",
-              "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
-            },
-            {
-              "source": "templates/codex/settings.json",
-              "target": "templates/codex/settings.json",
-              "sha256": "sha256:9fd894e278d8edbe7ac6169b579a5cb7bd19a15e2d7c568f5d97b02ca5bbb6b8"
-            },
-            {
-              "source": "templates/codex/skill-routing.json",
-              "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2"
+              "sha256": "sha256:ee63fbece169204c51ff6e5c64df7f76df2819b8f64748d4db7c799d5b9d9f68"
             }
           ]
         },
         {
           "name": "archive-scan",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/archive-scan/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/archive-scan/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:53dd9ad1c9cb373c59dd3ca062dab7dc55c77a769630af9a6e1d92e6c00c2248"
             }
@@ -738,9 +32,10 @@
         },
         {
           "name": "collab",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/collab/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/collab/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:b70cf4539d44bfe6388d5c53a22f6dd35a6efe1513a1d5cca8a3f196041d6a07"
             }
@@ -748,9 +43,10 @@
         },
         {
           "name": "confirm",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/confirm/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/confirm/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:5989ba2633affb3b6087e07f81ad5974433f256beb4782b2e9ef02889518f92f"
             }
@@ -758,19 +54,20 @@
         },
         {
           "name": "create-worktree",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/create-worktree/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/create-worktree/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c"
             },
             {
-              "source": "skills/create-worktree/agents/openai.yaml",
+              "source": "scripts/compat/legacy-shared-skills/codex/create-worktree/agents/openai.yaml",
               "target": "agents/openai.yaml",
               "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8"
             },
             {
-              "source": "skills/create-worktree/scripts/create_worktree.ps1",
+              "source": "scripts/compat/legacy-shared-skills/codex/create-worktree/scripts/create_worktree.ps1",
               "target": "scripts/create_worktree.ps1",
               "sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351"
             }
@@ -778,9 +75,10 @@
         },
         {
           "name": "debate",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/debate/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/debate/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:7a4e158fd685b5803e30eb9751d7fbfd12c3f1958cef2f48c4b0ac3df9b9602b"
             }
@@ -788,9 +86,10 @@
         },
         {
           "name": "develop",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/develop/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/develop/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8cb34407c72a34928e4ee2692496d3b2f68daacbc8647aeefd3a7324e51329a6"
             }
@@ -798,9 +97,10 @@
         },
         {
           "name": "escalate",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/escalate/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/escalate/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8653702bf1aa78651bccbe50251573c93ab412000f82b4f6cddadb3233d6ec73"
             }
@@ -808,9 +108,10 @@
         },
         {
           "name": "explain",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/explain/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/explain/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:182c5e9ae81f9683bd03ca365055912e63757e3774d22263463561f59752ca05"
             }
@@ -818,19 +119,20 @@
         },
         {
           "name": "find-doc",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/find-doc/references/map-reminder-sop.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/find-doc/references/map-reminder-sop.md",
               "target": "references/map-reminder-sop.md",
               "sha256": "sha256:96d9344f46f3b9f90b557dd1f03f40e70b36c36cbc4acb1067e077af06276e6f"
             },
             {
-              "source": "skills/find-doc/references/output-format.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/find-doc/references/output-format.md",
               "target": "references/output-format.md",
               "sha256": "sha256:b3b4b5bc38dd8f7fcddea906624804555850951070c387f596bd4cc87f519bac"
             },
             {
-              "source": "skills/find-doc/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/find-doc/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:e4a78091ac056d087efe9b87fe0817953d2533519ff5b46559e57f5791a5c8e0"
             }
@@ -838,9 +140,10 @@
         },
         {
           "name": "find-memory",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/find-memory/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/find-memory/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:03e0c0665cbb51be7da7cd40653daba0a5a93f7dd6d08a9cdcef2a8816771d05"
             }
@@ -848,9 +151,10 @@
         },
         {
           "name": "focus",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/focus/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/focus/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:5009c0cd1634b386b179414ba2035de3d56b7949fbfbdf8dbdafd8dd0e3f37fa"
             }
@@ -858,9 +162,10 @@
         },
         {
           "name": "git-sync",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/git-sync/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/git-sync/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8bc193ab4ac313abcb2a991362f6a2afaf8aed19e146fa517d5603e8a9531f80"
             }
@@ -868,9 +173,10 @@
         },
         {
           "name": "plan",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/plan/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/plan/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:9c9bccc0f38f9e035c72749c29cf1b8207a50d1855737da1b00bf101580d6211"
             }
@@ -878,9 +184,10 @@
         },
         {
           "name": "resume",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/resume/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/resume/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:34be8806249cc5d06da2c9914d64e9331a9a6cf08f45d716793d27eaf543ffba"
             }
@@ -888,9 +195,10 @@
         },
         {
           "name": "snapshot",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/snapshot/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/snapshot/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:efef9188f62bcac86c07d418a3e75b44b96369e857f2cd4336151d80381ad7ba"
             }
@@ -898,9 +206,10 @@
         },
         {
           "name": "spinoff",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/spinoff/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/spinoff/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:2b01a823c4b4996970bbf5a480de5df3975633ec6209e2268c5f350ac5dba29b"
             }
@@ -908,14 +217,15 @@
         },
         {
           "name": "summary",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/summary/references/deep-steps.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
               "sha256": "sha256:da59ab6e20485a4915b1e74921386327c226b285c5a88053c8c294bac0843860"
             },
             {
-              "source": "skills/summary/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/summary/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:852b4811e538ad77f78cd9a6f560f846a17fb1da71fd8e24bd2acc3a892dc8f9"
             }
@@ -923,9 +233,10 @@
         },
         {
           "name": "sync-docs",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/sync-docs/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/sync-docs/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:0c206850f437074dc8ab741db50a7eac5614c0a5ee4a98bb47187d2b217bf293"
             }
@@ -933,11 +244,58 @@
         },
         {
           "name": "todo",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/todo/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/codex/todo/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:f7404d40d262f221b8ff5d81b0b62cf7342de6083bc3447c08c54f88d65cb098"
+            }
+          ]
+        },
+        {
+          "name": "harvest",
+          "legacy_transition": true,
+          "files": [
+            {
+              "source": "scripts/compat/legacy-shared-skills/codex/harvest/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:e7d772b5e7ef246f414d9229dc8f1c08f8d7b8285330c0c5ed54a4c15916cb49"
+            }
+          ]
+        },
+        {
+          "name": "bridgeforge-codex",
+          "files": [
+            {
+              "source": "scripts/bridgeforge_codex_shared_update.ps1",
+              "target": "scripts/bridgeforge_codex_shared_update.ps1",
+              "sha256": "sha256:fe329b881f9e9b2e5bae68639cdee809451e10c0190d729730045219edcf360e"
+            },
+            {
+              "source": "skills/bridgeforge-codex/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:ae6dbf64b89581dfa5c3474f57a5ea1b9a2262301f542eeb9e53e4d3b90bb1a4"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/adopt.md",
+              "target": "references/adopt.md",
+              "sha256": "sha256:becc7724fdd79bd571dc7f76b884e4a7159627d1cca03955c50ce78fe8c8e196"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/init.md",
+              "target": "references/init.md",
+              "sha256": "sha256:9fdb5e69855df1df232bf0fff3da4c9d4520d4e29e059f9473a3a3b0648b3031"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/update.md",
+              "target": "references/update.md",
+              "sha256": "sha256:61980886b83506d35a0c92aa713275cbac56bfc4f5e37ce9ce477c518e415190"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/user-skill-maintenance.md",
+              "target": "references/user-skill-maintenance.md",
+              "sha256": "sha256:0788217dedfdfc13ce20aa89617c09cd7d2e40b2fac96de587b96added0dda8e"
             }
           ]
         }
@@ -945,732 +303,25 @@
     },
     "claude": {
       "target": "~/.claude/skills",
+      "retired_compatibility_surface": true,
       "skills": [
         {
           "name": "bridgeforge",
+          "legacy_transition": true,
           "files": [
             {
-              "source": ".githooks/pre-commit",
-              "target": ".githooks/pre-commit",
-              "sha256": "sha256:c3f2f62eb95db6e99db50e1196592df352e59d2eff441cd47d1702e370415d16"
-            },
-            {
-              "source": "CHANGELOG.md",
-              "target": "CHANGELOG.md",
-              "sha256": "sha256:e332079b44c52a4599027328ded7069e6bb74082a9541105072535c716bd9ef7"
-            },
-            {
-              "source": "VERSION",
-              "target": "VERSION",
-              "sha256": "sha256:2b148f4b4c1222f9da652fb5f89bf93637bce3b0de7b3f57ef8116251433b9da"
-            },
-            {
-              "source": "scripts/bridgeforge_migrate_layout.py",
-              "target": "scripts/bridgeforge_migrate_layout.py",
-              "sha256": "sha256:b7641a51e01d8e7ea21b67134e1c0a0d44f430f2cd5891be6aa975335d16f63b"
-            },
-            {
-              "source": "scripts/bridgeforge_project_finalize.py",
-              "target": "scripts/bridgeforge_project_finalize.py",
-              "sha256": "sha256:d260393f6eee387f1f2915f667f632741e7f13f12b99ac2c270d6fea860d4d34"
-            },
-            {
-              "source": "scripts/bridgeforge_project_sync.py",
-              "target": "scripts/bridgeforge_project_sync.py",
-              "sha256": "sha256:5f80df83acb3d90a507123d576a1c11692b22f6395efcab0f6f73c8dd20890ac"
-            },
-            {
-              "source": "scripts/bridgeforge_shared_update.ps1",
-              "target": "scripts/bridgeforge_shared_update.ps1",
-              "sha256": "sha256:4e205374ffd818823e9dddbe83347b3eec7935e46e478ec2fb48593e4f8e2e97"
-            },
-            {
-              "source": "scripts/bridgeforge_switch.py",
-              "target": "scripts/bridgeforge_switch.py",
-              "sha256": "sha256:0f5129fe4607d757129e3bcf5daea8010f91ac0f40e0e142bd9223d196aa6486"
-            },
-            {
-              "source": "scripts/bridgeforge_user_maintenance.ps1",
-              "target": "scripts/bridgeforge_user_maintenance.ps1",
-              "sha256": "sha256:ecdf46c559a87bccc37e700bbac9bc89abd8c33c67045a41ca3e5f9b3eb7fde8"
-            },
-            {
-              "source": "scripts/codex_memory_sync.py",
-              "target": "scripts/codex_memory_sync.py",
-              "sha256": "sha256:ef0b867a654ee8bd6d458c8a0d736aaa259e5e9c593d97ae3eb668259fdd29e8"
-            },
-            {
-              "source": "skills/bridgeforge/SKILL.md",
+              "source": "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:13fb25bd07a6fbb52c1b2611ae0b777a604a0744dd04f7b9865eb43170154ab0"
-            },
-            {
-              "source": "skills/bridgeforge/references/adopt.md",
-              "target": "references/adopt.md",
-              "sha256": "sha256:41c62f4e7e7df99aee78b6ab7fc1644bfd63e7375542e86e46797e7049746241"
-            },
-            {
-              "source": "skills/bridgeforge/references/init.md",
-              "target": "references/init.md",
-              "sha256": "sha256:46343bebe7084cbcb81a73a8b4b392fe07a50cc120dcd269ec3fa38dec2a2c52"
-            },
-            {
-              "source": "skills/bridgeforge/references/switch.md",
-              "target": "references/switch.md",
-              "sha256": "sha256:07c93568440f9a3189656e403ac42049cefcda30c3e6d8de47eb106a7450f0fe"
-            },
-            {
-              "source": "skills/bridgeforge/references/update.md",
-              "target": "references/update.md",
-              "sha256": "sha256:19de2398008b79131fbcf423666cc94f9b19102a3e5210fc11c868bc02dc28bd"
-            },
-            {
-              "source": "skills/bridgeforge/references/user-skill-maintenance.md",
-              "target": "references/user-skill-maintenance.md",
-              "sha256": "sha256:25314e8e166fd2528412b1beec62d803aa2241a111dc2bf72efae472edcd1ebc"
-            },
-            {
-              "source": "templates/claude/.githooks/pre-commit",
-              "target": "templates/claude/.githooks/pre-commit",
-              "sha256": "sha256:665004b8820958946f6c7e03f96616fe6af7fdc8a3f079f2a613433b1f626f7e"
-            },
-            {
-              "source": "templates/claude/CLAUDE.md",
-              "target": "templates/claude/CLAUDE.md",
-              "sha256": "sha256:ec9a4d8bb291aca6cfeea08861e7306ac7efbcaddf95b2703482df5deeb49b5f"
-            },
-            {
-              "source": "templates/claude/doc/0_architecture/.gitkeep",
-              "target": "templates/claude/doc/0_architecture/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/1_delivery/.gitkeep",
-              "target": "templates/claude/doc/1_delivery/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/2_bugs/.gitkeep",
-              "target": "templates/claude/doc/2_bugs/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/3_reference/.gitkeep",
-              "target": "templates/claude/doc/3_reference/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/4_archive/.gitkeep",
-              "target": "templates/claude/doc/4_archive/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/claude/doc/README.md",
-              "target": "templates/claude/doc/README.md",
-              "sha256": "sha256:a2518043abb4d301e69391847bad4c2d6d22c80f8434be1ae42edd1b9cdd8d2d"
-            },
-            {
-              "source": "templates/claude/hooks/allow_memory_write.py",
-              "target": "templates/claude/hooks/allow_memory_write.py",
-              "sha256": "sha256:5106e6f924809ce16f45f6da01dc88b98b77b4e3f07c72b94527634bfc90575e"
-            },
-            {
-              "source": "templates/claude/hooks/cargo_default_run_check.py",
-              "target": "templates/claude/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:d2f2123876cf4b5fff19a3d90b3e360b04bf7ef48719fe4a07cda37839e19a20"
-            },
-            {
-              "source": "templates/claude/hooks/clarify_reminder.py",
-              "target": "templates/claude/hooks/clarify_reminder.py",
-              "sha256": "sha256:3367a36bec50be0aa1d6c1c76e59bde144187b567cad5bb8810ad63fa3b49e54"
-            },
-            {
-              "source": "templates/claude/hooks/config_health_check.py",
-              "target": "templates/claude/hooks/config_health_check.py",
-              "sha256": "sha256:b5f266127ec6447616a81e500b0f17198ebfb8e0160e0e0526363fdc53d2a56e"
-            },
-            {
-              "source": "templates/claude/hooks/context_warning.py",
-              "target": "templates/claude/hooks/context_warning.py",
-              "sha256": "sha256:392f108a6f9cccb4addf0d65e0e19a9b0c63296d3b9402b9740afa2bbc1f8b2a"
-            },
-            {
-              "source": "templates/claude/hooks/cross_project_write_guard.py",
-              "target": "templates/claude/hooks/cross_project_write_guard.py",
-              "sha256": "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
-            },
-            {
-              "source": "templates/claude/hooks/encoding_check.py",
-              "target": "templates/claude/hooks/encoding_check.py",
-              "sha256": "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
-            },
-            {
-              "source": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "target": "templates/claude/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:27d63a283ebf60111bff9a151049dfd852e7b2bdee1b8b0e17b290bd8670ad22"
-            },
-            {
-              "source": "templates/claude/hooks/fallback_smell_check.py",
-              "target": "templates/claude/hooks/fallback_smell_check.py",
-              "sha256": "sha256:2128651d5428e46fa91b59ae0af620299d36a563ffa62a5c8b0a277a9194f4d6"
-            },
-            {
-              "source": "templates/claude/hooks/find_doc_reminder.py",
-              "target": "templates/claude/hooks/find_doc_reminder.py",
-              "sha256": "sha256:ffa2b9f74cd1555808147a48e874b720e6789caa4f022faaa2e52c1f9265cb66"
-            },
-            {
-              "source": "templates/claude/hooks/focus_reminder.py",
-              "target": "templates/claude/hooks/focus_reminder.py",
-              "sha256": "sha256:100832c933eaa04d50800c66d531578a7181cd9460ea1bfba7cf2fd6c8f64f3b"
-            },
-            {
-              "source": "templates/claude/hooks/git_add_all_guard.py",
-              "target": "templates/claude/hooks/git_add_all_guard.py",
-              "sha256": "sha256:1a942ecfbbd7e3e23d3716ddcb209df63b75c63e5f108bc3d8996986c1d435b8"
-            },
-            {
-              "source": "templates/claude/hooks/githooks_path_check.py",
-              "target": "templates/claude/hooks/githooks_path_check.py",
-              "sha256": "sha256:db1dbdacc350ee6cb51e59c41773878f0b1fb0582e74ef3792c263d91a4a7871"
-            },
-            {
-              "source": "templates/claude/hooks/memory_dup_check.py",
-              "target": "templates/claude/hooks/memory_dup_check.py",
-              "sha256": "sha256:4146d8660114cc0b4ffb27c4a3d1726ee0c71b27b431bfec1feb61f455d2efc0"
-            },
-            {
-              "source": "templates/claude/hooks/memory_junction_check.py",
-              "target": "templates/claude/hooks/memory_junction_check.py",
-              "sha256": "sha256:317ff7e543659be8ca48b026c6fdbe6ff2018d271cc7054811b2ca433a81a702"
-            },
-            {
-              "source": "templates/claude/hooks/memory_lint.py",
-              "target": "templates/claude/hooks/memory_lint.py",
-              "sha256": "sha256:7d794ff3805481af6cb1c230f4785f163daef6c8772e592d514a9f267e3cf922"
-            },
-            {
-              "source": "templates/claude/hooks/mirror_drift_check.py",
-              "target": "templates/claude/hooks/mirror_drift_check.py",
-              "sha256": "sha256:5a9a18cb9b617d7407dbb40cb0070b22ace702ada18de290b8dc257e9e134938"
-            },
-            {
-              "source": "templates/claude/hooks/non_ascii_shell_guard.py",
-              "target": "templates/claude/hooks/non_ascii_shell_guard.py",
-              "sha256": "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
-            },
-            {
-              "source": "templates/claude/hooks/requirements_check.py",
-              "target": "templates/claude/hooks/requirements_check.py",
-              "sha256": "sha256:5ce95ae0288c92335a18b4bc96cb3a153e122b99c3bba292dfa27f25228e0a1b"
-            },
-            {
-              "source": "templates/claude/hooks/rule_index_check.py",
-              "target": "templates/claude/hooks/rule_index_check.py",
-              "sha256": "sha256:ab7bba63405cf48e6da852ab63e1859a9a5457c3c3086add61346c9683e4d351"
-            },
-            {
-              "source": "templates/claude/hooks/rule_size_check.py",
-              "target": "templates/claude/hooks/rule_size_check.py",
-              "sha256": "sha256:5f088bd17d6b26394a50f1127a82cfdbfaa356e052a9d606b0f9ad277f63cff7"
-            },
-            {
-              "source": "templates/claude/hooks/session_snapshot.py",
-              "target": "templates/claude/hooks/session_snapshot.py",
-              "sha256": "sha256:b4fa7eb3403c09e3ffcf3c062b129463fc99ee37af2839a7908c348a83945013"
-            },
-            {
-              "source": "templates/claude/hooks/show_state.py",
-              "target": "templates/claude/hooks/show_state.py",
-              "sha256": "sha256:746d90f4d127649d65efb91252b7eca720b1f1ad7ed74741773283b75e6c6c29"
-            },
-            {
-              "source": "templates/claude/hooks/skill_metadata_check.py",
-              "target": "templates/claude/hooks/skill_metadata_check.py",
-              "sha256": "sha256:1c8cc2bad6b7a1aa23de01cdcf16752503e249ee39f9402ba8883bba36059e4a"
-            },
-            {
-              "source": "templates/claude/hooks/skill_sync_check.py",
-              "target": "templates/claude/hooks/skill_sync_check.py",
-              "sha256": "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
-            },
-            {
-              "source": "templates/claude/hooks/target_cleanup.py",
-              "target": "templates/claude/hooks/target_cleanup.py",
-              "sha256": "sha256:49f144da4ec775ac39ff9b5c0c790cb04a6c07a398a0c32c2485565920c54556"
-            },
-            {
-              "source": "templates/claude/hooks/test_receipt.py",
-              "target": "templates/claude/hooks/test_receipt.py",
-              "sha256": "sha256:dd8e6360e7938ab35e7786595066513654f0acc182d4ac1420328896461f4d0a"
-            },
-            {
-              "source": "templates/claude/hooks/version_check.py",
-              "target": "templates/claude/hooks/version_check.py",
-              "sha256": "sha256:2d4be74e1352dd4fd4e5315c417f4f5526105316572eef795ce6677cecea26ea"
-            },
-            {
-              "source": "templates/claude/managed-skeleton.json",
-              "target": "templates/claude/managed-skeleton.json",
-              "sha256": "sha256:d269dcf6c57dbae961ccf6b40db07476569a579e513d6772a746b47a21fc9d40"
-            },
-            {
-              "source": "templates/claude/memory/MEMORY.md",
-              "target": "templates/claude/memory/MEMORY.md",
-              "sha256": "sha256:4cf0484b59eb81666e8f4d0f6b953ea890acffbc717f186c9b40c75c0850485c"
-            },
-            {
-              "source": "templates/claude/rules/anti_drift_hooks.md",
-              "target": "templates/claude/rules/anti_drift_hooks.md",
-              "sha256": "sha256:04e0fea88e62378fddcb9cc6807285672b61b2c11d6213eebc5cf5aa788ee070"
-            },
-            {
-              "source": "templates/claude/rules/anti_fabrication.md",
-              "target": "templates/claude/rules/anti_fabrication.md",
-              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
-            },
-            {
-              "source": "templates/claude/rules/architecture.md",
-              "target": "templates/claude/rules/architecture.md",
-              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
-            },
-            {
-              "source": "templates/claude/rules/debugging.md",
-              "target": "templates/claude/rules/debugging.md",
-              "sha256": "sha256:b75e64fe6583c6eed95fa10e1c479612affc61a46391cf74d793dc0393f1d0ac"
-            },
-            {
-              "source": "templates/claude/rules/meta_rule_design.md",
-              "target": "templates/claude/rules/meta_rule_design.md",
-              "sha256": "sha256:791ab7819979ab1e87283c570114a4d2f44349cc39329c952338b3edeb86572f"
-            },
-            {
-              "source": "templates/claude/rules/modules.md",
-              "target": "templates/claude/rules/modules.md",
-              "sha256": "sha256:35d18762819700682fb51a2ecc87107b23d974a37b6e234c4c3b8d7d681c9a9f"
-            },
-            {
-              "source": "templates/claude/rules/portability.md",
-              "target": "templates/claude/rules/portability.md",
-              "sha256": "sha256:2f3d2df28de95cbecb72f07d551da258f739d61d77d71ce0aeefb56aabc3298c"
-            },
-            {
-              "source": "templates/claude/rules/workflow.md",
-              "target": "templates/claude/rules/workflow.md",
-              "sha256": "sha256:b0df818d63fe7f73bbba9d0261f32d1f04402f9f6bc23ba2b78c0f3d4ca85166"
-            },
-            {
-              "source": "templates/claude/scripts/archive_scan.py",
-              "target": "templates/claude/scripts/archive_scan.py",
-              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
-            },
-            {
-              "source": "templates/claude/scripts/audit_user_allow.py",
-              "target": "templates/claude/scripts/audit_user_allow.py",
-              "sha256": "sha256:50d7bfab1d56be4f864279f25e0ab3c78331d375439ae1d59ebb42ebfcea5a8b"
-            },
-            {
-              "source": "templates/claude/scripts/bridgeforge_switch.py",
-              "target": "templates/claude/scripts/bridgeforge_switch.py",
-              "sha256": "sha256:0f5129fe4607d757129e3bcf5daea8010f91ac0f40e0e142bd9223d196aa6486"
-            },
-            {
-              "source": "templates/claude/scripts/codex_git_sync.py",
-              "target": "templates/claude/scripts/codex_git_sync.py",
-              "sha256": "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
-            },
-            {
-              "source": "templates/claude/scripts/memory_rebuild_index.py",
-              "target": "templates/claude/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:7795f7dfa7eacf515e27d7fede5bb60140bd84b69508fd59871c6fd4a621c5df"
-            },
-            {
-              "source": "templates/claude/scripts/memory_search.py",
-              "target": "templates/claude/scripts/memory_search.py",
-              "sha256": "sha256:13cd73f0255fa6593f18da042b83f2ef06e99bcb82dbd0bc95e5ad789ff709ae"
-            },
-            {
-              "source": "templates/claude/scripts/precommit_merge.py",
-              "target": "templates/claude/scripts/precommit_merge.py",
-              "sha256": "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
-            },
-            {
-              "source": "templates/claude/scripts/project_memory_writer.py",
-              "target": "templates/claude/scripts/project_memory_writer.py",
-              "sha256": "sha256:9abce0859e6e83c4f5803d3eed89708d7f964b5d717e6478424fcedc27d6944e"
-            },
-            {
-              "source": "templates/claude/scripts/version_release.py",
-              "target": "templates/claude/scripts/version_release.py",
-              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
-            },
-            {
-              "source": "templates/claude/settings.json",
-              "target": "templates/claude/settings.json",
-              "sha256": "sha256:45c8f7c37b6dd6a37d40096f07fe7e82ea97556cc9b0d033348c17c52f8ac42d"
-            },
-            {
-              "source": "templates/codex/.githooks/pre-commit",
-              "target": "templates/codex/.githooks/pre-commit",
-              "sha256": "sha256:6b2d4f2d6376b9bee9dc2167c48968403792c603ae87c75fffc71c5f7181bc7d"
-            },
-            {
-              "source": "templates/codex/AGENTS.md",
-              "target": "templates/codex/AGENTS.md",
-              "sha256": "sha256:67d091b3b456d5e9cf31812eec6dc18e50f7bd4e9005e5216d2e19a673d426d7"
-            },
-            {
-              "source": "templates/codex/agents/implementation-worker.toml",
-              "target": "templates/codex/agents/implementation-worker.toml",
-              "sha256": "sha256:4adc0bd16c07b43ebe8495dc0e42ec04b1b0ec216a8cc0e56d6bc739539107cc"
-            },
-            {
-              "source": "templates/codex/agents/light-explorer.toml",
-              "target": "templates/codex/agents/light-explorer.toml",
-              "sha256": "sha256:71f1c0886bfca3b15067b90d9902fd76999a87aaeba33b399ca630090e627c2e"
-            },
-            {
-              "source": "templates/codex/agents/mechanical-sync-worker.toml",
-              "target": "templates/codex/agents/mechanical-sync-worker.toml",
-              "sha256": "sha256:4c553960c7733ad76bed8bdb078709836df6a75560390e99f348d19918e80ecf"
-            },
-            {
-              "source": "templates/codex/agents/review-auditor.toml",
-              "target": "templates/codex/agents/review-auditor.toml",
-              "sha256": "sha256:0a3487cecbe7ea8a1f1262d31417742e04d64681a5cdcea0bf64fe7f4b29a9b6"
-            },
-            {
-              "source": "templates/codex/agents/xhigh-auditor.toml",
-              "target": "templates/codex/agents/xhigh-auditor.toml",
-              "sha256": "sha256:ba6c288791702f39ac9b51bf64693edfc54422b9b735d54533c0fd682544485f"
-            },
-            {
-              "source": "templates/codex/config.toml",
-              "target": "templates/codex/config.toml",
-              "sha256": "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe"
-            },
-            {
-              "source": "templates/codex/doc/0_architecture/.gitkeep",
-              "target": "templates/codex/doc/0_architecture/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/1_delivery/.gitkeep",
-              "target": "templates/codex/doc/1_delivery/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/2_bugs/.gitkeep",
-              "target": "templates/codex/doc/2_bugs/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/3_reference/.gitkeep",
-              "target": "templates/codex/doc/3_reference/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/4_archive/.gitkeep",
-              "target": "templates/codex/doc/4_archive/.gitkeep",
-              "sha256": "sha256:01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-            },
-            {
-              "source": "templates/codex/doc/README.md",
-              "target": "templates/codex/doc/README.md",
-              "sha256": "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344"
-            },
-            {
-              "source": "templates/codex/hooks.json",
-              "target": "templates/codex/hooks.json",
-              "sha256": "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
-            },
-            {
-              "source": "templates/codex/hooks/allow_memory_write.py",
-              "target": "templates/codex/hooks/allow_memory_write.py",
-              "sha256": "sha256:bccd485efdba2957fd27730613f2625f15d6786b343e55b1fc10ab1a7165bf23"
-            },
-            {
-              "source": "templates/codex/hooks/cargo_default_run_check.py",
-              "target": "templates/codex/hooks/cargo_default_run_check.py",
-              "sha256": "sha256:2f638330359472b740e20fff5fe79b1cc7b15241f8a600b404c31f7324ab2894"
-            },
-            {
-              "source": "templates/codex/hooks/clarify_reminder.py",
-              "target": "templates/codex/hooks/clarify_reminder.py",
-              "sha256": "sha256:cc60e6c961a7649d227bbea827c367fb2e6807cc0a181455ed66f1b02b4b862e"
-            },
-            {
-              "source": "templates/codex/hooks/config_health_check.py",
-              "target": "templates/codex/hooks/config_health_check.py",
-              "sha256": "sha256:2e0d2b5abe3935e2c8018b0a6268e37c0590638fa5f8d888885f59e3d661f2d3"
-            },
-            {
-              "source": "templates/codex/hooks/context_warning.py",
-              "target": "templates/codex/hooks/context_warning.py",
-              "sha256": "sha256:a8716f29e84e251ca20350b491a6b645769459f1eae845b8f2bfc07c253c697a"
-            },
-            {
-              "source": "templates/codex/hooks/cross_project_write_guard.py",
-              "target": "templates/codex/hooks/cross_project_write_guard.py",
-              "sha256": "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
-            },
-            {
-              "source": "templates/codex/hooks/encoding_check.py",
-              "target": "templates/codex/hooks/encoding_check.py",
-              "sha256": "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
-            },
-            {
-              "source": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "target": "templates/codex/hooks/enforce_no_effortlevel.py",
-              "sha256": "sha256:db9744afe10521856e9a82966b281732e92f80beac089d920b6529b73b773d7f"
-            },
-            {
-              "source": "templates/codex/hooks/fallback_smell_check.py",
-              "target": "templates/codex/hooks/fallback_smell_check.py",
-              "sha256": "sha256:138bbc4c882992da5d1204ee82247499e17b9e302d2429467a545ce2facfd478"
-            },
-            {
-              "source": "templates/codex/hooks/find_doc_reminder.py",
-              "target": "templates/codex/hooks/find_doc_reminder.py",
-              "sha256": "sha256:2904455166af196c785a22067b3a8ab147b85acfd88fa6af57b5e9e6db3e0c63"
-            },
-            {
-              "source": "templates/codex/hooks/focus_reminder.py",
-              "target": "templates/codex/hooks/focus_reminder.py",
-              "sha256": "sha256:03b4708856e4a7a6709485afae3b6b296d948374ffc819737c0cdae5081ac9e3"
-            },
-            {
-              "source": "templates/codex/hooks/git_add_all_guard.py",
-              "target": "templates/codex/hooks/git_add_all_guard.py",
-              "sha256": "sha256:fc917a8d3f97c11fc88b954822d9171b1b8ed9904c6dae20bd351a8be4ac5d8c"
-            },
-            {
-              "source": "templates/codex/hooks/githooks_path_check.py",
-              "target": "templates/codex/hooks/githooks_path_check.py",
-              "sha256": "sha256:1ae179f114d24308bec7919aad2c0c31546216610ba626997edf335dc26c872e"
-            },
-            {
-              "source": "templates/codex/hooks/hook_dispatcher.py",
-              "target": "templates/codex/hooks/hook_dispatcher.py",
-              "sha256": "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
-            },
-            {
-              "source": "templates/codex/hooks/memory_dup_check.py",
-              "target": "templates/codex/hooks/memory_dup_check.py",
-              "sha256": "sha256:4e60bd0d701731fa2f21796f0ebffc2a1d80b0a58971152f67f8eba931e4fd87"
-            },
-            {
-              "source": "templates/codex/hooks/memory_lint.py",
-              "target": "templates/codex/hooks/memory_lint.py",
-              "sha256": "sha256:836ecf7810b96c006d1b880267b579c83480285242a66bc397e4c02b5e08a54a"
-            },
-            {
-              "source": "templates/codex/hooks/mirror_drift_check.py",
-              "target": "templates/codex/hooks/mirror_drift_check.py",
-              "sha256": "sha256:10feaf89afdb7350470fd9821ffe2247a8fce27797871c3a146e52dab9494f0f"
-            },
-            {
-              "source": "templates/codex/hooks/non_ascii_shell_guard.py",
-              "target": "templates/codex/hooks/non_ascii_shell_guard.py",
-              "sha256": "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
-            },
-            {
-              "source": "templates/codex/hooks/requirements_check.py",
-              "target": "templates/codex/hooks/requirements_check.py",
-              "sha256": "sha256:6ccaaa8b06a406ca144afc18b28355145e18da9e544290cff95f76bfce9ad622"
-            },
-            {
-              "source": "templates/codex/hooks/rule_index_check.py",
-              "target": "templates/codex/hooks/rule_index_check.py",
-              "sha256": "sha256:296a31ad33a61c1a6c428d9d590888806d2eb43a14635d34dfefb80a49b4dd2e"
-            },
-            {
-              "source": "templates/codex/hooks/rule_size_check.py",
-              "target": "templates/codex/hooks/rule_size_check.py",
-              "sha256": "sha256:e821bcb2966239fb80c727e49cb42c7e5b20c9bcff49cf348b21ff87cb3298c9"
-            },
-            {
-              "source": "templates/codex/hooks/session_snapshot.py",
-              "target": "templates/codex/hooks/session_snapshot.py",
-              "sha256": "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
-            },
-            {
-              "source": "templates/codex/hooks/show_state.py",
-              "target": "templates/codex/hooks/show_state.py",
-              "sha256": "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897"
-            },
-            {
-              "source": "templates/codex/hooks/skill_metadata_check.py",
-              "target": "templates/codex/hooks/skill_metadata_check.py",
-              "sha256": "sha256:1c8cc2bad6b7a1aa23de01cdcf16752503e249ee39f9402ba8883bba36059e4a"
-            },
-            {
-              "source": "templates/codex/hooks/skill_sync_check.py",
-              "target": "templates/codex/hooks/skill_sync_check.py",
-              "sha256": "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
-            },
-            {
-              "source": "templates/codex/hooks/target_cleanup.py",
-              "target": "templates/codex/hooks/target_cleanup.py",
-              "sha256": "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c"
-            },
-            {
-              "source": "templates/codex/hooks/test_receipt.py",
-              "target": "templates/codex/hooks/test_receipt.py",
-              "sha256": "sha256:340a463ca6708ad0a0ea3b93188cbe738247d53bad18dbe650839adad63cf102"
-            },
-            {
-              "source": "templates/codex/hooks/user_config_write_guard.py",
-              "target": "templates/codex/hooks/user_config_write_guard.py",
-              "sha256": "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
-            },
-            {
-              "source": "templates/codex/managed-skeleton.json",
-              "target": "templates/codex/managed-skeleton.json",
-              "sha256": "sha256:500faa802a325f7959c24c904bc9adeb80497932d9230c25813b2b9745de66a4"
-            },
-            {
-              "source": "templates/codex/memory/MEMORY.md",
-              "target": "templates/codex/memory/MEMORY.md",
-              "sha256": "sha256:a20832447a3aea084c1280e28e811bd0dc57a41777d59398c8d12f2896a95b45"
-            },
-            {
-              "source": "templates/codex/rules/anti_drift_hooks.md",
-              "target": "templates/codex/rules/anti_drift_hooks.md",
-              "sha256": "sha256:8e8dd74a0549171b832d3461da6232e28e4c399e83fa5f99d9e5c2ec9c0d781e"
-            },
-            {
-              "source": "templates/codex/rules/anti_fabrication.md",
-              "target": "templates/codex/rules/anti_fabrication.md",
-              "sha256": "sha256:ed04c396c1ba1340c67b7499c02545ca9529f086bd5594fff422a549bce9f5b3"
-            },
-            {
-              "source": "templates/codex/rules/architecture.md",
-              "target": "templates/codex/rules/architecture.md",
-              "sha256": "sha256:d40e0fe58bef536f0786c96f6179cb55d206b74550fda701cc2ca06b400c9892"
-            },
-            {
-              "source": "templates/codex/rules/debugging.md",
-              "target": "templates/codex/rules/debugging.md",
-              "sha256": "sha256:a3f066fb196fd0da13f5d54c92e08d8f091f78b5c9ba0cacd77554fdb0517a1a"
-            },
-            {
-              "source": "templates/codex/rules/meta_rule_design.md",
-              "target": "templates/codex/rules/meta_rule_design.md",
-              "sha256": "sha256:28d6b3d748de0d0fdc91c4d11a521ebb9109096cdfbcd1bf9ce8de995c5788c4"
-            },
-            {
-              "source": "templates/codex/rules/modules.md",
-              "target": "templates/codex/rules/modules.md",
-              "sha256": "sha256:c1a182060fec53a4fbddc08c48486cb320326d4d02838f8b3aaa1463f95b8880"
-            },
-            {
-              "source": "templates/codex/rules/portability.md",
-              "target": "templates/codex/rules/portability.md",
-              "sha256": "sha256:1f3977b4249a2cf2f987f7541ccad66d8d0fe32021e3de91b589c1744301aaab"
-            },
-            {
-              "source": "templates/codex/rules/workflow.md",
-              "target": "templates/codex/rules/workflow.md",
-              "sha256": "sha256:443eec12b4b8abc0751134419e948c1e1e244eb9e17c2bfd23a82fa64a4c747b"
-            },
-            {
-              "source": "templates/codex/scripts/archive_scan.py",
-              "target": "templates/codex/scripts/archive_scan.py",
-              "sha256": "sha256:9812ba7c156f6b19057a4a9266a2ca89909a13056377319dd9fad9d5f996db20"
-            },
-            {
-              "source": "templates/codex/scripts/audit_user_allow.py",
-              "target": "templates/codex/scripts/audit_user_allow.py",
-              "sha256": "sha256:9004d94f16c3e631cfd1430bedabb3db2e9adec1181ca3bb45c77607d2113068"
-            },
-            {
-              "source": "templates/codex/scripts/codex_git_sync.py",
-              "target": "templates/codex/scripts/codex_git_sync.py",
-              "sha256": "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
-            },
-            {
-              "source": "templates/codex/scripts/context_cost_report.py",
-              "target": "templates/codex/scripts/context_cost_report.py",
-              "sha256": "sha256:d2c71a7ba20c8030b397390eb64ebf707bff7e6c86915209c91da19da0662527"
-            },
-            {
-              "source": "templates/codex/scripts/harness_parity_check.py",
-              "target": "templates/codex/scripts/harness_parity_check.py",
-              "sha256": "sha256:ff073b4f2a0787e95fd4f1e6f93333965ad390080900b41c14dbd2f49f5a1d5a"
-            },
-            {
-              "source": "templates/codex/scripts/hook_config_policy.py",
-              "target": "templates/codex/scripts/hook_config_policy.py",
-              "sha256": "sha256:1a06a4960fc90c6e6513e3331810b0a664e96302b819a97557fe9af3fe372ffb"
-            },
-            {
-              "source": "templates/codex/scripts/hooks_merge.py",
-              "target": "templates/codex/scripts/hooks_merge.py",
-              "sha256": "sha256:0742cde9fde77bc90472947d545f9749151d213d4b7837eba2ac366024ee29f0"
-            },
-            {
-              "source": "templates/codex/scripts/memory_context.py",
-              "target": "templates/codex/scripts/memory_context.py",
-              "sha256": "sha256:2a47d5a9e85853a6147e39454224ad9197c6ad096167e6fbc0c40c42ec7052f0"
-            },
-            {
-              "source": "templates/codex/scripts/memory_rebuild_index.py",
-              "target": "templates/codex/scripts/memory_rebuild_index.py",
-              "sha256": "sha256:cdfe8c9793fab71351a40373a557e5e53051ea325ddb91d14209db3aee27d9db"
-            },
-            {
-              "source": "templates/codex/scripts/memory_router.py",
-              "target": "templates/codex/scripts/memory_router.py",
-              "sha256": "sha256:552b56479cbc1d9f80d956bf9f9de3d3862a4bc9c893e80f3f0430240c13a7f6"
-            },
-            {
-              "source": "templates/codex/scripts/memory_search.py",
-              "target": "templates/codex/scripts/memory_search.py",
-              "sha256": "sha256:0d228044b317cdb19b7ed034ebbf524b4162f1a992fac54eb65b1d1bc4de0574"
-            },
-            {
-              "source": "templates/codex/scripts/memory_usage.py",
-              "target": "templates/codex/scripts/memory_usage.py",
-              "sha256": "sha256:152b96ac3e1fb7599575d218761a5d7ab606060b452b2a7e78a006f0e4fa4fe7"
-            },
-            {
-              "source": "templates/codex/scripts/precommit_merge.py",
-              "target": "templates/codex/scripts/precommit_merge.py",
-              "sha256": "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
-            },
-            {
-              "source": "templates/codex/scripts/project_memory_recovery.py",
-              "target": "templates/codex/scripts/project_memory_recovery.py",
-              "sha256": "sha256:23e89d5b453581771610bd35876993888a02ace27aff6be7dc654d3c64f1a92c"
-            },
-            {
-              "source": "templates/codex/scripts/project_memory_writer.py",
-              "target": "templates/codex/scripts/project_memory_writer.py",
-              "sha256": "sha256:9abce0859e6e83c4f5803d3eed89708d7f964b5d717e6478424fcedc27d6944e"
-            },
-            {
-              "source": "templates/codex/scripts/version_release.py",
-              "target": "templates/codex/scripts/version_release.py",
-              "sha256": "sha256:985f0481beebdf300524dc6d3bb06aa2922d137a9a7ebdc25b57841b632345c8"
-            },
-            {
-              "source": "templates/codex/settings.json",
-              "target": "templates/codex/settings.json",
-              "sha256": "sha256:9fd894e278d8edbe7ac6169b579a5cb7bd19a15e2d7c568f5d97b02ca5bbb6b8"
-            },
-            {
-              "source": "templates/codex/skill-routing.json",
-              "target": "templates/codex/skill-routing.json",
-              "sha256": "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2"
+              "sha256": "sha256:ee63fbece169204c51ff6e5c64df7f76df2819b8f64748d4db7c799d5b9d9f68"
             }
           ]
         },
         {
           "name": "archive-scan",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/archive-scan/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/archive-scan/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:53dd9ad1c9cb373c59dd3ca062dab7dc55c77a769630af9a6e1d92e6c00c2248"
             }
@@ -1678,9 +329,10 @@
         },
         {
           "name": "collab",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/collab/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/collab/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:b70cf4539d44bfe6388d5c53a22f6dd35a6efe1513a1d5cca8a3f196041d6a07"
             }
@@ -1688,9 +340,10 @@
         },
         {
           "name": "confirm",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/confirm/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/confirm/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:5989ba2633affb3b6087e07f81ad5974433f256beb4782b2e9ef02889518f92f"
             }
@@ -1698,9 +351,10 @@
         },
         {
           "name": "debate",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/debate/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/debate/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:7a4e158fd685b5803e30eb9751d7fbfd12c3f1958cef2f48c4b0ac3df9b9602b"
             }
@@ -1708,9 +362,10 @@
         },
         {
           "name": "develop",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/develop/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/develop/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8cb34407c72a34928e4ee2692496d3b2f68daacbc8647aeefd3a7324e51329a6"
             }
@@ -1718,9 +373,10 @@
         },
         {
           "name": "escalate",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/escalate/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/escalate/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8653702bf1aa78651bccbe50251573c93ab412000f82b4f6cddadb3233d6ec73"
             }
@@ -1728,9 +384,10 @@
         },
         {
           "name": "explain",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/explain/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/explain/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:182c5e9ae81f9683bd03ca365055912e63757e3774d22263463561f59752ca05"
             }
@@ -1738,19 +395,20 @@
         },
         {
           "name": "find-doc",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/find-doc/references/map-reminder-sop.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/find-doc/references/map-reminder-sop.md",
               "target": "references/map-reminder-sop.md",
               "sha256": "sha256:96d9344f46f3b9f90b557dd1f03f40e70b36c36cbc4acb1067e077af06276e6f"
             },
             {
-              "source": "skills/find-doc/references/output-format.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/find-doc/references/output-format.md",
               "target": "references/output-format.md",
               "sha256": "sha256:b3b4b5bc38dd8f7fcddea906624804555850951070c387f596bd4cc87f519bac"
             },
             {
-              "source": "skills/find-doc/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/find-doc/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:e4a78091ac056d087efe9b87fe0817953d2533519ff5b46559e57f5791a5c8e0"
             }
@@ -1758,9 +416,10 @@
         },
         {
           "name": "find-memory",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/find-memory/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/find-memory/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:03e0c0665cbb51be7da7cd40653daba0a5a93f7dd6d08a9cdcef2a8816771d05"
             }
@@ -1768,9 +427,10 @@
         },
         {
           "name": "focus",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/focus/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/focus/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:5009c0cd1634b386b179414ba2035de3d56b7949fbfbdf8dbdafd8dd0e3f37fa"
             }
@@ -1778,9 +438,10 @@
         },
         {
           "name": "git-sync",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/git-sync/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/git-sync/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:8bc193ab4ac313abcb2a991362f6a2afaf8aed19e146fa517d5603e8a9531f80"
             }
@@ -1788,9 +449,10 @@
         },
         {
           "name": "plan",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/plan/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/plan/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:9c9bccc0f38f9e035c72749c29cf1b8207a50d1855737da1b00bf101580d6211"
             }
@@ -1798,9 +460,10 @@
         },
         {
           "name": "resume",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/resume/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/resume/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:34be8806249cc5d06da2c9914d64e9331a9a6cf08f45d716793d27eaf543ffba"
             }
@@ -1808,9 +471,10 @@
         },
         {
           "name": "snapshot",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/snapshot/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/snapshot/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:efef9188f62bcac86c07d418a3e75b44b96369e857f2cd4336151d80381ad7ba"
             }
@@ -1818,9 +482,10 @@
         },
         {
           "name": "spinoff",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/spinoff/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/spinoff/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:2b01a823c4b4996970bbf5a480de5df3975633ec6209e2268c5f350ac5dba29b"
             }
@@ -1828,14 +493,15 @@
         },
         {
           "name": "summary",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/summary/references/deep-steps.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
               "sha256": "sha256:da59ab6e20485a4915b1e74921386327c226b285c5a88053c8c294bac0843860"
             },
             {
-              "source": "skills/summary/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/summary/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:852b4811e538ad77f78cd9a6f560f846a17fb1da71fd8e24bd2acc3a892dc8f9"
             }
@@ -1843,9 +509,10 @@
         },
         {
           "name": "sync-docs",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/sync-docs/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/sync-docs/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:0c206850f437074dc8ab741db50a7eac5614c0a5ee4a98bb47187d2b217bf293"
             }
@@ -1853,11 +520,23 @@
         },
         {
           "name": "todo",
+          "legacy_transition": true,
           "files": [
             {
-              "source": "skills/todo/SKILL.md",
+              "source": "scripts/compat/legacy-shared-skills/claude/todo/SKILL.md",
               "target": "SKILL.md",
               "sha256": "sha256:f7404d40d262f221b8ff5d81b0b62cf7342de6083bc3447c08c54f88d65cb098"
+            }
+          ]
+        },
+        {
+          "name": "harvest",
+          "legacy_transition": true,
+          "files": [
+            {
+              "source": "scripts/compat/legacy-shared-skills/claude/harvest/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:e7d772b5e7ef246f414d9229dc8f1c08f8d7b8285330c0c5ed54a4c15916cb49"
             }
           ]
         }

@@ -3,7 +3,6 @@ name: resume
 description: 从 .runtime/session_state/ 读取一份 snapshot，在核对当前 Git 状态后接续工作；新会话要继续上次任务时使用，支持 latest 直取最新快照或无参数选择候选。
 user_invocable: true
 argument: 可选——latest 或指定 snapshot 文件名
-model: sonnet
 ---
 
 # 从 snapshot 接续

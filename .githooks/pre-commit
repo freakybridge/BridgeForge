@@ -1,5 +1,5 @@
 #!/bin/sh
-# >>> BRIDGEFORGE_MANAGED_BEGIN
+# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN
 # bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
 #   [factory-version] 工厂产品版本闸: templates/** 或 skills/** 有暂存改动时，根 VERSION 必须同次暂存
 #   [D8] dogfood 镜像闸: templates/<agent>/hooks/*.py 缺 .<agent>/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
@@ -52,38 +52,39 @@ run_exit2_hook() {
 }
 
 # ── [D8] dogfood 镜像闸(缺文件硬拦 exit 2; 正文差异只 stderr 软提示不阻断) ──
-run_exit2_hook ".claude/hooks/mirror_drift_check.py"
 run_exit2_hook ".codex/hooks/mirror_drift_check.py"
+
+# ── [instructions] Codex 原生 AGENTS 指令源硬闸（含 staged 公共区，防 edit+restore 绕过） ──
+run_exit2_hook ".codex/hooks/instruction_source_check.py"
 
 # ── [hooks-source] Codex lifecycle hook 唯一注册源硬闸 ──
 run_exit2_hook ".codex/hooks/config_health_check.py" --strict
 
-# ── [factory-version] 仅 BridgeForge 工厂自身要求产品版本 bump；禁止下沉到模板 ──
+# ── [factory-version] 仅 BridgeForgeCodex 工厂自身要求产品版本 bump；禁止下沉到模板 ──
 run_exit2_hook ".codex/scripts/factory_version_check.py"
 
-# [encoding] UTF-8 BOM is forbidden in BridgeForge text surfaces.
-run_exit2_hook ".claude/hooks/encoding_check.py" --pre-commit
+# [encoding] UTF-8 BOM is forbidden in BridgeForgeCodex text surfaces.
 run_exit2_hook ".codex/hooks/encoding_check.py" --pre-commit
 
+# ── [layout] doc 五层索引 + scripts/tests 单一测试目录硬闸 ──
+run_exit2_hook ".codex/hooks/project_structure_check.py" --pre-commit
+
 # ── [D6] 规则闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
-run_exit2_hook ".claude/hooks/rule_size_check.py" --pre-commit
-run_exit2_hook ".claude/hooks/rule_index_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_size_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/rule_index_check.py" --pre-commit
 
 # ── [skills] 通用 skill metadata 闸(硬拦; 下游无 skills/ 则自门控 no-op) ──
-run_exit2_hook ".claude/hooks/skill_metadata_check.py" --pre-commit
 run_exit2_hook ".codex/hooks/skill_metadata_check.py" --pre-commit
 
 # ── [既有] memory 索引重建(卫生段, 永 exit 0 兜底) ──
-for CONFIG_DIR in .claude .codex; do
+for CONFIG_DIR in .codex; do
   SCRIPT="$CONFIG_DIR/scripts/memory_rebuild_index.py"
   if [ -n "$PY" ] && [ -f "$SCRIPT" ]; then
     "$PY" "$SCRIPT" || true
     git add "$CONFIG_DIR/memory/_stats.json" "$CONFIG_DIR/memory/MEMORY.md" "$CONFIG_DIR/memory/MEMORY_COLD.md" 2>/dev/null || true
   fi
 done
-# <<< BRIDGEFORGE_MANAGED_END
+# <<< BRIDGEFORGE_CODEX_MANAGED_END
 
 # >>> PROJECT_EXTENSION_BEGIN
 # <<< PROJECT_EXTENSION_END

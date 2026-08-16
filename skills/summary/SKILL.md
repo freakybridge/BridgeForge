@@ -3,7 +3,6 @@ name: summary
 description: 总结当前工作的阶段性进展，或在用户明确传入“同意验收”时结算当前交付；用户调用 /summary、$summary 或要求沉淀本轮成果时使用。
 user_invocable: true
 argument: 无参数，或精确参数“同意验收”
-model: sonnet
 ---
 
 # summary — 沉淀当前项目成果
@@ -26,13 +25,11 @@ model: sonnet
 
 ## 项目 memory 写入路由（先宿主、再能力、后身份）
 
-先确定当前执行 `$summary` 的宿主，再只检查该宿主一行；禁止因为另一宿主的 writer 或
-marker 存在而切换路径：
+BridgeForgeCodex 只支持 Codex，固定使用下列项目内路径：
 
-| 当前宿主 | marker | writer | memory 根 | rebuild | lint |
+| 宿主 | marker | writer | memory 根 | rebuild | lint |
 |---|---|---|---|---|---|
-| Codex | `.codex/.bridgeforge_version` | `.codex/scripts/project_memory_writer.py` | `.codex/memory/` | `.codex/scripts/memory_rebuild_index.py` | `.codex/hooks/memory_lint.py` |
-| Claude | `.claude/.bridgeforge_version` | `.claude/scripts/project_memory_writer.py` | `.claude/memory/` | `.claude/scripts/memory_rebuild_index.py` | `.claude/hooks/memory_lint.py` |
+| Codex | `.codex/.bridgeforge_codex_version` | `.codex/scripts/project_memory_writer.py` | `.codex/memory/` | `.codex/scripts/memory_rebuild_index.py` | `.codex/hooks/memory_lint.py` |
 
 向 writer 交付最终正文时，必须先用当前宿主的非 shell 文件编辑工具创建项目 `.runtime/`
 下的无 BOM UTF-8 临时内容文件，再把显式文件路径传给 `--content-file`；writer 调用结束后
@@ -45,9 +42,9 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
 1. 当前宿主 writer 存在时，必须把最终正文交给它；无论 marker 是否存在，都禁止直接 Write/Edit 当前宿主 memory
    正文或自动索引。writer 能力本身授权受限的项目内写入；检查收据中的 `host`、目标路径、
    SHA-256、`rebuild_command` 与索引结果。该 writer 已负责本次唯一一次索引重建；成功后
-   禁止再次单独运行 `memory_rebuild_index.py`。另一宿主的 writer 不构成当前宿主能力。
+   禁止再次单独运行 `memory_rebuild_index.py`。
 2. 当前宿主 writer 不存在但 marker 存在时，必须 **fail closed**：停止全部项目 memory
-   写入，提示用户执行无参数 `/bridgeforge`。禁止回退到用户级 memory，也禁止跨宿主
+   写入，提示用户执行无参数 `/bridgeforge-codex`。禁止回退到用户级 memory，也禁止
    fallback、伪造或补写 marker。writer 与 marker 都不存在时，只能使用当前宿主已提供且
    能确认属于当前项目的既有 memory 机制；目标或写入能力不确定时停止对应写入。
 
@@ -81,9 +78,7 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
 ### Delivery topic
 
 - 每个 topic 只维护一个规范文件：
-  `<project-memory-root>/topics/<topic>/summary.md`。Codex 对应
-  `.codex/memory/topics/<topic>/summary.md`，Claude 对应
-  `.claude/memory/topics/<topic>/summary.md`。
+  `.codex/memory/topics/<topic>/summary.md`。
 - 后续总结只更新该 `summary.md`；禁止按日期、单次对话、里程碑子项或子任务新增 topic
   memory 文件。
 - `status` 只能是 `active`、`completed`、`superseded`。只有全部验收条件满足、用户已
@@ -161,7 +156,7 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
 
 - 新增或更新的当前项目 memory 路径、`category` / `topic` / `status` 和一句话结论；使用
   writer 时附目标路径、SHA-256 与索引收据。
-- 当前模式、修改的 TODO/rules/docs 和索引；普通模式必须明确后三类均
+- 当前模式、修改的 TODO/AGENTS/docs 和索引；普通模式必须明确后三类均
   未修改，验收模式必须证明每个改动都属于当前交付显式范围。
 - 旧碎片的结构化合并候选、delivery/Bug 归档候选及用户级 memory 候选；候选不等于已执行。
 - 已有测试、审计、Git 和 runtime trust 收据；缺失项分别标记“未验证”或

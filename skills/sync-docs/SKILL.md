@@ -3,14 +3,13 @@ name: sync-docs
 description: 根据当前 Git 代码变更同步对应设计文档，并核对项目源码到文档的映射；用户调用 /sync-docs、$sync-docs，或要求让设计文档与本轮实现保持一致时使用。
 user_invocable: true
 argument: 可选的改动重点或额外上下文
-model: sonnet
 ---
 
 # sync-docs — 同步设计文档
 
 ## 定位与边界
 
-依据真实代码 diff 更新既有设计文档。项目专属路径映射放在 `.claude/sync-docs.map.md` 或 `.codex/sync-docs.map.md`，skill 只定义通用同步流程。
+依据真实代码 diff 更新既有设计文档。项目专属路径映射放在 `.codex/sync-docs.map.md`，skill 只定义通用同步流程。
 
 ## 输入
 

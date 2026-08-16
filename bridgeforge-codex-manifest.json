@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "canonical_remote": "https://github.com/freakybridge/BridgeForgeCodex.git",
+  "branch": "main",
+  "platforms": {
+    "codex": {
+      "target": "~/.codex/skills",
+      "skills": [
+        {
+          "name": "bridgeforge-codex",
+          "files": [
+            {
+              "source": "scripts/bridgeforge_codex_shared_update.ps1",
+              "target": "scripts/bridgeforge_codex_shared_update.ps1",
+              "sha256": "sha256:fe329b881f9e9b2e5bae68639cdee809451e10c0190d729730045219edcf360e"
+            },
+            {
+              "source": "skills/bridgeforge-codex/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:ae6dbf64b89581dfa5c3474f57a5ea1b9a2262301f542eeb9e53e4d3b90bb1a4"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/adopt.md",
+              "target": "references/adopt.md",
+              "sha256": "sha256:becc7724fdd79bd571dc7f76b884e4a7159627d1cca03955c50ce78fe8c8e196"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/init.md",
+              "target": "references/init.md",
+              "sha256": "sha256:9fdb5e69855df1df232bf0fff3da4c9d4520d4e29e059f9473a3a3b0648b3031"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/update.md",
+              "target": "references/update.md",
+              "sha256": "sha256:61980886b83506d35a0c92aa713275cbac56bfc4f5e37ce9ce477c518e415190"
+            },
+            {
+              "source": "skills/bridgeforge-codex/references/user-skill-maintenance.md",
+              "target": "references/user-skill-maintenance.md",
+              "sha256": "sha256:0788217dedfdfc13ce20aa89617c09cd7d2e40b2fac96de587b96added0dda8e"
+            }
+          ]
+        },
+        {
+          "name": "archive-scan",
+          "files": [
+            {
+              "source": "skills/archive-scan/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:4665c71e457aaee58f387c7f376c600ed4309d8e2393c34f3bb1101a6b7ee572"
+            }
+          ]
+        },
+        {
+          "name": "collab",
+          "files": [
+            {
+              "source": "skills/collab/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:b70cf4539d44bfe6388d5c53a22f6dd35a6efe1513a1d5cca8a3f196041d6a07"
+            }
+          ]
+        },
+        {
+          "name": "confirm",
+          "files": [
+            {
+              "source": "skills/confirm/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:dffb8a68a77da2b36910e980daf29977834730f0c440d770926f42ebb98f708b"
+            }
+          ]
+        },
+        {
+          "name": "create-worktree",
+          "files": [
+            {
+              "source": "skills/create-worktree/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:d0e58c1b0bbdf5213336bbaf8c8951c2415ef5b86dba9be1735efc460fd8000c"
+            },
+            {
+              "source": "skills/create-worktree/agents/openai.yaml",
+              "target": "agents/openai.yaml",
+              "sha256": "sha256:f40c1215a001cb5e43495b151107b9d7fee34c4f00ee35bfc4136d7cf5a9dbe8"
+            },
+            {
+              "source": "skills/create-worktree/scripts/create_worktree.ps1",
+              "target": "scripts/create_worktree.ps1",
+              "sha256": "sha256:3574d9e0c8a1500049aaa5130551306af8e53a5f064a603dc8e62395dd0e8351"
+            }
+          ]
+        },
+        {
+          "name": "debate",
+          "files": [
+            {
+              "source": "skills/debate/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:7a4e158fd685b5803e30eb9751d7fbfd12c3f1958cef2f48c4b0ac3df9b9602b"
+            }
+          ]
+        },
+        {
+          "name": "develop",
+          "files": [
+            {
+              "source": "skills/develop/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:8499f0f99c8463c78e3ad915b6a421a2445eee88c1fcad361b5fd5a4811cf3cf"
+            }
+          ]
+        },
+        {
+          "name": "escalate",
+          "files": [
+            {
+              "source": "skills/escalate/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:8653702bf1aa78651bccbe50251573c93ab412000f82b4f6cddadb3233d6ec73"
+            }
+          ]
+        },
+        {
+          "name": "explain",
+          "files": [
+            {
+              "source": "skills/explain/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:ee9e6bac1a8ff26150755b53c34eab0c53e9ed6969e94f4abfce84c4a9aaf40e"
+            }
+          ]
+        },
+        {
+          "name": "find-doc",
+          "files": [
+            {
+              "source": "skills/find-doc/references/map-reminder-sop.md",
+              "target": "references/map-reminder-sop.md",
+              "sha256": "sha256:bac0d54c14ab9f27a3456ef1eb2bd2e9e6b1ca146173509029b2459c5103e7c6"
+            },
+            {
+              "source": "skills/find-doc/references/output-format.md",
+              "target": "references/output-format.md",
+              "sha256": "sha256:b3b4b5bc38dd8f7fcddea906624804555850951070c387f596bd4cc87f519bac"
+            },
+            {
+              "source": "skills/find-doc/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:188afd48699f1af6262de8f25029c802ae00a9cbebbfdad662d77ed5c863b68d"
+            }
+          ]
+        },
+        {
+          "name": "find-memory",
+          "files": [
+            {
+              "source": "skills/find-memory/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:8b8df62442416b54e0cb90271cbb01c462a630c4e70f3517ab1c8c5680b85e2d"
+            }
+          ]
+        },
+        {
+          "name": "focus",
+          "files": [
+            {
+              "source": "skills/focus/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:2ad43e0e09ec979941684009ea16d4250e05152633fc80ea58f30b164fbffd7f"
+            }
+          ]
+        },
+        {
+          "name": "git-sync",
+          "files": [
+            {
+              "source": "skills/git-sync/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:014509a95e5660251b875089d542e6223916ed847a316aa8591d7772de0d8575"
+            }
+          ]
+        },
+        {
+          "name": "plan",
+          "files": [
+            {
+              "source": "skills/plan/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:9c9bccc0f38f9e035c72749c29cf1b8207a50d1855737da1b00bf101580d6211"
+            }
+          ]
+        },
+        {
+          "name": "resume",
+          "files": [
+            {
+              "source": "skills/resume/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:afe444c01163b14c59f949af7d3487146249a373564defc03423043217711c75"
+            }
+          ]
+        },
+        {
+          "name": "snapshot",
+          "files": [
+            {
+              "source": "skills/snapshot/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:2a184ebc8ceb396a15b33e04250fef122b5cd91fecffbc7fda84d799407cfbf2"
+            }
+          ]
+        },
+        {
+          "name": "spinoff",
+          "files": [
+            {
+              "source": "skills/spinoff/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:183f85ab8d7f2c1f6ee0f60cede125f78b2d6c9d18a947f75521af29da6d79f6"
+            }
+          ]
+        },
+        {
+          "name": "summary",
+          "files": [
+            {
+              "source": "skills/summary/references/deep-steps.md",
+              "target": "references/deep-steps.md",
+              "sha256": "sha256:71f65e51857d1e2790cb76418572ccf46ed7dfa9a4c8c91e8057bb113567a330"
+            },
+            {
+              "source": "skills/summary/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:d988db8ee34116c9ed1ccbdd1d1e7be7a91677d35ee869afe62a65afe89233fc"
+            }
+          ]
+        },
+        {
+          "name": "sync-docs",
+          "files": [
+            {
+              "source": "skills/sync-docs/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:7db9eb76a7ba0149ac16c842d5f2d67d135ae6a6ca8bfd49ac731eee1eb9396e"
+            }
+          ]
+        },
+        {
+          "name": "todo",
+          "files": [
+            {
+              "source": "skills/todo/SKILL.md",
+              "target": "SKILL.md",
+              "sha256": "sha256:adb838ffe649c6ac5dbf6fe5e646e4fcbcf0d5019ebb726747bd587f7376bd6b"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

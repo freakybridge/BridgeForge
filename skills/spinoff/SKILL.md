@@ -3,7 +3,6 @@ name: spinoff
 description: 当主任务被一个足够大的前置问题阻塞时，存档主任务、生成新对话种子提示并保留回程链；用户调用 /spinoff、$spinoff，或推进 A 必须先独立解决 B 时使用。
 user_invocable: true
 argument: 前置阻塞问题描述
-model: sonnet
 ---
 
 # spinoff — 派生前置任务
@@ -29,8 +28,7 @@ model: sonnet
 运行当前 agent 的 snapshot 脚本：
 
 ```text
-Claude: .venv/Scripts/python.exe .claude/hooks/session_snapshot.py manual
-Codex:  .venv/Scripts/python.exe .codex/hooks/session_snapshot.py manual
+.venv/Scripts/python.exe .codex/hooks/session_snapshot.py manual
 ```
 
 读回新建的 `.runtime/session_state/<ts>.md`，在末尾追加：

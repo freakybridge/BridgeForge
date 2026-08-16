@@ -8,12 +8,12 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
-$CanonicalRemote = "https://github.com/freakybridge/BridgeForge.git"
+$CanonicalRemote = "https://github.com/freakybridge/BridgeForgeCodex.git"
 $CanonicalBranch = "main"
 
 function Assert-Windows {
     if ($TestNonWindows -or [Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-        throw "BridgeForge shared-skill distribution supports Windows only."
+        throw "BridgeForgeCodex shared-skill distribution supports Windows only."
     }
 }
 
@@ -62,7 +62,7 @@ function Assert-CanonicalRepositoryIdentity {
     }
     $remote = ((Invoke-Git -WorkingDirectory $Root -Arguments @("config", "--get", "remote.origin.url")) -join "").Trim()
     if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
-        throw "Repository origin is not the canonical BridgeForge remote."
+        throw "Repository origin is not the canonical BridgeForgeCodex remote."
     }
     Invoke-Git -WorkingDirectory $Root -Arguments @(
         "fetch",
@@ -137,7 +137,7 @@ function Remove-VerifiedLegacyJunction {
         throw "Verified legacy junction could not be removed: $legacy"
     }
     if (-not (Test-Path -LiteralPath $targetFull -PathType Container)) {
-        throw "Verified BridgeForge repository target is missing after junction removal: $targetFull"
+        throw "Verified legacy repository target is missing after junction removal: $targetFull"
     }
     Write-Host "Removed verified legacy junction: $legacy"
 }
@@ -150,7 +150,7 @@ function Invoke-Main {
         throw "USERPROFILE is not a valid existing directory."
     }
 
-    $cloneRoot = Join-Path ([IO.Path]::GetTempPath()) "bridgeforge-bootstrap-$([Guid]::NewGuid().ToString('N'))"
+    $cloneRoot = Join-Path ([IO.Path]::GetTempPath()) "bridgeforge-codex-bootstrap-$([Guid]::NewGuid().ToString('N'))"
     try {
         Invoke-Git -Arguments @(
             "-c", "core.autocrlf=false",
@@ -163,7 +163,7 @@ function Invoke-Main {
             $cloneRoot
         ) | Out-Null
         Assert-CanonicalRepositoryIdentity -Root $cloneRoot
-        $updater = Join-Path $cloneRoot "scripts\bridgeforge_shared_update.ps1"
+        $updater = Join-Path $cloneRoot "scripts\bridgeforge_codex_shared_update.ps1"
         if (-not (Test-Path -LiteralPath $updater -PathType Leaf)) {
             throw "Canonical clone is missing the shared-skill updater."
         }
@@ -171,8 +171,7 @@ function Invoke-Main {
         if ($LASTEXITCODE -ne 0) {
             throw "Shared-skill updater failed with exit code $LASTEXITCODE."
         }
-        Remove-VerifiedLegacyJunction -UserProfile $env:USERPROFILE
-        Write-Host "BridgeForge shared-skill installation completed."
+        Write-Host "BridgeForgeCodex shared-skill installation completed. Run /bridgeforge-codex in Codex."
     }
     finally {
         if (Test-Path -LiteralPath $cloneRoot) {

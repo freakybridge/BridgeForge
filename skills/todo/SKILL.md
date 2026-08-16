@@ -3,7 +3,6 @@ name: todo
 description: 归档对话中新出现的问题、情报或待办，不打断当前主线；用户调用 /todo、$todo，或明确要求记录新问题、历史线索、待查事项时使用。
 user_invocable: true
 argument: 问题描述（可注明“新问题”“之前遇过”“查下 memory”等线索）
-model: haiku
 ---
 
 # todo — 归档新问题
@@ -29,7 +28,7 @@ model: haiku
    目标时，直接读取该记录，不启动子 agent。目标不唯一时才把 related-record lookup 显式
    分派给 `light-explorer`，在 3-4 次只读调用内轻扫 `MEMORY.md`、`doc/1_delivery/`、
    `doc/2_bugs/` 和当前 agent rules；再读命中 memory、源码及必要文档。
-4. 主 agent 根据只读收据分类并写入。找到完整方案时，按项目 `rules/workflow.md` 通过当前
+4. 主 agent 根据只读收据分类并写入。找到完整方案时，按项目 `AGENTS.md` 文档约束通过当前
    宿主 writer 或既有规范写入机制更新 memory 正文、必要的源文档和 TODO。`MEMORY.md`、
    `MEMORY_COLD.md` 与 `_stats.json` 是派生产物，只能由 writer/PostToolUse 索引器更新，
    禁止手工编辑或在 writer 成功后重复 rebuild。

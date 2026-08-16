@@ -1,0 +1,7 @@
+interface:
+  display_name: "create-worktree"
+  short_description: "安全创建独立分支和永久 Windows Git worktree"
+  default_prompt: "使用 $create-worktree，依次传入工作树名、分支名和可选基准分支，创建永久 Windows Git worktree。"
+
+policy:
+  allow_implicit_invocation: false

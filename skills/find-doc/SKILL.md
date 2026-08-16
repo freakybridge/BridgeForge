@@ -1,6 +1,5 @@
 ---
 name: find-doc
-model: sonnet
 description: 定位主题相关文档、TODO、当前进展、设计计划、验收方案及关联 memory/rules；用户询问“相关文档在哪、还有什么未解决、现状如何、查一下某主题”时主动使用。精确路径、纯代码搜索或本轮已查过同一主题时跳过。
 user_invocable: true
 argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"）
@@ -41,12 +40,12 @@ argument: 主题关键词（中英混合，例 "auth oauth" / "数据库 schema"
   - 读取 `doc/README.md` 的 `delivery_layout`；
   - Glob `doc/1_delivery/**/<topic>*/**/*.md`，并匹配 `requirements_*.md`、`plan.md`、`acceptance.md`、`debates/*.md`；
   - Grep `doc/2_bugs/**/<topic>*.md`，只返回命中文件，最多 20 个。
-- **Path D—Memory 索引**：判断 Claude `.claude` 或 Codex `.codex`，只 Grep其 `memory/MEMORY.md`，最多 25 条；不扫描具体 memory 文件。
+- **Path D—Memory 索引**：只 Grep `.codex/memory/MEMORY.md`，最多 25 条；不扫描具体 memory 文件。
 - **Path E—多词共现**：仅多 token 时，在 `doc/**/*.md` 中按正反顺序做 multiline 共现 Grep，只返回文件，最多 15 个。
 
 ### 3. 查项目 rule 映射
 
-读取当前 agent 的 `.claude/find-doc.map.md` 或 `.codex/find-doc.map.md`，按 `topic_to_rules` 查表：命中主题取对应 rules，未命中取 `default`。映射不存在时跳过，不全量 grep rules。
+读取 `.codex/find-doc.map.md`，按 `topic_to_rules` 查表：命中主题取对应 rules，未命中取 `default`。映射不存在时跳过，不全量 grep rules。
 
 ### 4. 聚合与收尾
 

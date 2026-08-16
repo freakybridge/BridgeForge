@@ -6,14 +6,60 @@
 - **minor (Y)** — 新功能（新 hook / 新 skill / 新 rule / 新模板）
 - **patch (Z)** — bug 修复 / 文档调整 / refactor
 
-**层标签**（每条 entry 前缀，让下游一眼看懂该不该 sync，语义见 `CLAUDE.md §3`）：
+**层标签**（每条 entry 前缀，让下游一眼看懂该不该 sync，语义见 `AGENTS.md §3`）：
 
 - `[product]` — 改了 `templates/` / `skills/`，会下沉到下游 → 下游 sync-from-upstream 时**应当**拉取
-- `[repo]` — 只改了 setup_agent 自身配置 / 工具，不下沉 → 下游无关
+- `[repo]` — 只改了 BridgeForgeCodex 自身配置 / 工具，不下沉 → 下游无关
 - `[meta]` — 只改了 `doc/` / `README` / `SKILL.md` 等说明 → 一般无关
 - 混合改动并列标，如 `[product][meta]`
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
+
+## [1.3.0] - 2026-08-17
+
+### Added
+
+- [product][repo][meta] 完成 BridgeForgeCodex 重构与项目专区治理
+
+## [1.2.0] - 2026-08-17
+
+### Changed
+
+- [product][repo][meta] 根 `AGENTS.md` 改为 BridgeForge 公共区与项目级专区双 marker ownership；公共区只接受当前/历史发布 hash，项目专区、嵌套 AGENTS 与项目 hook 保持项目所有。
+- [product][repo] 同步器保留 `section_layout` 兼容旧无 marker 项目，禁止 whole historical replace 覆盖项目区；marker 歧义或公共区漂移 fail-closed，并继续阻断旧 rule 退休与版本戳。
+- [product][repo] `instruction_source_check.py` 增加编辑后提示、工作树与 staged blob 公共区校验，阻断 edit-stage-restore 绕过；`version_release.py` 可区分 public / project / mixed 改动。
+
+## [1.1.0] - 2026-08-16
+
+### Changed
+
+- [product][repo][meta] 退役未被 Codex 运行时加载的 8 个公共 Markdown path-rule 与工厂 overlay；有效红线迁入原生 `AGENTS.md`，流程、SOP 和设计说明分别迁入 skill 与 doc。
+- [product][repo] 新增 `instruction_source_check.py` 硬闸，检查 AGENTS 必需章节与大小、Template/工厂公共区一致性、伪 Markdown `paths:` 自动加载声明与旧规则索引；旧 `rule_index_check.py` / `rule_size_check.py` 只作兼容入口。
+- [product][meta] schema 保留 `0.86.0+` 及 1.0.0 trusted hash lineage；官方旧 rule 可退役，已修改下游文件必须原样保留为 gap，收据逐文件列出人工迁移目标且不写新戳。
+- [product][repo] 规则退役增加 AGENTS 原生迁移依赖闸，并补齐“自动加载”位于 `Markdown paths` 之前的伪加载声明识别；AGENTS 存在迁移 gap 时，旧 rule 必须保留且版本戳不得推进。
+
+## [1.0.0] - 2026-08-16
+
+### Changed
+
+- [product][repo][meta] 建立 Template 公共 AGENTS/Rules 单一事实源与工厂 Overlay：根 `AGENTS.md` 仅保留三个项目定制区及工厂 rule 索引，8 个公共 rule 精确 dogfood；新增编辑后提示、pre-commit/测试硬拦和普通下游 no-op 的一致性检查。
+- [product][repo][meta] Codex-only 模板根由 `templates/codex/**` 扁平化为 `templates/**`；同步器、schema、dogfood hooks、活跃文档与测试统一使用新路径，同时保留全部 `0.86.0+` 旧 source/hash lineage。
+- [product][repo][meta] **BREAKING:** 产品更名为 BridgeForgeCodex，并收口为 Codex-only：新入口为 `$bridgeforge-codex`，技术标识、用户级 ledger、项目版本戳和发布脚本统一使用 `bridgeforge_codex` 命名。
+- [product][repo] 新增旧 `$bridgeforge` 两步迁移桥：Codex skill shelf 仅保留薄入口，完整产品原子安装到独立 `~/.bridgeforge-codex`；可信旧 home、ledger/hash ownership 资产使用统一 fingerprint 风险卡清理并支持失败回滚。
+- [product][repo] 项目同步器支持 `0.86.0+` 旧戳单次风险迁移、双戳/非法戳阻断和 stamp-last。
+- [product][repo] 修复历史 AGENTS 章节中已渲染项目名被 worktree 目录名误判为本地漂移；只归一化标准 clone 命令中的同值项目名，迁移后保留真实项目名，章节其他改写仍 fail-closed。
+- [product][repo][meta] 加固旧 updater → 新 updater 两阶段交接：兼容 manifest 冻结旧 Codex/Claude 受管 skill payload，防止旧进程提前删除或改写；新 updater 仅在旧 ledger hash 与磁盘实际 hash 一致时事务升级活跃 Codex skill，并继承 native memories consent；dirty 旧 home 保留为 gap，禁止误删人工改动。
+- [product][repo] 恢复 Codex 原生 memories 与项目 `.agents` 布局迁移编排，统一在 Python 3.11+ preflight 后进入整轮单次确认；旧 memory 状态目录与 hook marker 事务迁移为 BridgeForgeCodex 新标识。
+- [repo][meta] 发布 fixture 由静态版本计数升级为逐个构造并实迁 Git 历史中全部可达的 `0.86.0+` 基线；Codex-only 上游同步与反向回灌 playbook 改写为当前单事务协议。
+- [product][repo][meta] 退役 Claude 模板、项目入口、switch、finalizer、setup junction 与 harness parity；退役脚本的历史 hash 保留在 Codex schema lineage，parity 设计与交付材料迁入 `doc/4_archive/`。
+
+## [0.95.0] - 2026-08-16
+
+### Added
+
+- [product][repo][meta] 重组 Codex AGENTS 为项目约束、BridgeForge 协作骨架、开发与 Debug 五章；新增精确历史标题的 fail-closed 布局迁移、三个项目必填区的 `project_readiness` 双状态硬闸，并完整退役双宿主 `[ctx-budget]` hook。
+- [product][meta] 统一 `$confirm` / `$develop` 的验证轮次口径：L 级一次申请含合理缓冲的现实预算上限；工具中断和代码未变的补跑只计时间 / token，不重复消耗验证轮次。
+- [product][repo][meta] 统一测试代码到 `scripts/tests/**`：BridgeForge 工厂迁移现有 harness，新项目由结构硬闸禁止顶层 `test/`、`tests/`，既有下游只收到迁移行动清单而不被自动移动；同时新增 doc 五层索引结构检查与只读归档候选提示。
 
 ## [0.94.4] - 2026-08-16
 

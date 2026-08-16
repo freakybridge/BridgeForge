@@ -2,9 +2,9 @@
 delivery_layout: flat
 ---
 
-# BridgeForge Documents
+# BridgeForgeCodex Documents
 
-本仓库采用 BridgeForge 五层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
+本仓库采用 BridgeForgeCodex 五层文档体系。`1_delivery/` 采用扁平布局：每个 topic 直接位于该目录下；若未来交付规模需要里程碑，可改为 `milestone` 并迁入 `M1/<topic>/`。
 
 ## 索引
 
@@ -18,8 +18,9 @@ delivery_layout: flat
 
 ## 架构
 
-- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 [`codex-project-sync.md`](0_architecture/design/codex-project-sync.md)、`design-rationale.md`、上游同步 playbook、harness、memory 与文档体系设计。
-- `$bridgeforge` 的运行手册属于产品源码，位于 [`skills/bridgeforge/references/`](../skills/bridgeforge/references/)，不纳入 `doc/`。
+- 设计资料：[`0_architecture/design/`](0_architecture/design/)，包括 [`codex-project-sync.md`](0_architecture/design/codex-project-sync.md)、[`codex-native-instruction-architecture.md`](0_architecture/design/codex-native-instruction-architecture.md)、`design-rationale.md`、上游同步 playbook、memory 与文档体系设计。
+- 操作参考：[`codex-project-operating-guide.md`](3_reference/codex-project-operating-guide.md) 与 [`codex-hook-signals.md`](3_reference/codex-hook-signals.md)。
+- `$bridgeforge-codex` 的运行手册属于产品源码，位于 [`skills/bridgeforge-codex/references/`](../skills/bridgeforge-codex/references/)，不纳入 `doc/`。
 
 ## Delivery topic
 
@@ -32,10 +33,18 @@ delivery_layout: flat
 | `bridgeforge-keyed-index-merge` | 规则与目录索引按稳定键合并，防止 A 激进吸收删除下游独有条目（2026-08-16） |
 | `bridgeforge-managed-rule-safety` | 高定制 Rule 的 project-owned/preserve ownership、缺失标题 fail-closed、fenced Markdown 解析与事务回滚（2026-08-16） |
 | `bridgeforge-single-confirmation` | `init`、`adopt`、`update`、`switch` 的零确认安全路径、单次风险确认与 Codex 窄权限规则需求（2026-08-15） |
+| `bridgeforge-repository-structure-governance` | 文档五层结构机器检查、BridgeForge 测试迁入 `scripts/tests/**`，以及下游旧测试目录只报告不自动迁移（2026-08-16） |
+| `bridgeforgecodex-codex-only-rebrand` | BridgeForgeCodex 1.0.0：彻底退役 Claude、删除 switch/parity、全技术标识改名、`0.86.0+` Codex 直升与最终仓库改名（2026-08-16） |
+| `template-root-flattening` | Codex-only 模板从 `templates/codex/**` 提升为 `templates/**`，保留 `0.86.0+` 历史 lineage 并同步同步器、schema、dogfood 与测试（2026-08-16） |
+| `factory-template-dogfood-contract` | Template 公共 AGENTS/Rules 单一事实源、BridgeForgeCodex 项目定制区与工厂 Overlay，以及编辑/提交/发布防漂移硬闸（2026-08-16） |
+| `codex-rule-runtime-simplification` | 退役未实际加载的 Markdown path rule，将有效红线无损迁入原生 AGENTS、hook、skill 与文档，并安全保留下游定制（2026-08-16） |
+| `codex-project-zone-ownership` | 根 AGENTS 公共区只读、项目专区独占写入、嵌套 AGENTS / 项目 hook ownership 与双高定制 worktree 迁移验收（2026-08-17） |
 | `bridgeforge-switch-direct-sync`、`bridgeforge-switch-semantic-migration` | 双宿主切换；各含 `debates/`；Markdown Rule 投影增强建议（2026-07-30） |
-| `codex-harness-parity`、`codex-model-routing`、`codex-model-routing-56`、`codex-cost-routing`、`codex-subscription-routing` | Codex harness 与模型路由；下游业务版本与 BridgeForge 骨架版本分离（2026-07-30） |
+| `codex-model-routing`、`codex-model-routing-56`、`codex-cost-routing`、`codex-subscription-routing` | Codex 模型路由历史与下游业务版本分离（2026-07-30） |
 | `codex-skeleton-refactor` | Codex 骨架系统性重构、11 条 Bug 全量闭环、`0.86.0+` 迁移、`create-worktree` 与双真实下游验证（2026-08-15） |
+| `codex-agents-structure-reorganization` | Codex AGENTS 信息架构重组、历史标题安全迁移、项目必填区双状态硬闸与 `ctx-budget` 完整退役（2026-08-16） |
 | `codex-skill-routing-dispatch` | skill routing 设计与 `debates/` |
+| `shared-skill-model-inheritance` | 删除 shared skill 的 Claude 专用 `model:` 覆盖，双宿主统一继承当前会话模型，并合并精简 Codex 模板的模型选择与执行分工说明（2026-08-16） |
 | `confirm-workflow`、`develop-demand-discovery`、`explain-skill` | 需求确认与通用 skill 演进；后两者含 `research/` |
 | `cross-project-write-guard`、`non-ascii-shell-guard` | 安全防护；后者新增 [memory writer stdin 编码旁路报告](1_delivery/non-ascii-shell-guard/research/2026-08-04_memory-writer-stdin-encoding-bypass-report.md) |
 | `ctx-management`、`token-context-optimization` | 上下文与 token 治理；Stall Warning 已裁定从双宿主骨架及下游更新中移除（2026-07-30） |
@@ -67,4 +76,4 @@ delivery_layout: flat
 
 ## 归档与参考
 
-`4_archive/` 内现有文件为迁移前历史档案，继续保持可追溯性；新归档按 `4_archive/delivery/<topic>/` 或 `4_archive/bugs/` 落位。外部资料与仅供参考的实现放入 `3_reference/`，不作为运行时资产。
+`4_archive/` 内现有文件为迁移前历史档案，继续保持可追溯性；Codex harness parity 设计与交付材料已归档到 [`codex-harness-parity-design.md`](4_archive/codex-harness-parity-design.md) 和 [`codex-harness-parity-delivery/`](4_archive/codex-harness-parity-delivery/)；新归档按 `4_archive/delivery/<topic>/` 或 `4_archive/bugs/` 落位。外部资料与仅供参考的实现放入 `3_reference/`，不作为运行时资产。

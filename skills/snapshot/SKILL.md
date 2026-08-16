@@ -3,7 +3,6 @@ name: snapshot
 description: 将当前 session 的客观状态和短交接摘要保存到 .runtime/session_state/；任务暂停、即将换会话、完成重要子任务或长对话需要低 token 接续时使用。
 user_invocable: true
 argument: 可选——本次 snapshot 的补充说明
-model: sonnet
 ---
 
 # 保存短交接 snapshot
@@ -21,9 +20,6 @@ model: sonnet
 1. 运行当前 agent 的快照脚本：
 
    ```bash
-   # Claude
-   .venv/Scripts/python.exe .claude/hooks/session_snapshot.py manual
-   # Codex
    .venv/Scripts/python.exe .codex/hooks/session_snapshot.py manual
    ```
 

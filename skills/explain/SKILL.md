@@ -3,7 +3,6 @@ name: explain
 description: 用白话和贴近当前话题的例子解释已有内容；用户显式调用 $explain，或以当前语言明确要求白话解释、讲人话、举例，或表示没看懂、未理解时使用。只解释，不实施、重设计或扩张原任务。
 user_invocable: true
 argument: 要解释的内容；可省略并沿用当前话题
-model: sonnet
 ---
 
 # 白话解释

@@ -3,7 +3,6 @@ name: archive-scan
 description: 扫描已验收的 delivery topic 与已解决 Bug，给出归档候选，经用户逐项确认后使用 git mv 移至 doc/4_archive/ 并同步 doc/README.md；清理完成事项时使用。
 user_invocable: true
 argument: 无
-model: haiku
 ---
 
 # 扫描并归档完成文档
@@ -21,9 +20,6 @@ model: haiku
 1. 主对话直接运行当前 agent 的确定性扫描脚本；此 fast path 禁止为执行脚本启动子 agent：
 
    ```bash
-   # Claude
-   .venv/Scripts/python.exe .claude/scripts/archive_scan.py --json
-   # Codex
    .venv/Scripts/python.exe .codex/scripts/archive_scan.py --json
    ```
 

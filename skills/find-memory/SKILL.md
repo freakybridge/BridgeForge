@@ -3,7 +3,6 @@ name: find-memory
 description: 按关键词和 metadata 递归检索当前 agent 项目的分类 memory 与 delivery topic memory，并按需读取最相关记录；MEMORY.md 热区未命中、用户询问历史决策或实现前需要召回旧经验时使用。
 user_invocable: true
 argument: 搜索关键词
-model: sonnet
 ---
 
 # 按需检索 memory
@@ -22,7 +21,7 @@ model: sonnet
 
 ## 核心流程
 
-1. 判断当前 agent 目录：Claude 使用 `.claude/`，Codex 使用 `.codex/`。
+1. 使用 BridgeForgeCodex 唯一项目目录 `.codex/`。
 2. 主对话先核对热区和 router 候选；若现有索引已足够回答，或当前任务锚/确认卡唯一命中
    一个 topic，可直接读取该 topic
    目录内最相关的 1–2 个文件。存在多个候选或 slug 不确定时禁止猜测，
@@ -31,9 +30,6 @@ model: sonnet
    `light-explorer`，由它运行对应搜索脚本：
 
    ```bash
-   # Claude
-   python .claude/scripts/memory_search.py <关键词>
-   # Codex
    python .codex/scripts/memory_search.py <关键词>
    ```
 
