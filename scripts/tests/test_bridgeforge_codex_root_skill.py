@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -8,9 +9,74 @@ ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "skills/bridgeforge-codex/SKILL.md"
 REFERENCES = ROOT / "skills/bridgeforge-codex/references"
 OPENAI_YAML = ROOT / "skills/bridgeforge-codex/agents/openai.yaml"
+SLASH_COMMAND = re.compile(r"(?<![A-Za-z0-9_.~-])/bridgeforge(?:-codex)?\b")
+
+USER_COMMAND_SURFACES = (
+    ROOT / "README.md",
+    ROOT / "INSTALL.md",
+    ROOT / "skills/bridgeforge-codex/SKILL.md",
+    ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
+    ROOT / "scripts/install-shared-skills.ps1",
+    ROOT / "skills/summary/SKILL.md",
+    ROOT / "templates/hooks/config_health_check.py",
+    ROOT / ".codex/hooks/config_health_check.py",
+    ROOT / "templates/hooks/skill_sync_check.py",
+    ROOT / ".codex/hooks/skill_sync_check.py",
+    ROOT / "templates/scripts/version_release.py",
+    ROOT / ".codex/scripts/version_release.py",
+)
+
+ACTIVE_TEXT_SUFFIXES = {".json", ".md", ".ps1", ".py", ".toml", ".yaml", ".yml"}
+PASCAL_CASE_ALLOWED_SNIPPETS = (
+    "https://github.com/freakybridge/BridgeForgeCodex.git",
+    "freakybridge/BridgeForgeCodex",
+    r"D:\tools\BridgeForgeCodex",
+    "BridgeForgeCodex/",
+    "git clone <repo_url> BridgeForgeCodex && cd BridgeForgeCodex",
+    r"Local\BridgeForgeCodex.SharedSkillUpdate",
+    '"heading": "## 2 BridgeForgeCodex 协作骨架"',
+    'replace("{{PROJECT_NAME}}", "BridgeForgeCodex")',
+)
 
 
 class BridgeForgeCodexRootSkillTests(unittest.TestCase):
+    def test_active_user_commands_use_dollar_skill_invocation(self) -> None:
+        for path in USER_COMMAND_SURFACES:
+            with self.subTest(path=path):
+                text = path.read_text(encoding="utf-8-sig")
+                self.assertIsNone(SLASH_COMMAND.search(text))
+
+    def test_pascal_case_name_is_confined_to_technical_allowlist(self) -> None:
+        candidates = [
+            ROOT / "README.md",
+            ROOT / "INSTALL.md",
+            ROOT / "AGENTS.md",
+            ROOT / "bridgeforge-codex-manifest.json",
+            ROOT / "shared-skill-manifest.json",
+        ]
+        for base in (ROOT / "skills", ROOT / "scripts", ROOT / "templates", ROOT / ".codex"):
+            candidates.extend(
+                path
+                for path in base.rglob("*")
+                if path.is_file()
+                and path.suffix.lower() in ACTIVE_TEXT_SUFFIXES
+                and not {"tests", "compat", "memory", "__pycache__"}.intersection(
+                    path.relative_to(ROOT).parts
+                )
+            )
+
+        for path in sorted(set(candidates)):
+            text = path.read_text(encoding="utf-8-sig", errors="replace")
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                if "BridgeForge Codex" not in line and "BridgeForgeCodex" not in line:
+                    continue
+                with self.subTest(path=path, line=line_number):
+                    self.assertNotIn("BridgeForge Codex", line)
+                    self.assertTrue(
+                        any(snippet in line for snippet in PASCAL_CASE_ALLOWED_SNIPPETS),
+                        f"unexpected active PascalCase product name at {path}:{line_number}",
+                    )
+
     def test_menu_display_name_is_exact_lowercase_slug(self) -> None:
         metadata = OPENAI_YAML.read_text(encoding="utf-8")
         self.assertIn('display_name: "bridgeforge-codex"', metadata)

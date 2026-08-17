@@ -3,7 +3,7 @@
 
 本 hook 不访问 GitHub、本地 bridgeforge-codex clone、~/.bridgeforge 或 ~/.agents。
 发现托管账本缺失、损坏、skill 缺失或内容漂移时，只提示运行无参
-`/bridgeforge-codex`；SessionStart 期间绝不自动修复。
+`$bridgeforge-codex`；SessionStart 期间绝不自动修复。
 """
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def _valid_name(value: Any) -> str | None:
 
 
 def _warn(detail: str) -> None:
-    print(f"[skill-sync] {detail}。请运行无参 /bridgeforge-codex 重新同步。")
+    print(f"[skill-sync] {detail}。请运行无参 $bridgeforge-codex 重新同步。")
 
 
 def main() -> None:

@@ -44,7 +44,7 @@ here-string、管道或命令行内嵌非 ASCII 正文中转。writer 拒绝 std
    SHA-256、`rebuild_command` 与索引结果。该 writer 已负责本次唯一一次索引重建；成功后
    禁止再次单独运行 `memory_rebuild_index.py`。
 2. 当前宿主 writer 不存在但 marker 存在时，必须 **fail closed**：停止全部项目 memory
-   写入，提示用户执行无参数 `/bridgeforge-codex`。禁止回退到用户级 memory，也禁止
+   写入，提示用户执行无参数 `$bridgeforge-codex`。禁止回退到用户级 memory，也禁止
    fallback、伪造或补写 marker。writer 与 marker 都不存在时，只能使用当前宿主已提供且
    能确认属于当前项目的既有 memory 机制；目标或写入能力不确定时停止对应写入。
 

@@ -3,7 +3,7 @@
 > 面向长期 Codex 项目的协作骨架工厂。
 
 bridgeforge-codex 将原生 AGENTS 指令、memory、hooks、文档生命周期和通用 skills 打包为
-一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.0`，最低支持 Python 3.11 和
+一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.2`，最低支持 Python 3.11 和
 Windows。
 
 ## 快速开始
@@ -17,7 +17,7 @@ Set-Location D:\tools\BridgeForgeCodex
 随后在目标项目根目录运行：
 
 ```text
-/bridgeforge-codex
+$bridgeforge-codex
 ```
 
 该入口会先把完整、可信的产品仓库安装到 `~/.bridgeforge-codex`，并只在
@@ -26,7 +26,7 @@ skills，再根据项目状态选择 init、adopt 或 update。已有项目
 的 AGENTS、hooks、memory、skills、文档与项目定制按 schema v2 ownership 事务更新，未知或
 人工修改内容不会被静默覆盖。
 
-旧 `/bridgeforge` 只保留一次迁移启动：它安装并验证新 `$bridgeforge-codex` 后停止。
+旧 `$bridgeforge` 只保留一次迁移启动：它安装并验证新 `$bridgeforge-codex` 后停止。
 首次新入口会用一张风险卡清理可信旧 `~/.bridgeforge` home、ledger/hash 证明受管的
 旧用户级资产。Claude 骨架、
 switch 和双骨架 parity 已退役；项目内偶遇 Claude 文件时只提示，不读取或修改。
@@ -43,7 +43,7 @@ switch 和双骨架 parity 已退役；项目内偶遇 Claude 文件时只提示
 
 ```text
 BridgeForgeCodex/
-├── skills/bridgeforge-codex/ # /bridgeforge-codex 产品入口
+├── skills/bridgeforge-codex/ # $bridgeforge-codex 产品入口
 ├── skills/                   # 通用 skills
 ├── templates/               # 唯一活跃下游模板根
 ├── scripts/                 # 安装、迁移、同步与 tests

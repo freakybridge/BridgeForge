@@ -26,7 +26,7 @@ class SummarySkillContractTests(unittest.TestCase):
             ".codex/hooks/memory_lint.py",
             "writer 能力本身授权受限的项目内",
             "fail closed",
-            "无参数 `/bridgeforge-codex`",
+            "无参数 `$bridgeforge-codex`",
             "禁止回退到用户级 memory",
         ):
             self.assertIn(marker, self.skill)

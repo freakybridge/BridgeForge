@@ -9,11 +9,23 @@
 **层标签**（每条 entry 前缀，让下游一眼看懂该不该 sync，语义见 `AGENTS.md §3`）：
 
 - `[product]` — 改了 `templates/` / `skills/`，会下沉到下游 → 下游 sync-from-upstream 时**应当**拉取
-- `[repo]` — 只改了 BridgeForgeCodex 自身配置 / 工具，不下沉 → 下游无关
+- `[repo]` — 只改了 bridgeforge-codex 自身配置 / 工具，不下沉 → 下游无关
 - `[meta]` — 只改了 `doc/` / `README` / `SKILL.md` 等说明 → 一般无关
 - 混合改动并列标，如 `[product][meta]`
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
+
+## [1.4.3] - 2026-08-17
+
+### Fixed
+
+- [product][repo][meta] 统一 bridgeforge-codex 用户命名
+
+## [1.4.2] - 2026-08-17
+
+### Fixed
+
+- [product][repo][meta] 建立分层命名契约：用户调用统一为 `$bridgeforge-codex`，菜单与聊天显示统一为 `bridgeforge-codex`；保留 GitHub `BridgeForgeCodex` 与既有技术标识兼容。
 
 ## [1.4.1] - 2026-08-17
 

@@ -274,7 +274,7 @@ class VersionReleaseTests(unittest.TestCase):
                 agents.read_text(encoding="utf-8").replace("upstream", "bypassed"),
                 encoding="utf-8",
             )
-            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, r"outside \$bridgeforge-codex"):
                 VERSION_RELEASE.build_release_plan(
                     repo,
                     "fix: 禁止旁路修改受管区块",
@@ -546,7 +546,7 @@ class VersionReleaseTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, r"outside \$bridgeforge-codex"):
                 VERSION_RELEASE.build_release_plan(
                     repo, "fix: 禁止旁路官方索引", {"AGENTS.md"}
                 )
@@ -582,7 +582,7 @@ class VersionReleaseTests(unittest.TestCase):
             git(repo, "add", ".")
             git(repo, "commit", "-m", "baseline")
             (host / "hooks" / "guard.py").write_text("unauthorized\n", encoding="utf-8")
-            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+            with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, r"outside \$bridgeforge-codex"):
                 VERSION_RELEASE.build_release_plan(
                     repo, "fix: 不允许", {".codex/hooks/guard.py"}
                 )
@@ -667,7 +667,7 @@ class VersionReleaseTests(unittest.TestCase):
                 if change == "managed and project":
                     updated = updated.replace("project old", "project new")
                 hook.write_text(updated, encoding="utf-8")
-                with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "outside /bridgeforge"):
+                with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, r"outside \$bridgeforge-codex"):
                     VERSION_RELEASE.build_release_plan(
                         repo, "fix: 不允许受管旁路", {".githooks/pre-commit"}
                     )

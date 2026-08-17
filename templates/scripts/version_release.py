@@ -683,7 +683,7 @@ def classify_changes(repo: Path, changed_paths: set[str]) -> str:
     if unauthorized:
         labels = ", ".join(str(path.relative_to(repo)) for path in sorted(unauthorized))
         raise ReleaseError(
-            "managed skeleton files changed outside /bridgeforge-codex; missing updated skeleton stamp for "
+            "managed skeleton files changed outside $bridgeforge-codex; missing updated skeleton stamp for "
             + labels
         )
     if managed and not project:

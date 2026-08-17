@@ -57,7 +57,7 @@ def _check_python_version(version_info: object = sys.version_info) -> "str | Non
         return None
     return (
         f"PYTHON_VERSION: {major}.{minor} is unsupported. "
-        "FIX: create or upgrade the project .venv with Python 3.11+, then rerun /bridgeforge-codex."
+        "FIX: create or upgrade the project .venv with Python 3.11+, then rerun $bridgeforge-codex."
     )
 
 def _check_pythonutf8() -> "str | None":
@@ -144,7 +144,7 @@ def _check_memory_schema() -> "str | None":
     """Project memory must already match the canonical bridgeforge-codex layout."""
     lint = Path(__file__).resolve().parent / "memory_lint.py"
     if not lint.is_file():
-        return "MEMORY_SCHEMA: memory_lint.py is missing. FIX: rerun /bridgeforge-codex."
+        return "MEMORY_SCHEMA: memory_lint.py is missing. FIX: rerun $bridgeforge-codex."
     try:
         result = subprocess.run(
             [sys.executable, str(lint), "--organize"],
@@ -158,13 +158,13 @@ def _check_memory_schema() -> "str | None":
     except Exception as exc:
         return (
             f"MEMORY_SCHEMA: audit failed ({type(exc).__name__}). "
-            "FIX: rerun /bridgeforge-codex."
+            "FIX: rerun $bridgeforge-codex."
         )
     if result.returncode == 0:
         return None
     return (
         "MEMORY_SCHEMA: project memory needs migration. "
-        "FIX: run /bridgeforge-codex and review the complete memory plan."
+        "FIX: run $bridgeforge-codex and review the complete memory plan."
     )
 
 

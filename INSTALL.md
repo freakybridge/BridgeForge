@@ -1,6 +1,6 @@
 # bridgeforge-codex 安装与迁移
 
-bridgeforge-codex 1.4.0 只支持 Codex。用户级产品入口为
+bridgeforge-codex 1.4.2 只支持 Codex。用户级产品入口为
 `~/.codex/skills/bridgeforge-codex/SKILL.md`，完整产品 home 为
 `~/.bridgeforge-codex`，项目产品面只有
 `AGENTS.md + .codex/`。

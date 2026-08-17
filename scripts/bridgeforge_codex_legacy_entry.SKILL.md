@@ -1,6 +1,6 @@
 ---
 name: bridgeforge
-description: 一次性迁移旧 /bridgeforge 入口到 bridgeforge-codex；安装新入口后停止，不执行项目更新。
+description: 一次性迁移旧 $bridgeforge 入口到 bridgeforge-codex；安装新入口后停止，不执行项目更新。
 user_invocable: true
 user-invocable: true
 argument: 仅支持无参数
@@ -11,7 +11,7 @@ argument: 仅支持无参数
 本文件只用于旧入口兼容，不包含运行时模板，也不再次执行 updater。
 
 1. 若当前平台不是 Windows，立即停止，禁止下载或写入。
-2. 只接受无参数 `/bridgeforge`；其他参数在任何写入前报错。
+2. 只接受无参数 `$bridgeforge`；其他参数在任何写入前报错。
 3. 到达本文件表示已发布旧 updater 已完成兼容 manifest 事务。只读验证新的薄入口：
 
 ```text

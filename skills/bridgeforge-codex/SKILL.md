@@ -8,7 +8,7 @@ argument: 仅支持无参数
 # bridgeforge-codex
 
 bridgeforge-codex 是 Codex-only 骨架维护入口。只接受无参数
-`/bridgeforge-codex`；旧 `/bridgeforge`、`switch`、Claude 项目维护和任意内部参数
+`$bridgeforge-codex`；旧 `$bridgeforge`、`switch`、Claude 项目维护和任意内部参数
 都不属于公开命令面。本 skill 必须由主对话编排。
 
 ## 1. 平台、薄入口与产品 home 硬闸

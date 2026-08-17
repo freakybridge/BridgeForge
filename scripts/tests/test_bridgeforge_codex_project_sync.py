@@ -173,6 +173,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.94.1",
             "0.94.2",
             "0.94.4",
+            "1.4.1",
             "1.3.0",
             "0.92.0",
             "0.92.1",
