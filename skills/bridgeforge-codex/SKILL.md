@@ -129,7 +129,12 @@ planner 只能退休 ledger/hash 证明受管的旧 Codex bundle 与 Claude skil
   --project-root . --template-root $BRIDGEFORGE_CODEX_HOME --mode $MODE
 ```
 
-plan 必须零写入，并输出 fingerprint、safe、risk、absorption、gap 与 blocker。
+plan 必须零写入，并输出 fingerprint、safe、risk、absorption、gap、blocker 与
+`action_required_items`。当旧 `AGENTS.md` 无法可靠分类时，必须把
+`action_required_items` 按 G1、G2……逐项完整展示：来源行号、内容摘要、无法分类原因、
+推荐归属和推荐动作；禁止只显示 gap 数量后让用户再次追问。该清单只提供处置建议，
+原文件必须保持不写，且不得为它新增第二次确认。G 项是非执行 review 清单，不得与
+可执行的上游吸收 U 项混用；用户选 B 时，只有 U/R/P 等可执行 ID 可直接进入 apply。
 
 ## 7. 整轮最多一次确认
 
@@ -157,5 +162,6 @@ apply 必须传紧邻计划的 fingerprint 和唯一用户选择。禁止人工 
 ## 9. 收据
 
 必须报告用户级迁移/刷新 commit、execution_status 与 target_readiness、applied/declined、
-gaps、blockers、版本戳终态、rollback、验证命令和工作区状态。不得把
+gaps、`action_required_items`、blockers、版本戳终态、rollback、验证命令和工作区状态。
+`action_required_items` 必须使用上述逐项清单格式，不得折叠为一句“请人工处理”。不得把
 `completed_with_gaps` 描述成完美更新；应给出达到 ready 的剩余清单。

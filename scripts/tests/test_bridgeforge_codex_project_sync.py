@@ -114,6 +114,16 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         self.assertRegex(precommit["region"]["current_sha256"], r"^sha256:[0-9a-f]{64}$")
         self.assertIn("1.4.1", precommit["region"]["historical_sha256"])
+        hooks_config = next(
+            item for item in contract["assets"] if item["id"] == "codex.hooks-config"
+        )
+        self.assertEqual(
+            hooks_config["merge_validation"]["format"],
+            "codex-hooks-dispatchers-v1",
+        )
+        self.assertTrue(hooks_config["merge_validation"]["required_handlers"])
+        for handler in hooks_config["merge_validation"]["required_handlers"]:
+            self.assertRegex(handler["sha256"], r"^sha256:[0-9a-f]{64}$")
         active = next(item for item in contract["assets"] if item["id"] == "root.agents")
         self.assertIn("0.86.0", active["historical_sha256"])
         self.assertIn("0.90.0", active["historical_sha256"])
@@ -183,6 +193,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.94.2",
             "0.94.4",
             "1.4.3",
+            "1.4.5",
             "1.4.1",
             "1.3.0",
             "0.92.0",
@@ -603,6 +614,9 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         actions, gaps = sync._plan_whole(asset, source, target, project)
         self.assertEqual(actions, [])
         self.assertTrue(any("missing or duplicated" in item.reason for item in gaps))
+        action_required = sync._action_required_items(gaps)
+        self.assertEqual([item["id"] for item in action_required], ["G1"])
+        self.assertIn("marker", action_required[0]["classification_reason"])
 
     def test_custom_legacy_title_is_gap_and_layout_is_unwritten(self) -> None:
         project = self.make_project()
@@ -628,8 +642,21 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             )
             for item in plan.gaps
         ))
+        action_required = sync._plan_payload(plan)["action_required_items"]
+        self.assertEqual(
+            [item["id"] for item in action_required],
+            [f"G{index}" for index in range(1, len(action_required) + 1)],
+        )
+        custom_item = next(
+            item
+            for item in action_required
+            if "项目自定义架构约束" in item["content_summary"]
+        )
+        self.assertIn("AGENTS.md lines", custom_item["source_location"])
+        self.assertIn("classify", custom_item["recommended_action"])
         self.assertFalse(any(item.asset_id == "root.agents" for item in plan.actions))
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        self.assertEqual(receipt.action_required_items, tuple(action_required))
         self.assertEqual(agents.read_bytes(), before)
         self.assertFalse(receipt.stamp_written_last)
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.94.4\n")
@@ -653,8 +680,13 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             and "managed legacy section drifted" in item.reason
             for item in plan.gaps
         ))
+        action_required = sync._plan_payload(plan)["action_required_items"]
+        self.assertEqual(len(action_required), 1)
+        self.assertIn("项目本地表达扩展", action_required[0]["content_summary"])
+        self.assertIn("exact or trusted duplicates", action_required[0]["recommended_action"])
         self.assertFalse(any(item.asset_id == "root.agents" for item in plan.actions))
-        sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        self.assertEqual(receipt.action_required_items, tuple(action_required))
         self.assertEqual(agents.read_bytes(), before)
 
     def test_modified_retired_ctx_budget_section_is_gap_and_unwritten(self) -> None:
@@ -993,6 +1025,29 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                 b"## 1. Managed\n\n```markdown\n## example\n",
                 (heading,),
             )
+
+    def test_unclosed_legacy_agents_lists_action_required_without_writing(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        agents = project / "AGENTS.md"
+        agents.write_text(
+            self.legacy_agents() + "\n```markdown\n## project example\n",
+            encoding="utf-8",
+        )
+        before = agents.read_bytes()
+        stamp = project / ".codex/.bridgeforge_codex_version"
+        stamp.write_text("0.94.4\n", encoding="utf-8")
+
+        plan = sync.build_plan(project, ROOT, "update")
+        action_required = sync._plan_payload(plan)["action_required_items"]
+        self.assertEqual([item["id"] for item in action_required], ["G1"])
+        self.assertIn("project example", action_required[0]["content_summary"])
+        self.assertIn("unclosed Markdown fence", action_required[0]["classification_reason"])
+        receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        self.assertEqual(receipt.action_required_items, tuple(action_required))
+        self.assertEqual(agents.read_bytes(), before)
+        self.assertFalse(receipt.stamp_written_last)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.94.4\n")
 
     def test_markdown_structure_failure_rolls_back_before_stamp(self) -> None:
         project = self.make_project()

@@ -40,6 +40,10 @@ def write_contract_transition_fixture(
     customize_old_agents: bool = False,
     include_renamed_asset: bool = False,
     include_stale_same_target_asset: bool = False,
+    include_merge_noop_asset: bool = False,
+    drift_merge_target_before_baseline: bool = False,
+    omit_merge_handler_before_baseline: bool = False,
+    duplicate_merge_handler_before_baseline: bool = False,
 ) -> set[str]:
     host = repo / ".codex"
     host.mkdir(parents=True)
@@ -68,6 +72,41 @@ def write_contract_transition_fixture(
             "strategy": "whole",
             "current_sha256": VERSION_RELEASE._sha256_bytes(b"old managed\n"),
         })
+    merge_handler = {
+        "type": "command",
+        "commandWindows": (
+            "python .codex/hooks/hook_dispatcher.py pre-tool"
+        ),
+        "comment": "current managed dispatcher",
+    }
+    target_merge_handler = dict(merge_handler)
+    if drift_merge_target_before_baseline:
+        target_merge_handler["comment"] = "drifted managed dispatcher"
+    target_handlers = [] if omit_merge_handler_before_baseline else [target_merge_handler]
+    if duplicate_merge_handler_before_baseline:
+        target_handlers.append(dict(target_merge_handler))
+    target_handlers.append(
+        {"type": "command", "commandWindows": "python project_hook.py"}
+    )
+    merge_target = {
+        "description": "project-owned description",
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash|Edit|Write",
+                    "hooks": target_handlers,
+                }
+            ]
+        },
+    }
+    if include_merge_noop_asset:
+        old_assets.append({
+            "id": "codex.hooks-config",
+            "target": ".codex/hooks.json",
+            "strategy": "merge",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"old canonical source\n"),
+            "merge_policy": "codex-hooks",
+        })
     old_contract = {
         "schema_version": 2,
         "stamp": ".codex/.bridgeforge_version",
@@ -85,6 +124,11 @@ def write_contract_transition_fixture(
         (host / "old.py").write_text("old managed\n", encoding="utf-8")
     if include_stale_same_target_asset:
         (host / "stale.py").write_text("old managed\n", encoding="utf-8")
+    if include_merge_noop_asset:
+        (host / "hooks.json").write_text(
+            json.dumps(merge_target, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     (host / ".bridgeforge_version").write_text("0.94.2\n", encoding="utf-8")
     (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
     git(repo, "add", ".")
@@ -160,6 +204,23 @@ def write_contract_transition_fixture(
             "target": ".codex/stale.py",
             "strategy": "whole",
             "current_sha256": VERSION_RELEASE._sha256_bytes(b"new managed\n"),
+        })
+    if include_merge_noop_asset:
+        current_assets.append({
+            "id": "codex.hooks-config",
+            "target": ".codex/hooks.json",
+            "strategy": "merge",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"new canonical source\n"),
+            "merge_policy": "codex-hooks",
+            "merge_validation": {
+                "format": "codex-hooks-dispatchers-v1",
+                "required_handlers": [{
+                    "event": "PreToolUse",
+                    "matcher": "Bash|Edit|Write",
+                    "stage": "pre-tool",
+                    "sha256": VERSION_RELEASE._canonical_json_sha256(merge_handler),
+                }],
+            },
         })
     current_contract = {
         "schema_version": 2,
@@ -791,6 +852,72 @@ class VersionReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 VERSION_RELEASE.ReleaseError,
                 "target migration is missing changed paths",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_accepts_verified_unchanged_merge_target(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+            )
+
+            self.assertNotIn(".codex/hooks.json", changed)
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+            hooks = json.loads(
+                (repo / ".codex/hooks.json").read_text(encoding="utf-8")
+            )
+            commands = hooks["hooks"]["PreToolUse"][0]["hooks"]
+            self.assertTrue(any("project_hook.py" in item["commandWindows"] for item in commands))
+
+    def test_contract_transition_rejects_drifted_unchanged_merge_target(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+                drift_merge_target_before_baseline=True,
+            )
+
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "managed dispatcher drifted",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_missing_unchanged_merge_handler(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+                omit_merge_handler_before_baseline=True,
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "missing managed dispatcher",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_duplicate_unchanged_merge_handler(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+                duplicate_merge_handler_before_baseline=True,
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "managed dispatcher drifted",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 

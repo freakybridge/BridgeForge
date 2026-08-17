@@ -79,6 +79,70 @@ def manifest_sha256(path: Path) -> str:
     return f"sha256:{hashlib.sha256(git_blob_bytes(path)).hexdigest()}"
 
 
+def _canonical_json_sha256(value: Any) -> str:
+    payload = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _dispatcher_stage(handler: Any) -> str | None:
+    if not isinstance(handler, dict):
+        return None
+    command = str(handler.get("commandWindows") or handler.get("command") or "")
+    normalized = command.replace("\\", "/").casefold()
+    if ".codex/hooks/hook_dispatcher.py" not in normalized:
+        return None
+    match = re.search(
+        r"hook_dispatcher\.py(?:['\"\)]|\s)+"
+        r"(pre-tool|post-read|post-edit|post-shell|post-compact|stop|user-prompt|session-start)",
+        normalized,
+    )
+    return match.group(1) if match else "unknown"
+
+
+def _codex_hooks_merge_validation(payload: bytes) -> dict[str, Any]:
+    try:
+        document = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Codex hooks source is invalid JSON: {exc}") from exc
+    hooks = document.get("hooks") if isinstance(document, dict) else None
+    if not isinstance(hooks, dict):
+        raise ValueError("Codex hooks source has no hooks object")
+    required: list[dict[str, str]] = []
+    for event, groups in hooks.items():
+        if not isinstance(event, str) or not isinstance(groups, list):
+            raise ValueError("Codex hooks source contains an invalid event group")
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                raise ValueError("Codex hooks source contains an invalid matcher group")
+            matcher = group.get("matcher")
+            if matcher is not None and not isinstance(matcher, str):
+                raise ValueError("Codex hooks source contains an invalid matcher")
+            for handler in group["hooks"]:
+                stage = _dispatcher_stage(handler)
+                if stage is None:
+                    continue
+                required.append({
+                    "event": event,
+                    "matcher": matcher if isinstance(matcher, str) else "",
+                    "stage": stage,
+                    "sha256": _canonical_json_sha256(handler),
+                })
+    if not required:
+        raise ValueError("Codex hooks source has no managed dispatcher handlers")
+    required.sort(key=lambda item: (item["event"], item["matcher"], item["stage"]))
+    if len({(item["event"], item["matcher"], item["stage"]) for item in required}) != len(required):
+        raise ValueError("Codex hooks source contains duplicate managed dispatcher stages")
+    return {
+        "format": "codex-hooks-dispatchers-v1",
+        "required_handlers": required,
+    }
+
+
 def _source_path(repository_root: Path, source: str) -> Path:
     candidate = (repository_root / source).resolve()
     try:
@@ -569,6 +633,13 @@ def rebuild_managed_contract(
             if asset.get("current_sha256") != current:
                 asset["current_sha256"] = current
                 changed = True
+            if asset.get("merge_policy") == "codex-hooks":
+                validation = _codex_hooks_merge_validation(
+                    _source_path(root, source).read_bytes()
+                )
+                if asset.get("merge_validation") != validation:
+                    asset["merge_validation"] = validation
+                    changed = True
         history_source = source or asset.get("historical_source")
         history: dict[str, list[str]] = {}
         if history_source:

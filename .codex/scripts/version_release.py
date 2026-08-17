@@ -753,6 +753,114 @@ def _asset_content_signature(asset: dict[str, object] | None) -> object:
     )
 
 
+def _canonical_json_sha256(value: object) -> str:
+    payload = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _dispatcher_stage(handler: object) -> str | None:
+    if not isinstance(handler, dict):
+        return None
+    command = str(handler.get("commandWindows") or handler.get("command") or "")
+    normalized = command.replace("\\", "/").casefold()
+    if ".codex/hooks/hook_dispatcher.py" not in normalized:
+        return None
+    match = re.search(
+        r"hook_dispatcher\.py(?:['\"\)]|\s)+"
+        r"(pre-tool|post-read|post-edit|post-shell|post-compact|stop|user-prompt|session-start)",
+        normalized,
+    )
+    return match.group(1) if match else "unknown"
+
+
+def _validate_codex_hooks_merge_target(
+    payload: bytes,
+    asset: dict[str, object],
+    target: str,
+) -> None:
+    validation = asset.get("merge_validation")
+    if (
+        not isinstance(validation, dict)
+        or validation.get("format") != "codex-hooks-dispatchers-v1"
+        or not isinstance(validation.get("required_handlers"), list)
+        or not validation["required_handlers"]
+    ):
+        raise ReleaseError(f"current merge contract has no trusted managed projection: {target}")
+    try:
+        document = json.loads(
+            payload.decode("utf-8-sig"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseError(f"current merge target is invalid JSON: {target}: {exc}") from exc
+    hooks = document.get("hooks") if isinstance(document, dict) else None
+    if not isinstance(hooks, dict):
+        raise ReleaseError(f"current merge target has no hooks object: {target}")
+
+    seen_required: set[tuple[str, str, str]] = set()
+    for raw_required in validation["required_handlers"]:
+        if not isinstance(raw_required, dict):
+            raise ReleaseError(f"current merge contract is invalid: {target}")
+        event = raw_required.get("event")
+        matcher = raw_required.get("matcher")
+        stage = raw_required.get("stage")
+        expected_hash = raw_required.get("sha256")
+        if not all(isinstance(item, str) for item in (event, matcher, stage, expected_hash)):
+            raise ReleaseError(f"current merge contract is invalid: {target}")
+        key = (event, matcher, stage)
+        if key in seen_required:
+            raise ReleaseError(f"current merge contract has duplicate managed handlers: {target}")
+        seen_required.add(key)
+        groups = hooks.get(event)
+        if not isinstance(groups, list):
+            raise ReleaseError(
+                f"current merge target is missing managed dispatcher {event}/{matcher}/{stage}: {target}"
+            )
+        candidates: list[object] = []
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            actual_matcher = group.get("matcher")
+            normalized_matcher = actual_matcher if isinstance(actual_matcher, str) else ""
+            if normalized_matcher != matcher or not isinstance(group.get("hooks"), list):
+                continue
+            candidates.extend(
+                handler
+                for handler in group["hooks"]
+                if _dispatcher_stage(handler) == stage
+            )
+        if not candidates:
+            raise ReleaseError(
+                f"current merge target is missing managed dispatcher {event}/{matcher}/{stage}: {target}"
+            )
+        if len(candidates) != 1 or _canonical_json_sha256(candidates[0]) != expected_hash:
+            raise ReleaseError(
+                f"current merge target managed dispatcher drifted: {event}/{matcher}/{stage}: {target}"
+            )
+
+
+def _validate_unchanged_merge_transition(
+    repo: Path,
+    target: str,
+    asset: dict[str, object],
+) -> None:
+    before = _head_bytes(repo, target)
+    path = repo / target
+    current = path.read_bytes() if path.is_file() else None
+    if before is None or current is None:
+        raise ReleaseError(f"unchanged merge target is missing: {target}")
+    if _git_blob_bytes(before) != _git_blob_bytes(current):
+        raise ReleaseError(f"merge target changed without being reported: {target}")
+    if asset.get("merge_policy") != "codex-hooks":
+        raise ReleaseError(f"merge transition has no supported no-op validator: {target}")
+    _validate_codex_hooks_merge_target(current, asset, target)
+
+
 def _asset_target_hash(payload: bytes, asset: dict[str, object], repo: Path) -> str:
     normalized = _git_blob_bytes(payload)
     if asset.get("render") == "project-name":
@@ -1250,6 +1358,24 @@ def _classify_contract_transition(
             else old_asset.get("strategy") if old_asset is not None
             else None
         )
+        legal_merge_noop = (
+            not changed_asset_paths
+            and not identity_transition
+            and managed_strategy == "merge"
+            and current_asset is not None
+            and (metadata_transition or content_transition)
+        )
+        if legal_merge_noop:
+            handled_paths.update(asset_paths)
+            try:
+                _validate_unchanged_merge_transition(
+                    repo,
+                    str(current_target),
+                    current_asset,
+                )
+            except ReleaseError as exc:
+                errors.append(f"{asset_id}: {exc}")
+            continue
         if (
             (identity_transition or metadata_transition or content_transition)
             and managed_strategy != "seed"

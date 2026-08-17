@@ -15,6 +15,19 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.7] - 2026-08-18
+
+### Fixed
+
+- [product][repo][meta] 完善骨架迁移与合法 no-op 分类
+
+## [1.4.6] - 2026-08-18
+
+### Fixed
+
+- [product][repo] 旧 `AGENTS.md` 遇到未知标题、漂移区块、残留正文或未闭合 fence 时，逐项输出带来源行号、摘要、原因、推荐归属与动作的 `action_required_items`；原文件和旧骨架版本戳保持不变，仅逐字相同或可信映射内容可自动去重迁移。
+- [product][repo] `$git-sync` 在 contract 更新但 merge 目标未改动时，改为验证当前 `.codex/hooks.json` 的受管 dispatcher 投影；受管项完全符合新 contract 且项目 handler 原样保留时允许合法 no-op，缺失、漂移、重复或未报告改动继续 fail-closed。
+
 ## [1.4.5] - 2026-08-17
 
 ### Fixed

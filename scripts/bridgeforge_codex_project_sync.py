@@ -53,6 +53,7 @@ class Gap:
     asset_id: str
     target: str
     reason: str
+    review_items: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -124,9 +125,10 @@ class Receipt:
     required_actions: tuple[dict[str, Any], ...]
     optional_actions: tuple[dict[str, Any], ...]
     manual_steps: tuple[dict[str, Any], ...]
+    action_required_items: tuple[dict[str, Any], ...]
     blockers: tuple[dict[str, Any], ...]
     recommended_selection: tuple[str, ...]
-    gaps: tuple[dict[str, str], ...]
+    gaps: tuple[dict[str, Any], ...]
     stamp_written_last: bool
     rollback_performed: bool
     timings_ms: dict[str, float]
@@ -330,6 +332,49 @@ def _manual_items(gaps: list[Gap]) -> list[dict[str, Any]]:
             "platform_permission": False,
         }
         for index, gap in enumerate(ordered, 1)
+    ]
+
+
+def _action_required_items(gaps: list[Gap]) -> list[dict[str, Any]]:
+    ordered = sorted(
+        (
+            (gap.asset_id, gap.target, item)
+            for gap in gaps
+            for item in gap.review_items
+        ),
+        key=lambda entry: (
+            entry[0],
+            entry[1],
+            entry[2].get("source_location", ""),
+            entry[2].get("content_sha256", ""),
+        ),
+    )
+    return [
+        {
+            "id": f"G{index}",
+            "asset_id": asset_id,
+            "target": target,
+            "category": "agents_ownership_review",
+            "affects_readiness": True,
+            "current_state": "original AGENTS content preserved",
+            "target_state": item["recommended_owner"],
+            "action": "review-agents-ownership",
+            "source_location": item["source_location"],
+            "content_summary": item["content_summary"],
+            "content_sha256": item["content_sha256"],
+            "classification_reason": item["classification_reason"],
+            "recommended_owner": item["recommended_owner"],
+            "recommended_action": item["recommended_action"],
+            "recoverability": "original AGENTS.md remains byte-for-byte unchanged",
+            "executor": "user",
+            "recommended": True,
+            "completion_criteria": (
+                "the reviewed content has an explicit public/project decision and "
+                "a later plan no longer reports this item"
+            ),
+            "platform_permission": False,
+        }
+        for index, (asset_id, target, item) in enumerate(ordered, 1)
     ]
 
 
@@ -656,7 +701,10 @@ def _layout_sections(layout: dict[str, Any]) -> list[dict[str, Any]]:
     return sections
 
 
-def _layout_residual_bytes(payload: bytes, layout: dict[str, Any]) -> bytes:
+def _layout_residual_segments(
+    payload: bytes,
+    layout: dict[str, Any],
+) -> tuple[bytes, list[tuple[int, int]]]:
     normalized = _git_blob_bytes(payload)
     candidates: list[str] = []
     for entry in _layout_sections(layout):
@@ -687,13 +735,20 @@ def _layout_residual_bytes(payload: bytes, layout: dict[str, Any]) -> bytes:
             merged[-1] = (merged[-1][0], max(merged[-1][1], finish))
         else:
             merged.append((start, finish))
-    parts: list[bytes] = []
+    residual_spans: list[tuple[int, int]] = []
     cursor = 0
     for start, finish in merged:
-        parts.append(normalized[cursor:start])
+        if cursor < start:
+            residual_spans.append((cursor, start))
         cursor = finish
-    parts.append(normalized[cursor:])
-    return b"".join(parts)
+    if cursor < len(normalized):
+        residual_spans.append((cursor, len(normalized)))
+    return normalized, residual_spans
+
+
+def _layout_residual_bytes(payload: bytes, layout: dict[str, Any]) -> bytes:
+    normalized, residual_spans = _layout_residual_segments(payload, layout)
+    return b"".join(normalized[start:finish] for start, finish in residual_spans)
 
 
 def _layout_residual_hash(payload: bytes, layout: dict[str, Any]) -> str:
@@ -1273,6 +1328,81 @@ def _markdown_visible_headings(
     return visible_headings
 
 
+def _content_review_item(
+    payload: bytes,
+    start: int,
+    finish: int,
+    *,
+    reason: str,
+    recommended_owner: str = "project zone after user review",
+    recommended_action: str = "review, classify, then rerun bridgeforge-codex",
+) -> dict[str, str]:
+    bounded_start = max(0, min(start, len(payload)))
+    bounded_finish = max(bounded_start, min(finish, len(payload)))
+    block = payload[bounded_start:bounded_finish]
+    start_line = payload[:bounded_start].count(b"\n") + 1
+    end_line = start_line + max(0, block.count(b"\n"))
+    text = block.decode("utf-8", errors="replace")
+    summary = re.sub(r"\s+", " ", text).strip()
+    if len(summary) > 180:
+        summary = summary[:177] + "..."
+    return {
+        "source_location": f"AGENTS.md lines {start_line}-{end_line}",
+        "content_summary": summary or "<blank or formatting-only content>",
+        "content_sha256": _sha256_bytes(block),
+        "classification_reason": reason,
+        "recommended_owner": recommended_owner,
+        "recommended_action": recommended_action,
+    }
+
+
+def _unclosed_fence_review_item(payload: bytes) -> dict[str, str] | None:
+    lines = payload.splitlines(keepends=True)
+    fence_open_re = re.compile(br"^ {0,3}(`{3,}|~{3,})[^\r\n]*$")
+    fence_char: bytes | None = None
+    fence_length = 0
+    fence_start = 0
+    cursor = 0
+    for line in lines:
+        stripped = line.rstrip(b"\r\n")
+        if fence_char is not None:
+            close = re.fullmatch(
+                br" {0,3}"
+                + re.escape(fence_char)
+                + br"{"
+                + str(fence_length).encode("ascii")
+                + br",}[ \t]*",
+                stripped,
+            )
+            if close:
+                fence_char = None
+                fence_length = 0
+            cursor += len(line)
+            continue
+        fence = fence_open_re.fullmatch(stripped)
+        if fence:
+            marker = fence.group(1)
+            fence_char = marker[:1]
+            fence_length = len(marker)
+            fence_start = cursor
+        cursor += len(line)
+    if fence_char is None:
+        return None
+    return _content_review_item(
+        payload,
+        fence_start,
+        len(payload),
+        reason=(
+            "an unclosed Markdown fence makes later headings ambiguous; "
+            "bridgeforge-codex cannot distinguish project rules from obsolete public text"
+        ),
+        recommended_action=(
+            "close the fence, classify the listed content, remove only trusted obsolete "
+            "public text, and rerun bridgeforge-codex"
+        ),
+    )
+
+
 def _markdown_heading_sections(
     payload: bytes,
     headings: tuple[str, ...],
@@ -1528,6 +1658,7 @@ def _plan_section_layout(
         for heading in entry.get("legacy_headings", [])
     ]
     candidates = tuple(section_candidates + retired_candidates)
+    review_payload = _git_blob_bytes(before)
     try:
         target_sections = _markdown_heading_sections(before, candidates)
         source_sections = _markdown_heading_sections(
@@ -1536,11 +1667,25 @@ def _plan_section_layout(
         )
         visible = _markdown_visible_headings(before)
     except SyncBlocked as exc:
+        review = _unclosed_fence_review_item(review_payload)
+        if review is None:
+            review = _content_review_item(
+                review_payload,
+                0,
+                len(review_payload),
+                reason=f"legacy AGENTS structure cannot be parsed safely: {exc}",
+                recommended_owner="project zone after structural repair",
+                recommended_action=(
+                    "repair duplicate headings or encoding, classify every remaining "
+                    "section, then rerun bridgeforge-codex"
+                ),
+            )
         return before, [
             Gap(
                 str(asset["id"]),
                 str(asset["target"]),
                 f"section layout ownership is ambiguous: {exc}",
+                (review,),
             )
         ]
 
@@ -1553,11 +1698,30 @@ def _plan_section_layout(
         accepted_residuals.add(_layout_residual_hash(desired, layout))
         observed_residual = _layout_residual_hash(before, layout)
         if observed_residual not in accepted_residuals:
+            residual_payload, residual_spans = _layout_residual_segments(before, layout)
+            review_items = tuple(
+                _content_review_item(
+                    residual_payload,
+                    start,
+                    finish,
+                    reason=(
+                        "content outside every recognized legacy section does not match "
+                        "a trusted layout residual"
+                    ),
+                    recommended_action=(
+                        "classify this exact span as project-owned or obsolete public "
+                        "content, then rerun bridgeforge-codex"
+                    ),
+                )
+                for start, finish in residual_spans
+                if residual_payload[start:finish].strip()
+            )
             return before, [Gap(
                 str(asset["id"]),
                 str(asset["target"]),
                 "legacy AGENTS contains unclassified content outside recognized "
                 f"sections; original file preserved (observed {observed_residual})",
+                review_items,
             )]
     rendered: dict[str, bytes] = {}
     matched_spans: list[tuple[int, int]] = []
@@ -1584,6 +1748,22 @@ def _plan_section_layout(
                     str(asset["target"]),
                     f"section layout has multiple candidates for {heading}: "
                     + ", ".join(present),
+                    tuple(
+                        _content_review_item(
+                            review_payload,
+                            target_sections[candidate][0],
+                            target_sections[candidate][1],
+                            reason=(
+                                f"multiple sections claim the same project ownership slot: {heading}"
+                            ),
+                            recommended_owner="one canonical project-zone section",
+                            recommended_action=(
+                                "merge unique project rules, remove only exact or trusted "
+                                "duplicates, then keep one canonical section"
+                            ),
+                        )
+                        for candidate in present
+                    ),
                 ))
                 continue
             block = (
@@ -1599,6 +1779,22 @@ def _plan_section_layout(
                 str(asset["id"]),
                 str(asset["target"]),
                 f"section layout mixes current and legacy headings for {heading}",
+                tuple(
+                    _content_review_item(
+                        review_payload,
+                        target_sections[candidate][0],
+                        target_sections[candidate][1],
+                        reason=(
+                            f"current and legacy headings both claim the managed slot: {heading}"
+                        ),
+                        recommended_owner="public instructions after exact deduplication",
+                        recommended_action=(
+                            "compare both sections, retain the trusted current public section, "
+                            "and move only unique project rules to the project zone"
+                        ),
+                    )
+                    for candidate in present
+                ),
             ))
             continue
         if heading in present:
@@ -1617,6 +1813,21 @@ def _plan_section_layout(
                     str(asset["id"]),
                     str(asset["target"]),
                     f"managed layout section drifted; local content preserved: {heading}",
+                    (_content_review_item(
+                        review_payload,
+                        target_sections[heading][0],
+                        target_sections[heading][1],
+                        reason=(
+                            "the heading matches a managed section but its body is not "
+                            "byte-identical to the trusted public content"
+                        ),
+                        recommended_owner="review before public/project classification",
+                        recommended_action=(
+                            "compare this section with current public instructions; remove "
+                            "only exact or trusted duplicates and move unique project rules "
+                            "to the project zone"
+                        ),
+                    ),),
                 ))
                 continue
         else:
@@ -1636,6 +1847,23 @@ def _plan_section_layout(
                     str(asset["target"]),
                     "managed legacy section drifted; local content preserved: "
                     + ", ".join(untrusted),
+                    tuple(
+                        _content_review_item(
+                            review_payload,
+                            target_sections[alias][0],
+                            target_sections[alias][1],
+                            reason=(
+                                "the legacy managed heading is recognized but its body does "
+                                "not match any trusted historical block"
+                            ),
+                            recommended_owner="review before public/project classification",
+                            recommended_action=(
+                                "compare with current public instructions; move unique project "
+                                "rules to the project zone and remove only exact or trusted duplicates"
+                            ),
+                        )
+                        for alias in untrusted
+                    ),
                 ))
                 continue
         target_block = (
@@ -1666,6 +1894,20 @@ def _plan_section_layout(
                     str(asset["id"]),
                     str(asset["target"]),
                     f"retired legacy section drifted; local content preserved: {alias}",
+                    (_content_review_item(
+                        review_payload,
+                        span[0],
+                        span[1],
+                        reason=(
+                            "the section is retired upstream but contains content that does "
+                            "not match the trusted retired version"
+                        ),
+                        recommended_owner="project zone if unique; otherwise retire",
+                        recommended_action=(
+                            "map unique project rules into the project zone; retire the section "
+                            "only after every remaining line is an exact or trusted duplicate"
+                        ),
+                    ),),
                 ))
 
     known_headings = set(candidates)
@@ -1686,10 +1928,30 @@ def _plan_section_layout(
             continue
         if any(span_start < start < span_end for span_start, span_end in matched_spans):
             continue
+        finish = len(before)
+        current_level = next(
+            level
+            for _visible_index, visible_start, level, _visible_heading in visible
+            if visible_start == start
+        )
+        for _later_index, later_start, later_level, _later_heading in visible:
+            if later_start > start and later_level <= current_level:
+                finish = later_start
+                break
         gaps.append(Gap(
             str(asset["id"]),
             str(asset["target"]),
             f"unrecognized top-level layout heading; original file preserved: {heading}",
+            (_content_review_item(
+                review_payload,
+                start,
+                finish,
+                reason=f"the heading is not declared by the legacy ownership map: {heading}",
+                recommended_action=(
+                    "classify this section as project-owned or obsolete public content, "
+                    "then rerun bridgeforge-codex"
+                ),
+            ),),
         ))
 
     if gaps:
@@ -2249,6 +2511,17 @@ def _plan_agents_zones(
             return [], [Gap(
                 str(asset["id"]), str(asset["target"]),
                 f"legacy AGENTS migration is ambiguous: {exc}",
+                (_content_review_item(
+                    _git_blob_bytes(before),
+                    0,
+                    len(_git_blob_bytes(before)),
+                    reason=f"legacy AGENTS structure cannot be parsed safely: {exc}",
+                    recommended_owner="project zone after structural repair",
+                    recommended_action=(
+                        "repair the listed structure, classify every remaining section, "
+                        "then rerun bridgeforge-codex"
+                    ),
+                ),),
             )]
         if gaps:
             return [], gaps
@@ -2305,6 +2578,17 @@ def _plan_agents_zones(
         return [], [Gap(
             str(asset["id"]), str(asset["target"]),
             f"AGENTS zone ownership is ambiguous: {exc}; original file preserved",
+            (_content_review_item(
+                _git_blob_bytes(before),
+                0,
+                len(_git_blob_bytes(before)),
+                reason=f"project/public zone markers or required headings are ambiguous: {exc}",
+                recommended_owner="existing project zone after marker repair",
+                recommended_action=(
+                    "repair marker uniqueness and order without changing project content, "
+                    "then rerun bridgeforge-codex"
+                ),
+            ),),
         )]
     public_hash = _agents_public_zone_hash(before_parts[1], asset, project_root)
     accepted = {str(zones["public"]["current_sha256"])} | _declared_hashes(
@@ -2312,10 +2596,22 @@ def _plan_agents_zones(
         f"asset {asset['id']!r} public zone history",
     )
     if public_hash not in accepted:
+        public_start = len(before_parts[0])
         return [], [Gap(
             str(asset["id"]), str(asset["target"]),
             "BridgeForge public zone drifted; move project constraints to the project zone "
             f"and restore an official public block (observed {public_hash})",
+            (_content_review_item(
+                _git_blob_bytes(before),
+                public_start,
+                public_start + len(before_parts[1]),
+                reason="the public zone does not match current or trusted historical content",
+                recommended_owner="public zone after project-only rules are extracted",
+                recommended_action=(
+                    "move unique project rules to the project zone and restore the exact "
+                    "current public block"
+                ),
+            ),),
         )]
     public_after = _preserve_agents_public_rendered_tokens(
         desired_parts[1], before_parts[1], asset
@@ -3704,6 +4000,7 @@ def _apply_rebuilt_plan(
         for item_id, action, block in declined_executable
     ])
     manual_steps = _manual_items(rebuilt.gaps)
+    action_required_items = _action_required_items(rebuilt.gaps)
     blockers: list[dict[str, Any]] = []
     optional_actions: list[dict[str, Any]] = []
     target_readiness = _target_readiness(
@@ -3770,6 +4067,7 @@ def _apply_rebuilt_plan(
         required_actions=tuple(remaining_required),
         optional_actions=tuple(optional_actions),
         manual_steps=tuple(manual_steps),
+        action_required_items=tuple(action_required_items),
         blockers=tuple(blockers),
         recommended_selection=tuple(
             item_id for item_id, _action, _block in catalog
@@ -3815,6 +4113,7 @@ def _plan_payload(
     selected_ids = [item_id for item_id, _action, _block in catalog]
     optional_actions: list[dict[str, Any]] = []
     manual_steps = _manual_items(plan.gaps)
+    action_required_items = _action_required_items(plan.gaps)
     blockers = _blocker_items(plan.blockers)
     payload = {
         "status": "blocked" if plan.blockers else ("completed_with_gaps" if plan.gaps else "planned"),
@@ -3880,6 +4179,7 @@ def _plan_payload(
         ],
         "optional_actions": optional_actions,
         "manual_steps": manual_steps,
+        "action_required_items": action_required_items,
         "blocker_items": blockers,
         "recommended_selection": selected_ids,
         "confirmation": (

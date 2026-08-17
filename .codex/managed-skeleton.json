@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "release_version": "1.4.5",
+  "release_version": "1.4.7",
   "host": "codex",
   "minimum_supported_version": "0.86.0",
   "stamp": ".codex/.bridgeforge_codex_version",
@@ -48,6 +48,9 @@
     ],
     "1.4.3": [
       "sha256:ca929df3f30e4cfaca4cef19fe6bd8b00a5dbb6093b12ddbc5aa5ddf3589dbe8"
+    ],
+    "1.4.5": [
+      "sha256:4e5a9c4de6c1072488d462d328d8b46c78d5a426be4c645218fae90ca32e99e8"
     ]
   },
   "assets": [
@@ -439,7 +442,60 @@
           "sha256:6f55f3e54c50be01c0b87aca5948faeff142b779a773f7bec4b717810e51eca9"
         ]
       },
-      "merge_policy": "codex-hooks"
+      "merge_policy": "codex-hooks",
+      "merge_validation": {
+        "format": "codex-hooks-dispatchers-v1",
+        "required_handlers": [
+          {
+            "event": "PostCompact",
+            "matcher": "",
+            "stage": "post-compact",
+            "sha256": "sha256:501415b9f64e95c8471594d5a825926d5c754772d8b3740c69b58db53764a10b"
+          },
+          {
+            "event": "PostToolUse",
+            "matcher": "*",
+            "stage": "post-read",
+            "sha256": "sha256:fb512f75e056c5116a42cf0a86d0f1009a440a971055f28d0c308573175c54a4"
+          },
+          {
+            "event": "PostToolUse",
+            "matcher": "Bash",
+            "stage": "post-shell",
+            "sha256": "sha256:9d15a0a9e4d309313a86f64b20c047686d6194daad03b6cd00b045702a94fc15"
+          },
+          {
+            "event": "PostToolUse",
+            "matcher": "Edit|Write",
+            "stage": "post-edit",
+            "sha256": "sha256:b2f5498bae33e55ab375b6e811d8f547dd122a0064982a7d1d0deeefa208320e"
+          },
+          {
+            "event": "PreToolUse",
+            "matcher": "Bash|Edit|Write",
+            "stage": "pre-tool",
+            "sha256": "sha256:12dc6ccd5fd64a2bd3d2c41b38383dae471fa9b2ff443c5b7ee7d118fac4a374"
+          },
+          {
+            "event": "SessionStart",
+            "matcher": "",
+            "stage": "session-start",
+            "sha256": "sha256:235ca11d2b8d9d6e661c606d6426e789493b34bd3281ccc27da29fba1ca1bc17"
+          },
+          {
+            "event": "Stop",
+            "matcher": "",
+            "stage": "stop",
+            "sha256": "sha256:85fbe30fdcbbd51b36d6dbe5496d1b710b138d1de3965a4ce11a885b0955b917"
+          },
+          {
+            "event": "UserPromptSubmit",
+            "matcher": "",
+            "stage": "user-prompt",
+            "sha256": "sha256:7c2d4ccd643d22bb5094b4ca9d8cbacf2e74fe5212140fe027bc613e2fdb38f3"
+          }
+        ]
+      }
     },
     {
       "id": "codex.settings",
@@ -1700,7 +1756,7 @@
       "source": "templates/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:fb5b2369cb7abd8a704e031a15077e023e2ebcaa42f0147103a64f021979adec",
+      "current_sha256": "sha256:b1ce5ee1ab003c18c046c5c3f5db2a1deee3362a8587a1cba9c4c2c68ca8f84b",
       "historical_sha256": {
         "0.86.0": [
           "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
@@ -1731,6 +1787,9 @@
         ],
         "1.4.3": [
           "sha256:96352e5e1f6abf5e2481ace5d3756f30c17aab3183a18a8a6e89b4fe8e8b0d02"
+        ],
+        "1.4.5": [
+          "sha256:fb5b2369cb7abd8a704e031a15077e023e2ebcaa42f0147103a64f021979adec"
         ]
       }
     },

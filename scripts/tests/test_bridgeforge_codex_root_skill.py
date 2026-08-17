@@ -135,6 +135,9 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             "A：执行全部推荐项",
             "B：只执行用户列出的 ID",
             "C：不再执行风险动作",
+            "`action_required_items` 按 G1、G2……逐项完整展示",
+            "G 项是非执行 review 清单",
+            "禁止只显示 gap 数量后让用户再次追问",
             ".codex/.bridgeforge_codex_version",
             ".codex/.bridgeforge_version",
         ):
