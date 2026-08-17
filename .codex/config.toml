@@ -1,4 +1,4 @@
-# Codex project defaults managed by BridgeForgeCodex.
+# Codex project defaults managed by bridgeforge-codex.
 #
 # Keep model defaults here, not in .codex/settings.json. settings.json stays
 # responsible for hooks / permissions in this skeleton; Codex model defaults use

@@ -32,6 +32,8 @@ assert MANIFEST_SPEC is not None and MANIFEST_SPEC.loader is not None
 manifest_builder = importlib.util.module_from_spec(MANIFEST_SPEC)
 sys.modules[MANIFEST_SPEC.name] = manifest_builder
 MANIFEST_SPEC.loader.exec_module(manifest_builder)
+CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+LEGACY_DISTRIBUTION_REVISION = manifest_builder.LEGACY_DISTRIBUTION_REVISION
 
 
 def git_blob(revision: str, path: str) -> bytes:
@@ -63,7 +65,10 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
 
     @staticmethod
     def legacy_agents(*, filled: bool = True, project_name: str = "fixture") -> str:
-        text = git_blob("HEAD", "templates/codex/AGENTS.md").decode("utf-8")
+        text = git_blob(
+            LEGACY_DISTRIBUTION_REVISION,
+            "templates/codex/AGENTS.md",
+        ).decode("utf-8")
         text = text.replace("{{PROJECT_NAME}}", project_name)
         if filled:
             text = text.replace(
@@ -168,6 +173,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.94.1",
             "0.94.2",
             "0.94.4",
+            "1.3.0",
             "0.92.0",
             "0.92.1",
         }
@@ -279,8 +285,8 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             )
 
         historical_test_lines = {
-            f'text = git_blob("HEAD", "{legacy_root}AGENTS.md").decode("utf-8")',
-            f'retired_hook.write_bytes(git_blob("HEAD", "{legacy_root}hooks/context_warning.py"))',
+            f'"{legacy_root}AGENTS.md",',
+            f'"{legacy_root}hooks/context_warning.py",',
             f'"{legacy_root}skill-routing.json",',
             f'"{legacy_root}hooks/model_policy_check.py",',
             f'"{legacy_root}hooks/version_check.py",',
@@ -334,7 +340,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             ["P1", "P2", "P3"],
         )
         stamp = project / ".codex/.bridgeforge_codex_version"
-        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), "1.2.0")
+        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), CURRENT_VERSION)
 
         second = sync.build_plan(project, ROOT, "update")
         self.assertFalse(second.actions)
@@ -384,7 +390,10 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             encoding="utf-8",
         )
         retired_hook = project / ".codex/hooks/context_warning.py"
-        retired_hook.write_bytes(git_blob("HEAD", "templates/codex/hooks/context_warning.py"))
+        retired_hook.write_bytes(git_blob(
+            LEGACY_DISTRIBUTION_REVISION,
+            "templates/codex/hooks/context_warning.py",
+        ))
         stamp = project / ".codex/.bridgeforge_codex_version"
         stamp.write_text("0.94.4\n", encoding="utf-8")
 
@@ -422,7 +431,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertFalse(retired_hook.exists())
         self.assertEqual(receipt.project_readiness, "ready")
         self.assertEqual(receipt.target_readiness, "ready")
-        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), "1.2.0")
+        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), CURRENT_VERSION)
 
         second = sync.build_plan(project, ROOT, "update")
         self.assertFalse(second.actions)
@@ -748,7 +757,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             legacy_source = str(asset["historical_source"]).replace(
                 "templates" + "/", legacy_root, 1
             )
-            target.write_bytes(git_blob("HEAD", legacy_source))
+            target.write_bytes(git_blob(LEGACY_DISTRIBUTION_REVISION, legacy_source))
         official_plan = sync.build_plan(official_project, ROOT, "update")
         retired_ids = {
             action.asset_id
@@ -824,7 +833,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             legacy_source = str(asset["historical_source"]).replace(
                 "templates" + "/", legacy_root, 1
             )
-            payload = git_blob("HEAD", legacy_source)
+            payload = git_blob(LEGACY_DISTRIBUTION_REVISION, legacy_source)
             target.write_bytes(payload)
             rule_bytes[asset["target"]] = payload
         agents = project / "AGENTS.md"
@@ -1326,7 +1335,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         self.assertTrue(applied.stamp_written_last)
         self.assertFalse(legacy.exists())
-        self.assertEqual(current.read_text(encoding="utf-8"), "1.2.0\n")
+        self.assertEqual(current.read_text(encoding="utf-8"), f"{CURRENT_VERSION}\n")
 
     def test_dual_or_malformed_stamps_block_with_zero_writes(self) -> None:
         project = self.make_project()

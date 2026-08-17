@@ -1,12 +1,12 @@
 ---
 name: bridgeforge
-description: 一次性迁移旧 /bridgeforge 入口到 BridgeForgeCodex；安装新入口后停止，不执行项目更新。
+description: 一次性迁移旧 /bridgeforge 入口到 bridgeforge-codex；安装新入口后停止，不执行项目更新。
 user_invocable: true
 user-invocable: true
 argument: 仅支持无参数
 ---
 
-# BridgeForgeCodex 一次性迁移入口
+# bridgeforge-codex 一次性迁移入口
 
 本文件只用于旧入口兼容，不包含运行时模板，也不再次执行 updater。
 

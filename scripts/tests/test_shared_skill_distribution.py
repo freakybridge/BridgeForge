@@ -69,6 +69,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
             {file["target"] for file in command["files"]},
             {
                 "SKILL.md",
+                "agents/openai.yaml",
                 "references/adopt.md",
                 "references/init.md",
                 "references/update.md",
@@ -564,6 +565,11 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
             self.ledger()["consents"],
             {"native_memories": "declined"},
         )
+        menu_metadata = (
+            self.profile
+            / ".codex/skills/bridgeforge-codex/agents/openai.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('display_name: "bridgeforge-codex"', menu_metadata)
         self.assertTrue((self.profile / ".bridgeforge-codex/.git").is_dir())
 
     def test_hash_mismatch_and_unmanaged_conflict_leave_no_home(self) -> None:

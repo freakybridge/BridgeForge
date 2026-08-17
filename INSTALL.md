@@ -1,11 +1,11 @@
-# BridgeForgeCodex 安装与迁移
+# bridgeforge-codex 安装与迁移
 
-BridgeForgeCodex 1.2.0 只支持 Codex。用户级产品入口为
+bridgeforge-codex 1.4.0 只支持 Codex。用户级产品入口为
 `~/.codex/skills/bridgeforge-codex/SKILL.md`，完整产品 home 为
 `~/.bridgeforge-codex`，项目产品面只有
 `AGENTS.md + .codex/`。
 
-项目指令由根或嵌套 `AGENTS.md` 原生加载；根文件的公共区由 BridgeForgeCodex 管理，项目约束只写入项目级专区；机器可判约束由 hook / pre-commit 执行，
+项目指令由根或嵌套 `AGENTS.md` 原生加载；根文件的公共区由 bridgeforge-codex 管理，项目约束只写入项目级专区；机器可判约束由 hook / pre-commit 执行，
 操作流程由 skill 执行，长 SOP 与原理进入 `doc/`。Markdown `paths:` 不是 Codex
 指令加载机制，安装过程不会建立这种自研加载器。
 
@@ -44,6 +44,6 @@ ownership 记录到 `~/.codex/bridgeforge-codex-managed.json`。项目更新由
 
 ## 已退役能力
 
-BridgeForgeCodex 不再安装或维护 `CLAUDE.md`、`.claude/`、Claude 入口、
+bridgeforge-codex 不再安装或维护 `CLAUDE.md`、`.claude/`、Claude 入口、
 host switch、project finalizer、setup junction 或 harness parity。项目中发现
 Claude 遗留时只提示存在，不读取、不迁移、不删除。

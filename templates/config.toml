@@ -1,4 +1,4 @@
-# Codex project defaults managed by BridgeForgeCodex.
+# Codex project defaults managed by bridgeforge-codex.
 #
 # Keep model defaults here, not in .codex/settings.json. hooks are registered in
 # .codex/hooks.json; settings.json keeps permissions and other non-hook settings.

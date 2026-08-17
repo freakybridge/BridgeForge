@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Executable BridgeForgeCodex Codex-only downstream regression fixture."""
+"""Executable bridgeforge-codex Codex-only downstream regression fixture."""
 from __future__ import annotations
 
 import importlib.util
@@ -13,6 +13,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
+CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
 def load(name: str, path: Path):
@@ -111,7 +112,7 @@ def _published_lineage_check(contract: dict[str, object]) -> dict[str, object]:
                         receipt.stamp_written_last
                         and (project / ".codex/.bridgeforge_codex_version").read_text(
                             encoding="utf-8"
-                        ).strip() == "1.2.0"
+                        ).strip() == CURRENT_VERSION
                         and not (project / ".codex/.bridgeforge_version").exists()
                         and not repeated.safe_actions
                         and not repeated.risk_actions
@@ -170,7 +171,7 @@ def main() -> int:
                 receipt.stamp_written_last
                 and (project / ".codex/.bridgeforge_codex_version").read_text(
                     encoding="utf-8"
-                ).strip() == "1.2.0"
+                ).strip() == CURRENT_VERSION
                 and legacy_claude.read_text(encoding="utf-8") == "must stay opaque\n"
             ),
         })

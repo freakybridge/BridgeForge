@@ -18,7 +18,7 @@ class SummarySkillContractTests(unittest.TestCase):
 
     def test_codex_memory_route_fails_closed(self) -> None:
         for marker in (
-            "BridgeForgeCodex 只支持 Codex",
+            "bridgeforge-codex 只支持 Codex",
             ".codex/.bridgeforge_codex_version",
             ".codex/scripts/project_memory_writer.py",
             ".codex/memory/",
@@ -88,7 +88,7 @@ class SummarySkillContractTests(unittest.TestCase):
         )
         self.assertLess(rebuild, lint)
         for marker in (
-            "BridgeForgeCodex 唯一宿主目录 `.codex`",
+            "bridgeforge-codex 唯一宿主目录 `.codex`",
             "writer 已返回成功 `rebuild_command` 时复用该收据",
             "若当前宿主的 `memory_rebuild_index.py` 失败，立即停止",
             "标记为“跳过”",

@@ -1,13 +1,13 @@
 ---
 name: bridgeforge-codex
-description: 在 Windows Codex 项目中初始化或事务更新 BridgeForgeCodex 协作骨架，并维护受管用户级 skills。用户提到 BridgeForgeCodex、Codex 骨架初始化或同步上游模板时使用。
+description: 在 Windows Codex 项目中初始化或事务更新 bridgeforge-codex 协作骨架，并维护受管用户级 skills。用户提到 bridgeforge-codex、Codex 骨架初始化或同步上游模板时使用。
 user_invocable: true
 argument: 仅支持无参数
 ---
 
-# BridgeForgeCodex
+# bridgeforge-codex
 
-BridgeForgeCodex 是 Codex-only 骨架维护入口。只接受无参数
+bridgeforge-codex 是 Codex-only 骨架维护入口。只接受无参数
 `/bridgeforge-codex`；旧 `/bridgeforge`、`switch`、Claude 项目维护和任意内部参数
 都不属于公开命令面。本 skill 必须由主对话编排。
 

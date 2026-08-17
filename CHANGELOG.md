@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.1] - 2026-08-17
+
+### Fixed
+
+- [product][repo][meta] 统一 bridgeforge-codex 显示名
+
+## [1.4.0] - 2026-08-17
+
+### Changed
+
+- [product][repo][meta] 将活跃用户可见产品名统一为小写连字符 `bridgeforge-codex`，并通过 `agents/openai.yaml` 固定 Codex 菜单显示名；保留 GitHub 仓库名 `BridgeForgeCodex`、内部 `bridgeforge_codex` 技术标识和历史发布记录。
+
 ## [1.3.0] - 2026-08-17
 
 ### Added

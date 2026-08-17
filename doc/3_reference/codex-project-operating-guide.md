@@ -4,7 +4,7 @@
 
 项目级约束只写入根 `AGENTS.md` 的 `BRIDGEFORGE:PROJECT` 区域，或写入对应目录的嵌套 `AGENTS.md`。禁止修改 `BRIDGEFORGE:PUBLIC` 区域；编辑后 hook 会提示，pre-commit 会同时检查工作树与 staged blob，因而“先暂存公共区修改、再恢复工作树”不能绕过硬闸。
 
-项目专区固定包含项目架构红线、业务与安全红线、目录地图、快速命令和目录级 AGENTS 索引。嵌套 `AGENTS.md`、项目自有 hook、项目 handler 与 pre-commit extension 均是项目资产，BridgeForgeCodex 不覆盖、不删除、不重新格式化。
+项目专区固定包含项目架构红线、业务与安全红线、目录地图、快速命令和目录级 AGENTS 索引。嵌套 `AGENTS.md`、项目自有 hook、项目 handler 与 pre-commit extension 均是项目资产，bridgeforge-codex 不覆盖、不删除、不重新格式化。
 
 ## 文档治理
 
@@ -18,7 +18,7 @@ clone 后先建立项目虚拟环境，再从受版本控制的依赖清单安�
 
 ## 版本域隔离
 
-项目根 `VERSION` 是下游业务版本的唯一事实源；语言原生 manifest 可以镜像业务版本，但必须由项目发布流程同步。`.codex/.bridgeforge_codex_version` 只表示 BridgeForgeCodex 骨架版本，只能由统一项目同步器在资产和验证全部通过后最后写入。业务发布、普通提交和本地骨架定制不得修改骨架版本戳。
+项目根 `VERSION` 是下游业务版本的唯一事实源；语言原生 manifest 可以镜像业务版本，但必须由项目发布流程同步。`.codex/.bridgeforge_codex_version` 只表示 bridgeforge-codex 骨架版本，只能由统一项目同步器在资产和验证全部通过后最后写入。业务发布、普通提交和本地骨架定制不得修改骨架版本戳。
 
 ## 大版本依赖升级 Spike
 

@@ -21,7 +21,7 @@ argument: 搜索关键词
 
 ## 核心流程
 
-1. 使用 BridgeForgeCodex 唯一项目目录 `.codex/`。
+1. 使用 bridgeforge-codex 唯一项目目录 `.codex/`。
 2. 主对话先核对热区和 router 候选；若现有索引已足够回答，或当前任务锚/确认卡唯一命中
    一个 topic，可直接读取该 topic
    目录内最相关的 1–2 个文件。存在多个候选或 slug 不确定时禁止猜测，

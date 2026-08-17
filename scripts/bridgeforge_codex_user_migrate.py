@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan and apply the one-time BridgeForge to BridgeForgeCodex user migration.
+"""Plan and apply the one-time BridgeForge to bridgeforge-codex user migration.
 
 Only ledger/hash-proven assets are retired.  The plan is fingerprinted and
 rebuilt immediately before apply.  Every move is reversible until the new
@@ -237,7 +237,7 @@ def _manifest_codex_skills(
         )
         compatibility_codex = compatibility["platforms"]["codex"]
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        raise MigrationBlocked(f"invalid BridgeForgeCodex manifest: {exc}") from exc
+        raise MigrationBlocked(f"invalid bridgeforge-codex manifest: {exc}") from exc
     active = [
         item
         for item in codex.get("skills", [])
@@ -251,7 +251,7 @@ def _manifest_codex_skills(
         and isinstance(item.get("name"), str)
     }
     if CURRENT_SKILL not in {item.get("name") for item in active}:
-        raise MigrationBlocked("manifest does not contain the BridgeForgeCodex bundle")
+        raise MigrationBlocked("manifest does not contain the bridgeforge-codex bundle")
     if LEGACY_SKILL not in transitions:
         raise MigrationBlocked("manifest does not contain the one-time legacy transition")
     return active, transitions, {
@@ -283,11 +283,11 @@ def build_plan(user_profile: Path, source_root: Path) -> Plan:
     expected_source = _safe_child(profile, CURRENT_HOME)
     if os.path.normcase(str(source)) != os.path.normcase(str(expected_source)):
         raise MigrationBlocked(
-            f"source root must be the managed BridgeForgeCodex home: {expected_source}"
+            f"source root must be the managed bridgeforge-codex home: {expected_source}"
         )
     source_identity = _repository_identity(source, CURRENT_REMOTE)
     if source_identity["status"]:
-        raise MigrationBlocked("BridgeForgeCodex home contains local changes")
+        raise MigrationBlocked("bridgeforge-codex home contains local changes")
 
     legacy_codex_path = _safe_child(profile, LEGACY_CODEX_LEDGER)
     current_codex_path = _safe_child(profile, CURRENT_CODEX_LEDGER)
@@ -359,7 +359,7 @@ def build_plan(user_profile: Path, source_root: Path) -> Plan:
                 "write-ledger",
                 CURRENT_CODEX_LEDGER,
                 None,
-                "create a fresh BridgeForgeCodex ledger from manifest-verified targets",
+                "create a fresh bridgeforge-codex ledger from manifest-verified targets",
             ))
         elif not blockers and current_codex is not None:
             for name, record in records.items():
@@ -368,7 +368,7 @@ def build_plan(user_profile: Path, source_root: Path) -> Plan:
                     current_record.get("content_hash") != record["content_hash"]
                 ):
                     blockers.append(
-                        f"current BridgeForgeCodex ledger does not own verified skill: {name}"
+                        f"current bridgeforge-codex ledger does not own verified skill: {name}"
                     )
             if not blockers and current_consents is None and isinstance(old_consents, dict):
                 new_ledger = json.loads(json.dumps(current_codex))

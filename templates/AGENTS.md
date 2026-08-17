@@ -1,7 +1,7 @@
 <!-- BRIDGEFORGE:PUBLIC:BEGIN -->
 ## BridgeForge 公共区
 
-> 本区由 BridgeForgeCodex 管理。项目不得直接修改；项目约束必须写入文末“项目级专区”或目录内的嵌套 `AGENTS.md`。
+> 本区由 bridgeforge-codex 管理。项目不得直接修改；项目约束必须写入文末“项目级专区”或目录内的嵌套 `AGENTS.md`。
 
 ## 1 项目基础约束
 
@@ -30,7 +30,7 @@
 - 必须在项目虚拟环境中安装依赖；禁止隐式写入用户级配置或使用全局安装代替项目依赖。新依赖必须同步可复现的依赖清单。
 - 非 ASCII 正文禁止经 shell 字符串中转写入或动态执行；配置、hook 与入口脚本的编码和注册必须通过项目硬闸。
 
-## 2 BridgeForgeCodex 协作骨架
+## 2 bridgeforge-codex 协作骨架
 
 ### 2.1 原生指令承载索引
 
@@ -45,7 +45,7 @@
 `.codex/rules/*.rules` 只用于 Codex 命令执行策略。Markdown 中的 `paths:` 不会被 Codex 自动加载；禁止建立或宣称这种隐式机制。指令只保留“必须 / 禁止”红线，单一事实源，可机判优先交 hook，说明性内容进文档。
 
 - 下游业务版本必须以项目根 `VERSION` 为唯一事实源；原生 manifest 中的业务版本字段必须由项目发布流程同步，禁止让骨架版本戳代替业务版本。
-- BridgeForgeCodex 骨架版本只记录在 `.codex/.bridgeforge_codex_version`，仅允许统一项目同步器在全部验证通过后最后写入；业务提交和项目本地定制禁止修改该戳。
+- bridgeforge-codex 骨架版本只记录在 `.codex/.bridgeforge_codex_version`，仅允许统一项目同步器在全部验证通过后最后写入；业务提交和项目本地定制禁止修改该戳。
 
 ### 2.2 Memory 项目内托管
 
@@ -85,7 +85,7 @@ git clone <repo_url> {{PROJECT_NAME}} && cd {{PROJECT_NAME}}
 
 ### 4.3 模型与 Skill 执行分工
 
-BridgeForgeCodex 不替用户选择模型。所有 Skill 和子 agent 默认沿用用户当前会话的 model 和 effort；项目模板不得擅自锁定模型或思考强度。
+bridgeforge-codex 不替用户选择模型。所有 Skill 和子 agent 默认沿用用户当前会话的 model 和 effort；项目模板不得擅自锁定模型或思考强度。
 
 - 主对话负责与用户沟通、取得确认、处理授权并汇总最终结果。
 - Skill 定义工作流程；只有路由明确要求独立调研、实现或审计时，主对话才启动对应子 agent。
@@ -139,7 +139,7 @@ BridgeForgeCodex 不替用户选择模型。所有 Skill 和子 agent 默认沿�
 <!-- BRIDGEFORGE:PROJECT:BEGIN -->
 ## 项目级专区
 
-> 本区由项目完全所有。BridgeForgeCodex 更新时必须逐字保留，不得覆盖、删除、吸收或重新格式化。
+> 本区由项目完全所有。bridgeforge-codex 更新时必须逐字保留，不得覆盖、删除、吸收或重新格式化。
 
 ### 项目架构红线
 

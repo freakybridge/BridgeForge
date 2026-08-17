@@ -7,9 +7,36 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "skills/bridgeforge-codex/SKILL.md"
 REFERENCES = ROOT / "skills/bridgeforge-codex/references"
+OPENAI_YAML = ROOT / "skills/bridgeforge-codex/agents/openai.yaml"
 
 
 class BridgeForgeCodexRootSkillTests(unittest.TestCase):
+    def test_menu_display_name_is_exact_lowercase_slug(self) -> None:
+        metadata = OPENAI_YAML.read_text(encoding="utf-8")
+        self.assertIn('display_name: "bridgeforge-codex"', metadata)
+        self.assertIn("$bridgeforge-codex", metadata)
+
+    def test_user_visible_product_name_is_lowercase_kebab_case(self) -> None:
+        display_surfaces = (
+            ROOT / "templates/AGENTS.md",
+            ROOT / "skills/bridgeforge-codex/SKILL.md",
+            ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
+            ROOT / "doc/0_architecture/design/codex-project-sync.md",
+            ROOT / "doc/3_reference/codex-project-operating-guide.md",
+        )
+        for path in display_surfaces:
+            with self.subTest(path=path):
+                text = path.read_text(encoding="utf-8")
+                self.assertIn("bridgeforge-codex", text)
+                self.assertNotIn("BridgeForgeCodex", text)
+
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        install = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
+        self.assertTrue(readme.startswith("# bridgeforge-codex\n"))
+        self.assertTrue(install.startswith("# bridgeforge-codex 安装与迁移\n"))
+        self.assertIn("freakybridge/BridgeForgeCodex.git", readme)
+        self.assertIn("freakybridge/BridgeForgeCodex.git", install)
+
     def test_only_new_codex_entry_is_active(self) -> None:
         self.assertTrue(SKILL.is_file())
         self.assertFalse((ROOT / "skills/bridgeforge").exists())

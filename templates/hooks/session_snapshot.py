@@ -47,7 +47,7 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """读取当前宿主的 BridgeForgeCodex 骨架版本戳。"""
+    """读取当前宿主的 bridgeforge-codex 骨架版本戳。"""
     try:
         value = (HOST_DIR / ".bridgeforge_codex_version").read_text(encoding="utf-8").strip()
         return value or "?"
@@ -115,7 +115,7 @@ def main() -> int:
 **Event**: {args.event}
 **Branch**: {branch}
 **Ahead/Behind**: {ahead_behind}
-**BridgeForgeCodex Skeleton**: v{version}
+**bridgeforge-codex Skeleton**: v{version}
 
 ## Uncommitted changes
 

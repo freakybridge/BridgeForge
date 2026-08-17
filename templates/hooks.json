@@ -1,5 +1,5 @@
 {
-  "description": "BridgeForgeCodex project lifecycle hooks. This is the only managed Codex hook registration source.",
+  "description": "bridgeforge-codex project lifecycle hooks. This is the only managed Codex hook registration source.",
   "hooks": {
     "PreToolUse": [
       {

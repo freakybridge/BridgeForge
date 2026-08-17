@@ -13,7 +13,7 @@ $CanonicalBranch = "main"
 
 function Assert-Windows {
     if ($TestNonWindows -or [Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-        throw "BridgeForgeCodex shared-skill distribution supports Windows only."
+        throw "bridgeforge-codex shared-skill distribution supports Windows only."
     }
 }
 
@@ -62,7 +62,7 @@ function Assert-CanonicalRepositoryIdentity {
     }
     $remote = ((Invoke-Git -WorkingDirectory $Root -Arguments @("config", "--get", "remote.origin.url")) -join "").Trim()
     if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
-        throw "Repository origin is not the canonical BridgeForgeCodex remote."
+        throw "Repository origin is not the canonical bridgeforge-codex remote."
     }
     Invoke-Git -WorkingDirectory $Root -Arguments @(
         "fetch",
@@ -171,7 +171,7 @@ function Invoke-Main {
         if ($LASTEXITCODE -ne 0) {
             throw "Shared-skill updater failed with exit code $LASTEXITCODE."
         }
-        Write-Host "BridgeForgeCodex shared-skill installation completed. Run /bridgeforge-codex in Codex."
+        Write-Host "bridgeforge-codex shared-skill installation completed. Run /bridgeforge-codex in Codex."
     }
     finally {
         if (Test-Path -LiteralPath $cloneRoot) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Safely merge a BridgeForgeCodex-managed pre-commit block into a downstream hook.
+"""Safely merge a bridgeforge-codex-managed pre-commit block into a downstream hook.
 
-The downstream hook has two explicit regions.  BridgeForgeCodex owns only the
+The downstream hook has two explicit regions.  bridgeforge-codex owns only the
 managed region; the project extension is retained byte-for-byte.  An existing
 hook without a complete, unambiguous layout is a conflict, never a candidate
 for whole-file replacement.
@@ -28,7 +28,7 @@ LEGACY_MANAGED_END = b"# <<< BRIDGEFORGE_MANAGED_END"
 LEGACY_VERSION_BUMP_BEGIN = b"# === Step 2: VERSION bump"
 LEGACY_VERSION_BUMP_COMMAND = b"scripts/bump_version.py"
 LEGACY_VERSION_BUMP_STAGE = b"git add VERSION"
-# SHA-256 values of the complete, marker-free BridgeForgeCodex managed hooks from
+# SHA-256 values of the complete, marker-free bridgeforge-codex managed hooks from
 # the last release before PROJECT_EXTENSION boundaries were introduced.  A
 # legacy migration is safe only when its whole prefix matches one of these
 # frozen artifacts byte-for-byte; substring signatures are not ownership.
@@ -93,7 +93,7 @@ def parse_layout(payload: bytes, path: Path, *, template: bool = False) -> Layou
     ):
         raise MergeBlocked(f"{path}: pre-commit boundaries are out of order")
     if payload[:managed_begin[0]] not in (b"#!/bin/sh\n", b"#!/bin/sh\r\n"):
-        raise MergeBlocked(f"{path}: only the #!/bin/sh line may precede BridgeForgeCodex")
+        raise MergeBlocked(f"{path}: only the #!/bin/sh line may precede bridgeforge-codex")
     if payload[managed_end[1]:extension_begin[0]].strip() or payload[extension_end[1]:].strip():
         raise MergeBlocked(f"{path}: project code must stay inside PROJECT_EXTENSION markers")
     layout = Layout(
@@ -110,7 +110,7 @@ def parse_layout(payload: bytes, path: Path, *, template: bool = False) -> Layou
 def _legacy_version_extension(payload: bytes) -> bytes | None:
     """Return the one historical project-owned VERSION section, if proven.
 
-    Before explicit ownership markers existed, BridgeForgeCodex's published hook put
+    Before explicit ownership markers existed, bridgeforge-codex's published hook put
     the project version-bump section after a stable ``Step 2`` heading.  The
     preceding managed bytes must exactly match a frozen historical template;
     every other unmarked hook remains blocked rather than guessed at.
@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
     except (MergeBlocked, OSError) as exc:
         print(f"BLOCKED: {exc}", file=sys.stderr)
         return 2
-    print("APPLIED: BridgeForgeCodex managed pre-commit block updated; project extension preserved")
+    print("APPLIED: bridgeforge-codex managed pre-commit block updated; project extension preserved")
     return 0
 
 

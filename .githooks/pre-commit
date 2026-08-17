@@ -60,10 +60,10 @@ run_exit2_hook ".codex/hooks/instruction_source_check.py"
 # ── [hooks-source] Codex lifecycle hook 唯一注册源硬闸 ──
 run_exit2_hook ".codex/hooks/config_health_check.py" --strict
 
-# ── [factory-version] 仅 BridgeForgeCodex 工厂自身要求产品版本 bump；禁止下沉到模板 ──
+# ── [factory-version] 仅 bridgeforge-codex 工厂自身要求产品版本 bump；禁止下沉到模板 ──
 run_exit2_hook ".codex/scripts/factory_version_check.py"
 
-# [encoding] UTF-8 BOM is forbidden in BridgeForgeCodex text surfaces.
+# [encoding] UTF-8 BOM is forbidden in bridgeforge-codex text surfaces.
 run_exit2_hook ".codex/hooks/encoding_check.py" --pre-commit
 
 # ── [layout] doc 五层索引 + scripts/tests 单一测试目录硬闸 ──

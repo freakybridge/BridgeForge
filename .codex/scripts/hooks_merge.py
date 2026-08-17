@@ -3,7 +3,7 @@
 
 The default mode is read-only and prints a unified diff.  ``--apply`` requires
 ``--confirmed`` and updates only hook configuration.  The project transaction
-executor owns validation, rollback, and the final BridgeForgeCodex version stamp.
+executor owns validation, rollback, and the final bridgeforge-codex version stamp.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ MANAGED_PATHS = tuple(
     f"hooks/{name}" for name in MANAGED_HOOK_NAMES + RETIRED_MANAGED_HOOK_NAMES
 ) + (
     "scripts/memory_rebuild_index.py",
-    # Historical BridgeForgeCodex wrapper retired by the single dispatcher.  Keep
+    # Historical bridgeforge-codex wrapper retired by the single dispatcher.  Keep
     # both former managed locations narrow so same-named project tools survive.
     "hooks/memory_rebuild_then_lint.py",
     "scripts/memory_rebuild_then_lint.py",
@@ -245,7 +245,7 @@ def main(
         _atomic_write(hooks_path, new_hooks)
         _atomic_write(settings_path, new_settings)
         # Re-parse and re-check the committed shape. The project finalizer is
-        # the sole owner of the BridgeForgeCodex version stamp.
+        # the sole owner of the bridgeforge-codex version stamp.
         verified_hooks, verified_settings, _ = build_plan(root, Path(args.template_hooks).resolve())
         if _render(verified_hooks) != new_hooks or _render(verified_settings) != new_settings:
             raise MergeBlocked("post-write verification is not idempotent")

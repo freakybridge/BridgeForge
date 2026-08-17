@@ -60,7 +60,7 @@ if [ -n "$PY" ] && [ -f ".codex/hooks/config_health_check.py" ]; then
   [ "$rc" = 2 ] && exit 2
 fi
 
-# [encoding] UTF-8 BOM is forbidden in BridgeForgeCodex text surfaces.
+# [encoding] UTF-8 BOM is forbidden in bridgeforge-codex text surfaces.
 if [ -n "$PY" ] && [ -f ".codex/hooks/encoding_check.py" ]; then
   "$PY" .codex/hooks/encoding_check.py --pre-commit
   rc=$?

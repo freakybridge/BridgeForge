@@ -40,7 +40,7 @@
    内容核对通过后，才删除本批次中已被完整吸收、且用户已批准删除的旧碎片。writer 收据
    已包含索引重建时禁止随后重复 rebuild。禁止留下会
    继续参与加载或检索的 memory archive 副本；恢复渠道是 Git 历史。
-5. 使用 BridgeForgeCodex 唯一宿主目录 `.codex`，严格按以下
+5. 使用 bridgeforge-codex 唯一宿主目录 `.codex`，严格按以下
    顺序校验，禁止并行、禁止切换到另一宿主：
    1. writer 已返回成功 `rebuild_command` 时复用该收据；否则只运行一次
       `.codex/scripts/memory_rebuild_index.py`。

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Codex lifecycle hook dispatcher.
 
-Codex may start command hooks from the same event concurrently.  BridgeForgeCodex
+Codex may start command hooks from the same event concurrently.  bridgeforge-codex
 therefore registers one dispatcher per event and expresses every dependency in
 this file instead of relying on JSON array order.
 """

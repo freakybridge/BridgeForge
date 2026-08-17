@@ -1,9 +1,9 @@
-# BridgeForgeCodex
+# bridgeforge-codex
 
 > 面向长期 Codex 项目的协作骨架工厂。
 
-BridgeForgeCodex 将原生 AGENTS 指令、memory、hooks、文档生命周期和通用 skills 打包为
-一套 Codex-only 下游模板。当前稳定产品边界为 `1.2.0`，最低支持 Python 3.11 和
+bridgeforge-codex 将原生 AGENTS 指令、memory、hooks、文档生命周期和通用 skills 打包为
+一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.0`，最低支持 Python 3.11 和
 Windows。
 
 ## 快速开始

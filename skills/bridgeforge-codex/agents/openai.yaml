@@ -1,0 +1,5 @@
+interface:
+  display_name: "bridgeforge-codex"
+  short_description: "初始化或事务更新 Codex 项目协作骨架"
+  default_prompt: "使用 $bridgeforge-codex 初始化或事务更新当前 Codex 项目的协作骨架。"
+

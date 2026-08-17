@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BridgeForgeCodex 工厂专用：产品层改动必须同次暂存根 VERSION。
+"""bridgeforge-codex 工厂专用：产品层改动必须同次暂存根 VERSION。
 
 该检查只由本仓库的 `.githooks/pre-commit` 调用，绝不下沉到下游模板。
 下游项目的业务版本与骨架版本戳是独立生命周期，不适用本检查。
@@ -66,14 +66,14 @@ def main() -> int:
         return 0
     if args.worktree:
         print(
-            "[factory-version] 阻断同步：当前工作区修改了 BridgeForgeCodex 产品层，"
+            "[factory-version] 阻断同步：当前工作区修改了 bridgeforge-codex 产品层，"
             "但根 VERSION 没有对应改动。\n"
             "[factory-version] 请 bump 上游产品版本后重试。",
             file=sys.stderr,
         )
         return 2
     print(
-        "[factory-version] 阻断提交：本次暂存内容修改了 BridgeForgeCodex 产品层，"
+        "[factory-version] 阻断提交：本次暂存内容修改了 bridgeforge-codex 产品层，"
         "但未暂存根 VERSION。\n"
         "[factory-version] 请 bump 上游产品版本并 git add VERSION 后重试。",
         file=sys.stderr,

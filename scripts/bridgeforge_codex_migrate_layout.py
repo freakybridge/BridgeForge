@@ -335,7 +335,7 @@ def build_plan(project_root: Path, script_path: Path) -> MigrationPlan:
                 actions.append(Action("delete_managed_skill_copy", rel))
             else:
                 gaps.append(
-                    "同名 BridgeForgeCodex skill 与 manifest 文件清单或哈希不一致，"
+                    "同名 bridgeforge-codex skill 与 manifest 文件清单或哈希不一致，"
                     f"已保留：{rel}"
                 )
             continue
@@ -480,7 +480,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if os.name != "nt":
-        print("ERROR: BridgeForgeCodex layout migration only supports Windows.", file=sys.stderr)
+        print("ERROR: bridgeforge-codex layout migration only supports Windows.", file=sys.stderr)
         return 2
     project_root = args.project_root.resolve()
     if not project_root.is_dir():

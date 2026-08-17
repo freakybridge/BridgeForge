@@ -38,7 +38,7 @@ def _run(cmd: list[str]) -> str:
 
 
 def _version() -> str:
-    """只显示当前宿主的 BridgeForgeCodex 骨架版本戳。"""
+    """只显示当前宿主的 bridgeforge-codex 骨架版本戳。"""
     try:
         version = (HOST_DIR / ".bridgeforge_codex_version").read_text(encoding="utf-8").strip()
     except Exception:

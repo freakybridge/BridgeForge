@@ -25,7 +25,7 @@ argument: 无参数，或精确参数“同意验收”
 
 ## 项目 memory 写入路由（先宿主、再能力、后身份）
 
-BridgeForgeCodex 只支持 Codex，固定使用下列项目内路径：
+bridgeforge-codex 只支持 Codex，固定使用下列项目内路径：
 
 | 宿主 | marker | writer | memory 根 | rebuild | lint |
 |---|---|---|---|---|---|

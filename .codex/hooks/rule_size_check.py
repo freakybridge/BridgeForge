@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compatibility entry for the retired Markdown rule gates.
 
-BridgeForgeCodex validates Codex-native instruction sources through
+bridgeforge-codex validates Codex-native instruction sources through
 ``instruction_source_check.py``.  This filename remains only so older direct
 callers fail closed against the current contract during migration.
 """

@@ -38,6 +38,9 @@
     "1.0.0": [
       "sha256:29cd9cb793540943e9670369a0daf51a76285f70be8927f48d102047f6048202",
       "sha256:ec461d15122b625493ae079e19a01557c1a0606126463ccf40b12021e36cb9d7"
+    ],
+    "1.3.0": [
+      "sha256:d605f1dbfbb99bd0f4d308946769f24137f27421a8c9f1d3bf6b3b43779a89c8"
     ]
   },
   "assets": [
@@ -59,8 +62,12 @@
         "public": {
           "begin": "<!-- BRIDGEFORGE:PUBLIC:BEGIN -->",
           "end": "<!-- BRIDGEFORGE:PUBLIC:END -->",
-          "current_sha256": "sha256:449da4464a0092b82d72cea84eb10c729b1bf4a97f03e3b5e469f21198c1a258",
-          "historical_sha256": {}
+          "current_sha256": "sha256:64220b49b5decc566cab8a8875ab71c46ed317bfc8ec2897c2d79f8f789805a4",
+          "historical_sha256": {
+            "1.3.0": [
+              "sha256:449da4464a0092b82d72cea84eb10c729b1bf4a97f03e3b5e469f21198c1a258"
+            ]
+          }
         },
         "project": {
           "begin": "<!-- BRIDGEFORGE:PROJECT:BEGIN -->",
@@ -367,10 +374,13 @@
         "trusted_residual_sha256": {
           "0.86.0": [
             "sha256:7c8e9581e41c03e3e028dc661c8d23afcc19194cc6895787790c937fd950c1de"
+          ],
+          "1.3.0": [
+            "sha256:7f155559c787255302ef114ae9048ec922cd56c4254fa88d6c195c60fc351522"
           ]
         }
       },
-      "current_sha256": "sha256:f98a73573a4a3c27f21d48389b99859b973b2887025f3bc81762e761aee3d092",
+      "current_sha256": "sha256:dc12747a04b164a59201185716554690e0ad3ff590d895a43ffebcb93fa22261",
       "historical_sha256": {
         "0.86.0": [
           "sha256:1dccdd44746a585895ad780d0919793c4d2c919224ec396333dc0e684d972d54"
@@ -386,6 +396,9 @@
         ],
         "1.1.0": [
           "sha256:64067e4e1b4f7a0267250614b520da36a245e606a3974f6d1a815200e6c391ef"
+        ],
+        "1.3.0": [
+          "sha256:f98a73573a4a3c27f21d48389b99859b973b2887025f3bc81762e761aee3d092"
         ]
       },
       "render": "project-name"
@@ -395,13 +408,16 @@
       "source": "templates/hooks.json",
       "target": ".codex/hooks.json",
       "strategy": "merge",
-      "current_sha256": "sha256:d2d41f648bff61dae80a10c6b7e553d93734eced437497f78f95571bb4b6636f",
+      "current_sha256": "sha256:6f55f3e54c50be01c0b87aca5948faeff142b779a773f7bec4b717810e51eca9",
       "historical_sha256": {
         "0.86.0": [
           "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
         ],
         "0.90.0": [
           "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
+        ],
+        "1.3.0": [
+          "sha256:d2d41f648bff61dae80a10c6b7e553d93734eced437497f78f95571bb4b6636f"
         ]
       },
       "merge_policy": "codex-hooks"
@@ -426,7 +442,7 @@
       "source": "templates/config.toml",
       "target": ".codex/config.toml",
       "strategy": "whole",
-      "current_sha256": "sha256:fbd6587028b3877b66318913b8c05c0d6f83f8658905da8df0d4ff052ccb435c",
+      "current_sha256": "sha256:b74a963dca7f5b7515d901c251bbc7382316a55a0a6d70e35a8a2a36dcf9be23",
       "historical_sha256": {
         "0.86.0": [
           "sha256:5d56c60e65f29d957abba914b3db7f8da17dacb66abf11fa78724f031d075858"
@@ -436,6 +452,9 @@
         ],
         "0.94.4": [
           "sha256:60327af4f47abf94b058a46dc40bdb067aa4a42a09858833ebef2af210b74bfe"
+        ],
+        "1.3.0": [
+          "sha256:fbd6587028b3877b66318913b8c05c0d6f83f8658905da8df0d4ff052ccb435c"
         ]
       }
     },
@@ -457,6 +476,9 @@
         ],
         "0.92.1": [
           "sha256:5a0615d0e2af03f1c843bce2362fe049b6803cb02222be740bb4960ce9a701b2"
+        ],
+        "1.3.0": [
+          "sha256:4c77fa6ce20080338a3bbf27109d27111bd41be0008db3e30b79543c9140e8f5"
         ]
       }
     },
@@ -597,6 +619,9 @@
         ],
         "0.90.0": [
           "sha256:be5d6da67b036ebc30edc0e3b18267e012d5606625643ff2017eae2add0a3344"
+        ],
+        "1.3.0": [
+          "sha256:0730412d06ba4166b9a848e8dba712b4f5276f8da17c9828e3026f6eca47f917"
         ]
       },
       "render": "project-name"
@@ -763,7 +788,7 @@
       "source": ".githooks/pre-commit",
       "target": ".githooks/pre-commit",
       "strategy": "region",
-      "current_sha256": "sha256:1b1325ac93ee14a97157e7b45eb908c6deccb08a4874bd27ac0f29fb01f59f50",
+      "current_sha256": "sha256:82d5f1e9f34355373f4a428488a6908b9e0d6367be634929b9e1842a71b90083",
       "historical_sha256": {
         "0.86.0": [
           "sha256:c3f2f62eb95db6e99db50e1196592df352e59d2eff441cd47d1702e370415d16"
@@ -773,6 +798,9 @@
         ],
         "1.1.0": [
           "sha256:ba290ab4f5e737299a5214b2187f24c0ffb83a5277aeae5500d65b4a0e9c1925"
+        ],
+        "1.3.0": [
+          "sha256:1b1325ac93ee14a97157e7b45eb908c6deccb08a4874bd27ac0f29fb01f59f50"
         ]
       },
       "region": {
@@ -792,6 +820,9 @@
         ],
         "0.90.0": [
           "sha256:bccd485efdba2957fd27730613f2625f15d6786b343e55b1fc10ab1a7165bf23"
+        ],
+        "1.3.0": [
+          "sha256:40505c638ef635cba41c6d8e68d56ff886ea2efe739ab38a4669572467a1e572"
         ]
       }
     },
@@ -807,6 +838,9 @@
         ],
         "0.90.0": [
           "sha256:2f638330359472b740e20fff5fe79b1cc7b15241f8a600b404c31f7324ab2894"
+        ],
+        "1.3.0": [
+          "sha256:c287b7b54b977fcf09d63c1474558c211e72c65b0c8243e9ca849b54226286b4"
         ]
       }
     },
@@ -822,6 +856,9 @@
         ],
         "0.90.0": [
           "sha256:cc60e6c961a7649d227bbea827c367fb2e6807cc0a181455ed66f1b02b4b862e"
+        ],
+        "1.3.0": [
+          "sha256:52414ccfeae83715e0f530e5034604934c6426c714e29c182ed6fc52c3101df7"
         ]
       }
     },
@@ -830,13 +867,16 @@
       "source": "templates/hooks/config_health_check.py",
       "target": ".codex/hooks/config_health_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:a98e7064dcd776aa6d3eee572dc7d4298a28e5cae85985010c7fc2db7b3cfe04",
+      "current_sha256": "sha256:072fe5c6537e3d38e873e8dfec8238880b1cb1387d95358bdd5cbb0f01eaa21d",
       "historical_sha256": {
         "0.86.0": [
           "sha256:074d3d7c878ad99bbb3dc1bd2831053a163ef9ff71fbb164412304738b09c0a3"
         ],
         "0.90.0": [
           "sha256:2e0d2b5abe3935e2c8018b0a6268e37c0590638fa5f8d888885f59e3d661f2d3"
+        ],
+        "1.3.0": [
+          "sha256:a98e7064dcd776aa6d3eee572dc7d4298a28e5cae85985010c7fc2db7b3cfe04"
         ]
       }
     },
@@ -866,6 +906,9 @@
         ],
         "0.90.0": [
           "sha256:4b4db049a7be568213feaacf0bb3716f47b681c9bafd4339abae4c8d57716a58"
+        ],
+        "1.3.0": [
+          "sha256:808fbd8505c8c817878527ef252bb10b7bc42f1ef83116c874c70079ec91749b"
         ]
       }
     },
@@ -874,13 +917,16 @@
       "source": "templates/hooks/encoding_check.py",
       "target": ".codex/hooks/encoding_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:b3afb99718984a3f75f25c295f0b1ea8af9aa90d1a598eefc469634332331551",
+      "current_sha256": "sha256:90536d95eded68fac80375fe8c7c752ee2ff77027f21dbc1b5b7465b58747ddb",
       "historical_sha256": {
         "0.86.0": [
           "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
         ],
         "0.90.0": [
           "sha256:d4ad257584f578f6f822a3253fcab0837f929e49ddb59e6a56030d16bbb85d54"
+        ],
+        "1.3.0": [
+          "sha256:b3afb99718984a3f75f25c295f0b1ea8af9aa90d1a598eefc469634332331551"
         ]
       }
     },
@@ -911,6 +957,9 @@
         ],
         "0.90.0": [
           "sha256:138bbc4c882992da5d1204ee82247499e17b9e302d2429467a545ce2facfd478"
+        ],
+        "1.3.0": [
+          "sha256:db1e80a3cade5746d7e445866545bbe0acf428ac937bd1fbbadc6fe86bfccef2"
         ]
       }
     },
@@ -926,6 +975,9 @@
         ],
         "0.90.0": [
           "sha256:2904455166af196c785a22067b3a8ab147b85acfd88fa6af57b5e9e6db3e0c63"
+        ],
+        "1.3.0": [
+          "sha256:013e38f369bd43506c19c6895882fc0b2e83ad895fbf39886e29940ce6f47a75"
         ]
       }
     },
@@ -956,6 +1008,9 @@
         ],
         "0.90.0": [
           "sha256:fc917a8d3f97c11fc88b954822d9171b1b8ed9904c6dae20bd351a8be4ac5d8c"
+        ],
+        "1.3.0": [
+          "sha256:9512f26994c68c01f2fa85ee2e70bd694bb8039ccc038fa8c0598bcd8c5167a9"
         ]
       }
     },
@@ -979,13 +1034,16 @@
       "source": "templates/hooks/hook_dispatcher.py",
       "target": ".codex/hooks/hook_dispatcher.py",
       "strategy": "whole",
-      "current_sha256": "sha256:02b49938a8a31e57af099a30993f02ab4669782dd60e9760d50a6b2319833710",
+      "current_sha256": "sha256:a306c7a1538e11568595c54f9eb3928f54c81a9d64e3a04c083d8f860773fd2d",
       "historical_sha256": {
         "0.86.0": [
           "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
         ],
         "0.90.0": [
           "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
+        ],
+        "1.3.0": [
+          "sha256:02b49938a8a31e57af099a30993f02ab4669782dd60e9760d50a6b2319833710"
         ]
       }
     },
@@ -1001,6 +1059,9 @@
         ],
         "0.90.0": [
           "sha256:4e60bd0d701731fa2f21796f0ebffc2a1d80b0a58971152f67f8eba931e4fd87"
+        ],
+        "1.3.0": [
+          "sha256:6bbd07a994f34fa77b74b7d4c015bbed593e56027e984069274a41d6965f084d"
         ]
       }
     },
@@ -1009,13 +1070,16 @@
       "source": "templates/hooks/memory_lint.py",
       "target": ".codex/hooks/memory_lint.py",
       "strategy": "whole",
-      "current_sha256": "sha256:e694e4ba2419c87e6a50c14a6ebec9157cdf92ec5f0f9c15eca9a4e32f213679",
+      "current_sha256": "sha256:1508793f91a367ca7993310e056747a960b3b43e10ba1e130592f4f9e8ef8a73",
       "historical_sha256": {
         "0.86.0": [
           "sha256:0dbed1f63cf3827f6b20e4e3804920bd8a28893bbd146b27110f3c43237dd948"
         ],
         "0.90.0": [
           "sha256:836ecf7810b96c006d1b880267b579c83480285242a66bc397e4c02b5e08a54a"
+        ],
+        "1.3.0": [
+          "sha256:e694e4ba2419c87e6a50c14a6ebec9157cdf92ec5f0f9c15eca9a4e32f213679"
         ]
       }
     },
@@ -1037,6 +1101,9 @@
         ],
         "1.1.0": [
           "sha256:08bff9da008a63480b814c17a44f85100fa1409eda38eaa2153cc40c8bb78bd2"
+        ],
+        "1.3.0": [
+          "sha256:cdff8000f8d6de67ae2b7c259039b38a24b8520713a471c8f02dec01ee2566b9"
         ]
       }
     },
@@ -1052,6 +1119,9 @@
         ],
         "0.90.0": [
           "sha256:16614ece235e897550219b966ee48f9c549b38981d0dd082caaee6f70a21ccbe"
+        ],
+        "1.3.0": [
+          "sha256:d4c3ee90b90483c914f6978b97ebd32b448a08798741f2cc67ba88fd5a0a92fe"
         ]
       }
     },
@@ -1067,6 +1137,9 @@
         ],
         "0.90.0": [
           "sha256:6ccaaa8b06a406ca144afc18b28355145e18da9e544290cff95f76bfce9ad622"
+        ],
+        "1.3.0": [
+          "sha256:8e6f5c0d844b57357b9928da7a671d525b1bc6b01ef2494cfff6e5003537b214"
         ]
       }
     },
@@ -1079,6 +1152,9 @@
         "1.1.0": [
           "sha256:46626ffb9b187fcdd083ac6378bf1e04f56426e57ef4c3cb9207a81d1b28ff4e",
           "sha256:9ba1d893f564442d706cb78aa7afec33948251cfc51801a238affcc21bcdbd13"
+        ],
+        "1.3.0": [
+          "sha256:754ab03d5f46a5ef7c65631a7257cdd324599007bdcd4c6b592c79eaa8bd862c"
         ]
       },
       "current_sha256": "sha256:754ab03d5f46a5ef7c65631a7257cdd324599007bdcd4c6b592c79eaa8bd862c"
@@ -1088,7 +1164,7 @@
       "source": "templates/hooks/rule_index_check.py",
       "target": ".codex/hooks/rule_index_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:b76ec0ca795aa218585820915c787f148cc44fba886923fd4e9a429e96b9d569",
+      "current_sha256": "sha256:2437997c489393cf919bc89cf3c37f2186b9397422ade90d5a4d9662ffa66e0f",
       "historical_sha256": {
         "0.86.0": [
           "sha256:296a31ad33a61c1a6c428d9d590888806d2eb43a14635d34dfefb80a49b4dd2e"
@@ -1098,6 +1174,9 @@
         ],
         "1.0.0": [
           "sha256:c4fd99175bb3fe01ced1158614320a0a01e07c7c62bd720676db91f69bdecd5f"
+        ],
+        "1.3.0": [
+          "sha256:b76ec0ca795aa218585820915c787f148cc44fba886923fd4e9a429e96b9d569"
         ]
       }
     },
@@ -1106,7 +1185,7 @@
       "source": "templates/hooks/rule_size_check.py",
       "target": ".codex/hooks/rule_size_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:b76ec0ca795aa218585820915c787f148cc44fba886923fd4e9a429e96b9d569",
+      "current_sha256": "sha256:2437997c489393cf919bc89cf3c37f2186b9397422ade90d5a4d9662ffa66e0f",
       "historical_sha256": {
         "0.86.0": [
           "sha256:e821bcb2966239fb80c727e49cb42c7e5b20c9bcff49cf348b21ff87cb3298c9"
@@ -1116,6 +1195,9 @@
         ],
         "1.0.0": [
           "sha256:503d47b5f63dba6b867f02a4f349cc2ecb491ea34ddd99027abe205e1b5e3cdc"
+        ],
+        "1.3.0": [
+          "sha256:b76ec0ca795aa218585820915c787f148cc44fba886923fd4e9a429e96b9d569"
         ]
       }
     },
@@ -1124,21 +1206,28 @@
       "source": "templates/hooks/project_structure_check.py",
       "target": ".codex/hooks/project_structure_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:803cdca6e897a6058e86b8116544e0818792713dc78906f2dbfa559a8c590166",
-      "historical_sha256": {}
+      "current_sha256": "sha256:38fe8d0d2f55408bf14ff2ab15c2b282502db96e5d2fb132964242e4e74b4cf3",
+      "historical_sha256": {
+        "1.3.0": [
+          "sha256:803cdca6e897a6058e86b8116544e0818792713dc78906f2dbfa559a8c590166"
+        ]
+      }
     },
     {
       "id": "codex.hook.session-snapshot",
       "source": "templates/hooks/session_snapshot.py",
       "target": ".codex/hooks/session_snapshot.py",
       "strategy": "whole",
-      "current_sha256": "sha256:4857412cadbbbad2a7b256bafa48c594b67d6d46915516cade88f8f94f895666",
+      "current_sha256": "sha256:4cd0394120c5cdfb2768b30496b350dfafd4558a407e1b9ea8a0556f2a3c1213",
       "historical_sha256": {
         "0.86.0": [
           "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
         ],
         "0.90.0": [
           "sha256:edbc0441e66c0e5b90352e8363af838835b96c498f52bd8a0ae476bead47f9bc"
+        ],
+        "1.3.0": [
+          "sha256:4857412cadbbbad2a7b256bafa48c594b67d6d46915516cade88f8f94f895666"
         ]
       }
     },
@@ -1147,7 +1236,7 @@
       "source": "templates/hooks/show_state.py",
       "target": ".codex/hooks/show_state.py",
       "strategy": "whole",
-      "current_sha256": "sha256:43432548bf39f754c1c3fcbe08e3743dd261b9b4a07581658e0251b0a9a52253",
+      "current_sha256": "sha256:ce3a161e85e40f5912800e897d534962cd2d41ba12b878128cf9c292148962bb",
       "historical_sha256": {
         "0.86.0": [
           "sha256:ff18198637753b39a00357c37d8c72cd969cb6b5828861bce9227834889bf627"
@@ -1157,6 +1246,9 @@
         ],
         "0.92.1": [
           "sha256:42d375eb1caf6cd0a620cf6496dec6fee789bc2d59c2fb035b2a2bbaa0b6f897"
+        ],
+        "1.3.0": [
+          "sha256:43432548bf39f754c1c3fcbe08e3743dd261b9b4a07581658e0251b0a9a52253"
         ]
       }
     },
@@ -1165,7 +1257,7 @@
       "source": "templates/hooks/skill_metadata_check.py",
       "target": ".codex/hooks/skill_metadata_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:174695627d64f795402a5ca04d4857b5fff6f3e6ea94667d4e1b04c52404843f",
+      "current_sha256": "sha256:a24847a8bd425ef3ef84ffee5ad311ae133fac84dc56a32d33fe45348ec79db3",
       "historical_sha256": {
         "0.86.0": [
           "sha256:d2931f533766e3ff22c5999cfd47b703d23f97c9a092533004de2c1e2f964d21"
@@ -1178,6 +1270,9 @@
         ],
         "1.0.0": [
           "sha256:86a3581eea765ec04177686be137c1c1156b5e5cc4c1569cfa4107373ff84a45"
+        ],
+        "1.3.0": [
+          "sha256:174695627d64f795402a5ca04d4857b5fff6f3e6ea94667d4e1b04c52404843f"
         ]
       }
     },
@@ -1186,13 +1281,16 @@
       "source": "templates/hooks/skill_sync_check.py",
       "target": ".codex/hooks/skill_sync_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:45178560341c3095f2aa96b895c3c5f4ffe8039cf7e5e841229fd2ad69332146",
+      "current_sha256": "sha256:53d4cc47f16cd07691acf4176530536fb12ff689cb924e5ad8dfb123c376319a",
       "historical_sha256": {
         "0.86.0": [
           "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
         ],
         "0.90.0": [
           "sha256:77df265cdd48c3e33df434108c05c0bc47521870ea418d08381e15803eb1621e"
+        ],
+        "1.3.0": [
+          "sha256:45178560341c3095f2aa96b895c3c5f4ffe8039cf7e5e841229fd2ad69332146"
         ]
       }
     },
@@ -1223,6 +1321,9 @@
         ],
         "0.90.0": [
           "sha256:340a463ca6708ad0a0ea3b93188cbe738247d53bad18dbe650839adad63cf102"
+        ],
+        "1.3.0": [
+          "sha256:39238f883308cdc7a40f74d404ecfa300027153a738a366a8818121cf0d29156"
         ]
       }
     },
@@ -1231,13 +1332,16 @@
       "source": "templates/hooks/user_config_write_guard.py",
       "target": ".codex/hooks/user_config_write_guard.py",
       "strategy": "whole",
-      "current_sha256": "sha256:a38254d9ff95d130e40bfa99531d8405904c4aece3de12d937677e169ce85196",
+      "current_sha256": "sha256:ea396b2ac2ed6776459e6fd04952cf3603548a72518ec7c333b7c7ffacb18e6d",
       "historical_sha256": {
         "0.86.0": [
           "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
         ],
         "0.90.0": [
           "sha256:6e32fd5b2798759743fcb94c9a5d9bc29a8a75cd42945519d28a0fa94e70dd06"
+        ],
+        "1.3.0": [
+          "sha256:a38254d9ff95d130e40bfa99531d8405904c4aece3de12d937677e169ce85196"
         ]
       }
     },
@@ -1271,6 +1375,9 @@
         ],
         "0.90.0": [
           "sha256:9004d94f16c3e631cfd1430bedabb3db2e9adec1181ca3bb45c77607d2113068"
+        ],
+        "1.3.0": [
+          "sha256:9a5c704593a881c57bc01f7298aa10dffdb356ef8cfd857032d81eaecbfd87a9"
         ]
       }
     },
@@ -1300,6 +1407,9 @@
         ],
         "0.90.0": [
           "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
+        ],
+        "1.3.0": [
+          "sha256:3e2ab91b29783fa499e912d97f234456e5a7cbe837f6dd6cc04bd540ba9f9ba0"
         ]
       }
     },
@@ -1352,7 +1462,7 @@
       "source": "templates/scripts/hooks_merge.py",
       "target": ".codex/scripts/hooks_merge.py",
       "strategy": "whole",
-      "current_sha256": "sha256:c100cf5a7020c5455d37f91ba3175c4ddcc3aa8feda99241ab459a78779f3ada",
+      "current_sha256": "sha256:baec1a62948a97c4f0142204e2fea115922741c22334c36699a57444422843e6",
       "historical_sha256": {
         "0.86.0": [
           "sha256:6590795fcb9bf512e5687f593d9a04fb77c8a23168469b612a29f83295b90ff4"
@@ -1365,6 +1475,9 @@
         ],
         "0.91.1": [
           "sha256:0742cde9fde77bc90472947d545f9749151d213d4b7837eba2ac366024ee29f0"
+        ],
+        "1.3.0": [
+          "sha256:c100cf5a7020c5455d37f91ba3175c4ddcc3aa8feda99241ab459a78779f3ada"
         ]
       }
     },
@@ -1448,13 +1561,16 @@
       "source": "templates/scripts/precommit_merge.py",
       "target": ".codex/scripts/precommit_merge.py",
       "strategy": "whole",
-      "current_sha256": "sha256:1cc78f30fddc3c1822c09a2afd48433db81d28c87274ad3e8de7c5aec83be97d",
+      "current_sha256": "sha256:0e00fec5f1e307d0f7878cb5b3c6a95c540ccbc90e9ea903988f53cce9be1fbe",
       "historical_sha256": {
         "0.86.0": [
           "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
         ],
         "0.90.0": [
           "sha256:f02a18c866ff172df79988a10d6c1f432414ef3df86bad4a6811d31316e39456"
+        ],
+        "1.3.0": [
+          "sha256:1cc78f30fddc3c1822c09a2afd48433db81d28c87274ad3e8de7c5aec83be97d"
         ]
       }
     },
@@ -1470,6 +1586,9 @@
         ],
         "0.90.0": [
           "sha256:23e89d5b453581771610bd35876993888a02ace27aff6be7dc654d3c64f1a92c"
+        ],
+        "1.3.0": [
+          "sha256:f3bd1db389d7beaa2ddd5a6a27d29c942f01b05bae5328aa0d179de1cb687fc6"
         ]
       }
     },
@@ -1488,6 +1607,9 @@
         ],
         "1.0.0": [
           "sha256:8f4df93ce943e635bdec3004e0a102c5b1ce828bb89975ce1d320e7c4c8f1575"
+        ],
+        "1.3.0": [
+          "sha256:6fd90c74faaa6a885d8032fa9457ee24a0b0245eb152116e5dc7ede2b5488188"
         ]
       }
     },
@@ -1521,6 +1643,9 @@
         ],
         "1.1.0": [
           "sha256:c33dae8658275bf4527478061e616df4ef025c259a3df5f06885c7bf1313b300"
+        ],
+        "1.3.0": [
+          "sha256:0c1ed4b9d17ee5b8e67c26f0f93c01cd0b9a9095b963320e85c3c0886925ba60"
         ]
       }
     },

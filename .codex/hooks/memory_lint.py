@@ -163,7 +163,7 @@ def organize_cli() -> int:
     parser.add_argument("--topic", help="topic category 的 exact slug")
     parser.add_argument("--status", choices=VALID_STATUSES)
     parser.add_argument("--description", help="单个 memory 的非空单行 description")
-    parser.add_argument("--project-root", help="由 BridgeForgeCodex 扫描的目标项目根目录")
+    parser.add_argument("--project-root", help="由 bridgeforge-codex 扫描的目标项目根目录")
     args = parser.parse_args()
 
     if (args.category or args.topic or args.status or args.description) and not args.path:

@@ -1,6 +1,6 @@
-# BridgeForgeCodex 反向回灌 Playbook
+# bridgeforge-codex 反向回灌 Playbook
 
-> **定位**：把下游 Codex 项目中已经验证、可跨项目复用的改进，人工提炼回 BridgeForgeCodex 产品层。该流程没有自动 harvest/inbox；必须另建并确认一个产品改动任务。
+> **定位**：把下游 Codex 项目中已经验证、可跨项目复用的改进，人工提炼回 bridgeforge-codex 产品层。该流程没有自动 harvest/inbox；必须另建并确认一个产品改动任务。
 
 ## 1. 适用边界
 
@@ -21,7 +21,7 @@
 4. 回答传播四问，决定落点：
    - 下游产品资产写入 `templates/`；
    - 用户级命令与通用 skill 写入 `skills/`；
-   - BridgeForgeCodex 自身说明写入 `doc/`；
+   - bridgeforge-codex 自身说明写入 `doc/`；
    - 通用 hook/settings 同轮镜像到 `.codex/` dogfood。
 5. 更新 schema v2 ownership、manifest、VERSION 与 `[product]` CHANGELOG；禁止只改模板正文而遗漏派生哈希。
 6. 运行定向测试、完整 fixture、manifest `--check`、mirror drift、结构检查和独立审计。
@@ -30,7 +30,7 @@
 
 - 上游模板是通用基线，不以某个下游的“内容更多”作为胜出依据。
 - 多个下游表达冲突时，先抽取共同不变量；仍需业务判断则不回灌。
-- rule 只保留“必须/禁止”的红线；事故复盘留在下游 memory 或 BridgeForgeCodex 元文档。
+- rule 只保留“必须/禁止”的红线；事故复盘留在下游 memory 或 bridgeforge-codex 元文档。
 - 不确定所有权、通用性或脱敏完整性时，默认拒绝写入产品层。
 
 ## 4. 验收证据

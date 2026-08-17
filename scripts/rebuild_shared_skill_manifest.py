@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Rebuild BridgeForgeCodex shared-skill hashes and managed lineage.
+"""Rebuild bridgeforge-codex shared-skill hashes and managed lineage.
 
-The shared updater verifies raw file bytes. BridgeForgeCodex ships from GitHub,
+The shared updater verifies raw file bytes. bridgeforge-codex ships from GitHub,
 whose text blobs use LF because of .gitattributes, so this script must not hash
 the local Windows checkout verbatim when it happens to use CRLF.
 """
@@ -63,7 +63,7 @@ PROJECT_TITLE_NORMALIZED = "# {{PROJECT_NAME}} 项目开发规范".encode("utf-8
 
 
 def git_blob_bytes(path: Path) -> bytes:
-    """Return bytes matching the LF text blob that BridgeForgeCodex publishes.
+    """Return bytes matching the LF text blob that bridgeforge-codex publishes.
 
     Git treats NUL-containing files as binary under ``text=auto``. Those files
     are intentionally left byte-for-byte unchanged; every current manifest
@@ -137,7 +137,7 @@ def _baseline_revisions(root: Path) -> dict[str, str]:
     )
     if result.returncode != 0:
         raise ValueError(
-                "Cannot enumerate BridgeForgeCodex release history: "
+                "Cannot enumerate bridgeforge-codex release history: "
             + result.stderr.strip()
         )
     baselines: dict[str, str] = {}
@@ -664,6 +664,7 @@ def rebuild_manifest(manifest_path: Path, *, write: bool = True) -> bool:
         # templates and runtime scripts have one user-level source of truth.
         expected_bundle.update(
             {
+                "skills/bridgeforge-codex/agents/openai.yaml",
                 "skills/bridgeforge-codex/SKILL.md",
                 "skills/bridgeforge-codex/references/adopt.md",
                 "skills/bridgeforge-codex/references/init.md",

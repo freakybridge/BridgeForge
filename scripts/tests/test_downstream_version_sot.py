@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -9,8 +10,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class DownstreamVersionSourceOfTruthTests(unittest.TestCase):
-    def test_factory_version_is_bridgeforgecodex_1_2_0(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "1.2.0")
+    def test_factory_version_matches_current_changelog(self) -> None:
+        version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        current = re.search(r"(?m)^## \[([^]]+)]", changelog)
+        self.assertIsNotNone(current)
+        self.assertEqual(version, current.group(1))
         self.assertFalse((ROOT / "templates/VERSION").exists())
 
     def test_codex_runtime_reads_only_new_skeleton_stamp(self) -> None:

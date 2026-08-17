@@ -1,6 +1,6 @@
-# BridgeForgeCodex 上游更新 Playbook
+# bridgeforge-codex 上游更新 Playbook
 
-> **定位**：把 BridgeForgeCodex 的 Codex 骨架安全更新到当前项目。唯一产品入口是 `$bridgeforge-codex`；禁止手工复制模板或串联旧脚本。
+> **定位**：把 bridgeforge-codex 的 Codex 骨架安全更新到当前项目。唯一产品入口是 `$bridgeforge-codex`；禁止手工复制模板或串联旧脚本。
 
 ## 1. 更新对象
 

@@ -1,6 +1,6 @@
 # Harness Regression Fixture
 
-这个目录放 BridgeForgeCodex 自身的回归检查。脚本不会提交生成项目，只会在 `.runtime/harness/` 下临时生成 Codex 形态的下游 fixture。
+这个目录放 bridgeforge-codex 自身的回归检查。脚本不会提交生成项目，只会在 `.runtime/harness/` 下临时生成 Codex 形态的下游 fixture。
 
 运行全部检查：
 

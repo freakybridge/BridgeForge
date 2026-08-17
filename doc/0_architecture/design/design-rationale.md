@@ -1,6 +1,6 @@
 # 设计原则
 
-> **BridgeForgeCodex 1.0.0 现行边界**：产品只支持 Codex，活跃资产只有
+> **bridgeforge-codex 1.0.0 现行边界**：产品只支持 Codex，活跃资产只有
 > `templates/`、`skills/` 与 `$bridgeforge-codex`。本文下方出现的 Claude、switch、
 > parity 和旧 `$bridgeforge` 正常产品流程均为 1.0.0 前历史依据，不再构成实现契约；现行
 > 项目事务以 [codex-project-sync.md](codex-project-sync.md) 为准。

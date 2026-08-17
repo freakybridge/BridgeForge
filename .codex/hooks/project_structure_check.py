@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed project layout gate for BridgeForgeCodex-managed repositories."""
+"""Fail-closed project layout gate for bridgeforge-codex-managed repositories."""
 from __future__ import annotations
 
 import argparse

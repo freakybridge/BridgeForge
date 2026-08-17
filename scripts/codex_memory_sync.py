@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""BridgeForgeCodex single-writer sync for opaque Codex native memories.
+"""bridgeforge-codex single-writer sync for opaque Codex native memories.
 
-The runtime is distributed inside the user-level BridgeForgeCodex command bundle.
+The runtime is distributed inside the user-level bridgeforge-codex command bundle.
 Setup may be launched by a project virtual environment, but installed user
 hooks always use that environment's stable base interpreter and never import
 project code.
@@ -737,8 +737,8 @@ def _push_snapshot(snapshot: Path, state_dir: Path, remote: str, expected: str |
     _git(["-c", "core.autocrlf=false", "add", "--all"], publish)
     tree = _git(["write-tree"], publish)
     env = os.environ.copy()
-    env.update({"GIT_AUTHOR_NAME": "BridgeForgeCodex Memory Sync", "GIT_AUTHOR_EMAIL": "bridgeforge-codex@invalid", "GIT_COMMITTER_NAME": "BridgeForgeCodex Memory Sync", "GIT_COMMITTER_EMAIL": "bridgeforge-codex@invalid"})
-    commit = _git(["commit-tree", tree, "-m", "BridgeForgeCodex memories snapshot"], publish, env=env)
+    env.update({"GIT_AUTHOR_NAME": "bridgeforge-codex Memory Sync", "GIT_AUTHOR_EMAIL": "bridgeforge-codex@invalid", "GIT_COMMITTER_NAME": "bridgeforge-codex Memory Sync", "GIT_COMMITTER_EMAIL": "bridgeforge-codex@invalid"})
+    commit = _git(["commit-tree", tree, "-m", "bridgeforge-codex memories snapshot"], publish, env=env)
     _git(["update-ref", "refs/heads/main", commit], publish)
     _git(["remote", "add", "origin", remote], publish)
     lease = f"--force-with-lease=refs/heads/main:{expected}" if expected else "--force-with-lease=refs/heads/main:"

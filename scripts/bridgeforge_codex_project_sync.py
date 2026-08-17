@@ -4,7 +4,7 @@
 The asset contract is the ownership source of truth.  Unknown or edited
 content is preserved as a gap; only proven managed state is replaced or
 retired.  Apply always replans, compares the aggregate fingerprint, validates
-the resulting skeleton, and writes the BridgeForgeCodex stamp last only when the
+the resulting skeleton, and writes the bridgeforge-codex stamp last only when the
 result is ready rather than degraded.
 """
 from __future__ import annotations
@@ -325,7 +325,7 @@ def _manual_items(gaps: list[Gap]) -> list[dict[str, Any]]:
             "recoverability": "original content is preserved",
             "executor": "user",
             "recommended": True,
-            "recommendation_reason": "BridgeForgeCodex cannot safely decide this gap",
+            "recommendation_reason": "bridgeforge-codex cannot safely decide this gap",
             "completion_criteria": "a later plan no longer reports this gap",
             "platform_permission": False,
         }
@@ -1767,7 +1767,7 @@ def _project_requirement_items(
             "category": "project_required_content",
             "affects_readiness": True,
             "executor": "user",
-            "impact": "BridgeForgeCodex 骨架已更新，但项目专属事实仍是空占位",
+            "impact": "bridgeforge-codex 骨架已更新，但项目专属事实仍是空占位",
             "completion_criteria": f"{target} 中 {heading} 含有项目真实内容且已删除占位注释",
         }
         for index, (heading, target) in enumerate(missing, 1)
@@ -1783,7 +1783,7 @@ def _project_requirement_items(
             "affects_readiness": True,
             "executor": "user",
             "impact": (
-                "BridgeForgeCodex 不会自动移动项目测试；请同时更新 imports、测试发现配置、"
+                "bridgeforge-codex 不会自动移动项目测试；请同时更新 imports、测试发现配置、"
                 "CI 和语言工具链路径"
             ),
             "completion_criteria": (
@@ -1800,7 +1800,7 @@ def _project_requirement_items(
             "affects_readiness": False,
             "executor": "user",
             "impact": (
-                "BridgeForgeCodex 只报告路径存在；不会读取、迁移、删除，"
+                "bridgeforge-codex 只报告路径存在；不会读取、迁移、删除，"
                 "也不会阻止 Codex 更新"
             ),
             "completion_criteria": "无需操作；如需清理请由用户在本轮之外自行审阅",
@@ -2837,7 +2837,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     contract, contract_path = load_contract(template)
     selected_mode = _detect_mode(root, mode)
     current_version = (template / "VERSION").read_text(encoding="utf-8-sig").strip()
-    current_semver = _semver(current_version, "BridgeForgeCodex VERSION")
+    current_semver = _semver(current_version, "bridgeforge-codex VERSION")
     minimum = _semver(str(contract["minimum_supported_version"]), "minimum supported version")
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
     legacy_stamp = _inside(root, LEGACY_STAMP, "legacy version stamp")
@@ -2856,7 +2856,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     blockers: list[str] = []
     if stamp_conflict:
         blockers.append(
-            "both legacy and BridgeForgeCodex version stamps exist; zero writes performed"
+            "both legacy and bridgeforge-codex version stamps exist; zero writes performed"
         )
     elif selected_mode == "update" and previous_version is None:
         blockers.append(
@@ -2865,7 +2865,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         )
     if previous_version is not None:
         try:
-            previous_semver = _semver(previous_version, "project BridgeForgeCodex version")
+            previous_semver = _semver(previous_version, "project bridgeforge-codex version")
             if previous_semver < minimum:
                 blockers.append(
                     f"project version {previous_version} predates the automatic migration baseline "
@@ -2873,7 +2873,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 )
             if previous_semver > current_semver:
                 blockers.append(
-                    f"project version {previous_version} is newer than this BridgeForgeCodex {current_version}"
+                    f"project version {previous_version} is newer than this bridgeforge-codex {current_version}"
                 )
         except SyncBlocked as exc:
             blockers.append(str(exc))

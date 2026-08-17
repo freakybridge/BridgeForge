@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""只读检查当前平台的 BridgeForgeCodex 托管 skill 是否与本地账本一致。
+"""只读检查当前平台的 bridgeforge-codex 托管 skill 是否与本地账本一致。
 
-本 hook 不访问 GitHub、本地 BridgeForgeCodex clone、~/.bridgeforge 或 ~/.agents。
+本 hook 不访问 GitHub、本地 bridgeforge-codex clone、~/.bridgeforge 或 ~/.agents。
 发现托管账本缺失、损坏、skill 缺失或内容漂移时，只提示运行无参
 `/bridgeforge-codex`；SessionStart 期间绝不自动修复。
 """
@@ -88,22 +88,22 @@ def main() -> None:
     if not entry.is_file() and not ledger_path.exists():
         return
     if not ledger_path.is_file():
-        _warn("BridgeForgeCodex 托管账本缺失")
+        _warn("bridgeforge-codex 托管账本缺失")
         return
     try:
         ledger = json.loads(ledger_path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
-        _warn("BridgeForgeCodex 托管账本无法读取")
+        _warn("bridgeforge-codex 托管账本无法读取")
         return
     if not isinstance(ledger, dict):
-        _warn("BridgeForgeCodex 托管账本格式无效")
+        _warn("bridgeforge-codex 托管账本格式无效")
         return
     if ledger.get("schema_version") != 1 or ledger.get("platform") != platform:
-        _warn("BridgeForgeCodex 托管账本版本或平台不匹配")
+        _warn("bridgeforge-codex 托管账本版本或平台不匹配")
         return
     records = ledger.get("records")
     if not isinstance(records, dict) or not records:
-        _warn("BridgeForgeCodex 托管账本没有有效记录")
+        _warn("bridgeforge-codex 托管账本没有有效记录")
         return
 
     stale: list[str] = []
@@ -125,7 +125,7 @@ def main() -> None:
         if not current:
             stale.append(name)
     if invalid:
-        _warn("BridgeForgeCodex 托管账本包含无效 skill 记录")
+        _warn("bridgeforge-codex 托管账本包含无效 skill 记录")
     elif stale:
         _warn(f"{len(stale)} 个托管 skill 缺失或内容漂移（{', '.join(stale)}）")
 

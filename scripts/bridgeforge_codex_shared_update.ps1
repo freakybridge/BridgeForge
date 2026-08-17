@@ -65,7 +65,7 @@ function Write-UpdateReceipt {
 
 function Assert-Windows {
     if ($TestNonWindows -or [Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-        throw "BridgeForgeCodex shared-skill distribution supports Windows only."
+        throw "bridgeforge-codex shared-skill distribution supports Windows only."
     }
 }
 
@@ -226,7 +226,7 @@ function Enter-UpdateMutex {
     }
     if (-not $acquired) {
         $mutex.Dispose()
-        throw "Another BridgeForgeCodex shared-skill update is already running for this user."
+        throw "Another bridgeforge-codex shared-skill update is already running for this user."
     }
     return $mutex
 }
@@ -277,7 +277,7 @@ function Assert-Repository {
     }
     $remote = ((Invoke-Git -WorkingDirectory $Root -Arguments @("config", "--get", "remote.origin.url")) -join "").Trim()
     if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
-        throw "Source repository origin is not the canonical BridgeForgeCodex remote."
+        throw "Source repository origin is not the canonical bridgeforge-codex remote."
     }
     if (-not $SkipFetch) {
         Invoke-Git -WorkingDirectory $Root -Arguments @(
@@ -443,7 +443,7 @@ function Assert-Manifest {
             }
         }
         if ($platform -eq "codex" -and -not $names.ContainsKey("bridgeforge-codex")) {
-            throw "Codex must distribute the BridgeForgeCodex command bundle."
+            throw "Codex must distribute the bridgeforge-codex command bundle."
         }
     }
     return @{
@@ -727,7 +727,7 @@ function Restore-InterruptedOperation {
     }
     $log = Read-JsonFile -Path $LogPath
     if ([int]$log.schema_version -ne 1 -or [string]::IsNullOrWhiteSpace([string]$log.operation_id)) {
-        throw "Invalid BridgeForgeCodex shared update recovery log."
+        throw "Invalid bridgeforge-codex shared update recovery log."
     }
     $operationId = [string]$log.operation_id
     if ($operationId -notmatch "^[0-9a-f]{32}$") {
@@ -1049,19 +1049,19 @@ function Get-RepositoryIdentity {
     param([Parameter(Mandatory = $true)][string]$Root)
     if (-not (Test-Path -LiteralPath $Root -PathType Container) -or
         (Test-ReparsePoint -Path $Root)) {
-        throw "BridgeForgeCodex command home is missing or unsafe: $Root"
+        throw "bridgeforge-codex command home is missing or unsafe: $Root"
     }
     $remote = ((Invoke-Git -WorkingDirectory $Root -Arguments @(
         "config", "--get", "remote.origin.url"
     )) -join "").Trim()
     if ((Get-NormalizedRemote $remote) -ne (Get-NormalizedRemote $CanonicalRemote)) {
-        throw "BridgeForgeCodex command home origin is not canonical: $Root"
+        throw "bridgeforge-codex command home origin is not canonical: $Root"
     }
     $commit = ((Invoke-Git -WorkingDirectory $Root -Arguments @(
         "rev-parse", "HEAD"
     )) -join "").Trim().ToLowerInvariant()
     if ($commit -notmatch "^[0-9a-f]{40}$") {
-        throw "BridgeForgeCodex command home HEAD is invalid: $Root"
+        throw "bridgeforge-codex command home HEAD is invalid: $Root"
     }
     $changes = @(
         Invoke-Git -WorkingDirectory $Root -Arguments @(
@@ -1070,7 +1070,7 @@ function Get-RepositoryIdentity {
         )
     )
     if ($changes.Count -gt 0) {
-        throw "BridgeForgeCodex command home contains local changes: $Root"
+        throw "bridgeforge-codex command home contains local changes: $Root"
     }
     return [ordered]@{ remote = $remote; commit = $commit }
 }
@@ -1090,11 +1090,11 @@ function New-CommandHomePlan {
     Assert-NoReparseUnderProfile -Path $target -UserProfile $UserProfile
     Assert-WriteAccess -Path $target
     if ((Test-Path -LiteralPath $stage) -or (Test-Path -LiteralPath $backup)) {
-        throw "BridgeForgeCodex command-home transaction path already exists."
+        throw "bridgeforge-codex command-home transaction path already exists."
     }
     $hadOriginal = [bool](Test-Path -LiteralPath $target -PathType Container)
     if ((Test-Path -LiteralPath $target) -and -not $hadOriginal) {
-        throw "BridgeForgeCodex command home target is not a directory: $target"
+        throw "bridgeforge-codex command home target is not a directory: $target"
     }
     if ($hadOriginal) {
         $identity = Get-RepositoryIdentity -Root $target
@@ -1115,7 +1115,7 @@ function New-CommandHomePlan {
     $stagedIdentity = Get-RepositoryIdentity -Root $stage
     if ([string]$stagedIdentity.commit -ne $Commit) {
         Remove-SafeTree -Path $stage
-        throw "Staged BridgeForgeCodex command home commit verification failed."
+        throw "Staged bridgeforge-codex command home commit verification failed."
     }
     return [ordered]@{
         target = $target
@@ -1206,7 +1206,7 @@ function Restore-CommandHomeOperation {
     $value = Read-JsonFile -Path $logPath
     $operationId = [string]$value.operation_id
     if ($operationId -notmatch "^[0-9a-f]{32}$") {
-        throw "Invalid BridgeForgeCodex command-home recovery log."
+        throw "Invalid bridgeforge-codex command-home recovery log."
     }
     $stem = $CommandHomeName.TrimStart(".")
     $target = Join-Path $UserProfile $CommandHomeName
@@ -1322,7 +1322,7 @@ function Invoke-Main {
 
             $needsTransaction = [bool]($needsTransaction -or [bool]$commandHomePlan.needs_swap)
             if (-not $needsTransaction) {
-                Write-Host "BridgeForgeCodex shared skills already current at commit $commit."
+                Write-Host "bridgeforge-codex shared skills already current at commit $commit."
                 $resultMode = "noop"
             }
             else {
@@ -1345,7 +1345,7 @@ function Invoke-Main {
                     throw
                 }
                 Complete-PhaseTiming -Name "transaction" -Stopwatch $phase
-                Write-Host "BridgeForgeCodex shared skills updated to commit $commit."
+                Write-Host "bridgeforge-codex shared skills updated to commit $commit."
                 $resultMode = "updated"
             }
         }

@@ -12,12 +12,17 @@
             {
               "source": "scripts/bridgeforge_codex_shared_update.ps1",
               "target": "scripts/bridgeforge_codex_shared_update.ps1",
-              "sha256": "sha256:fe329b881f9e9b2e5bae68639cdee809451e10c0190d729730045219edcf360e"
+              "sha256": "sha256:f179d466fbf1ffe10bfa40003f74818c4a431aed11307a8de74d92333026a844"
             },
             {
               "source": "skills/bridgeforge-codex/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:ae6dbf64b89581dfa5c3474f57a5ea1b9a2262301f542eeb9e53e4d3b90bb1a4"
+              "sha256": "sha256:e8fa5055ac1d091b1523178c8696676d31b1da38ce784d5008b00f57451c6777"
+            },
+            {
+              "source": "skills/bridgeforge-codex/agents/openai.yaml",
+              "target": "agents/openai.yaml",
+              "sha256": "sha256:5aeb6b7769aa4727ca44a2f2ae51051779f0ae5e7c4affcb6f85f9056f9cc630"
             },
             {
               "source": "skills/bridgeforge-codex/references/adopt.md",
@@ -157,7 +162,7 @@
             {
               "source": "skills/find-memory/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:8b8df62442416b54e0cb90271cbb01c462a630c4e70f3517ab1c8c5680b85e2d"
+              "sha256": "sha256:8fb187b2036e501b79549bf4404eedd6c8c409463ffddd809e05477a760469a1"
             }
           ]
         },
@@ -227,12 +232,12 @@
             {
               "source": "skills/summary/references/deep-steps.md",
               "target": "references/deep-steps.md",
-              "sha256": "sha256:71f65e51857d1e2790cb76418572ccf46ed7dfa9a4c8c91e8057bb113567a330"
+              "sha256": "sha256:1559cad9c92c4d3e46f160b7b0193a3a56413e976d95cbf1b5cd3f78818cba46"
             },
             {
               "source": "skills/summary/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:d988db8ee34116c9ed1ccbdd1d1e7be7a91677d35ee869afe62a65afe89233fc"
+              "sha256": "sha256:709f2f07a862638023166e2bc4451c01405223f2001313be4ea17cc9245a3a29"
             }
           ]
         },

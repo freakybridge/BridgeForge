@@ -50,7 +50,7 @@ except Exception as exc:  # strict mode must fail closed when shared policy is u
 # --- 各体检项：返回 None=通过，返回字符串=不达标（一行纯 ASCII，含修复提示） ---
 
 def _check_python_version(version_info: object = sys.version_info) -> "str | None":
-    """All BridgeForgeCodex hooks require Python 3.11+ and stdlib tomllib."""
+    """All bridgeforge-codex hooks require Python 3.11+ and stdlib tomllib."""
     major = int(getattr(version_info, "major", version_info[0]))  # type: ignore[index]
     minor = int(getattr(version_info, "minor", version_info[1]))  # type: ignore[index]
     if (major, minor) >= (3, 11):
@@ -95,7 +95,7 @@ def _check_settings_json_valid() -> "str | None":
 
 
 def _check_single_hook_source() -> "str | None":
-    """BridgeForgeCodex projects register lifecycle hooks only in hooks.json."""
+    """bridgeforge-codex projects register lifecycle hooks only in hooks.json."""
     failures: list[str] = []
     if POLICY_IMPORT_ERROR or has_hooks_table is None:
         failures.append(f"shared hook policy unavailable ({POLICY_IMPORT_ERROR})")
@@ -141,7 +141,7 @@ def _check_single_hook_source() -> "str | None":
 
 
 def _check_memory_schema() -> "str | None":
-    """Project memory must already match the canonical BridgeForgeCodex layout."""
+    """Project memory must already match the canonical bridgeforge-codex layout."""
     lint = Path(__file__).resolve().parent / "memory_lint.py"
     if not lint.is_file():
         return "MEMORY_SCHEMA: memory_lint.py is missing. FIX: rerun /bridgeforge-codex."

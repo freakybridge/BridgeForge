@@ -1,9 +1,9 @@
-# BridgeForgeCodex 项目同步事务
+# bridgeforge-codex 项目同步事务
 
-> 状态：implemented（BridgeForgeCodex 1.2.0）
+> 状态：implemented（bridgeforge-codex 1.4.0）
 > 入口：`scripts/bridgeforge_codex_project_sync.py`
 
-BridgeForgeCodex 只维护 `AGENTS.md + .codex/`。项目资产 ownership 的唯一事实源是
+bridgeforge-codex 只维护 `AGENTS.md + .codex/`。项目资产 ownership 的唯一事实源是
 `templates/managed-skeleton.json` schema v2；每个目标都必须逐资产登记，禁止 glob
 ownership 和未知内容覆盖。
 

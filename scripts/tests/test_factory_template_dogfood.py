@@ -67,7 +67,7 @@ class FactoryTemplateDogfoodTest(unittest.TestCase):
             self.assertEqual(blocked.returncode, 2, blocked.stderr)
             self.assertIn("AGENTS common regions drift", blocked.stderr)
 
-            agents.write_text(text.replace("BridgeForgeCodex 同时是", "本工厂同时是", 1), encoding="utf-8")
+            agents.write_text(text.replace("bridgeforge-codex 同时是", "本工厂同时是", 1), encoding="utf-8")
             allowed = self._run(hook, "--pre-commit")
             self.assertEqual(allowed.returncode, 0, allowed.stderr)
 

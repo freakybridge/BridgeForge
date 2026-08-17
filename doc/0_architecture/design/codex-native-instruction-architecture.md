@@ -2,7 +2,7 @@
 
 ## 决策
 
-Codex 指令只经 `AGENTS.md` / 嵌套 `AGENTS.md` 原生加载。`.codex/rules/*.rules` 是命令执行策略，Markdown frontmatter `paths:` 不是指令加载机制。BridgeForgeCodex 不实现自研加载器。
+Codex 指令只经 `AGENTS.md` / 嵌套 `AGENTS.md` 原生加载。`.codex/rules/*.rules` 是命令执行策略，Markdown frontmatter `paths:` 不是指令加载机制。bridgeforge-codex 不实现自研加载器。
 
 根 `AGENTS.md` 使用两个精确 marker 区域：BridgeForge 公共区由产品维护并按发布 hash 校验，项目级专区由下游完全所有并在更新中逐字保留。下游只能在项目专区、项目自有嵌套 `AGENTS.md` 与项目自有 hook 中增加约束；公共区修改会在编辑后提示、pre-commit 和同步计划中 fail-closed。旧无 marker 项目继续由 `section_layout` 做一次性迁移；无法可靠分类时保留原文件、旧 rule 与旧版本戳。
 

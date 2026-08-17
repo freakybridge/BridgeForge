@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""pre-commit hook: validate BridgeForgeCodex skill metadata and loading shape.
+"""pre-commit hook: validate bridgeforge-codex skill metadata and loading shape.
 
 Scope:
 - Only checks the factory source tree `skills/<name>/SKILL.md`.
@@ -9,7 +9,7 @@ Scope:
 Hard gates cover discoverability plus unsafe context growth: required metadata,
 single-line descriptions <= 500 chars, SKILL.md <= 500 lines, and live one-level
 `references/` links. Both OpenAI's `name`/`description` frontmatter and the
-legacy BridgeForgeCodex invocation fields are accepted. Descriptions over 300 chars
+legacy bridgeforge-codex invocation fields are accepted. Descriptions over 300 chars
 are soft warnings.
 """
 from __future__ import annotations

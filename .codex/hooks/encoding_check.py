@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Encoding guard for BridgeForgeCodex text surfaces.
+"""Encoding guard for bridgeforge-codex text surfaces.
 
 Hard blocks UTF-8 BOM. Also detects likely irreversible garbling such as long
 question-mark runs and U+FFFD replacement characters in recently edited or
