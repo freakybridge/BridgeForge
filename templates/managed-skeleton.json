@@ -1,5 +1,6 @@
 {
   "schema_version": 2,
+  "release_version": "1.4.5",
   "host": "codex",
   "minimum_supported_version": "0.86.0",
   "stamp": ".codex/.bridgeforge_codex_version",
@@ -44,6 +45,9 @@
     ],
     "1.4.1": [
       "sha256:acf19ce04e9cef59951765af7a8cc962f4ec575de2795a680ee5c16a38b8615c"
+    ],
+    "1.4.3": [
+      "sha256:ca929df3f30e4cfaca4cef19fe6bd8b00a5dbb6093b12ddbc5aa5ddf3589dbe8"
     ]
   },
   "assets": [
@@ -826,7 +830,16 @@
       },
       "region": {
         "begin": "# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
-        "end": "# <<< BRIDGEFORGE_CODEX_MANAGED_END"
+        "end": "# <<< BRIDGEFORGE_CODEX_MANAGED_END",
+        "current_sha256": "sha256:c8d6b6403c1ae869fd357bd3e7848285fc2b0214321f48d020adc9bfa0a99136",
+        "historical_sha256": {
+          "1.3.0": [
+            "sha256:319ec6d6701f6b7478689dbe7deafaaeb43f6518fb2cb8e7332aa9abc1556264"
+          ],
+          "1.4.1": [
+            "sha256:c8d6b6403c1ae869fd357bd3e7848285fc2b0214321f48d020adc9bfa0a99136"
+          ]
+        }
       }
     },
     {
@@ -901,6 +914,9 @@
         ],
         "1.4.1": [
           "sha256:072fe5c6537e3d38e873e8dfec8238880b1cb1387d95358bdd5cbb0f01eaa21d"
+        ],
+        "1.4.3": [
+          "sha256:e3d14a1f32504f7b7a3d97663a396a64ab66366840f8630b84097929509080b5"
         ]
       }
     },
@@ -1345,6 +1361,9 @@
         ],
         "1.4.1": [
           "sha256:53d4cc47f16cd07691acf4176530536fb12ff689cb924e5ad8dfb123c376319a"
+        ],
+        "1.4.3": [
+          "sha256:f9a6f9c661bc48daa7695393c6deac821cb8a8fdca5cc4c1d5ffde6259b7ab27"
         ]
       }
     },
@@ -1681,7 +1700,7 @@
       "source": "templates/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:96352e5e1f6abf5e2481ace5d3756f30c17aab3183a18a8a6e89b4fe8e8b0d02",
+      "current_sha256": "sha256:fb5b2369cb7abd8a704e031a15077e023e2ebcaa42f0147103a64f021979adec",
       "historical_sha256": {
         "0.86.0": [
           "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
@@ -1709,6 +1728,9 @@
         ],
         "1.3.0": [
           "sha256:0c1ed4b9d17ee5b8e67c26f0f93c01cd0b9a9095b963320e85c3c0886925ba60"
+        ],
+        "1.4.3": [
+          "sha256:96352e5e1f6abf5e2481ace5d3756f30c17aab3183a18a8a6e89b4fe8e8b0d02"
         ]
       }
     },

@@ -805,6 +805,8 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
         raise SyncBlocked("Codex asset contract must use schema_version 2")
     if contract.get("host") != "codex":
         raise SyncBlocked("Codex asset contract has the wrong host")
+    if contract.get("release_version") is not None:
+        _semver(str(contract["release_version"]), "contract release version")
     _semver(str(contract.get("minimum_supported_version", "")), "minimum supported version")
     assets = contract.get("assets")
     if not isinstance(assets, list) or not assets:
@@ -2838,6 +2840,13 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     selected_mode = _detect_mode(root, mode)
     current_version = (template / "VERSION").read_text(encoding="utf-8-sig").strip()
     current_semver = _semver(current_version, "bridgeforge-codex VERSION")
+    if (
+        contract.get("release_version") is not None
+        and contract.get("release_version") != current_version
+    ):
+        raise SyncBlocked(
+            "bridgeforge-codex VERSION does not match the asset contract release_version"
+        )
     minimum = _semver(str(contract["minimum_supported_version"]), "minimum supported version")
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
     legacy_stamp = _inside(root, LEGACY_STAMP, "legacy version stamp")

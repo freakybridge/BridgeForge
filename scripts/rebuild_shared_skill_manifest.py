@@ -211,6 +211,45 @@ def _agents_public_block(payload: bytes, begin: str, end: str) -> bytes | None:
     return normalized[start:] if finish < 0 else normalized[start:finish + 1]
 
 
+def _managed_region_block(payload: bytes, begin: str, end: str) -> bytes | None:
+    normalized = git_blob_bytes_from_bytes(payload)
+    begin_bytes = begin.encode("utf-8")
+    end_bytes = end.encode("utf-8")
+    if normalized.count(begin_bytes) != 1 or normalized.count(end_bytes) != 1:
+        return None
+    start = normalized.index(begin_bytes)
+    finish = normalized.index(end_bytes, start + len(begin_bytes)) + len(end_bytes)
+    return normalized[start:finish]
+
+
+def _merge_region_history(
+    existing: Any,
+    root: Path,
+    source: str,
+    baselines: dict[str, str],
+    begin: str,
+    end: str,
+) -> dict[str, list[str]]:
+    history = _merge_history(existing, root, "__no_region_history__", {})
+    known = {value for values in history.values() for value in values}
+    for version, revision in baselines.items():
+        payload = _git_blob_at(root, revision, source)
+        if payload is None:
+            continue
+        block = _managed_region_block(payload, begin, end)
+        if block is None:
+            continue
+        digest = f"sha256:{hashlib.sha256(block).hexdigest()}"
+        if digest in known:
+            continue
+        history.setdefault(version, []).append(digest)
+        history[version].sort()
+        known.add(digest)
+    return dict(
+        sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
+    )
+
+
 def _merge_agents_public_history(
     existing: Any,
     root: Path,
@@ -494,6 +533,12 @@ def rebuild_managed_contract(
             raise ValueError("Codex AGENTS zone ownership is invalid")
     changed = False
     root = REPOSITORY_ROOT
+    release_version = (root / "VERSION").read_text(encoding="utf-8-sig").strip()
+    if _stable_semver(release_version) is None:
+        raise ValueError("root VERSION must be a stable MAJOR.MINOR.PATCH release")
+    if contract.get("release_version") != release_version:
+        contract["release_version"] = release_version
+        changed = True
     baselines = _baseline_revisions(root)
     contract_source = contract_path.relative_to(root).as_posix()
     historical_contract = _merge_history(
@@ -604,6 +649,29 @@ def rebuild_managed_contract(
             )
             if public.get("historical_sha256") != public_history:
                 public["historical_sha256"] = public_history
+                changed = True
+        region = asset.get("region") if isinstance(asset, dict) else None
+        if isinstance(region, dict) and isinstance(source, str):
+            begin = str(region.get("begin", ""))
+            end = str(region.get("end", ""))
+            source_payload = _source_path(root, source).read_bytes()
+            current_region = _managed_region_block(source_payload, begin, end)
+            if current_region is None:
+                raise ValueError("Codex managed region markers are invalid")
+            current_region_hash = f"sha256:{hashlib.sha256(current_region).hexdigest()}"
+            if region.get("current_sha256") != current_region_hash:
+                region["current_sha256"] = current_region_hash
+                changed = True
+            region_history = _merge_region_history(
+                region.get("historical_sha256"),
+                root,
+                source,
+                baselines,
+                begin,
+                end,
+            )
+            if region.get("historical_sha256") != region_history:
+                region["historical_sha256"] = region_history
                 changed = True
 
     serialized = json.dumps(contract, ensure_ascii=False, indent=2) + "\n"

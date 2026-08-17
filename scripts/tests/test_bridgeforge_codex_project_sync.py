@@ -92,6 +92,10 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             )
         )
         self.assertEqual(contract["schema_version"], 2)
+        self.assertEqual(
+            contract["release_version"],
+            (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip(),
+        )
         self.assertEqual(contract["minimum_supported_version"], "0.86.0")
         ids: set[str] = set()
         targets: set[str] = set()
@@ -105,6 +109,11 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             ids.add(asset["id"])
             targets.add(asset["target"].casefold())
         self.assertEqual(strategies, {"whole", "merge", "region", "seed", "retirement"})
+        precommit = next(
+            item for item in contract["assets"] if item["id"] == "codex.precommit"
+        )
+        self.assertRegex(precommit["region"]["current_sha256"], r"^sha256:[0-9a-f]{64}$")
+        self.assertIn("1.4.1", precommit["region"]["historical_sha256"])
         active = next(item for item in contract["assets"] if item["id"] == "root.agents")
         self.assertIn("0.86.0", active["historical_sha256"])
         self.assertIn("0.90.0", active["historical_sha256"])
@@ -173,6 +182,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.94.1",
             "0.94.2",
             "0.94.4",
+            "1.4.3",
             "1.4.1",
             "1.3.0",
             "0.92.0",

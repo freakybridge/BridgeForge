@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.5] - 2026-08-17
+
+### Fixed
+
+- [product][repo][meta] 修复骨架契约迁移分类
+
+## [1.4.4] - 2026-08-17
+
+### Fixed
+
+- [product][repo][meta] 修复 `$git-sync` 在骨架 ownership contract 跨版本迁移后错误使用新 contract 解析 HEAD 旧资产的问题：可信历史 contract、`release_version` 与双版本戳进入稳定 asset-id transition classifier；纯官方迁移保持 `skeleton-only`，同批独立项目文件归类 `mixed`，无法证明无损的 legacy AGENTS、资产 hash、marker、公共区或 lineage 异常继续 fail-closed。
+
 ## [1.4.3] - 2026-08-17
 
 ### Fixed

@@ -34,6 +34,162 @@ def init_repo(repo: Path) -> None:
     git(repo, "config", "user.name", "BridgeForge Fixture")
 
 
+def write_contract_transition_fixture(
+    repo: Path,
+    *,
+    customize_old_agents: bool = False,
+    include_renamed_asset: bool = False,
+    include_stale_same_target_asset: bool = False,
+) -> set[str]:
+    host = repo / ".codex"
+    host.mkdir(parents=True)
+    old_agents = (
+        "# Project\n\n## Project\n\nproject defaults\n\n"
+        "## Managed\n\nold public\n"
+    )
+    old_asset = {
+        "id": "root.agents",
+        "target": "AGENTS.md",
+        "strategy": "whole",
+        "current_sha256": VERSION_RELEASE._sha256_bytes(old_agents.encode("utf-8")),
+    }
+    old_assets = [old_asset]
+    if include_renamed_asset:
+        old_assets.append({
+            "id": "codex.renamed",
+            "target": ".codex/old.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"old managed\n"),
+        })
+    if include_stale_same_target_asset:
+        old_assets.append({
+            "id": "codex.stale",
+            "target": ".codex/stale.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"old managed\n"),
+        })
+    old_contract = {
+        "schema_version": 2,
+        "stamp": ".codex/.bridgeforge_version",
+        "contract_target": ".codex/managed-skeleton.json",
+        "assets": old_assets,
+    }
+    old_payload = (json.dumps(old_contract, indent=2) + "\n").encode("utf-8")
+    (host / "managed-skeleton.json").write_bytes(old_payload)
+    actual_old_agents = old_agents.replace(
+        "project defaults",
+        "PROJECT CUSTOM SEMANTICS" if customize_old_agents else "project defaults",
+    )
+    (repo / "AGENTS.md").write_text(actual_old_agents, encoding="utf-8")
+    if include_renamed_asset:
+        (host / "old.py").write_text("old managed\n", encoding="utf-8")
+    if include_stale_same_target_asset:
+        (host / "stale.py").write_text("old managed\n", encoding="utf-8")
+    (host / ".bridgeforge_version").write_text("0.94.2\n", encoding="utf-8")
+    (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "baseline")
+
+    current_agents = (
+        "<!-- PUBLIC -->\nnew public\n<!-- /PUBLIC -->\n\n"
+        "<!-- PROJECT -->\n## Project Zone\n\n"
+        + ("PROJECT CUSTOM SEMANTICS" if customize_old_agents else "project defaults")
+        + "\n\n<!-- /PROJECT -->\n"
+    )
+    zones = {
+        "format": "bridgeforge-agents-zones",
+        "public": {
+            "begin": "<!-- PUBLIC -->",
+            "end": "<!-- /PUBLIC -->",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(
+                b"<!-- PUBLIC -->\nnew public\n<!-- /PUBLIC -->\n"
+            ),
+        },
+        "project": {
+            "begin": "<!-- PROJECT -->",
+            "end": "<!-- /PROJECT -->",
+            "legacy_section_migrations": [{
+                "legacy_heading": "## Project",
+                "project_heading": "## Project Zone",
+            }],
+        },
+    }
+    current_assets = [{
+        "id": "root.agents",
+        "target": "AGENTS.md",
+        "strategy": "whole",
+        "agents_zones": zones,
+        "section_layout": {
+            "format": "markdown-section-layout",
+            "groups": [
+                {
+                    "heading": "## Project",
+                    "ownership": "project",
+                    "required": True,
+                },
+                {
+                    "heading": "## Managed",
+                    "ownership": "managed",
+                    "trusted_legacy_sha256": {
+                        "## Managed": {
+                            "0.94.2": [VERSION_RELEASE._sha256_bytes(
+                                b"## Managed\n\nold public\n"
+                            )]
+                        }
+                    },
+                },
+            ],
+            "trusted_residual_sha256": {
+                "0.94.2": [VERSION_RELEASE._sha256_bytes(b"# Project\n\n")]
+            },
+        },
+        "current_sha256": VERSION_RELEASE._sha256_bytes(
+            current_agents.encode("utf-8")
+        ),
+    }]
+    if include_renamed_asset:
+        current_assets.append({
+            "id": "codex.renamed",
+            "target": ".codex/new.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"new managed\n"),
+        })
+    if include_stale_same_target_asset:
+        current_assets.append({
+            "id": "codex.stale",
+            "target": ".codex/stale.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"new managed\n"),
+        })
+    current_contract = {
+        "schema_version": 2,
+        "release_version": "1.4.3",
+        "stamp": ".codex/.bridgeforge_codex_version",
+        "contract_target": ".codex/managed-skeleton.json",
+        "contract_historical_sha256": {
+            "0.94.2": [VERSION_RELEASE._sha256_bytes(old_payload)]
+        },
+        "assets": current_assets,
+    }
+    (host / "managed-skeleton.json").write_text(
+        json.dumps(current_contract, indent=2) + "\n", encoding="utf-8"
+    )
+    (repo / "AGENTS.md").write_text(current_agents, encoding="utf-8")
+    (host / ".bridgeforge_version").unlink()
+    (host / ".bridgeforge_codex_version").write_text("1.4.3\n", encoding="utf-8")
+    changed = {
+        ".codex/managed-skeleton.json",
+        ".codex/.bridgeforge_version",
+        ".codex/.bridgeforge_codex_version",
+        "AGENTS.md",
+    }
+    if include_renamed_asset:
+        (host / "old.py").unlink()
+        (host / "new.py").write_text("new managed\n", encoding="utf-8")
+        changed.update({".codex/old.py", ".codex/new.py"})
+    return changed
+
+
 class VersionReleaseTests(unittest.TestCase):
     def test_bump_levels(self) -> None:
         cases = {
@@ -449,6 +605,220 @@ class VersionReleaseTests(unittest.TestCase):
             agents.write_text(baseline.replace("<!-- /PROJECT -->", ""), encoding="utf-8")
             with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, "missing or duplicated"):
                 VERSION_RELEASE._change_ownership(repo, "AGENTS.md", configs)
+
+    def test_trusted_contract_transition_is_skeleton_only(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, set(reversed(sorted(changed)))),
+                "skeleton-only",
+            )
+            self.assertIsNone(
+                VERSION_RELEASE.build_release_plan(repo, "chore: 更新骨架", changed)
+            )
+
+    def test_contract_transition_with_project_change_is_mixed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            (repo / "project.txt").write_text("project change\n", encoding="utf-8")
+            changed.add("project.txt")
+
+            plan = VERSION_RELEASE.build_release_plan(
+                repo, "fix: 同步骨架并修改项目", changed
+            )
+            self.assertIsNotNone(plan)
+            self.assertEqual(plan.classification, "mixed")
+
+    def test_contract_transition_rejects_untrusted_head_and_missing_stamp(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["contract_historical_sha256"]["0.94.2"] = ["sha256:" + "0" * 64]
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "is not trusted for skeleton 0.94.2"
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            (repo / ".codex/.bridgeforge_codex_version").unlink()
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "current skeleton stamp is missing"
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_stamp_contract_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            (repo / ".codex/.bridgeforge_codex_version").write_text(
+                "99.0.0\n", encoding="utf-8"
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "does not match.*release_version"
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_maps_legacy_project_content_and_rejects_loss(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo, customize_old_agents=True
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed), "mixed"
+            )
+            agents = repo / "AGENTS.md"
+            agents.write_text(
+                agents.read_text(encoding="utf-8").replace(
+                    "PROJECT CUSTOM SEMANTICS", "project defaults"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "legacy AGENTS project content changed during migration",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_mismatched_whole_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["assets"].append({
+                "id": "codex.guard",
+                "target": ".codex/guard.py",
+                "strategy": "whole",
+                "current_sha256": "sha256:" + "0" * 64,
+            })
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            (repo / ".codex/guard.py").write_text("not declared\n", encoding="utf-8")
+            changed.add(".codex/guard.py")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "does not match its declared hash"
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_missing_new_asset(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["assets"].append({
+                "id": "codex.missing",
+                "target": ".codex/missing.py",
+                "strategy": "whole",
+                "current_sha256": VERSION_RELEASE._sha256_bytes(b"expected\n"),
+            })
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "target migration is missing changed paths"
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_mismatched_managed_region(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["assets"].append({
+                "id": "codex.region",
+                "target": ".githooks/pre-commit",
+                "strategy": "region",
+                "current_sha256": "sha256:" + "0" * 64,
+                "region": {
+                    "begin": "# BEGIN",
+                    "end": "# END",
+                    "current_sha256": "sha256:" + "0" * 64,
+                    "historical_sha256": {},
+                },
+            })
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            hook = repo / ".githooks/pre-commit"
+            hook.parent.mkdir(parents=True)
+            hook.write_text("# BEGIN\nmanaged\n# END\nproject\n", encoding="utf-8")
+            changed.add(".githooks/pre-commit")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "current managed region does not match its declared hash",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_aligns_target_rename_by_asset_id(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo, include_renamed_asset=True
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed), "skeleton-only"
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError, "target migration is missing changed paths"
+            ):
+                VERSION_RELEASE.classify_changes(
+                    repo, changed - {".codex/old.py"}
+                )
+
+    def test_contract_transition_rejects_unreported_same_target_digest_change(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo, include_stale_same_target_asset=True
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "target migration is missing changed paths",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_rejects_invalid_current_agents_zones(self) -> None:
+        invalid_replacements = (
+            ("<!-- /PROJECT -->", ""),
+            ("<!-- /PROJECT -->", "<!-- PUBLIC -->"),
+            (
+                "<!-- PUBLIC -->\nnew public\n<!-- /PUBLIC -->",
+                "<!-- /PUBLIC -->\nnew public\n<!-- PUBLIC -->",
+            ),
+            ("<!-- PUBLIC -->", "outside\n<!-- PUBLIC -->"),
+        )
+        for old, new in invalid_replacements:
+            with self.subTest(replacement=new), tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                changed = write_contract_transition_fixture(repo)
+                agents = repo / "AGENTS.md"
+                agents.write_text(
+                    agents.read_text(encoding="utf-8").replace(old, new),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(
+                    VERSION_RELEASE.ReleaseError,
+                    "current AGENTS ownership is invalid|public zone does not match",
+                ):
+                    VERSION_RELEASE.classify_changes(repo, changed)
 
     def test_managed_markdown_release_scanner_is_fence_aware(self) -> None:
         payload = (

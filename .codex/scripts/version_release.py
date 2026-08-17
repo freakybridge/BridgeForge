@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -15,6 +16,12 @@ from pathlib import Path, PurePosixPath
 
 
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+PROJECT_TITLE_RE = re.compile(
+    r"(?m)^# ([A-Za-z0-9._-]+|\{\{PROJECT_NAME\}\}) 项目开发规范[ \t]*$".encode(
+        "utf-8"
+    )
+)
+PROJECT_TITLE_NORMALIZED = "# {{PROJECT_NAME}} 项目开发规范".encode("utf-8")
 HEADER_RE = re.compile(
     r"^(feat|fix|docs|refactor|chore|perf)(?:\([^)\r\n]+\))?(!)?:\s+(.+?)\s*$"
 )
@@ -104,6 +111,16 @@ def _git(repo: Path, args: list[str], *, input_bytes: bytes | None = None) -> su
 def _head_bytes(repo: Path, path: str) -> bytes | None:
     result = _git(repo, ["show", f"HEAD:{path}"])
     return result.stdout if result.returncode == 0 else None
+
+
+def _git_blob_bytes(payload: bytes) -> bytes:
+    if b"\0" in payload:
+        return payload
+    return payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _sha256_bytes(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(_git_blob_bytes(payload)).hexdigest()
 
 
 def _path_matches(path: str, pattern: str) -> bool:
@@ -476,22 +493,15 @@ def _agents_zone_release_parts(
     )
 
 
-def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
-    configs: list[tuple[Path, dict[str, object]]] = []
-    for host in (".codex",):
-        path = repo / host / "managed-skeleton.json"
-        if not path.is_file():
-            continue
-        try:
-            value = json.loads(path.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ReleaseError(f"invalid managed skeleton config {path}: {exc}") from exc
+def _managed_config_from_value(
+    path: Path,
+    value: object,
+) -> dict[str, object]:
         if not isinstance(value, dict):
             raise ReleaseError(f"unsupported managed skeleton config: {path}")
         schema_version = value.get("schema_version")
         if schema_version == 1:
-            configs.append((path, value))
-            continue
+            return dict(value)
         if schema_version != 2:
             raise ReleaseError(f"unsupported managed skeleton config: {path}")
         stamp = value.get("stamp")
@@ -565,19 +575,36 @@ def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
             if not isinstance(begin, str) or not isinstance(end, str):
                 raise ReleaseError(f"invalid schema v2 managed region in {path}")
             managed_regions.append({"path": target, "begin": begin, "end": end})
-        configs.append(
-            (
-                path,
-                {
-                    "schema_version": 1,
-                    "stamp": stamp,
-                    "whole_files": sorted(set(whole_files)),
-                    "managed_regions": managed_regions,
-                    "managed_markdown": managed_markdown,
-                    "agents_zones": agents_zones,
-                },
-            )
-        )
+        return {
+            "schema_version": 1,
+            "stamp": stamp,
+            "whole_files": sorted(set(whole_files)),
+            "managed_regions": managed_regions,
+            "managed_markdown": managed_markdown,
+            "agents_zones": agents_zones,
+            "raw_contract": value,
+        }
+
+
+def _parse_managed_config(path: Path, payload: bytes) -> dict[str, object]:
+    try:
+        value = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseError(f"invalid managed skeleton config {path}: {exc}") from exc
+    return _managed_config_from_value(path, value)
+
+
+def _load_managed_configs(repo: Path) -> list[tuple[Path, dict[str, object]]]:
+    configs: list[tuple[Path, dict[str, object]]] = []
+    for host in (".codex",):
+        path = repo / host / "managed-skeleton.json"
+        if not path.is_file():
+            continue
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise ReleaseError(f"invalid managed skeleton config {path}: {exc}") from exc
+        configs.append((path, _parse_managed_config(path, payload)))
     return configs
 
 
@@ -647,6 +674,614 @@ def _change_ownership(
     return None, False, True
 
 
+def _raw_contract(config_path: Path, config: dict[str, object]) -> dict[str, object]:
+    raw = config.get("raw_contract")
+    if not isinstance(raw, dict) or raw.get("schema_version") != 2:
+        raise ReleaseError(
+            f"ownership contract transition requires schema v2: {config_path}"
+        )
+    return raw
+
+
+def _contract_assets(
+    config_path: Path,
+    contract: dict[str, object],
+) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
+    raw_assets = contract.get("assets")
+    if not isinstance(raw_assets, list):
+        raise ReleaseError(f"invalid schema v2 asset list in {config_path}")
+    by_id: dict[str, dict[str, object]] = {}
+    by_target: dict[str, dict[str, object]] = {}
+    for raw_asset in raw_assets:
+        if not isinstance(raw_asset, dict):
+            raise ReleaseError(f"invalid schema v2 asset in {config_path}")
+        asset_id = raw_asset.get("id")
+        target = raw_asset.get("target")
+        if not isinstance(asset_id, str) or not asset_id:
+            raise ReleaseError(f"invalid stable asset id in {config_path}")
+        if not isinstance(target, str) or not target:
+            raise ReleaseError(f"invalid asset target in {config_path}")
+        if asset_id in by_id or target in by_target:
+            raise ReleaseError(f"duplicate asset id or target in {config_path}")
+        asset = dict(raw_asset)
+        by_id[asset_id] = asset
+        by_target[target] = asset
+    return by_id, by_target
+
+
+def _declared_asset_hashes(asset: dict[str, object]) -> set[str]:
+    result: set[str] = set()
+    current = asset.get("current_sha256")
+    if isinstance(current, str):
+        result.add(current)
+    history = asset.get("historical_sha256", {})
+    if isinstance(history, dict):
+        for raw_values in history.values():
+            values = raw_values if isinstance(raw_values, list) else [raw_values]
+            result.update(value for value in values if isinstance(value, str))
+    return result
+
+
+def _asset_ownership_signature(asset: dict[str, object] | None) -> object:
+    if asset is None:
+        return None
+
+    def scrub(value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                key: scrub(item)
+                for key, item in value.items()
+                if "sha256" not in key and key not in {"source", "historical_source"}
+            }
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    return scrub(asset)
+
+
+def _asset_content_signature(asset: dict[str, object] | None) -> object:
+    if asset is None:
+        return None
+    region = asset.get("region")
+    zones = asset.get("agents_zones")
+    public = zones.get("public") if isinstance(zones, dict) else None
+    return (
+        asset.get("current_sha256"),
+        region.get("current_sha256") if isinstance(region, dict) else None,
+        public.get("current_sha256") if isinstance(public, dict) else None,
+    )
+
+
+def _asset_target_hash(payload: bytes, asset: dict[str, object], repo: Path) -> str:
+    normalized = _git_blob_bytes(payload)
+    if asset.get("render") == "project-name":
+        try:
+            text = normalized.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return _sha256_bytes(normalized)
+        normalized = text.replace(repo.name, "{{PROJECT_NAME}}").encode("utf-8")
+    return _sha256_bytes(normalized)
+
+
+def _agents_public_hash(payload: bytes) -> str:
+    project_clone = re.compile(
+        br"(?m)^(git clone <repo_url> )"
+        br"([A-Za-z0-9._-]+|\{\{PROJECT_NAME\}\})"
+        br"( && cd )\2([ \t]*)$"
+    )
+    normalized = project_clone.sub(
+        br"\1{{PROJECT_NAME}}\3{{PROJECT_NAME}}\4",
+        _git_blob_bytes(payload),
+    )
+    return _sha256_bytes(normalized)
+
+
+def _accepted_public_hashes(asset: dict[str, object]) -> set[str]:
+    zones = asset.get("agents_zones")
+    if not isinstance(zones, dict):
+        return set()
+    public = zones.get("public")
+    if not isinstance(public, dict):
+        return set()
+    result: set[str] = set()
+    current = public.get("current_sha256")
+    if isinstance(current, str):
+        result.add(current)
+    history = public.get("historical_sha256", {})
+    if isinstance(history, dict):
+        for raw_values in history.values():
+            values = raw_values if isinstance(raw_values, list) else [raw_values]
+            result.update(value for value in values if isinstance(value, str))
+    return result
+
+
+def _visible_markdown_headings(payload: bytes) -> list[tuple[int, int, bytes]]:
+    lines = payload.splitlines(keepends=True)
+    cursor = 0
+    result: list[tuple[int, int, bytes]] = []
+    fence_char: bytes | None = None
+    fence_length = 0
+    fence_open_re = re.compile(br"^ {0,3}(`{3,}|~{3,})[^\r\n]*$")
+    heading_re = re.compile(br"^ {0,3}(#{1,6}) [^\r\n]+$")
+    for line in lines:
+        start = cursor
+        cursor += len(line)
+        stripped = line.rstrip(b"\r\n")
+        if fence_char is not None:
+            close = re.fullmatch(
+                br" {0,3}"
+                + re.escape(fence_char)
+                + br"{"
+                + str(fence_length).encode("ascii")
+                + br",}[ \t]*",
+                stripped,
+            )
+            if close:
+                fence_char = None
+                fence_length = 0
+            continue
+        fence = fence_open_re.fullmatch(stripped)
+        if fence:
+            marker = fence.group(1)
+            fence_char = marker[:1]
+            fence_length = len(marker)
+            continue
+        heading = heading_re.fullmatch(stripped)
+        if heading:
+            result.append((start, cursor, stripped.lstrip(b" ")))
+    if fence_char is not None:
+        raise ReleaseError("managed Markdown contains an unclosed fenced code block")
+    return result
+
+
+def _layout_entries(layout: dict[str, object]) -> list[dict[str, object]]:
+    groups = layout.get("groups")
+    if not isinstance(groups, list):
+        raise ReleaseError("legacy AGENTS section layout is invalid")
+    result: list[dict[str, object]] = []
+    for group in groups:
+        if not isinstance(group, dict):
+            raise ReleaseError("legacy AGENTS section layout is invalid")
+        sections = group.get("sections")
+        entries = sections if isinstance(sections, list) else [group]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ReleaseError("legacy AGENTS section layout is invalid")
+            result.append(dict(entry))
+    return result
+
+
+def _history_values(raw: object) -> set[str]:
+    result: set[str] = set()
+    if not isinstance(raw, dict):
+        return result
+    for values in raw.values():
+        candidates = values if isinstance(values, list) else [values]
+        result.update(value for value in candidates if isinstance(value, str))
+    return result
+
+
+def _layout_block_hash(block: bytes, entry: dict[str, object]) -> str:
+    normalized = _git_blob_bytes(block)
+    if entry.get("hash_normalizer") == "project-name-clone-command":
+        project_clone = re.compile(
+            br"(?m)^(git clone <repo_url> )"
+            br"([A-Za-z0-9._-]+|\{\{PROJECT_NAME\}\})"
+            br"( && cd )\2([ \t]*)$"
+        )
+        normalized = project_clone.sub(
+            br"\1{{PROJECT_NAME}}\3{{PROJECT_NAME}}\4", normalized
+        )
+    return _sha256_bytes(normalized)
+
+
+def _layout_residual_hash(payload: bytes, layout: dict[str, object]) -> str:
+    normalized = _git_blob_bytes(payload)
+    entries = _layout_entries(layout)
+    candidates: list[str] = []
+    for entry in entries:
+        heading = entry.get("heading")
+        if isinstance(heading, str):
+            candidates.append(heading)
+        candidates.extend(
+            str(item) for item in entry.get("legacy_headings", [])
+            if isinstance(item, str)
+        )
+    retired = layout.get("retired_sections", [])
+    if isinstance(retired, list):
+        for entry in retired:
+            if isinstance(entry, dict):
+                candidates.extend(
+                    str(item) for item in entry.get("legacy_headings", [])
+                    if isinstance(item, str)
+                )
+    unique = list(dict.fromkeys(candidates))
+    spans = list(_markdown_heading_spans(normalized, unique).values())
+    visible = _visible_markdown_headings(normalized)
+    groups = layout.get("groups", [])
+    if isinstance(groups, list):
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("sections"), list):
+                continue
+            raw_heading = str(group.get("heading", "")).encode("utf-8")
+            matches = [(start, finish) for start, finish, heading in visible if heading == raw_heading]
+            if len(matches) > 1:
+                raise ReleaseError("legacy AGENTS group heading is duplicated")
+            spans.extend(matches)
+    merged: list[tuple[int, int]] = []
+    for start, finish in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], finish))
+        else:
+            merged.append((start, finish))
+    parts: list[bytes] = []
+    cursor = 0
+    for start, finish in merged:
+        parts.append(normalized[cursor:start])
+        cursor = finish
+    parts.append(normalized[cursor:])
+    residual = PROJECT_TITLE_RE.sub(PROJECT_TITLE_NORMALIZED, b"".join(parts))
+    return _sha256_bytes(residual)
+
+
+def _heading_body(block: bytes) -> bytes:
+    normalized = _git_blob_bytes(block)
+    newline = normalized.find(b"\n")
+    return b"" if newline < 0 else normalized[newline + 1:]
+
+
+def _agents_transition_project_changed(
+    before: bytes,
+    current: bytes,
+    current_asset: dict[str, object],
+) -> bool:
+    zones = current_asset.get("agents_zones")
+    layout = current_asset.get("section_layout")
+    if not isinstance(zones, dict) or not isinstance(layout, dict):
+        raise ReleaseError("current AGENTS contract has no legacy section mapping")
+    project = zones.get("project")
+    if not isinstance(project, dict):
+        raise ReleaseError("current AGENTS project-zone contract is invalid")
+    migrations = project.get("legacy_section_migrations")
+    if not isinstance(migrations, list) or not migrations:
+        raise ReleaseError("current AGENTS contract has no legacy project mappings")
+
+    entries = _layout_entries(layout)
+    by_heading = {
+        str(entry.get("heading")): entry
+        for entry in entries
+        if isinstance(entry.get("heading"), str)
+    }
+    all_candidates: list[str] = []
+    for entry in entries:
+        all_candidates.append(str(entry["heading"]))
+        all_candidates.extend(
+            str(item) for item in entry.get("legacy_headings", [])
+            if isinstance(item, str)
+        )
+    old_spans = _markdown_heading_spans(
+        _git_blob_bytes(before), list(dict.fromkeys(all_candidates))
+    )
+    selected: dict[str, tuple[str, tuple[int, int], dict[str, object]]] = {}
+    for entry in entries:
+        canonical = str(entry["heading"])
+        candidates = [canonical] + [
+            str(item) for item in entry.get("legacy_headings", [])
+            if isinstance(item, str)
+        ]
+        matches = [(heading, old_spans[heading]) for heading in candidates if heading in old_spans]
+        if len(matches) != 1:
+            raise ReleaseError(
+                f"legacy AGENTS section mapping is ambiguous: {canonical}"
+            )
+        selected[canonical] = (matches[0][0], matches[0][1], entry)
+        if entry.get("ownership") == "managed":
+            matched_heading, span = matches[0]
+            by_legacy = entry.get("trusted_legacy_sha256")
+            trusted = by_legacy.get(matched_heading) if isinstance(by_legacy, dict) else None
+            if _layout_block_hash(before[slice(*span)], entry) not in _history_values(trusted):
+                raise ReleaseError(
+                    f"legacy AGENTS managed section is not trusted: {matched_heading}"
+                )
+        elif entry.get("ownership") not in {"project", "keyed"}:
+            raise ReleaseError(f"legacy AGENTS section ownership is invalid: {canonical}")
+        elif entry.get("ownership") == "keyed":
+            raise ReleaseError(
+                f"legacy AGENTS keyed project content cannot be mapped safely: {canonical}"
+            )
+
+    residual = _layout_residual_hash(before, layout)
+    if residual not in _history_values(layout.get("trusted_residual_sha256")):
+        raise ReleaseError("legacy AGENTS contains unclassified content outside mapped sections")
+
+    _public, current_project = _agents_zone_release_parts(current, zones)
+    if current_project is None:
+        raise ReleaseError("current AGENTS project zone is missing")
+    project_end = str(project.get("end", "")).encode("utf-8")
+    if current_project.count(project_end) != 1:
+        raise ReleaseError("current AGENTS project-zone end marker is invalid")
+    current_project = current_project[:current_project.index(project_end)]
+    target_headings = [
+        str(item.get("project_heading"))
+        for item in migrations
+        if isinstance(item, dict) and isinstance(item.get("project_heading"), str)
+    ]
+    current_spans = _markdown_heading_spans(current_project, target_headings)
+    for migration in migrations:
+        if not isinstance(migration, dict):
+            raise ReleaseError("legacy AGENTS project mapping is invalid")
+        legacy_heading = migration.get("legacy_heading")
+        project_heading = migration.get("project_heading")
+        if not isinstance(legacy_heading, str) or not isinstance(project_heading, str):
+            raise ReleaseError("legacy AGENTS project mapping is invalid")
+        entry = by_heading.get(legacy_heading)
+        source = selected.get(legacy_heading)
+        target_span = current_spans.get(project_heading)
+        if entry is None or entry.get("ownership") != "project" or source is None or target_span is None:
+            raise ReleaseError(
+                f"legacy AGENTS project mapping is incomplete: {legacy_heading} -> {project_heading}"
+            )
+        if _heading_body(before[slice(*source[1])]) != _heading_body(
+            current_project[slice(*target_span)]
+        ):
+            raise ReleaseError(
+                f"legacy AGENTS project content changed during migration: {legacy_heading}"
+            )
+    return True
+
+
+def _read_stamp(payload: bytes | None, label: str) -> str:
+    if payload is None:
+        raise ReleaseError(f"{label} skeleton stamp is missing")
+    try:
+        value = payload.decode("utf-8-sig").strip()
+    except UnicodeDecodeError as exc:
+        raise ReleaseError(f"{label} skeleton stamp is not UTF-8") from exc
+    parse_semver(value)
+    return value
+
+
+def _transition_asset_ownership(
+    repo: Path,
+    old_path: str | None,
+    current_path: str | None,
+    old_asset: dict[str, object] | None,
+    current_asset: dict[str, object] | None,
+) -> tuple[bool, bool]:
+    before = _head_bytes(repo, old_path) if old_path is not None else None
+    target = repo / current_path if current_path is not None else None
+    current = target.read_bytes() if target is not None and target.is_file() else None
+    if current_asset is None:
+        if old_asset is None:
+            return False, True
+        if before is None or _asset_target_hash(before, old_asset, repo) not in _declared_asset_hashes(old_asset):
+            raise ReleaseError(
+                f"retired asset does not match its trusted HEAD hash: {old_path}"
+            )
+        return True, False
+
+    strategy = current_asset.get("strategy")
+    if strategy == "seed":
+        return False, before != current
+    if strategy in {"whole", "merge", "retirement"}:
+        zones = current_asset.get("agents_zones")
+        if zones is None:
+            if before is not None and (
+                old_asset is None
+                or _asset_target_hash(before, old_asset, repo)
+                not in _declared_asset_hashes(old_asset)
+            ):
+                raise ReleaseError(
+                    f"HEAD asset does not match its trusted contract hash: {old_path}"
+                )
+            if current is not None:
+                expected = current_asset.get("current_sha256")
+                if not isinstance(expected, str) or _asset_target_hash(
+                    current, current_asset, repo
+                ) != expected:
+                    raise ReleaseError(
+                        f"current asset does not match its declared hash: {current_path}"
+                    )
+            elif strategy != "retirement":
+                raise ReleaseError(f"current managed asset is missing: {current_path}")
+            return True, False
+        if not isinstance(zones, dict):
+            raise ReleaseError(
+                f"current AGENTS ownership contract is invalid: {current_path}"
+            )
+        try:
+            current_public, _current_project = _agents_zone_release_parts(current, zones)
+        except ReleaseError as exc:
+            raise ReleaseError(f"current AGENTS ownership is invalid: {exc}") from exc
+        accepted_public = _accepted_public_hashes(current_asset)
+        if not accepted_public:
+            raise ReleaseError("current AGENTS contract has no trusted public-zone hash")
+        if current_public is None or _agents_public_hash(current_public) not in accepted_public:
+            raise ReleaseError("current AGENTS public zone does not match the trusted contract")
+        old_official = (
+            old_asset is not None
+            and before is not None
+            and _asset_target_hash(before, old_asset, repo)
+            in _declared_asset_hashes(old_asset)
+        )
+        current_official = (
+            current is not None
+            and _asset_target_hash(current, current_asset, repo)
+            in _declared_asset_hashes(current_asset)
+        )
+        if old_official and current_official:
+            return True, False
+        if before is None or current is None:
+            raise ReleaseError(
+                "legacy AGENTS project content cannot be proven unchanged across the contract transition"
+            )
+        return True, _agents_transition_project_changed(
+            before, current, current_asset
+        )
+    if strategy == "region":
+        old_region = old_asset.get("region") if old_asset is not None else None
+        current_region = current_asset.get("region")
+        if not isinstance(current_region, dict):
+            raise ReleaseError(
+                f"current managed region contract is invalid: {current_path}"
+            )
+        current_parts = _region_parts(
+            current,
+            str(current_region.get("begin")),
+            str(current_region.get("end")),
+        )
+        current_expected = current_region.get("current_sha256")
+        if (
+            current_parts[0] is None
+            or not isinstance(current_expected, str)
+            or _sha256_bytes(current_parts[0]) != current_expected
+        ):
+            raise ReleaseError(
+                f"current managed region does not match its declared hash: {current_path}"
+            )
+        if not isinstance(old_region, dict):
+            return True, True
+        old_parts = _region_parts(
+            before, str(old_region.get("begin")), str(old_region.get("end"))
+        )
+        accepted_old_regions = _history_values(
+            current_region.get("historical_sha256")
+        ) | ({current_expected} if isinstance(current_expected, str) else set())
+        if old_parts[0] is None or _sha256_bytes(old_parts[0]) not in accepted_old_regions:
+            raise ReleaseError(
+                f"HEAD managed region does not match trusted transition history: {old_path}"
+            )
+        return old_parts[0] != current_parts[0], old_parts[1] != current_parts[1]
+    raise ReleaseError(
+        f"unsupported transition asset strategy for {current_path}: {strategy!r}"
+    )
+
+
+def _classify_contract_transition(
+    repo: Path,
+    changed_paths: set[str],
+    config_path: Path,
+    current_config: dict[str, object],
+    head_payload: bytes,
+) -> str:
+    current_contract = _raw_contract(config_path, current_config)
+    head_config = _parse_managed_config(config_path, head_payload)
+    head_contract = _raw_contract(config_path, head_config)
+    relative_config = config_path.relative_to(repo).as_posix()
+    current_target = current_contract.get("contract_target")
+    head_target = head_contract.get("contract_target")
+    if current_target != relative_config or head_target != relative_config:
+        raise ReleaseError("ownership contract target does not match its repository path")
+    if relative_config not in changed_paths:
+        raise ReleaseError("ownership contract changed without staging its contract target")
+
+    old_stamp = head_contract.get("stamp")
+    new_stamp = current_contract.get("stamp")
+    if not isinstance(old_stamp, str) or not isinstance(new_stamp, str):
+        raise ReleaseError("ownership contract transition has an invalid stamp path")
+    old_version = _read_stamp(_head_bytes(repo, old_stamp), "HEAD")
+    new_path = repo / new_stamp
+    new_version = _read_stamp(
+        new_path.read_bytes() if new_path.is_file() else None,
+        "current",
+    )
+    if parse_semver(new_version) <= parse_semver(old_version):
+        raise ReleaseError("current skeleton stamp must be newer than the HEAD stamp")
+    contract_release = current_contract.get("release_version")
+    if not isinstance(contract_release, str):
+        raise ReleaseError("current ownership contract has no release_version binding")
+    parse_semver(contract_release)
+    if contract_release != new_version:
+        raise ReleaseError(
+            "current skeleton stamp does not match the ownership contract release_version"
+        )
+    required_stamp_paths = {old_stamp, new_stamp}
+    if not required_stamp_paths.issubset(changed_paths):
+        missing = ", ".join(sorted(required_stamp_paths - changed_paths))
+        raise ReleaseError(f"ownership contract transition is missing changed stamp paths: {missing}")
+
+    history = current_contract.get("contract_historical_sha256")
+    raw_history = history.get(old_version) if isinstance(history, dict) else None
+    historical = raw_history if isinstance(raw_history, list) else [raw_history]
+    head_hash = _sha256_bytes(head_payload)
+    if head_hash not in {value for value in historical if isinstance(value, str)}:
+        raise ReleaseError(
+            f"HEAD ownership contract {head_hash} is not trusted for skeleton {old_version}"
+        )
+
+    old_by_id, _old_by_target = _contract_assets(config_path, head_contract)
+    current_by_id, _current_by_target = _contract_assets(config_path, current_contract)
+    managed: set[str] = {relative_config, old_stamp, new_stamp}
+    project: set[str] = set()
+    errors: list[str] = []
+    handled_paths = set(managed)
+    for asset_id in sorted(set(old_by_id) | set(current_by_id)):
+        old_asset = old_by_id.get(asset_id)
+        current_asset = current_by_id.get(asset_id)
+        old_target = str(old_asset["target"]) if old_asset is not None else None
+        current_target = (
+            str(current_asset["target"]) if current_asset is not None else None
+        )
+        asset_paths = {item for item in (old_target, current_target) if item is not None}
+        changed_asset_paths = asset_paths & changed_paths
+        identity_transition = (
+            old_asset is None
+            or current_asset is None
+            or old_target != current_target
+        )
+        metadata_transition = (
+            _asset_ownership_signature(old_asset)
+            != _asset_ownership_signature(current_asset)
+        )
+        content_transition = (
+            _asset_content_signature(old_asset)
+            != _asset_content_signature(current_asset)
+        )
+        if (
+            not changed_asset_paths
+            and not identity_transition
+            and not metadata_transition
+            and not content_transition
+        ):
+            continue
+        managed_strategy = (
+            current_asset.get("strategy") if current_asset is not None
+            else old_asset.get("strategy") if old_asset is not None
+            else None
+        )
+        if (
+            (identity_transition or metadata_transition or content_transition)
+            and managed_strategy != "seed"
+            and changed_asset_paths != asset_paths
+        ):
+            missing = ", ".join(sorted(asset_paths - changed_asset_paths))
+            errors.append(
+                f"{asset_id}: target migration is missing changed paths: {missing}"
+            )
+            continue
+        handled_paths.update(asset_paths)
+        try:
+            managed_changed, project_changed = _transition_asset_ownership(
+                repo, old_target, current_target, old_asset, current_asset
+            )
+        except ReleaseError as exc:
+            errors.append(f"{asset_id}: {exc}")
+            continue
+        if managed_changed:
+            managed.update(changed_asset_paths)
+        if project_changed:
+            project.update(changed_asset_paths)
+    project.update(changed_paths - handled_paths)
+    if errors:
+        raise ReleaseError("ownership contract transition is blocked: " + "; ".join(errors))
+    if managed and project:
+        return "mixed"
+    if managed:
+        return "skeleton-only"
+    return "project"
+
+
 def is_bridgeforge_factory(repo: Path) -> bool:
     return (
         (repo / "templates" / "managed-skeleton.json").is_file()
@@ -660,6 +1295,22 @@ def classify_changes(repo: Path, changed_paths: set[str]) -> str:
     configs = _load_managed_configs(repo)
     if not configs:
         return "project"
+
+    transitions: list[tuple[Path, dict[str, object], bytes]] = []
+    for config_path, config in configs:
+        relative = config_path.relative_to(repo).as_posix()
+        head_payload = _head_bytes(repo, relative)
+        if head_payload is None:
+            continue
+        current_payload = config_path.read_bytes()
+        if _git_blob_bytes(head_payload) != _git_blob_bytes(current_payload):
+            transitions.append((config_path, config, head_payload))
+    if transitions:
+        if len(transitions) != 1 or len(configs) != 1:
+            raise ReleaseError("multiple simultaneous ownership contract transitions are unsupported")
+        return _classify_contract_transition(
+            repo, changed_paths, transitions[0][0], transitions[0][1], transitions[0][2]
+        )
 
     changed_stamps: set[Path] = set()
     for config_path, config in configs:
