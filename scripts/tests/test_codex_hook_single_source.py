@@ -156,6 +156,43 @@ class HookSingleSourceTest(unittest.TestCase):
         errors = dispatcher.handler_audit_errors(broken_routes)
         self.assertTrue(any(error.startswith("02:") for error in errors), errors)
 
+    def test_retired_context_budget_is_absent_from_active_user_prompt_contract(self) -> None:
+        template_hooks = json.loads(
+            (TEMPLATE / "hooks.json").read_text(encoding="utf-8")
+        )
+        dogfood_hooks = json.loads(
+            (ROOT / ".codex/hooks.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(template_hooks, dogfood_hooks)
+        user_prompt = json.dumps(
+            template_hooks["hooks"]["UserPromptSubmit"],
+            ensure_ascii=False,
+        ).casefold()
+        self.assertNotIn("context budget", user_prompt)
+        self.assertIn(
+            "repository state, clarification, and focus signals",
+            user_prompt,
+        )
+
+        dispatcher = load_module(
+            TEMPLATE / "hooks" / "hook_dispatcher.py",
+            "hook_dispatcher_without_context_budget",
+        )
+        self.assertNotIn(
+            "hooks/context_warning.py",
+            dispatcher.RUNTIME_ROUTES["user-prompt"],
+        )
+        contract = json.loads(
+            (TEMPLATE / "managed-skeleton.json").read_text(encoding="utf-8")
+        )
+        context_warning = next(
+            asset
+            for asset in contract["assets"]
+            if asset["id"] == "codex.hook.context-warning"
+        )
+        self.assertEqual(context_warning["strategy"], "retirement")
+        self.assertNotIn("source", context_warning)
+
     def test_template_registration_is_single_source_and_git_rooted(self) -> None:
         settings = json.loads((TEMPLATE / "settings.json").read_text(encoding="utf-8"))
         dogfood_settings = json.loads((ROOT / ".codex" / "settings.json").read_text(encoding="utf-8"))

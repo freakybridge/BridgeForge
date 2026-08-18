@@ -78,7 +78,7 @@
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" user-prompt",
             "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') user-prompt\"",
-            "comment": "Routes 3-5 project-memory candidates, then injects repository state, context budget, clarification, and focus signals."
+            "comment": "Routes 3-5 project-memory candidates, then injects repository state, clarification, and focus signals."
           }
         ]
       }

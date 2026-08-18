@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "release_version": "1.4.9",
+  "release_version": "1.4.11",
   "host": "codex",
   "minimum_supported_version": "0.86.0",
   "stamp": ".codex/.bridgeforge_codex_version",
@@ -54,6 +54,9 @@
     ],
     "1.4.7": [
       "sha256:8ab71dfaf03fcebc4d985895b377f293538d8c3a72a5815d2c1d495259ae6bbe"
+    ],
+    "1.4.9": [
+      "sha256:79cee86d8f8d74224b220d9b853dfc38ebac8d234249e0c0912e78b711d45e4e"
     ]
   },
   "assets": [
@@ -430,7 +433,7 @@
       "source": "templates/hooks.json",
       "target": ".codex/hooks.json",
       "strategy": "merge",
-      "current_sha256": "sha256:6f55f3e54c50be01c0b87aca5948faeff142b779a773f7bec4b717810e51eca9",
+      "current_sha256": "sha256:0522c2f8131b65256f56ddbf7cdbc36d5b0b757599d05d21cc0e737a82f29277",
       "historical_sha256": {
         "0.86.0": [
           "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
@@ -495,7 +498,7 @@
             "event": "UserPromptSubmit",
             "matcher": "",
             "stage": "user-prompt",
-            "sha256": "sha256:7c2d4ccd643d22bb5094b4ca9d8cbacf2e74fe5212140fe027bc613e2fdb38f3"
+            "sha256": "sha256:49ddda425228f7f9c88644b94063242011454ef29ba3ed1d9c3e8b65a17aa2eb"
           }
         ]
       }
@@ -1149,6 +1152,9 @@
         ],
         "1.4.1": [
           "sha256:a306c7a1538e11568595c54f9eb3928f54c81a9d64e3a04c083d8f860773fd2d"
+        ],
+        "1.4.9": [
+          "sha256:20213f64ca6e20a1140f3d48f6cd417f8b663154a1c46ad992c33190d702bbca"
         ]
       }
     },
@@ -1616,6 +1622,9 @@
         ],
         "1.4.1": [
           "sha256:baec1a62948a97c4f0142204e2fea115922741c22334c36699a57444422843e6"
+        ],
+        "1.4.9": [
+          "sha256:eea03e78a7f1df6aa8b922e97535ecd5d78cee37190ad339dc28c424d30ed053"
         ]
       }
     },

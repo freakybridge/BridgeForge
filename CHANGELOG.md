@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.11] - 2026-08-18
+
+### Fixed
+
+- [product][repo][meta] 修复 ctx-budget 退役注释冲突
+
+## [1.4.10] - 2026-08-18
+
+### Fixed
+
+- [product][repo][meta] 删除 `hooks.json` user-prompt dispatcher 对已退休 `context budget` 的失真说明，使正确清理旧 ctx-budget 能力的下游不再被误判为 handler 冲突；保留完整 handler fail-closed 比较和历史 migration lineage。
+
 ## [1.4.9] - 2026-08-18
 
 ### Fixed

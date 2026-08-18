@@ -195,6 +195,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "1.4.3",
             "1.4.5",
             "1.4.7",
+            "1.4.9",
             "1.4.1",
             "1.3.0",
             "0.92.0",
@@ -432,7 +433,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "templates/codex/hooks/context_warning.py",
         ))
         stamp = project / ".codex/.bridgeforge_codex_version"
-        stamp.write_text("0.94.4\n", encoding="utf-8")
+        stamp.write_text("0.94.2\n", encoding="utf-8")
 
         plan = sync.build_plan(project, ROOT, "update")
         self.assertFalse(plan.gaps)
@@ -466,6 +467,10 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         ):
             self.assertNotIn(legacy, migrated)
         self.assertFalse(retired_hook.exists())
+        self.assertNotIn(
+            "context budget",
+            (project / ".codex/hooks.json").read_text(encoding="utf-8").casefold(),
+        )
         self.assertEqual(receipt.project_readiness, "ready")
         self.assertEqual(receipt.target_readiness, "ready")
         self.assertEqual(stamp.read_text(encoding="utf-8").strip(), CURRENT_VERSION)
