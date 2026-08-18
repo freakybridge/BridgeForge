@@ -2,6 +2,7 @@
 """Plan and apply deterministic repository version releases for git-sync."""
 from __future__ import annotations
 
+import copy
 import fnmatch
 import hashlib
 import json
@@ -42,11 +43,22 @@ TYPE_SECTION = {
     "chore": "Changed",
     "perf": "Changed",
 }
-AUTO_EXCLUDED_PATHS = {"VERSION", "CHANGELOG.md", "shared-skill-manifest.json"}
+AUTO_EXCLUDED_PATHS = {"VERSION", "CHANGELOG.md"}
 
 
 class ReleaseError(RuntimeError):
     """Fail-closed release planning error."""
+
+
+class TransitionBlocked(ReleaseError):
+    """A contract transition failed with stable per-asset evidence."""
+
+    def __init__(self, issues: list[dict[str, str]]) -> None:
+        self.issues = tuple(dict(item) for item in issues)
+        detail = "; ".join(
+            f"{item['asset_id']}: {item['reason']}" for item in self.issues
+        )
+        super().__init__("ownership contract transition is blocked: " + detail)
 
 
 @dataclass(frozen=True)
@@ -763,6 +775,71 @@ def _canonical_json_sha256(value: object) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _codex_hooks_merge_parts(
+    payload: bytes,
+    target: str,
+) -> tuple[list[dict[str, str]], bytes]:
+    try:
+        document = json.loads(
+            payload.decode("utf-8-sig"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseError(f"current merge target is invalid JSON: {target}: {exc}") from exc
+    hooks = document.get("hooks") if isinstance(document, dict) else None
+    if not isinstance(document, dict) or not isinstance(hooks, dict):
+        raise ReleaseError(f"current merge target has no hooks object: {target}")
+
+    project_document = copy.deepcopy(document)
+    project_hooks = project_document["hooks"]
+    required: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for event, groups in list(hooks.items()):
+        if not isinstance(event, str) or not isinstance(groups, list):
+            raise ReleaseError(f"current merge target has invalid hook groups: {target}")
+        project_groups: list[object] = []
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                raise ReleaseError(f"current merge target has invalid matcher groups: {target}")
+            matcher = group.get("matcher")
+            if matcher is not None and not isinstance(matcher, str):
+                raise ReleaseError(f"current merge target has invalid matcher: {target}")
+            project_handlers: list[object] = []
+            for handler in group["hooks"]:
+                stage = _dispatcher_stage(handler)
+                if stage is None:
+                    project_handlers.append(copy.deepcopy(handler))
+                    continue
+                key = (event, matcher if isinstance(matcher, str) else "", stage)
+                if key in seen:
+                    raise ReleaseError(
+                        "current merge target managed dispatcher drifted: "
+                        f"{event}/{key[1]}/{stage}: {target}"
+                    )
+                seen.add(key)
+                required.append({
+                    "event": event,
+                    "matcher": key[1],
+                    "stage": stage,
+                    "sha256": _canonical_json_sha256(handler),
+                })
+            if project_handlers:
+                project_group = copy.deepcopy(group)
+                project_group["hooks"] = project_handlers
+                project_groups.append(project_group)
+        if project_groups:
+            project_hooks[event] = project_groups
+        else:
+            project_hooks.pop(event, None)
+    required.sort(key=lambda item: (item["event"], item["matcher"], item["stage"]))
+    return required, json.dumps(
+        project_document,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
 def _dispatcher_stage(handler: object) -> str | None:
     if not isinstance(handler, dict):
         return None
@@ -791,57 +868,36 @@ def _validate_codex_hooks_merge_target(
         or not validation["required_handlers"]
     ):
         raise ReleaseError(f"current merge contract has no trusted managed projection: {target}")
-    try:
-        document = json.loads(
-            payload.decode("utf-8-sig"),
-            object_pairs_hook=_reject_duplicate_keys,
+    actual, _project = _codex_hooks_merge_parts(payload, target)
+    expected = validation["required_handlers"]
+    if actual == expected:
+        return
+    actual_keys = {
+        (item["event"], item["matcher"], item["stage"]): item["sha256"]
+        for item in actual
+    }
+    for raw_required in expected:
+        if not isinstance(raw_required, dict) or not all(
+            isinstance(raw_required.get(key), str)
+            for key in ("event", "matcher", "stage", "sha256")
+        ):
+            raise ReleaseError(f"current merge contract is invalid: {target}")
+        key = (
+            str(raw_required["event"]),
+            str(raw_required["matcher"]),
+            str(raw_required["stage"]),
         )
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ReleaseError(f"current merge target is invalid JSON: {target}: {exc}") from exc
-    hooks = document.get("hooks") if isinstance(document, dict) else None
-    if not isinstance(hooks, dict):
-        raise ReleaseError(f"current merge target has no hooks object: {target}")
-
-    seen_required: set[tuple[str, str, str]] = set()
-    for raw_required in validation["required_handlers"]:
-        if not isinstance(raw_required, dict):
-            raise ReleaseError(f"current merge contract is invalid: {target}")
-        event = raw_required.get("event")
-        matcher = raw_required.get("matcher")
-        stage = raw_required.get("stage")
-        expected_hash = raw_required.get("sha256")
-        if not all(isinstance(item, str) for item in (event, matcher, stage, expected_hash)):
-            raise ReleaseError(f"current merge contract is invalid: {target}")
-        key = (event, matcher, stage)
-        if key in seen_required:
-            raise ReleaseError(f"current merge contract has duplicate managed handlers: {target}")
-        seen_required.add(key)
-        groups = hooks.get(event)
-        if not isinstance(groups, list):
+        if key not in actual_keys:
             raise ReleaseError(
-                f"current merge target is missing managed dispatcher {event}/{matcher}/{stage}: {target}"
+                "current merge target is missing managed dispatcher "
+                f"{key[0]}/{key[1]}/{key[2]}: {target}"
             )
-        candidates: list[object] = []
-        for group in groups:
-            if not isinstance(group, dict):
-                continue
-            actual_matcher = group.get("matcher")
-            normalized_matcher = actual_matcher if isinstance(actual_matcher, str) else ""
-            if normalized_matcher != matcher or not isinstance(group.get("hooks"), list):
-                continue
-            candidates.extend(
-                handler
-                for handler in group["hooks"]
-                if _dispatcher_stage(handler) == stage
-            )
-        if not candidates:
+        if actual_keys[key] != raw_required["sha256"]:
             raise ReleaseError(
-                f"current merge target is missing managed dispatcher {event}/{matcher}/{stage}: {target}"
+                "current merge target managed dispatcher drifted: "
+                f"{key[0]}/{key[1]}/{key[2]}: {target}"
             )
-        if len(candidates) != 1 or _canonical_json_sha256(candidates[0]) != expected_hash:
-            raise ReleaseError(
-                f"current merge target managed dispatcher drifted: {event}/{matcher}/{stage}: {target}"
-            )
+    raise ReleaseError(f"current merge target has unexpected managed dispatchers: {target}")
 
 
 def _validate_unchanged_merge_transition(
@@ -859,6 +915,56 @@ def _validate_unchanged_merge_transition(
     if asset.get("merge_policy") != "codex-hooks":
         raise ReleaseError(f"merge transition has no supported no-op validator: {target}")
     _validate_codex_hooks_merge_target(current, asset, target)
+
+
+def _projection_history(
+    validation: object,
+    version: str,
+) -> set[str]:
+    if not isinstance(validation, dict):
+        return set()
+    history = validation.get("historical_projection_sha256")
+    if not isinstance(history, dict):
+        return set()
+    raw = history.get(version)
+    values = raw if isinstance(raw, list) else [raw]
+    return {value for value in values if isinstance(value, str)}
+
+
+def _managed_blocks_parts(
+    payload: bytes | None,
+    asset: dict[str, object],
+    target: str,
+) -> tuple[bytes | None, bytes | None]:
+    managed = asset.get("managed_blocks")
+    if not isinstance(managed, dict):
+        raise ReleaseError(f"managed Markdown contract is missing: {target}")
+    headings = managed.get("headings")
+    additive = managed.get("additive_headings", [])
+    keyed = managed.get("keyed_tables", [])
+    layout = asset.get("section_layout")
+    if (
+        not isinstance(headings, list)
+        or not all(isinstance(item, str) for item in headings)
+        or not isinstance(additive, list)
+        or not all(isinstance(item, str) for item in additive)
+        or not isinstance(keyed, list)
+        or (layout is not None and not isinstance(layout, dict))
+    ):
+        raise ReleaseError(f"managed Markdown contract is invalid: {target}")
+    return _managed_markdown_parts(payload, headings, additive, keyed, layout)
+
+
+def _current_projection_hash(
+    contract: object,
+    label: str,
+) -> str:
+    if not isinstance(contract, dict):
+        raise ReleaseError(f"{label} contract is invalid")
+    expected = contract.get("current_projection_sha256")
+    if not isinstance(expected, str):
+        raise ReleaseError(f"{label} contract has no current managed projection")
+    return expected
 
 
 def _asset_target_hash(payload: bytes, asset: dict[str, object], repo: Path) -> str:
@@ -1156,6 +1262,7 @@ def _transition_asset_ownership(
     current_path: str | None,
     old_asset: dict[str, object] | None,
     current_asset: dict[str, object] | None,
+    old_version: str,
 ) -> tuple[bool, bool]:
     before = _head_bytes(repo, old_path) if old_path is not None else None
     target = repo / current_path if current_path is not None else None
@@ -1172,6 +1279,78 @@ def _transition_asset_ownership(
     strategy = current_asset.get("strategy")
     if strategy == "seed":
         return False, before != current
+    if strategy == "merge" and current_asset.get("merge_policy") == "codex-hooks":
+        if before is None or current is None:
+            raise ReleaseError(f"merge transition target is missing: {current_path}")
+        current_validation = current_asset.get("merge_validation")
+        _validate_codex_hooks_merge_target(current, current_asset, str(current_path))
+        current_required, current_project = _codex_hooks_merge_parts(
+            current, str(current_path)
+        )
+        current_projection = _canonical_json_sha256(current_required)
+        if current_projection != _current_projection_hash(
+            current_validation,
+            f"current merge {current_path}",
+        ):
+            raise ReleaseError(
+                f"current merge target does not match its managed projection: {current_path}"
+            )
+        old_required, old_project = _codex_hooks_merge_parts(before, str(old_path))
+        old_projection = _canonical_json_sha256(old_required)
+        accepted_old: set[str] = set()
+        old_validation = old_asset.get("merge_validation") if old_asset is not None else None
+        if isinstance(old_validation, dict):
+            old_current = old_validation.get("current_projection_sha256")
+            if isinstance(old_current, str):
+                accepted_old.add(old_current)
+            elif isinstance(old_validation.get("required_handlers"), list):
+                accepted_old.add(
+                    _canonical_json_sha256(old_validation["required_handlers"])
+                )
+        accepted_old.update(_projection_history(current_validation, old_version))
+        if old_projection not in accepted_old:
+            raise ReleaseError(
+                f"HEAD merge target does not match trusted managed transition history: {old_path}"
+            )
+        return old_projection != current_projection, old_project != current_project
+    if isinstance(current_asset.get("managed_blocks"), dict):
+        if current is None:
+            raise ReleaseError(f"current managed Markdown asset is missing: {current_path}")
+        current_managed, current_project = _managed_blocks_parts(
+            current, current_asset, str(current_path)
+        )
+        current_contract = current_asset["managed_blocks"]
+        current_projection = _sha256_bytes(current_managed or b"")
+        if current_projection != _current_projection_hash(
+            current_contract,
+            f"current managed Markdown {current_path}",
+        ):
+            raise ReleaseError(
+                f"current managed Markdown does not match its managed projection: {current_path}"
+            )
+        old_parser = (
+            old_asset
+            if old_asset is not None and isinstance(old_asset.get("managed_blocks"), dict)
+            else current_asset
+        )
+        old_managed, old_project = _managed_blocks_parts(
+            before, old_parser, str(old_path)
+        )
+        old_projection = _sha256_bytes(old_managed or b"")
+        accepted_old = _projection_history(current_contract, old_version)
+        if old_asset is not None:
+            old_contract = old_asset.get("managed_blocks")
+            if isinstance(old_contract, dict):
+                old_current = old_contract.get("current_projection_sha256")
+                if isinstance(old_current, str):
+                    accepted_old.add(old_current)
+            if before is not None and _asset_target_hash(before, old_asset, repo) in _declared_asset_hashes(old_asset):
+                accepted_old.add(old_projection)
+        if old_projection not in accepted_old:
+            raise ReleaseError(
+                f"HEAD managed Markdown does not match trusted transition history: {old_path}"
+            )
+        return old_projection != current_projection, old_project != current_project
     if strategy in {"whole", "merge", "retirement"}:
         zones = current_asset.get("agents_zones")
         if zones is None:
@@ -1272,6 +1451,7 @@ def _classify_contract_transition(
     config_path: Path,
     current_config: dict[str, object],
     head_payload: bytes,
+    prospective_skeleton_version: str | None = None,
 ) -> str:
     current_contract = _raw_contract(config_path, current_config)
     head_config = _parse_managed_config(config_path, head_payload)
@@ -1289,11 +1469,17 @@ def _classify_contract_transition(
     if not isinstance(old_stamp, str) or not isinstance(new_stamp, str):
         raise ReleaseError("ownership contract transition has an invalid stamp path")
     old_version = _read_stamp(_head_bytes(repo, old_stamp), "HEAD")
-    new_path = repo / new_stamp
-    new_version = _read_stamp(
-        new_path.read_bytes() if new_path.is_file() else None,
-        "current",
-    )
+    if prospective_skeleton_version is None:
+        new_path = repo / new_stamp
+        new_version = _read_stamp(
+            new_path.read_bytes() if new_path.is_file() else None,
+            "current",
+        )
+    else:
+        new_version = _read_stamp(
+            (prospective_skeleton_version + "\n").encode("utf-8"),
+            "prospective current",
+        )
     if parse_semver(new_version) <= parse_semver(old_version):
         raise ReleaseError("current skeleton stamp must be newer than the HEAD stamp")
     contract_release = current_contract.get("release_version")
@@ -1322,7 +1508,7 @@ def _classify_contract_transition(
     current_by_id, _current_by_target = _contract_assets(config_path, current_contract)
     managed: set[str] = {relative_config, old_stamp, new_stamp}
     project: set[str] = set()
-    errors: list[str] = []
+    issues: list[dict[str, str]] = []
     handled_paths = set(managed)
     for asset_id in sorted(set(old_by_id) | set(current_by_id)):
         old_asset = old_by_id.get(asset_id)
@@ -1374,7 +1560,11 @@ def _classify_contract_transition(
                     current_asset,
                 )
             except ReleaseError as exc:
-                errors.append(f"{asset_id}: {exc}")
+                issues.append({
+                    "asset_id": asset_id,
+                    "target": str(current_target),
+                    "reason": str(exc),
+                })
             continue
         if (
             (identity_transition or metadata_transition or content_transition)
@@ -1382,25 +1572,36 @@ def _classify_contract_transition(
             and changed_asset_paths != asset_paths
         ):
             missing = ", ".join(sorted(asset_paths - changed_asset_paths))
-            errors.append(
-                f"{asset_id}: target migration is missing changed paths: {missing}"
-            )
+            issues.append({
+                "asset_id": asset_id,
+                "target": str(current_target or old_target or relative_config),
+                "reason": f"target migration is missing changed paths: {missing}",
+            })
             continue
         handled_paths.update(asset_paths)
         try:
             managed_changed, project_changed = _transition_asset_ownership(
-                repo, old_target, current_target, old_asset, current_asset
+                repo,
+                old_target,
+                current_target,
+                old_asset,
+                current_asset,
+                old_version,
             )
         except ReleaseError as exc:
-            errors.append(f"{asset_id}: {exc}")
+            issues.append({
+                "asset_id": asset_id,
+                "target": str(current_target or old_target or relative_config),
+                "reason": str(exc),
+            })
             continue
         if managed_changed:
             managed.update(changed_asset_paths)
         if project_changed:
             project.update(changed_asset_paths)
     project.update(changed_paths - handled_paths)
-    if errors:
-        raise ReleaseError("ownership contract transition is blocked: " + "; ".join(errors))
+    if issues:
+        raise TransitionBlocked(issues)
     if managed and project:
         return "mixed"
     if managed:
@@ -1415,7 +1616,12 @@ def is_bridgeforge_factory(repo: Path) -> bool:
     )
 
 
-def classify_changes(repo: Path, changed_paths: set[str]) -> str:
+def classify_changes(
+    repo: Path,
+    changed_paths: set[str],
+    *,
+    prospective_skeleton_version: str | None = None,
+) -> str:
     if is_bridgeforge_factory(repo):
         return "factory"
     configs = _load_managed_configs(repo)
@@ -1435,7 +1641,12 @@ def classify_changes(repo: Path, changed_paths: set[str]) -> str:
         if len(transitions) != 1 or len(configs) != 1:
             raise ReleaseError("multiple simultaneous ownership contract transitions are unsupported")
         return _classify_contract_transition(
-            repo, changed_paths, transitions[0][0], transitions[0][1], transitions[0][2]
+            repo,
+            changed_paths,
+            transitions[0][0],
+            transitions[0][1],
+            transitions[0][2],
+            prospective_skeleton_version,
         )
 
     changed_stamps: set[Path] = set()
@@ -1447,27 +1658,130 @@ def classify_changes(repo: Path, changed_paths: set[str]) -> str:
     managed: set[str] = set()
     project: set[str] = set()
     owners_with_changes: set[Path] = set()
+    managed_owners: dict[str, Path] = {}
     for path in changed_paths:
         owner, managed_changed, project_changed = _change_ownership(repo, path, configs)
         if managed_changed:
             managed.add(path)
             if owner is not None:
                 owners_with_changes.add(owner)
+                managed_owners[path] = owner
         if project_changed:
             project.add(path)
 
     unauthorized = owners_with_changes - changed_stamps
     if unauthorized:
-        labels = ", ".join(str(path.relative_to(repo)) for path in sorted(unauthorized))
-        raise ReleaseError(
-            "managed skeleton files changed outside $bridgeforge-codex; missing updated skeleton stamp for "
-            + labels
-        )
+        config_assets: dict[Path, dict[str, dict[str, object]]] = {}
+        for config_path, config in configs:
+            if config_path not in unauthorized:
+                continue
+            try:
+                config_assets[config_path] = _contract_assets(
+                    config_path,
+                    _raw_contract(config_path, config),
+                )[1]
+            except ReleaseError:
+                config_assets[config_path] = {}
+        issues: list[dict[str, str]] = []
+        for path in sorted(managed):
+            owner = managed_owners.get(path)
+            if owner not in unauthorized:
+                continue
+            asset = config_assets.get(owner, {}).get(path)
+            issues.append({
+                "asset_id": str(
+                    asset.get("id")
+                    if isinstance(asset, dict)
+                    else "contract.managed-skeleton"
+                ),
+                "target": path,
+                "reason": (
+                    "managed skeleton files changed outside $bridgeforge-codex; "
+                    "missing updated skeleton stamp for "
+                    + str(owner.relative_to(repo))
+                ),
+            })
+        raise TransitionBlocked(issues)
     if managed and not project:
         return "skeleton-only"
     if managed and project:
         return "mixed"
     return "project"
+
+
+def collect_changed_paths(repo: Path) -> set[str]:
+    """Return the same unstaged, staged, and untracked path union used by git-sync."""
+
+    paths: set[str] = set()
+    commands = (
+        ("diff", "--name-only"),
+        ("diff", "--cached", "--name-only"),
+        ("ls-files", "--others", "--exclude-standard"),
+    )
+    for command in commands:
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={repo.resolve().as_posix()}",
+                    *command,
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ReleaseError(f"git changed-path scan could not complete: {exc}") from exc
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            raise ReleaseError(f"git changed-path scan failed: {detail}")
+        paths.update(
+            line.strip().replace("\\", "/")
+            for line in result.stdout.splitlines()
+            if line.strip()
+        )
+    return paths
+
+
+def preflight_contract_transition(
+    repo: Path,
+    prospective_skeleton_version: str | None = None,
+) -> tuple[str, set[str]]:
+    """Classify a not-yet-stamped project-sync result without writing anything."""
+
+    changed_paths = collect_changed_paths(repo)
+    if prospective_skeleton_version is not None:
+        configs = _load_managed_configs(repo)
+        for config_path, current_config in configs:
+            current_contract = _raw_contract(config_path, current_config)
+            current_stamp = current_contract.get("stamp")
+            if isinstance(current_stamp, str):
+                changed_paths.add(current_stamp)
+            relative = config_path.relative_to(repo).as_posix()
+            head_payload = _head_bytes(repo, relative)
+            if head_payload is None:
+                continue
+            current_payload = config_path.read_bytes()
+            if _git_blob_bytes(head_payload) == _git_blob_bytes(current_payload):
+                continue
+            head_config = _parse_managed_config(config_path, head_payload)
+            head_contract = _raw_contract(config_path, head_config)
+            head_stamp = head_contract.get("stamp")
+            if isinstance(head_stamp, str):
+                changed_paths.add(head_stamp)
+    return (
+        classify_changes(
+            repo,
+            changed_paths,
+            prospective_skeleton_version=prospective_skeleton_version,
+        ),
+        changed_paths,
+    )
 
 
 def _toml_version(path: Path) -> tuple[str, tuple[str, ...], str] | None:

@@ -13,11 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "bridgeforge-codex-manifest.json"
-COMPATIBILITY_MANIFEST = ROOT / "shared-skill-manifest.json"
 UPDATER = ROOT / "scripts/bridgeforge_codex_shared_update.ps1"
 CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForgeCodex.git"
-LEGACY_REMOTE = "https://github.com/freakybridge/BridgeForge.git"
-LEGACY_UPDATER_REVISION = "1e4124358a5d0c6cee9dd73bcb7b18bc904515c9"
 
 
 def sha256(path: Path) -> str:
@@ -62,7 +59,7 @@ class SharedSkillDistributionTests(unittest.TestCase):
         )
         self.assertEqual(set(manifest["platforms"]), {"codex"})
         codex = manifest["platforms"]["codex"]
-        self.assertFalse(any(item.get("legacy_transition") for item in codex["skills"]))
+        self.assertTrue(all("legacy_transition" not in item for item in codex["skills"]))
         self.assertIn("bridgeforge-codex", {item["name"] for item in codex["skills"]})
         command = next(item for item in codex["skills"] if item["name"] == "bridgeforge-codex")
         self.assertEqual(
@@ -83,37 +80,18 @@ class SharedSkillDistributionTests(unittest.TestCase):
         )
         self.assertEqual(codex["target"], "~/.codex/skills")
 
-    def test_compatibility_manifest_freezes_legacy_payloads(self) -> None:
-        manifest = json.loads(COMPATIBILITY_MANIFEST.read_text(encoding="utf-8-sig"))
-        self.assertEqual(manifest["canonical_remote"], LEGACY_REMOTE)
-        self.assertEqual(manifest["product_remote"], CANONICAL_REMOTE)
-        claude = manifest["platforms"]["claude"]
-        self.assertTrue(claude["retired_compatibility_surface"])
-        self.assertTrue(claude["skills"])
-        self.assertTrue(all(item["legacy_transition"] for item in claude["skills"]))
-        item = next(item for item in claude["skills"] if item["name"] == "bridgeforge")
-        self.assertEqual(
-            {file["source"] for file in item["files"]},
-            {"scripts/bridgeforge_codex_legacy_entry.SKILL.md"},
+    def test_legacy_compatibility_distribution_is_absent(self) -> None:
+        for relative in (
+            "shared-skill-manifest.json",
+            "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
+            "scripts/bridgeforge_codex_user_migrate.py",
+        ):
+            self.assertFalse((ROOT / relative).exists(), relative)
+        compatibility_root = ROOT / "scripts/compat/legacy-shared-skills"
+        self.assertFalse(
+            compatibility_root.exists()
+            and any(path.is_file() for path in compatibility_root.rglob("*"))
         )
-        pinned = json.loads(
-            run(
-                ["git", "show", f"{LEGACY_UPDATER_REVISION}:shared-skill-manifest.json"],
-                ROOT,
-            ).stdout
-        )
-        for platform in ("codex", "claude"):
-            actual = {
-                skill["name"]: {file["target"]: file["sha256"] for file in skill["files"]}
-                for skill in manifest["platforms"][platform]["skills"]
-            }
-            expected = {
-                skill["name"]: {file["target"]: file["sha256"] for file in skill["files"]}
-                for skill in pinned["platforms"][platform]["skills"]
-                if skill["name"] != "bridgeforge"
-            }
-            for name, files in expected.items():
-                self.assertEqual(actual[name], files)
 
     def test_new_updater_plans_only_codex_and_uses_new_ledger(self) -> None:
         text = UPDATER.read_text(encoding="utf-8-sig")
@@ -133,6 +111,11 @@ class SharedSkillDistributionTests(unittest.TestCase):
             "scripts/setup-junction.sh",
         ):
             self.assertFalse((ROOT / relative).exists(), relative)
+        installer = (ROOT / "scripts/install-shared-skills.ps1").read_text(
+            encoding="utf-8-sig"
+        )
+        self.assertNotIn("Remove-VerifiedLegacyJunction", installer)
+        self.assertNotIn('Join-Path $UserProfile ".bridgeforge"', installer)
 
     def test_manifest_rebuild_check_is_read_only_and_current(self) -> None:
         result = subprocess.run(
@@ -197,11 +180,9 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
                 ),
             )
         )
-        self.env["GIT_CONFIG_COUNT"] = "2"
+        self.env["GIT_CONFIG_COUNT"] = "1"
         self.env["GIT_CONFIG_KEY_0"] = f"url.{self.remote.as_uri()}.insteadOf"
         self.env["GIT_CONFIG_VALUE_0"] = CANONICAL_REMOTE
-        self.env["GIT_CONFIG_KEY_1"] = f"url.{self.remote.as_uri()}.insteadOf"
-        self.env["GIT_CONFIG_VALUE_1"] = LEGACY_REMOTE
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -211,16 +192,12 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
         skill = self.source / "skills/bridgeforge-codex"
         scripts = self.source / "scripts"
         common_root = self.source / "skills/common"
-        harvest_root = self.source / "skills/harvest"
         skill.mkdir(parents=True, exist_ok=True)
         scripts.mkdir(parents=True, exist_ok=True)
         common_root.mkdir(parents=True, exist_ok=True)
-        harvest_root.mkdir(parents=True, exist_ok=True)
         (skill / "SKILL.md").write_text(entry, encoding="utf-8")
         (common_root / "SKILL.md").write_text(common, encoding="utf-8")
-        (harvest_root / "SKILL.md").write_text("retired-harvest", encoding="utf-8")
         shutil.copy2(UPDATER, scripts / UPDATER.name)
-        (self.source / "legacy.md").write_text("legacy-entry", encoding="utf-8")
         active = {
             "name": "bridgeforge-codex",
             "files": [
@@ -246,48 +223,6 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
                 }
             ],
         }
-        legacy = {
-            "name": "bridgeforge",
-            "legacy_transition": True,
-            "files": [
-                {
-                    "source": "legacy.md",
-                    "target": "SKILL.md",
-                    "sha256": sha256(self.source / "legacy.md"),
-                }
-            ],
-        }
-        harvest = {
-            "name": "harvest",
-            "legacy_transition": True,
-            "files": [
-                {
-                    "source": "skills/harvest/SKILL.md",
-                    "target": "SKILL.md",
-                    "sha256": sha256(harvest_root / "SKILL.md"),
-                }
-            ],
-        }
-        compatibility_manifest = {
-            "schema_version": 1,
-            "canonical_remote": LEGACY_REMOTE,
-            "product_remote": CANONICAL_REMOTE,
-            "branch": "main",
-            "platforms": {
-                "codex": {
-                    "target": "~/.codex/skills",
-                    "skills": [common_skill, active, legacy, harvest],
-                },
-                "claude": {
-                    "target": "~/.claude/skills",
-                    "skills": [common_skill, legacy, harvest],
-                },
-            },
-        }
-        (self.source / "shared-skill-manifest.json").write_text(
-            json.dumps(compatibility_manifest, indent=2) + "\n",
-            encoding="utf-8",
-        )
         active_manifest = {
             "schema_version": 1,
             "canonical_remote": CANONICAL_REMOTE,
@@ -303,29 +238,6 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
             json.dumps(active_manifest, indent=2) + "\n",
             encoding="utf-8",
         )
-
-    def write_repository_distribution(self) -> None:
-        """Copy the exact release manifests and every referenced payload."""
-        (self.source / ".gitattributes").write_text(
-            "* text=auto eol=lf\n",
-            encoding="utf-8",
-        )
-        for manifest_path in (MANIFEST, COMPATIBILITY_MANIFEST):
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-            shutil.copy2(manifest_path, self.source / manifest_path.name)
-            for platform in manifest["platforms"].values():
-                for skill in platform["skills"]:
-                    for file in skill["files"]:
-                        source = ROOT / file["source"]
-                        target = self.source / file["source"]
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        payload = source.read_bytes().replace(b"\r\n", b"\n").replace(
-                            b"\r", b"\n"
-                        )
-                        if target.exists():
-                            self.assertEqual(target.read_bytes(), payload)
-                        else:
-                            target.write_bytes(payload)
 
     def initialize_repository(self) -> None:
         self.assertEqual(run(["git", "init", "--bare", str(self.remote)], self.base).returncode, 0)
@@ -413,7 +325,89 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
         self.assertEqual(self.receipt(second)["mode"], "noop")
         self.assertEqual(self.receipt(second)["action_count"], 0)
 
-    def test_legacy_ledger_owned_bootstrap_is_adopted(self) -> None:
+    def test_structured_native_memory_consent_survives_skill_refresh(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        self.assertEqual(self.invoke().returncode, 0)
+        ledger_path = self.profile / ".codex/bridgeforge-codex-managed.json"
+        ledger = self.ledger()
+        authorization = {
+            "decision": "approved",
+            "policy_version": 1,
+            "scope": "~/.codex/memories/**",
+            "sync_mode": "bidirectional",
+            "auto_hook_maintenance": True,
+            "repository": "bridgeforge-codex-memories",
+            "require_private": True,
+            "remote": "https://github.com/example/bridgeforge-codex-memories",
+        }
+        ledger["consents"] = {"native_memories": authorization}
+        ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+        self.write_source(entry="entry-v2")
+        self.commit_source("refresh entry")
+        refreshed = self.invoke()
+        self.assertEqual(refreshed.returncode, 0, refreshed.stderr + refreshed.stdout)
+        self.assertEqual(
+            self.ledger()["consents"],
+            {"native_memories": authorization},
+        )
+
+    def test_modified_managed_active_skill_blocks_refresh_without_writes(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        home = self.profile / ".bridgeforge-codex"
+        old_commit = run(["git", "rev-parse", "HEAD"], home).stdout.strip()
+        ledger_path = self.profile / ".codex/bridgeforge-codex-managed.json"
+        ledger_before = ledger_path.read_bytes()
+        installed = self.profile / ".codex/skills/common/SKILL.md"
+        installed.write_text("local customization", encoding="utf-8")
+
+        self.write_source(entry="entry-v2", common="common-v2")
+        self.commit_source("refresh after local drift")
+        blocked = self.invoke()
+
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("content drifted", blocked.stderr + blocked.stdout)
+        self.assertEqual(installed.read_text(encoding="utf-8"), "local customization")
+        self.assertEqual(ledger_path.read_bytes(), ledger_before)
+        self.assertEqual(run(["git", "rev-parse", "HEAD"], home).stdout.strip(), old_commit)
+        self.assertFalse((self.profile / ".bridgeforge-codex-home-update.json").exists())
+        self.assertFalse((self.profile / ".bridgeforge-codex-shared-update.json").exists())
+
+    def test_modified_managed_skill_blocks_manifest_retirement_without_writes(self) -> None:
+        self.write_source()
+        self.initialize_repository()
+        first = self.invoke()
+        self.assertEqual(first.returncode, 0, first.stderr + first.stdout)
+        home = self.profile / ".bridgeforge-codex"
+        old_commit = run(["git", "rev-parse", "HEAD"], home).stdout.strip()
+        ledger_path = self.profile / ".codex/bridgeforge-codex-managed.json"
+        ledger_before = ledger_path.read_bytes()
+        installed = self.profile / ".codex/skills/common/SKILL.md"
+        installed.write_text("project-owned now", encoding="utf-8")
+
+        manifest_path = self.source / "bridgeforge-codex-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["platforms"]["codex"]["skills"] = [
+            skill
+            for skill in manifest["platforms"]["codex"]["skills"]
+            if skill["name"] != "common"
+        ]
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        self.commit_source("retire common after local drift")
+        blocked = self.invoke()
+
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("content drifted", blocked.stderr + blocked.stdout)
+        self.assertEqual(installed.read_text(encoding="utf-8"), "project-owned now")
+        self.assertEqual(ledger_path.read_bytes(), ledger_before)
+        self.assertEqual(run(["git", "rev-parse", "HEAD"], home).stdout.strip(), old_commit)
+        self.assertFalse((self.profile / ".bridgeforge-codex-home-update.json").exists())
+        self.assertFalse((self.profile / ".bridgeforge-codex-shared-update.json").exists())
+
+    def test_legacy_ledger_cannot_authorize_active_skill_adoption(self) -> None:
         self.write_source()
         self.initialize_repository()
         entry_files = {
@@ -444,133 +438,14 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
             encoding="utf-8",
         )
         result = self.invoke()
-        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-        self.assertIn("bridgeforge-codex", self.ledger()["records"])
-        self.assertTrue((self.profile / ".bridgeforge-codex/.git").is_dir())
-
-    def test_real_legacy_updater_handoff_preserves_old_surfaces_then_adopts(self) -> None:
-        self.write_repository_distribution()
-        self.initialize_repository()
-        legacy_script = self.base / "bridgeforge_shared_update.ps1"
-        exported = run(
-            [
-                "git",
-                "show",
-                f"{LEGACY_UPDATER_REVISION}:scripts/bridgeforge_shared_update.ps1",
-            ],
-            ROOT,
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unmanaged skill conflict", result.stderr + result.stdout)
+        self.assertEqual((entry / "SKILL.md").read_bytes(), b"entry-v1")
+        self.assertTrue(legacy_ledger.is_file())
+        self.assertFalse(
+            (self.profile / ".codex/bridgeforge-codex-managed.json").exists()
         )
-        self.assertEqual(exported.returncode, 0, exported.stderr)
-        legacy_script.write_text(exported.stdout, encoding="utf-8", newline="\n")
-
-        compatibility = json.loads(
-            (self.source / COMPATIBILITY_MANIFEST.name).read_text(encoding="utf-8-sig")
-        )
-        snapshots: dict[str, dict[str, dict[str, bytes]]] = {}
-        for platform in ("codex", "claude"):
-            target_root = self.profile / f".{platform}/skills"
-            records: dict[str, object] = {}
-            snapshots[platform] = {}
-            for skill in compatibility["platforms"][platform]["skills"]:
-                name = skill["name"]
-                if name == "bridgeforge-codex":
-                    continue
-                files = (
-                    {"SKILL.md": b"legacy-original"}
-                    if name == "bridgeforge"
-                    else {
-                        file["target"]: (self.source / file["source"]).read_bytes()
-                        for file in skill["files"]
-                    }
-                )
-                for relative, payload in files.items():
-                    target = target_root / name / relative
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(payload)
-                snapshots[platform][name] = files
-                records[name] = {
-                    "source_commit": "a" * 40,
-                    "content_hash": tree_hash(files),
-                    "installed_at": "legacy",
-                }
-            ledger = self.profile / f".{platform}/bridgeforge-managed.json"
-            ledger.write_text(
-                json.dumps({
-                    "schema_version": 1,
-                    "platform": platform,
-                    "records": records,
-                    **(
-                        {"consents": {"native_memories": "declined"}}
-                        if platform == "codex"
-                        else {}
-                    ),
-                }),
-                encoding="utf-8",
-            )
-
-        changed_remote = run(
-            ["git", "remote", "set-url", "origin", LEGACY_REMOTE],
-            self.source,
-        )
-        self.assertEqual(changed_remote.returncode, 0, changed_remote.stderr)
-        old_result = run(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(legacy_script),
-                "-SourceRepositoryRoot",
-                str(self.source),
-            ],
-            ROOT,
-            env=self.env,
-        )
-        self.assertEqual(old_result.returncode, 0, old_result.stderr + old_result.stdout)
-        for platform in ("codex", "claude"):
-            target_root = self.profile / f".{platform}/skills"
-            for name, files in snapshots[platform].items():
-                if name == "bridgeforge":
-                    continue
-                for relative, payload in files.items():
-                    self.assertEqual(
-                        (target_root / name / relative).read_bytes(),
-                        payload,
-                        f"legacy updater rewrote {platform}/{name}/{relative}",
-                    )
-            old_ledger = json.loads(
-                (self.profile / f".{platform}/bridgeforge-managed.json").read_text(
-                    encoding="utf-8-sig"
-                )
-            )
-            self.assertTrue(set(snapshots[platform]).issubset(old_ledger["records"]))
-        self.assertTrue((self.profile / ".codex/skills/bridgeforge-codex/SKILL.md").is_file())
-
-        changed_remote = run(
-            ["git", "remote", "set-url", "origin", CANONICAL_REMOTE],
-            self.source,
-        )
-        self.assertEqual(changed_remote.returncode, 0, changed_remote.stderr)
-        new_result = self.invoke()
-        self.assertEqual(new_result.returncode, 0, new_result.stderr + new_result.stdout)
-        active = json.loads(
-            (self.source / MANIFEST.name).read_text(encoding="utf-8-sig")
-        )
-        self.assertEqual(
-            set(self.ledger()["records"]),
-            {skill["name"] for skill in active["platforms"]["codex"]["skills"]},
-        )
-        self.assertEqual(
-            self.ledger()["consents"],
-            {"native_memories": "declined"},
-        )
-        menu_metadata = (
-            self.profile
-            / ".codex/skills/bridgeforge-codex/agents/openai.yaml"
-        ).read_text(encoding="utf-8")
-        self.assertIn('display_name: "bridgeforge-codex"', menu_metadata)
-        self.assertTrue((self.profile / ".bridgeforge-codex/.git").is_dir())
+        self.assertFalse((self.profile / ".bridgeforge-codex").exists())
 
     def test_hash_mismatch_and_unmanaged_conflict_leave_no_home(self) -> None:
         self.write_source()

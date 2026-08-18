@@ -27,6 +27,9 @@ from typing import Callable
 MIN_PYTHON = (3, 11)
 EXTERNAL_COMMAND_TIMEOUT = 45
 REPOSITORY = "bridgeforge-codex-memories"
+CONSENT_POLICY_VERSION = 1
+CONSENT_SCOPE = "~/.codex/memories/**"
+CONSENT_SYNC_MODE = "bidirectional"
 HOOK_ID = "bridgeforge-codex.native-memory-sync.v1"
 LEGACY_HOOK_ID = "bridgeforge.codex-native-memory-sync.v1"
 HOOK_MARKER_KEY = "bridgeforgeCodexId"
@@ -94,6 +97,22 @@ def _atomic_text(path: Path, text: str) -> None:
         temp.unlink(missing_ok=True)
 
 
+def _atomic_bytes(path: Path, payload: bytes) -> None:
+    _real_directory(path.parent, create=True)
+    if path.exists() and _is_link_or_reparse(path):
+        raise SyncError(f"refusing to replace linked file: {path}")
+    fd, raw = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temp = Path(raw)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
 def _atomic_json(path: Path, value: object) -> None:
     _atomic_text(path, json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
@@ -130,6 +149,71 @@ def _migrate_state_dir(codex: Path, current: Path) -> Path:
     return current
 
 
+def _normalize_remote(value: str) -> str:
+    normalized = value.strip().rstrip("/")
+    return normalized[:-4] if normalized.lower().endswith(".git") else normalized
+
+
+def _remote_targets_managed_repository(value: str) -> bool:
+    normalized = _normalize_remote(value).replace("\\", "/").lower()
+    return bool(
+        normalized
+        and (
+            normalized.endswith(f"/{REPOSITORY.lower()}")
+            or normalized.endswith(f":{REPOSITORY.lower()}")
+        )
+    )
+
+
+def _authorization_payload(decision: str, remote: str | None) -> dict[str, object]:
+    if decision not in CONSENT_VALUES:
+        raise SyncError(f"unsupported native memories consent: {decision}")
+    if decision == "approved":
+        if not isinstance(remote, str) or not _remote_targets_managed_repository(remote):
+            raise SyncError("approved native memories consent requires the managed repository remote")
+        remote = _normalize_remote(remote)
+    elif remote is not None:
+        raise SyncError("declined native memories consent must not retain a remote authorization")
+    return {
+        "decision": decision,
+        "policy_version": CONSENT_POLICY_VERSION,
+        "scope": CONSENT_SCOPE,
+        "sync_mode": CONSENT_SYNC_MODE,
+        "auto_hook_maintenance": True,
+        "repository": REPOSITORY,
+        "require_private": True,
+        "remote": remote,
+    }
+
+
+def _validate_authorization(value: object) -> str:
+    if isinstance(value, str):
+        if value not in CONSENT_VALUES:
+            raise SyncError("managed ledger has invalid native memories consent")
+        return value
+    if not isinstance(value, dict) or set(value) != {
+        "decision",
+        "policy_version",
+        "scope",
+        "sync_mode",
+        "auto_hook_maintenance",
+        "repository",
+        "require_private",
+        "remote",
+    }:
+        raise SyncError("managed ledger has invalid native memories consent")
+    decision = value.get("decision")
+    if decision not in CONSENT_VALUES:
+        raise SyncError("managed ledger has invalid native memories consent")
+    expected = _authorization_payload(
+        str(decision),
+        str(value["remote"]) if value.get("remote") is not None else None,
+    )
+    if value != expected:
+        raise SyncError("managed ledger has invalid native memories authorization scope")
+    return str(decision)
+
+
 def managed_ledger(path: Path) -> dict[str, object]:
     """Read the existing schema-v1 Codex ledger without inventing preference state."""
     if not path.is_file() or _is_link_or_reparse(path):
@@ -159,19 +243,28 @@ def managed_ledger(path: Path) -> dict[str, object]:
             raise SyncError(f"managed ledger record is invalid: {name}")
     consents = data.get("consents")
     if consents is not None:
-        if (
-            not isinstance(consents, dict)
-            or set(consents) != {"native_memories"}
-            or consents.get("native_memories") not in CONSENT_VALUES
-        ):
+        if not isinstance(consents, dict) or set(consents) != {"native_memories"}:
             raise SyncError("managed ledger has invalid native memories consent")
+        _validate_authorization(consents.get("native_memories"))
     return data
 
 
 def native_memories_consent(ledger_path: Path) -> str | None:
     data = managed_ledger(ledger_path)
     consents = data.get("consents")
-    return str(consents["native_memories"]) if isinstance(consents, dict) else None
+    if not isinstance(consents, dict):
+        return None
+    return _validate_authorization(consents["native_memories"])
+
+
+def native_memories_authorization(ledger_path: Path) -> dict[str, object] | str | None:
+    data = managed_ledger(ledger_path)
+    consents = data.get("consents")
+    if not isinstance(consents, dict):
+        return None
+    value = consents["native_memories"]
+    _validate_authorization(value)
+    return value
 
 
 def record_native_memories_consent(
@@ -179,19 +272,55 @@ def record_native_memories_consent(
     value: str,
     *,
     confirmed: bool,
+    remote: str | None = None,
 ) -> bool:
     if not confirmed:
         raise SyncError("consent changes require explicit confirmation")
-    if value not in CONSENT_VALUES:
-        raise SyncError(f"unsupported native memories consent: {value}")
     data = managed_ledger(ledger_path)
     before = data.get("consents")
-    desired = {"native_memories": value}
+    desired = {"native_memories": _authorization_payload(value, remote)}
     if before == desired:
         return False
     data["consents"] = desired
     _atomic_json(ledger_path, data)
     return True
+
+
+def _configured_remote(state_dir: Path) -> str:
+    remote_file = state_dir / "remote.txt"
+    if not remote_file.is_file() or _is_link_or_reparse(remote_file):
+        raise SyncError("native memories remote authorization is missing or unsafe")
+    remote = remote_file.read_text(encoding="utf-8-sig").strip()
+    if not _remote_targets_managed_repository(remote):
+        raise SyncError("native memories remote is outside the approved repository scope")
+    return _normalize_remote(remote)
+
+
+def require_runtime_authorization(
+    ledger_path: Path,
+    state_dir: Path,
+    *,
+    migrate_legacy: bool,
+) -> dict[str, object]:
+    value = native_memories_authorization(ledger_path)
+    decision = _validate_authorization(value) if value is not None else None
+    if decision != "approved":
+        raise SyncError("native memories automatic synchronization is not approved")
+    remote = _configured_remote(state_dir)
+    if isinstance(value, str):
+        authorization = _authorization_payload("approved", remote)
+        if migrate_legacy:
+            record_native_memories_consent(
+                ledger_path,
+                "approved",
+                confirmed=True,
+                remote=remote,
+            )
+        return authorization
+    assert isinstance(value, dict)
+    if _normalize_remote(str(value["remote"])) != remote:
+        raise SyncError("native memories remote changed outside the approved scope")
+    return value
 
 
 def memory_switches(config_path: Path) -> tuple[bool, dict[str, object]]:
@@ -565,6 +694,37 @@ def ensure_github_repository(
     return remote, action
 
 
+def verify_private_github_repository(
+    remote: str,
+    *,
+    run: Run = _default_run,
+) -> None:
+    if not _remote_targets_managed_repository(remote):
+        raise SyncError("native memories remote is outside the approved repository scope")
+    if shutil.which("gh") is None:
+        raise SyncError("gh is not installed; automatic memories synchronization stopped")
+    view = run(
+        [
+            "gh",
+            "repo",
+            "view",
+            remote,
+            "--json",
+            "visibility,url,nameWithOwner",
+        ]
+    )
+    if view.returncode:
+        raise SyncError("approved memories repository identity cannot be verified")
+    try:
+        data = json.loads(view.stdout)
+    except json.JSONDecodeError as exc:
+        raise SyncError("approved memories repository returned invalid metadata") from exc
+    if str(data.get("visibility", "")).upper() != "PRIVATE":
+        raise SyncError("approved memories repository is no longer private")
+    if str(data.get("nameWithOwner", "")).split("/")[-1].lower() != REPOSITORY.lower():
+        raise SyncError("approved memories repository identity changed")
+
+
 def mark_pending(state_dir: Path, trigger: str) -> None:
     _real_directory(state_dir, create=True)
     _atomic_json(state_dir / "pending.json", {"trigger": trigger, "utc": utc_now()})
@@ -872,6 +1032,76 @@ def reconcile(memories: Path, state_dir: Path, remote: str) -> str:
         _release_reconcile_lock(state_dir, descriptor)
 
 
+def repair_user_hooks(
+    codex: Path,
+    current_state_dir: Path,
+    ledger_path: Path,
+    script: Path,
+) -> tuple[bool, Path]:
+    original_state_dir = _read_state_dir(codex, current_state_dir)
+    require_runtime_authorization(
+        ledger_path,
+        original_state_dir,
+        migrate_legacy=False,
+    )
+    hooks_path = codex / "hooks.json"
+    if hooks_path.exists() and _is_link_or_reparse(hooks_path):
+        raise SyncError("native memories hooks target is a link or reparse point")
+    hooks_before = hooks_path.read_bytes() if hooks_path.is_file() else None
+    ledger_before = ledger_path.read_bytes()
+    migrated_state = original_state_dir != current_state_dir
+    try:
+        state_dir = _migrate_state_dir(codex, current_state_dir)
+        require_runtime_authorization(
+            ledger_path,
+            state_dir,
+            migrate_legacy=True,
+        )
+        hook_python = stable_hook_python()
+        changed = merge_user_hooks(
+            hooks_path,
+            script,
+            hook_python=hook_python,
+        )
+        if not user_hooks_healthy(
+            hooks_path,
+            script,
+            hook_python=hook_python,
+        ):
+            raise SyncError("native memories hooks failed post-repair validation")
+        return changed, hook_python
+    except Exception:
+        if hooks_before is None:
+            hooks_path.unlink(missing_ok=True)
+        else:
+            _atomic_bytes(hooks_path, hooks_before)
+        _atomic_bytes(ledger_path, ledger_before)
+        if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
+            original_state_dir.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(current_state_dir, original_state_dir)
+        raise
+
+
+def validated_runtime_state(
+    codex: Path,
+    current_state_dir: Path,
+    ledger_path: Path,
+) -> tuple[Path, dict[str, object]]:
+    original_state_dir = _read_state_dir(codex, current_state_dir)
+    require_runtime_authorization(
+        ledger_path,
+        original_state_dir,
+        migrate_legacy=False,
+    )
+    state_dir = _migrate_state_dir(codex, current_state_dir)
+    authorization = require_runtime_authorization(
+        ledger_path,
+        state_dir,
+        migrate_legacy=True,
+    )
+    return state_dir, authorization
+
+
 def main(argv: list[str] | None = None) -> int:
     if sys.version_info < MIN_PYTHON:
         print("[memory-sync] WARNING: Python 3.11+ is required", file=sys.stderr)
@@ -884,6 +1114,7 @@ def main(argv: list[str] | None = None) -> int:
     decline = sub.add_parser("decline")
     decline.add_argument("--confirmed", action="store_true")
     sub.add_parser("maintain")
+    sub.add_parser("repair-hook")
     reconcile_cmd = sub.add_parser("reconcile")
     reconcile_cmd.add_argument("--trigger", default="bridgeforge-codex")
     mark = sub.add_parser("mark")
@@ -902,6 +1133,7 @@ def main(argv: list[str] | None = None) -> int:
             enabled, _ = memory_switches(codex / "config.toml")
             hook_python = stable_hook_python()
             remote_configured = (state_dir / "remote.txt").is_file()
+            authorization = native_memories_authorization(ledger_path)
             print(json.dumps({
                 "enabled": enabled,
                 "hookInstalled": user_hooks_healthy(
@@ -913,7 +1145,21 @@ def main(argv: list[str] | None = None) -> int:
                 "setupPython": str(Path(sys.executable).resolve()),
                 "hookPython": str(hook_python),
                 "remoteConfigured": remote_configured,
-                "consent": native_memories_consent(ledger_path),
+                "consent": (
+                    _validate_authorization(authorization)
+                    if authorization is not None
+                    else None
+                ),
+                "consentPolicyVersion": (
+                    authorization.get("policy_version")
+                    if isinstance(authorization, dict)
+                    else "legacy" if authorization is not None else None
+                ),
+                "syncMode": (
+                    authorization.get("sync_mode")
+                    if isinstance(authorization, dict)
+                    else CONSENT_SYNC_MODE if authorization == "approved" else None
+                ),
             }, ensure_ascii=False))
             return 0
         if args.command == "decline":
@@ -921,36 +1167,36 @@ def main(argv: list[str] | None = None) -> int:
                 ledger_path,
                 "declined",
                 confirmed=args.confirmed,
+                remote=None,
             )
             print(f"[memory-sync] native memories declined; changed={str(changed).lower()}")
             return 0
         _real_directory(codex, create=True)
         enabled, _ = memory_switches(codex / "config.toml")
-        if args.command == "maintain":
+        if args.command in {"maintain", "repair-hook"}:
             if native_memories_consent(ledger_path) != "approved":
                 raise SyncError("native memories maintenance requires approved consent")
             if not enabled:
                 raise SyncError("native memories were disabled by the user")
-            state_dir = _migrate_state_dir(codex, current_state_dir)
-            hook_python = stable_hook_python()
-            remote, remote_action = ensure_github_repository(
-                confirmed_public_to_private=False
-            )
-            merge_user_hooks(
-                codex / "hooks.json",
+            changed, hook_python = repair_user_hooks(
+                codex,
+                current_state_dir,
+                ledger_path,
                 Path(__file__).resolve(),
-                hook_python=hook_python,
             )
-            _atomic_text(state_dir / "remote.txt", remote + "\n")
-            action = reconcile(memories, state_dir, remote)
             print(
-                "[memory-sync] maintained; "
-                f"hook_python={hook_python}; remote_action={remote_action}; "
-                f"reconcile={action}"
+                "[memory-sync] hooks repaired; "
+                f"changed={str(changed).lower()}; hook_python={hook_python}; "
+                "remote_reconcile=not_requested"
             )
             return 0
         if args.command in {"mark", "kick"}:
             if enabled:
+                state_dir, _authorization = validated_runtime_state(
+                    codex,
+                    current_state_dir,
+                    ledger_path,
+                )
                 mark_pending(state_dir, args.trigger)
                 if args.command == "kick":
                     launch_background_reconcile(args.trigger)
@@ -976,6 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
                 ledger_path,
                 "approved",
                 confirmed=True,
+                remote=remote,
             )
             print(
                 "[memory-sync] configured; "
@@ -987,24 +1234,27 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if not enabled:
             return 0
-        remote_file = state_dir / "remote.txt"
-        if not remote_file.is_file():
-            print("[memory-sync] WARNING: setup is incomplete; run $bridgeforge-codex", file=sys.stderr)
-            return 0
-        action = reconcile(memories, state_dir, remote_file.read_text(encoding="utf-8").strip())
+        state_dir, authorization = validated_runtime_state(
+            codex,
+            current_state_dir,
+            ledger_path,
+        )
+        remote = str(authorization["remote"])
+        verify_private_github_repository(remote)
+        action = reconcile(memories, state_dir, remote)
         if args.trigger == "bridgeforge":
             print(f"[memory-sync] {action}")
         elif args.trigger == "stop":
             print("{}")
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError, SyncError) as exc:
-        if args.command not in {"status", "decline", "maintain"}:
+        if args.command not in {"status", "decline", "maintain", "repair-hook"}:
             try:
                 mark_pending(state_dir, getattr(args, "trigger", args.command))
             except Exception:
                 pass
         print(f"[memory-sync] WARNING: {exc}", file=sys.stderr)
-        return 2 if args.command in {"status", "decline", "setup", "maintain"} else 0
+        return 2 if args.command in {"status", "decline", "setup", "maintain", "repair-hook"} else 0
 
 
 if __name__ == "__main__":

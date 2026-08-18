@@ -173,7 +173,6 @@ def _validate_factory_routing() -> list[str]:
         distributed = {
             str(item["name"])
             for item in manifest["platforms"]["codex"]["skills"]
-            if not item.get("legacy_transition")
         }
         routed = {
             str(item["skill"])

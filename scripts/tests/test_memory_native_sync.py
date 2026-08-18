@@ -91,7 +91,7 @@ class ProjectMemoryTests(unittest.TestCase):
 
 
 class NativeMemorySyncTests(unittest.TestCase):
-    def _write_ledger(self, codex: Path, consent: str | None = None) -> Path:
+    def _write_ledger(self, codex: Path, consent: object | None = None) -> Path:
         codex.mkdir(parents=True, exist_ok=True)
         ledger: dict[str, object] = {
             "schema_version": 1,
@@ -195,6 +195,8 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertFalse(receipt["hookInstalled"])
             self.assertFalse(receipt["remoteConfigured"])
             self.assertEqual(receipt["consent"], "approved")
+            self.assertEqual(receipt["consentPolicyVersion"], "legacy")
+            self.assertEqual(receipt["syncMode"], "bidirectional")
             self.assertEqual(receipt["setupPython"], str(Path(sync_mod.sys.executable).resolve()))
             self.assertEqual(receipt["hookPython"], str(sync_mod.stable_hook_python()))
 
@@ -234,7 +236,7 @@ class NativeMemorySyncTests(unittest.TestCase):
             after = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
             self.assertEqual(after, before)
 
-    def test_approved_enabled_maintain_repairs_runtime_and_reconciles(self) -> None:
+    def test_approved_enabled_repair_is_local_only_and_migrates_legacy_consent(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
             self._write_ledger(codex, "approved")
@@ -242,6 +244,10 @@ class NativeMemorySyncTests(unittest.TestCase):
                 "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
                 encoding="utf-8",
             )
+            state = codex / ".bridgeforge-codex" / "memory-sync"
+            state.mkdir(parents=True)
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            (state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
             hook_python = Path(sync_mod.sys.executable).resolve()
             output = io.StringIO()
             with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
@@ -249,27 +255,28 @@ class NativeMemorySyncTests(unittest.TestCase):
             ), mock.patch.object(
                 sync_mod,
                 "ensure_github_repository",
-                return_value=("git@example.invalid:private/memories.git", "reused"),
-            ) as github, mock.patch.object(sync_mod, "merge_user_hooks") as hooks, mock.patch.object(
-                sync_mod, "reconcile", return_value="noop"
+                side_effect=AssertionError("repair must not access GitHub"),
+            ) as github, mock.patch.object(
+                sync_mod,
+                "reconcile",
+                side_effect=AssertionError("repair must not reconcile memories"),
             ) as reconcile, contextlib.redirect_stdout(output):
-                self.assertEqual(sync_mod.main(["maintain"]), 0)
-            github.assert_called_once_with(confirmed_public_to_private=False)
-            hooks.assert_called_once_with(
-                codex / "hooks.json",
-                Path(sync_mod.__file__).resolve(),
-                hook_python=hook_python,
+                self.assertEqual(sync_mod.main(["repair-hook"]), 0)
+            github.assert_not_called()
+            reconcile.assert_not_called()
+            self.assertTrue(
+                sync_mod.user_hooks_healthy(
+                    codex / "hooks.json",
+                    Path(sync_mod.__file__).resolve(),
+                    hook_python=hook_python,
+                )
             )
-            reconcile.assert_called_once_with(
-                codex / "memories",
-                codex / ".bridgeforge-codex" / "memory-sync",
-                "git@example.invalid:private/memories.git",
+            authorization = sync_mod.native_memories_authorization(
+                codex / "bridgeforge-codex-managed.json"
             )
-            self.assertEqual(
-                (codex / ".bridgeforge-codex" / "memory-sync" / "remote.txt").read_text(encoding="utf-8"),
-                "git@example.invalid:private/memories.git\n",
-            )
-            self.assertIn("reconcile=noop", output.getvalue())
+            self.assertIsInstance(authorization, dict)
+            self.assertEqual(authorization["remote"], remote.removesuffix(".git"))
+            self.assertIn("remote_reconcile=not_requested", output.getvalue())
 
     def test_maintain_migrates_legacy_state_and_hook_markers(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -281,7 +288,8 @@ class NativeMemorySyncTests(unittest.TestCase):
             )
             legacy_state = codex / ".bridgeforge" / "memory-sync"
             legacy_state.mkdir(parents=True)
-            (legacy_state / "remote.txt").write_text("old-remote\n", encoding="utf-8")
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            (legacy_state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
             hooks = {
                 "hooks": {
                     event: [{"hooks": [{
@@ -299,14 +307,18 @@ class NativeMemorySyncTests(unittest.TestCase):
             ), mock.patch.object(
                 sync_mod,
                 "ensure_github_repository",
-                return_value=("git@example.invalid:private/memories.git", "reused"),
-            ), mock.patch.object(sync_mod, "reconcile", return_value="noop"):
+                side_effect=AssertionError("maintain compatibility must stay local"),
+            ), mock.patch.object(
+                sync_mod,
+                "reconcile",
+                side_effect=AssertionError("maintain compatibility must not reconcile"),
+            ):
                 self.assertEqual(sync_mod.main(["maintain"]), 0)
             current_state = codex / ".bridgeforge-codex" / "memory-sync"
             self.assertFalse((codex / ".bridgeforge").exists())
             self.assertEqual(
                 (current_state / "remote.txt").read_text(encoding="utf-8"),
-                "git@example.invalid:private/memories.git\n",
+                remote + "\n",
             )
             document = json.loads((codex / "hooks.json").read_text(encoding="utf-8"))
             managed = [
@@ -323,6 +335,40 @@ class NativeMemorySyncTests(unittest.TestCase):
                 for entry in entries
                 for handler in entry["hooks"]
             ))
+
+    def test_repair_failure_restores_hooks_ledger_and_legacy_state(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            ledger = self._write_ledger(codex, "approved")
+            ledger_before = ledger.read_bytes()
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            legacy_state = codex / ".bridgeforge/memory-sync"
+            legacy_state.mkdir(parents=True)
+            (legacy_state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
+            hooks_path = codex / "hooks.json"
+            hooks_path.write_text('{"custom":"keep"}\n', encoding="utf-8")
+            hooks_before = hooks_path.read_bytes()
+            with mock.patch.dict(
+                sync_mod.os.environ,
+                {"CODEX_HOME": str(codex)},
+            ), mock.patch.object(
+                sync_mod,
+                "stable_hook_python",
+                return_value=Path(sync_mod.sys.executable).resolve(),
+            ), mock.patch.object(
+                sync_mod,
+                "user_hooks_healthy",
+                return_value=False,
+            ):
+                self.assertEqual(sync_mod.main(["repair-hook"]), 2)
+            self.assertEqual(hooks_path.read_bytes(), hooks_before)
+            self.assertEqual(ledger.read_bytes(), ledger_before)
+            self.assertTrue(legacy_state.is_dir())
+            self.assertFalse((codex / ".bridgeforge-codex/memory-sync").exists())
 
     def test_legacy_enabled_maintain_fails_closed_without_external_or_user_writes(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -384,7 +430,7 @@ class NativeMemorySyncTests(unittest.TestCase):
             ), mock.patch.object(
                 sync_mod,
                 "ensure_github_repository",
-                return_value=("git@example.invalid:private/memories.git", "created"),
+                return_value=("https://github.com/example/bridgeforge-codex-memories.git", "created"),
             ), contextlib.redirect_stdout(output):
                 self.assertEqual(sync_mod.main(["setup", "--confirmed-enable"]), 0)
             hooks = json.loads((codex / "hooks.json").read_text(encoding="utf-8"))
@@ -403,12 +449,21 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertIn("remote_action=created", output.getvalue())
             self.assertEqual(
                 (codex / ".bridgeforge-codex/memory-sync/remote.txt").read_text(encoding="utf-8"),
-                "git@example.invalid:private/memories.git\n",
+                "https://github.com/example/bridgeforge-codex-memories.git\n",
             )
             self.assertEqual(
                 sync_mod.native_memories_consent(codex / "bridgeforge-codex-managed.json"),
                 "approved",
             )
+            authorization = sync_mod.native_memories_authorization(
+                codex / "bridgeforge-codex-managed.json"
+            )
+            self.assertIsInstance(authorization, dict)
+            self.assertEqual(authorization["policy_version"], 1)
+            self.assertEqual(authorization["scope"], "~/.codex/memories/**")
+            self.assertEqual(authorization["sync_mode"], "bidirectional")
+            self.assertTrue(authorization["auto_hook_maintenance"])
+            self.assertTrue(authorization["require_private"])
 
     def test_declined_consent_is_persisted_without_external_or_config_writes(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -435,6 +490,84 @@ class NativeMemorySyncTests(unittest.TestCase):
             ledger.write_text(json.dumps(data), encoding="utf-8")
             with self.assertRaisesRegex(sync_mod.SyncError, "invalid native memories consent"):
                 sync_mod.native_memories_consent(ledger)
+
+    def test_runtime_authorization_rejects_remote_scope_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            first = "https://github.com/example/bridgeforge-codex-memories.git"
+            second = "https://github.com/other/bridgeforge-codex-memories.git"
+            self._write_ledger(
+                codex,
+                sync_mod._authorization_payload("approved", first),
+            )
+            state = codex / ".bridgeforge-codex/memory-sync"
+            state.mkdir(parents=True)
+            (state / "remote.txt").write_text(second + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(sync_mod.SyncError, "remote changed"):
+                sync_mod.require_runtime_authorization(
+                    codex / "bridgeforge-codex-managed.json",
+                    state,
+                    migrate_legacy=True,
+                )
+
+    def test_automatic_reconcile_checks_private_authorization_before_sync(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            self._write_ledger(
+                codex,
+                sync_mod._authorization_payload("approved", remote),
+            )
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
+                encoding="utf-8",
+            )
+            state = codex / ".bridgeforge-codex/memory-sync"
+            state.mkdir(parents=True)
+            (state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
+            with mock.patch.dict(
+                sync_mod.os.environ,
+                {"CODEX_HOME": str(codex)},
+            ), mock.patch.object(
+                sync_mod,
+                "verify_private_github_repository",
+            ) as verify, mock.patch.object(
+                sync_mod,
+                "reconcile",
+                return_value="noop",
+            ) as reconcile:
+                self.assertEqual(
+                    sync_mod.main(["reconcile", "--trigger", "sessionstart"]),
+                    0,
+                )
+            verify.assert_called_once_with(remote.removesuffix(".git"))
+            reconcile.assert_called_once_with(
+                codex / "memories",
+                state,
+                remote.removesuffix(".git"),
+            )
+
+    def test_private_repository_verification_rejects_public_visibility(self) -> None:
+        def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command[:3] == ["gh", "auth", "status"]:
+                return subprocess.CompletedProcess(command, 0, "", "")
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps({
+                    "visibility": "PUBLIC",
+                    "url": "https://github.com/example/bridgeforge-codex-memories",
+                    "nameWithOwner": "example/bridgeforge-codex-memories",
+                }),
+                "",
+            )
+
+        with mock.patch.object(sync_mod.shutil, "which", return_value="gh"):
+            with self.assertRaisesRegex(sync_mod.SyncError, "no longer private"):
+                sync_mod.verify_private_github_repository(
+                    "https://github.com/example/bridgeforge-codex-memories",
+                    run=run,
+                )
 
     def test_config_merge_requires_confirmation_and_preserves_other_toml(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -622,7 +755,11 @@ class NativeMemorySyncTests(unittest.TestCase):
             errors = io.StringIO()
             with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), contextlib.redirect_stdout(
                 output
-            ), contextlib.redirect_stderr(errors):
+            ), contextlib.redirect_stderr(errors), mock.patch.object(
+                sync_mod,
+                "require_runtime_authorization",
+                return_value={"remote": str(remote)},
+            ), mock.patch.object(sync_mod, "verify_private_github_repository"):
                 self.assertEqual(sync_mod.main(["reconcile", "--trigger", "bridgeforge"]), 0)
             receipt = json.loads((state / "last-synced.json").read_text(encoding="utf-8"))
             self.assertEqual(output.getvalue(), "[memory-sync] noop\n")
@@ -749,10 +886,18 @@ class NativeMemorySyncTests(unittest.TestCase):
             )
             state = codex / ".bridgeforge-codex/memory-sync"
             state.mkdir(parents=True)
-            (state / "remote.txt").write_text("unused\n", encoding="utf-8")
+            remote = "https://github.com/example/bridgeforge-codex-memories"
+            (state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
             output = io.StringIO()
             with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
                 sync_mod, "reconcile", return_value="noop"
+            ), mock.patch.object(
+                sync_mod,
+                "require_runtime_authorization",
+                return_value={"remote": remote},
+            ), mock.patch.object(
+                sync_mod,
+                "verify_private_github_repository",
             ), contextlib.redirect_stdout(output):
                 self.assertEqual(sync_mod.main(["reconcile", "--trigger", "stop"]), 0)
             self.assertEqual(output.getvalue(), "{}\n")

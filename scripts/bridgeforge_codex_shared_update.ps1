@@ -336,38 +336,19 @@ function Get-PlatformConfig {
             manifest_target = "~/.codex/skills"
         }
     }
-    if ($Platform -eq "claude") {
-        return @{
-            skills_root = Join-Path $UserProfile ".claude\skills"
-            ledger = Join-Path $UserProfile ".claude\bridgeforge-managed.json"
-            manifest_target = "~/.claude/skills"
-        }
-    }
     throw "Unsupported platform in manifest: $Platform"
 }
 
 function Get-PlatformManifest {
     param(
         [Parameter(Mandatory = $true)]$Manifest,
-        [Parameter(Mandatory = $true)][string]$Platform,
-        [switch]$IncludeLegacyTransition
+        [Parameter(Mandatory = $true)][string]$Platform
     )
     $property = $Manifest.platforms.PSObject.Properties[$Platform]
     if ($null -eq $property) {
         throw "Manifest is missing platform '$Platform'."
     }
-    if ($IncludeLegacyTransition) {
-        return $property.Value
-    }
-    return [pscustomobject]@{
-        target = $property.Value.target
-        skills = @(
-            $property.Value.skills | Where-Object {
-                $null -eq $_.PSObject.Properties["legacy_transition"] -or
-                -not [bool]$_.legacy_transition
-            }
-        )
-    }
+    return $property.Value
 }
 
 function Assert-Manifest {
@@ -382,7 +363,7 @@ function Assert-Manifest {
     }
     $manifest = Read-JsonFile -Path $manifestPath
     if ([int]$manifest.schema_version -ne 1) {
-        throw "Unsupported shared-skill manifest schema."
+        throw "Unsupported bridgeforge-codex manifest schema."
     }
     if ((Get-NormalizedRemote ([string]$manifest.canonical_remote)) -ne (Get-NormalizedRemote $CanonicalRemote)) {
         throw "Manifest product remote does not match the installer contract."
@@ -392,7 +373,7 @@ function Assert-Manifest {
     }
 
     foreach ($platform in @("codex")) {
-        $platformManifest = Get-PlatformManifest -Manifest $manifest -Platform $platform -IncludeLegacyTransition
+        $platformManifest = Get-PlatformManifest -Manifest $manifest -Platform $platform
         $config = Get-PlatformConfig -Platform $platform -UserProfile $UserProfile
         if ([string]$platformManifest.target -ne $config.manifest_target) {
             throw "Manifest target for $platform is not the fixed user skill directory."
@@ -482,8 +463,51 @@ function Read-Ledger {
         }
         $consents = $consentsProperty.Value
         $names = @($consents.PSObject.Properties | ForEach-Object { $_.Name })
-        if ($names.Count -ne 1 -or $names[0] -ne "native_memories" -or
-            [string]$consents.native_memories -notin @("approved", "declined")) {
+        $nativeConsent = $consents.native_memories
+        $validNativeConsent = $false
+        if ($nativeConsent -is [string]) {
+            $validNativeConsent = ([string]$nativeConsent -in @("approved", "declined"))
+        }
+        elseif ($null -ne $nativeConsent) {
+            $consentNames = @($nativeConsent.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object)
+            $expectedConsentNames = @(
+                "auto_hook_maintenance",
+                "decision",
+                "policy_version",
+                "remote",
+                "repository",
+                "require_private",
+                "scope",
+                "sync_mode"
+            )
+            $remoteText = [string]$nativeConsent.remote
+            $normalizedRemote = $remoteText.Trim().TrimEnd([char[]]"/\\").ToLowerInvariant()
+            if ($normalizedRemote.EndsWith(".git")) {
+                $normalizedRemote = $normalizedRemote.Substring(0, $normalizedRemote.Length - 4)
+            }
+            $remoteMatchesRepository = (
+                $normalizedRemote.EndsWith("/bridgeforge-codex-memories") -or
+                $normalizedRemote.EndsWith(":bridgeforge-codex-memories")
+            )
+            $validNativeConsent = (
+                @(Compare-Object -ReferenceObject $expectedConsentNames -DifferenceObject $consentNames).Count -eq 0 -and
+                [string]$nativeConsent.decision -in @("approved", "declined") -and
+                [int]$nativeConsent.policy_version -eq 1 -and
+                [string]$nativeConsent.scope -eq "~/.codex/memories/**" -and
+                [string]$nativeConsent.sync_mode -eq "bidirectional" -and
+                [bool]$nativeConsent.auto_hook_maintenance -and
+                [string]$nativeConsent.repository -eq "bridgeforge-codex-memories" -and
+                [bool]$nativeConsent.require_private -and
+                (
+                    ([string]$nativeConsent.decision -eq "approved" -and
+                        -not [string]::IsNullOrWhiteSpace($remoteText) -and
+                        $remoteMatchesRepository) -or
+                    ([string]$nativeConsent.decision -eq "declined" -and
+                        $null -eq $nativeConsent.remote)
+                )
+            )
+        }
+        if ($names.Count -ne 1 -or $names[0] -ne "native_memories" -or -not $validNativeConsent) {
             throw "Invalid managed ledger consents for ${platform}: $Path"
         }
     }
@@ -580,18 +604,27 @@ function New-UpdatePlan {
         $config = Get-PlatformConfig -Platform $platform -UserProfile $UserProfile
         $platformManifest = Get-PlatformManifest -Manifest $Manifest -Platform $platform
         $ledger = Read-Ledger -Path $config.ledger -Platform $platform
-        $legacyLedger = if ($platform -eq "codex") {
-            Read-Ledger `
-                -Path (Join-Path $UserProfile ".codex\bridgeforge-managed.json") `
-                -Platform $platform
-        }
-        else {
-            $null
-        }
         $managedNames = @(Get-LedgerNames -Ledger $ledger)
         $managed = @{}
         foreach ($name in $managedNames) {
             $managed[$name.ToLowerInvariant()] = $true
+        }
+        $managedContentHashes = @{}
+        foreach ($name in $managedNames) {
+            $key = $name.ToLowerInvariant()
+            $target = Join-Path $config.skills_root $name
+            if (-not (Test-Path -LiteralPath $target)) {
+                continue
+            }
+            if (Test-ReparsePoint -Path $target) {
+                throw "Managed skill target may not be a junction or symbolic link: $target"
+            }
+            $actual = Get-DirectoryContentHash -Root $target
+            $record = Get-LedgerRecord -Ledger $ledger -Name $name
+            if ($null -eq $record -or [string]$record.content_hash -ne $actual) {
+                throw "Managed skill content drifted outside bridgeforge-codex: $platform/${name}: $target"
+            }
+            $managedContentHashes[$key] = $actual
         }
         $manifestNames = @{}
         $ledgerNeedsUpdate = $false
@@ -599,27 +632,15 @@ function New-UpdatePlan {
         if ($platform -eq "codex" -and $null -ne $ledger -and
             $null -ne $ledger.PSObject.Properties["consents"]) {
             $preservedConsents = [ordered]@{
-                native_memories = [string]$ledger.consents.native_memories
+                native_memories = $ledger.consents.native_memories
             }
-        }
-        elseif ($platform -eq "codex" -and $null -ne $legacyLedger -and
-            $null -ne $legacyLedger.PSObject.Properties["consents"]) {
-            $preservedConsents = [ordered]@{
-                native_memories = [string]$legacyLedger.consents.native_memories
-            }
-            $ledgerNeedsUpdate = $true
         }
         foreach ($skill in @($platformManifest.skills)) {
             $name = [string]$skill.name
             $manifestNames[$name.ToLowerInvariant()] = $true
             $target = Join-Path $config.skills_root $name
             if ((Test-Path -LiteralPath $target) -and -not $managed.ContainsKey($name.ToLowerInvariant())) {
-                $legacyRecord = Get-LedgerRecord -Ledger $legacyLedger -Name $name
-                $actual = Get-DirectoryContentHash -Root $target
-                if ($null -eq $legacyRecord -or
-                    [string]$legacyRecord.content_hash -ne $actual) {
-                    throw "Unmanaged skill conflict for $platform/${name}: $target"
-                }
+                throw "Unmanaged skill conflict for $platform/${name}: $target"
             }
             if ((Test-Path -LiteralPath $target) -and (Test-ReparsePoint -Path $target)) {
                 throw "Managed skill target may not be a junction or symbolic link: $target"
@@ -634,6 +655,12 @@ function New-UpdatePlan {
                     throw "Managed skill target may not be a junction or symbolic link: $target"
                 }
                 $hadOriginal = [bool](Test-Path -LiteralPath $target)
+                $originalHash = if ($hadOriginal) {
+                    $managedContentHashes[$name.ToLowerInvariant()]
+                }
+                else {
+                    $null
+                }
                 $actions += [ordered]@{
                     kind = "remove"
                     name = $name
@@ -641,7 +668,7 @@ function New-UpdatePlan {
                     stage = $null
                     backup = Join-Path $config.skills_root ".$name.bridgeforge-codex-backup-$OperationId"
                     had_original = $hadOriginal
-                    original_content_hash = if ($hadOriginal) { Get-DirectoryContentHash -Root $target } else { $null }
+                    original_content_hash = $originalHash
                     status = "pending"
                 }
             }
@@ -651,7 +678,12 @@ function New-UpdatePlan {
             $name = [string]$skill.name
             $target = Join-Path $config.skills_root $name
             $hadOriginal = [bool](Test-Path -LiteralPath $target)
-            $originalHash = if ($hadOriginal) { Get-DirectoryContentHash -Root $target } else { $null }
+            $originalHash = if ($hadOriginal) {
+                $managedContentHashes[$name.ToLowerInvariant()]
+            }
+            else {
+                $null
+            }
             $desiredHash = Get-SkillContentHash -Skill $skill
             $ledgerRecord = Get-LedgerRecord -Ledger $ledger -Name $name
             if ($hadOriginal -and $null -ne $ledgerRecord -and
@@ -903,7 +935,7 @@ function New-LedgerValue {
     }
     if ($Platform -eq "codex" -and $null -ne $PreservedConsents) {
         $ledger.consents = [ordered]@{
-            native_memories = [string]$PreservedConsents.native_memories
+            native_memories = $PreservedConsents.native_memories
         }
     }
     return $ledger

@@ -79,6 +79,13 @@ def write_contract_transition_fixture(
         ),
         "comment": "current managed dispatcher",
     }
+    merge_required = [{
+        "event": "PreToolUse",
+        "matcher": "Bash|Edit|Write",
+        "stage": "pre-tool",
+        "sha256": VERSION_RELEASE._canonical_json_sha256(merge_handler),
+    }]
+    merge_projection = VERSION_RELEASE._canonical_json_sha256(merge_required)
     target_merge_handler = dict(merge_handler)
     if drift_merge_target_before_baseline:
         target_merge_handler["comment"] = "drifted managed dispatcher"
@@ -214,12 +221,11 @@ def write_contract_transition_fixture(
             "merge_policy": "codex-hooks",
             "merge_validation": {
                 "format": "codex-hooks-dispatchers-v1",
-                "required_handlers": [{
-                    "event": "PreToolUse",
-                    "matcher": "Bash|Edit|Write",
-                    "stage": "pre-tool",
-                    "sha256": VERSION_RELEASE._canonical_json_sha256(merge_handler),
-                }],
+                "required_handlers": merge_required,
+                "current_projection_sha256": merge_projection,
+                "historical_projection_sha256": {
+                    "0.94.2": [merge_projection],
+                },
             },
         })
     current_contract = {
@@ -920,6 +926,170 @@ class VersionReleaseTests(unittest.TestCase):
                 "managed dispatcher drifted",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_changed_merge_uses_managed_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+            )
+            hooks_path = repo / ".codex/hooks.json"
+            hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+            handlers = hooks["hooks"]["PreToolUse"][0]["hooks"]
+            managed_handler = next(
+                item for item in handlers if "hook_dispatcher.py" in item["commandWindows"]
+            )
+            managed_handler["comment"] = "upgraded managed dispatcher"
+            hooks_path.write_text(
+                json.dumps(hooks, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            asset = next(
+                item for item in contract["assets"]
+                if item["id"] == "codex.hooks-config"
+            )
+            required = [{
+                "event": "PreToolUse",
+                "matcher": "Bash|Edit|Write",
+                "stage": "pre-tool",
+                "sha256": VERSION_RELEASE._canonical_json_sha256(managed_handler),
+            }]
+            asset["merge_validation"]["required_handlers"] = required
+            asset["merge_validation"]["current_projection_sha256"] = (
+                VERSION_RELEASE._canonical_json_sha256(required)
+            )
+            contract_path.write_text(
+                json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            changed.add(".codex/hooks.json")
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+            project_handler = next(
+                item for item in handlers if "project_hook.py" in item["commandWindows"]
+            )
+            project_handler["commandWindows"] = "python project_hook_v2.py"
+            hooks_path.write_text(
+                json.dumps(hooks, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+
+    def test_contract_transition_managed_markdown_preserves_project_content(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            host = repo / ".codex"
+            host.mkdir(parents=True)
+            managed_blocks = {
+                "format": "markdown-headings",
+                "headings": ["## Managed"],
+                "additive_headings": [],
+                "keyed_tables": [],
+            }
+            old_doc = b"# Doc\n\n## Managed\n\nold managed\n\n## Project\n\nlocal\n"
+            old_managed, _old_project = VERSION_RELEASE._managed_markdown_parts(
+                old_doc,
+                ["## Managed"],
+                [],
+                [],
+            )
+            old_projection = VERSION_RELEASE._sha256_bytes(old_managed or b"")
+            old_asset = {
+                "id": "codex.doc.readme",
+                "target": "doc/README.md",
+                "strategy": "whole",
+                "current_sha256": VERSION_RELEASE._sha256_bytes(old_doc),
+                "managed_blocks": dict(managed_blocks),
+            }
+            old_contract = {
+                "schema_version": 2,
+                "stamp": ".codex/.bridgeforge_codex_version",
+                "contract_target": ".codex/managed-skeleton.json",
+                "assets": [old_asset],
+            }
+            old_payload = (json.dumps(old_contract, indent=2) + "\n").encode("utf-8")
+            (host / "managed-skeleton.json").write_bytes(old_payload)
+            (host / ".bridgeforge_codex_version").write_text("1.4.11\n")
+            (repo / "doc").mkdir()
+            (repo / "doc/README.md").write_bytes(old_doc)
+            (repo / "VERSION").write_text("3.0.0\n")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "baseline")
+
+            current_doc = old_doc.replace(b"old managed", b"new managed")
+            current_managed, _current_project = VERSION_RELEASE._managed_markdown_parts(
+                current_doc,
+                ["## Managed"],
+                [],
+                [],
+            )
+            current_blocks = dict(managed_blocks)
+            current_blocks["current_projection_sha256"] = (
+                VERSION_RELEASE._sha256_bytes(current_managed or b"")
+            )
+            current_blocks["historical_projection_sha256"] = {
+                "1.4.11": [old_projection],
+            }
+            current_asset = {
+                "id": "codex.doc.readme",
+                "target": "doc/README.md",
+                "strategy": "whole",
+                "current_sha256": VERSION_RELEASE._sha256_bytes(current_doc),
+                "managed_blocks": current_blocks,
+            }
+            current_contract = {
+                "schema_version": 2,
+                "release_version": "1.4.12",
+                "stamp": ".codex/.bridgeforge_codex_version",
+                "contract_target": ".codex/managed-skeleton.json",
+                "contract_historical_sha256": {
+                    "1.4.11": [VERSION_RELEASE._sha256_bytes(old_payload)],
+                },
+                "assets": [current_asset],
+            }
+            (host / "managed-skeleton.json").write_text(
+                json.dumps(current_contract, indent=2) + "\n"
+            )
+            (host / ".bridgeforge_codex_version").write_text("1.4.12\n")
+            (repo / "doc/README.md").write_bytes(current_doc)
+            changed = {
+                ".codex/managed-skeleton.json",
+                ".codex/.bridgeforge_codex_version",
+                "doc/README.md",
+            }
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+
+            (repo / "doc/README.md").write_bytes(
+                current_doc.replace(b"local", b"local changed")
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+            (repo / "doc/README.md").write_bytes(
+                current_doc.replace(b"new managed", b"drifted")
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.TransitionBlocked,
+                "current managed Markdown does not match",
+            ) as captured:
+                VERSION_RELEASE.classify_changes(repo, changed)
+            self.assertEqual(captured.exception.issues[0]["asset_id"], "codex.doc.readme")
+            self.assertEqual(captured.exception.issues[0]["target"], "doc/README.md")
 
     def test_contract_transition_rejects_invalid_current_agents_zones(self) -> None:
         invalid_replacements = (

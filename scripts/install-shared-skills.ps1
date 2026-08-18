@@ -107,41 +107,6 @@ function Remove-TemporaryClone {
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 
-function Remove-VerifiedLegacyJunction {
-    param([Parameter(Mandatory = $true)][string]$UserProfile)
-    $legacy = Join-Path $UserProfile ".bridgeforge"
-    if (-not (Test-Path -LiteralPath $legacy)) {
-        return
-    }
-    $item = Get-Item -LiteralPath $legacy -Force
-    $isReparsePoint = (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
-    if ($item.LinkType -ne "Junction" -or -not $isReparsePoint) {
-        Write-Warning "Legacy path exists but is not a junction; it was left unchanged: $legacy"
-        return
-    }
-    $target = @($item.Target)[0]
-    if ([string]::IsNullOrWhiteSpace([string]$target)) {
-        Write-Warning "Legacy junction target could not be verified; it was left unchanged: $legacy"
-        return
-    }
-    $targetFull = [IO.Path]::GetFullPath([string]$target).TrimEnd("\")
-    try {
-        Assert-CanonicalRepositoryIdentity -Root $targetFull
-    }
-    catch {
-        Write-Warning "Legacy junction target identity was not verified; it was left unchanged: $legacy -> $targetFull ($($_.Exception.Message))"
-        return
-    }
-    Remove-Item -LiteralPath $legacy -Force
-    if (Test-Path -LiteralPath $legacy) {
-        throw "Verified legacy junction could not be removed: $legacy"
-    }
-    if (-not (Test-Path -LiteralPath $targetFull -PathType Container)) {
-        throw "Verified legacy repository target is missing after junction removal: $targetFull"
-    }
-    Write-Host "Removed verified legacy junction: $legacy"
-}
-
 function Invoke-Main {
     # This must remain the first operation: non-Windows hosts get zero filesystem writes.
     Assert-Windows

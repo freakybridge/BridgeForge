@@ -15,6 +15,27 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.14] - 2026-08-19
+
+### Changed
+
+- [product][repo][meta] 收紧同步事务并退役旧兼容链
+
+## [1.4.13] - 2026-08-19
+
+### Removed
+
+- [product][repo][meta] 彻底退役旧 `$bridgeforge` 用户级兼容 manifest、冻结 payload、过渡入口和旧 Codex/Claude ledger 迁移链；用户级 Skill 分发只保留 `bridgeforge-codex-manifest.json` 正式清单，旧用户改为重新安装当前产品。
+- [product][repo] 正式 updater 不再借旧 ledger 接管已存在目录；未被当前账本管理的同名 Skill 一律按 unmanaged conflict 阻断，避免兼容 transition 误删 active Skill 并留下 ghost ledger record。
+
+## [1.4.12] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 将 native Memory 的本地 hook 修复与远端双向 reconcile 解耦：首次明确长期授权后，授权范围未变化时自动维护 hook 与双向同步，不再由项目骨架更新顺手触发完整数据同步。
+- [product][repo] 自动同步每次校验结构化授权、固定 Memory 范围、远端身份与 private 状态；可信旧 `approved` 在原目录和原仓库不变时无感迁移，授权漂移继续 fail closed。
+- [product][repo][meta] 统一项目同步与 `$git-sync` 的 ownership transition 证明：hooks merge 与 managed Markdown 按各历史版本自己的 contract 受管投影分类，项目内容继续保留；新版本与同版本受管修复都必须通过零写 release preflight，失败则回滚并输出逐文件 `G*` 清单。
+
 ## [1.4.11] - 2026-08-18
 
 ### Fixed

@@ -1,6 +1,6 @@
 # bridgeforge-codex 安装与迁移
 
-bridgeforge-codex 1.4.2 只支持 Codex。用户级产品入口为
+bridgeforge-codex 1.4.13 只支持 Codex。用户级产品入口为
 `~/.codex/skills/bridgeforge-codex/SKILL.md`，完整产品 home 为
 `~/.bridgeforge-codex`，项目产品面只有
 `AGENTS.md + .codex/`。
@@ -20,19 +20,12 @@ skills 写入 `~/.codex/skills/`，并把
 ownership 记录到 `~/.codex/bridgeforge-codex-managed.json`。项目更新由
 `scripts/bridgeforge_codex_project_sync.py` 统一规划、确认、应用和回滚。
 
-## 从旧 BridgeForge 迁移
+## 旧 BridgeForge 用户
 
-迁移固定分两步，不能在旧入口中直接修改项目：
-
-1. 最后一次运行旧 `$bridgeforge`。旧 updater 只消费兼容 manifest，安装并
-   验证 `$bridgeforge-codex`，然后停止。
-2. 新开会话运行 `$bridgeforge-codex`。新入口生成一次带 fingerprint 的风险
-   清单；用户确认后，按旧 ledger 与内容 hash 删除可证明归 BridgeForge
-   所有的旧 `~/.bridgeforge` home、Codex bundle、旧 ledger 和 Claude 用户级受管
-   skills。旧 home 若是已核验的 junction，只删除 junction，本地实体仓库保留。
-
-人工修改、第三方文件和 ownership 无法证明的内容一律保留并报告。迁移失败
-会回滚；迁移计划变化后旧确认失效，必须重新确认。
+旧 `$bridgeforge` 到 `$bridgeforge-codex` 的自动迁移已经退役。当前安装器不会读取、接管
+或删除旧 Codex/Claude ledger、旧 `.bridgeforge` home 或旧用户级 Skill。旧用户必须执行
+上面的“新安装”流程；若正式 Skill 的目标路径已被旧安装占用，安装器会按 unmanaged
+conflict 阻断，禁止借旧账本猜测 ownership。
 
 ## 项目版本戳
 

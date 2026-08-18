@@ -15,7 +15,6 @@ USER_COMMAND_SURFACES = (
     ROOT / "README.md",
     ROOT / "INSTALL.md",
     ROOT / "skills/bridgeforge-codex/SKILL.md",
-    ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
     ROOT / "scripts/install-shared-skills.ps1",
     ROOT / "skills/summary/SKILL.md",
     ROOT / "templates/hooks/config_health_check.py",
@@ -52,7 +51,6 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             ROOT / "INSTALL.md",
             ROOT / "AGENTS.md",
             ROOT / "bridgeforge-codex-manifest.json",
-            ROOT / "shared-skill-manifest.json",
         ]
         for base in (ROOT / "skills", ROOT / "scripts", ROOT / "templates", ROOT / ".codex"):
             candidates.extend(
@@ -86,7 +84,6 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
         display_surfaces = (
             ROOT / "templates/AGENTS.md",
             ROOT / "skills/bridgeforge-codex/SKILL.md",
-            ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
             ROOT / "doc/0_architecture/design/codex-project-sync.md",
             ROOT / "doc/3_reference/codex-project-operating-guide.md",
         )
@@ -115,22 +112,24 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
         self.assertIn("只是 Codex 可发现的薄入口", text)
         self.assertIn("scripts/bridgeforge_codex_project_sync.py", text)
 
-    def test_legacy_entry_is_an_install_only_bridge(self) -> None:
-        text = (ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md").read_text(
-            encoding="utf-8"
+    def test_legacy_user_migration_surfaces_are_retired(self) -> None:
+        for relative in (
+            "shared-skill-manifest.json",
+            "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
+            "scripts/bridgeforge_codex_user_migrate.py",
+        ):
+            self.assertFalse((ROOT / relative).exists(), relative)
+        compatibility_root = ROOT / "scripts/compat/legacy-shared-skills"
+        self.assertFalse(
+            compatibility_root.exists()
+            and any(path.is_file() for path in compatibility_root.rglob("*"))
         )
-        self.assertIn("只用于旧入口兼容", text)
-        self.assertIn("已发布旧 updater 已完成兼容 manifest 事务", text)
-        self.assertIn("bridgeforge-codex", text)
-        self.assertIn("立即停止", text)
-        self.assertNotIn("project_sync", text)
 
     def test_one_risk_card_and_project_sync_contract_are_explicit(self) -> None:
         text = SKILL.read_text(encoding="utf-8")
         for marker in (
-            "用户级迁移、native memories、`.agents` 布局迁移、版本戳迁移、上游 absorption 和其他项目 risk 汇总成一张清单",
+            "native memories、`.agents` 布局迁移、版本戳迁移、上游 absorption 和其他项目 risk 汇总成一张清单",
             "整轮最多确认一次",
-            "bridgeforge_codex_user_migrate.py",
             "plan-fingerprint",
             "A：执行全部推荐项",
             "B：只执行用户列出的 ID",
@@ -138,6 +137,13 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             "`action_required_items` 按 G1、G2……逐项完整展示",
             "G 项是非执行 review 清单",
             "禁止只显示 gap 数量后让用户再次追问",
+            "`repair-hook` 只能修改用户 hooks",
+            "项目骨架更新禁止顺手执行完整 `reconcile`",
+            "本地较新自动上传",
+            "远端较新自动恢复",
+            "日常同步和 hook 修复不得重复询问",
+            "user_native_memory_readiness",
+            "remote_reconcile=applied/declined/not_requested",
             ".codex/.bridgeforge_codex_version",
             ".codex/.bridgeforge_version",
         ):
@@ -146,12 +152,10 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
     def test_python_preflight_native_memory_and_layout_are_in_one_orchestration(self) -> None:
         text = SKILL.read_text(encoding="utf-8")
         preflight = text.index("## 2. Python preflight")
-        user_migration = text.index("$USER_MIGRATION = & $HOOK_PYTHON")
-        native_memory = text.index("codex_memory_sync.py", user_migration)
+        native_memory = text.index("codex_memory_sync.py", preflight)
         layout = text.index("bridgeforge_codex_migrate_layout.py", native_memory)
-        project_sync = text.index("bridgeforge_codex_project_sync.py", user_migration + 1)
-        self.assertLess(preflight, user_migration)
-        self.assertLess(user_migration, native_memory)
+        project_sync = text.index("bridgeforge_codex_project_sync.py", layout)
+        self.assertLess(preflight, native_memory)
         self.assertLess(native_memory, layout)
         self.assertLess(layout, project_sync)
         self.assertNotIn("\npython ", text)

@@ -9,12 +9,12 @@
 - 项目骨架：`AGENTS.md`、`.codex/`、`.githooks/pre-commit` 与 `doc/README.md`。
 - 项目版本戳：`.codex/.bridgeforge_codex_version`。
 
-Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文、不迁移、不删除；旧用户级 Claude 资产仅由已确认的用户迁移计划按 ledger 与实际 hash 处理。
+Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文、不迁移、不删除；旧用户级 Claude 资产、旧 ledger 与旧产品 home 不再由当前产品接管或清理。
 
 ## 2. 唯一流程
 
 1. 在目标项目运行 `$bridgeforge-codex`。
-2. 入口先刷新并验证 `~/.bridgeforge-codex`，再以同一个 Python 3.11+ 解释器生成：用户级旧资产迁移、原生 memories、项目 `.agents` 旧布局和项目 schema v2 更新计划。
+2. 入口先刷新并验证 `~/.bridgeforge-codex`，再以同一个 Python 3.11+ 解释器生成：原生 memories、项目 `.agents` 旧布局和项目 schema v2 更新计划。
 3. 计划把动作分成：
    - `safe`：受管资产的可信升级或缺失资产补齐；
    - `risk`：删除、移动、旧戳迁移、首次外部授权；

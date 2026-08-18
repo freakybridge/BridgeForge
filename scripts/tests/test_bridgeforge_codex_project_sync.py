@@ -33,7 +33,7 @@ manifest_builder = importlib.util.module_from_spec(MANIFEST_SPEC)
 sys.modules[MANIFEST_SPEC.name] = manifest_builder
 MANIFEST_SPEC.loader.exec_module(manifest_builder)
 CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-LEGACY_DISTRIBUTION_REVISION = manifest_builder.LEGACY_DISTRIBUTION_REVISION
+PROJECT_SYNC_LEGACY_FIXTURE_REVISION = "1e4124358a5d0c6cee9dd73bcb7b18bc904515c9"
 
 
 def git_blob(revision: str, path: str) -> bytes:
@@ -58,15 +58,37 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "init")
         self.assertFalse(plan.blockers)
         self.assertFalse(plan.risk_actions)
-        return sync.apply_plan(
+        receipt = sync.apply_plan(
             plan,
             plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        self.assertEqual(receipt.release_preflight_status, "not_applicable")
+        return receipt
+
+    def init_git_project(self, project: Path) -> None:
+        subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
+        (project / "README.md").write_text("fixture\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=project, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=BridgeForge Test",
+                "-c",
+                "user.email=bridgeforge@example.invalid",
+                "commit",
+                "-m",
+                "chore: fixture baseline",
+            ],
+            cwd=project,
+            check=True,
+            capture_output=True,
         )
 
     @staticmethod
     def legacy_agents(*, filled: bool = True, project_name: str = "fixture") -> str:
         text = git_blob(
-            LEGACY_DISTRIBUTION_REVISION,
+            PROJECT_SYNC_LEGACY_FIXTURE_REVISION,
             "templates/codex/AGENTS.md",
         ).decode("utf-8")
         text = text.replace("{{PROJECT_NAME}}", project_name)
@@ -124,6 +146,63 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertTrue(hooks_config["merge_validation"]["required_handlers"])
         for handler in hooks_config["merge_validation"]["required_handlers"]:
             self.assertRegex(handler["sha256"], r"^sha256:[0-9a-f]{64}$")
+        self.assertRegex(
+            hooks_config["merge_validation"]["current_projection_sha256"],
+            r"^sha256:[0-9a-f]{64}$",
+        )
+        self.assertIn(
+            "1.4.11",
+            hooks_config["merge_validation"]["historical_projection_sha256"],
+        )
+        readme = next(
+            item for item in contract["assets"] if item["id"] == "codex.doc.readme"
+        )
+        self.assertRegex(
+            readme["managed_blocks"]["current_projection_sha256"],
+            r"^sha256:[0-9a-f]{64}$",
+        )
+        self.assertIn(
+            "1.4.11",
+            readme["managed_blocks"]["historical_projection_sha256"],
+        )
+        self.assertIn(
+            readme["managed_blocks"]["current_projection_sha256"],
+            readme["managed_blocks"]["historical_projection_sha256"]["1.4.11"],
+        )
+        baselines = manifest_builder._baseline_revisions(ROOT)
+        assets_by_id = {item["id"]: item for item in contract["assets"]}
+        for asset_id, versions in {
+            "root.agents": ("0.94.0", "0.94.2", "0.94.4"),
+            "codex.doc.readme": ("0.94.0", "0.94.1"),
+        }.items():
+            for version in versions:
+                with self.subTest(asset_id=asset_id, projection_version=version):
+                    historical_asset = manifest_builder._historical_contract_asset(
+                        ROOT,
+                        baselines[version],
+                        asset_id,
+                    )
+                    self.assertIsNotNone(historical_asset)
+                    assert historical_asset is not None
+                    historical_payload = manifest_builder._git_blob_at(
+                        ROOT,
+                        baselines[version],
+                        historical_asset["source"],
+                    )
+                    self.assertIsNotNone(historical_payload)
+                    assert historical_payload is not None
+                    historical_projection = (
+                        manifest_builder._managed_markdown_projection_sha256(
+                            ROOT,
+                            historical_asset,
+                            historical_payload,
+                        )
+                    )
+                    self.assertIn(
+                        historical_projection,
+                        assets_by_id[asset_id]["managed_blocks"]
+                        ["historical_projection_sha256"][version],
+                    )
         active = next(item for item in contract["assets"] if item["id"] == "root.agents")
         self.assertIn("0.86.0", active["historical_sha256"])
         self.assertIn("0.90.0", active["historical_sha256"])
@@ -196,6 +275,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "1.4.5",
             "1.4.7",
             "1.4.9",
+            "1.4.11",
             "1.4.1",
             "1.3.0",
             "0.92.0",
@@ -429,7 +509,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         retired_hook = project / ".codex/hooks/context_warning.py"
         retired_hook.write_bytes(git_blob(
-            LEGACY_DISTRIBUTION_REVISION,
+            PROJECT_SYNC_LEGACY_FIXTURE_REVISION,
             "templates/codex/hooks/context_warning.py",
         ))
         stamp = project / ".codex/.bridgeforge_codex_version"
@@ -820,7 +900,9 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             legacy_source = str(asset["historical_source"]).replace(
                 "templates" + "/", legacy_root, 1
             )
-            target.write_bytes(git_blob(LEGACY_DISTRIBUTION_REVISION, legacy_source))
+            target.write_bytes(
+                git_blob(PROJECT_SYNC_LEGACY_FIXTURE_REVISION, legacy_source)
+            )
         official_plan = sync.build_plan(official_project, ROOT, "update")
         retired_ids = {
             action.asset_id
@@ -896,7 +978,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             legacy_source = str(asset["historical_source"]).replace(
                 "templates" + "/", legacy_root, 1
             )
-            payload = git_blob(LEGACY_DISTRIBUTION_REVISION, legacy_source)
+            payload = git_blob(PROJECT_SYNC_LEGACY_FIXTURE_REVISION, legacy_source)
             target.write_bytes(payload)
             rule_bytes[asset["target"]] = payload
         agents = project / "AGENTS.md"
@@ -1455,6 +1537,119 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                     )
                 self.assertFalse((project / ".codex/.bridgeforge_codex_version").exists())
                 self.assertFalse((project / ".codex/managed-skeleton.json").exists())
+
+    def test_release_preflight_passes_before_init_stamp(self) -> None:
+        project = self.make_project()
+        self.init_git_project(project)
+        plan = sync.build_plan(project, ROOT, "init")
+
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+
+        self.assertEqual(receipt.release_preflight_status, "passed")
+        self.assertEqual(receipt.release_preflight_classification, "mixed")
+        self.assertTrue(receipt.stamp_written_last)
+        self.assertIn("release_preflight", receipt.timings_ms)
+
+    def test_release_preflight_failure_rolls_back_and_returns_review_items(self) -> None:
+        project = self.make_project()
+        plan = sync.build_plan(project, ROOT, "init")
+        items = sync._release_preflight_items(RuntimeError("managed projection drifted"))
+
+        with mock.patch.object(
+            sync,
+            "_run_release_preflight",
+            side_effect=sync.ReleasePreflightBlocked("preflight rejected", items),
+        ):
+            with self.assertRaises(sync.ReleasePreflightBlocked) as captured:
+                sync.apply_plan(
+                    plan,
+                    plan_fingerprint=plan.aggregate_fingerprint,
+                )
+
+        self.assertIn("rolled back", str(captured.exception))
+        self.assertEqual(captured.exception.items[0]["id"], "G1")
+        self.assertEqual(
+            captured.exception.items[0]["category"],
+            "release_transition_review",
+        )
+        self.assertFalse((project / ".codex/.bridgeforge_codex_version").exists())
+        self.assertFalse((project / ".codex/managed-skeleton.json").exists())
+
+    def test_same_version_managed_retirement_is_preflighted_and_rolled_back(self) -> None:
+        project = self.make_project()
+        self.init_git_project(project)
+        plan = sync.build_plan(project, ROOT, "init")
+        sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+        subprocess.run(["git", "add", "."], cwd=project, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=BridgeForge Test",
+                "-c",
+                "user.email=bridgeforge@example.invalid",
+                "commit",
+                "-m",
+                "chore: current skeleton",
+            ],
+            cwd=project,
+            check=True,
+            capture_output=True,
+        )
+        target = project / ".codex/hooks/target_cleanup.py"
+        target.write_bytes(
+            git_blob(
+                "5a6c5564e3d828358c850113b856bcd4f74e15e0",
+                "templates/hooks/target_cleanup.py",
+            )
+        )
+        subprocess.run(["git", "add", "."], cwd=project, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=BridgeForge Test",
+                "-c",
+                "user.email=bridgeforge@example.invalid",
+                "commit",
+                "-m",
+                "chore: legacy managed hook",
+            ],
+            cwd=project,
+            check=True,
+            capture_output=True,
+        )
+
+        repair = sync.build_plan(project, ROOT, "update")
+        with self.assertRaises(sync.ReleasePreflightBlocked) as captured:
+            sync.apply_plan(
+                repair,
+                plan_fingerprint=repair.aggregate_fingerprint,
+                confirmed_risk=True,
+            )
+
+        self.assertTrue(target.is_file())
+        self.assertEqual(
+            captured.exception.items[0]["asset_id"],
+            "codex.hook.target-cleanup",
+        )
+        self.assertIn("missing updated skeleton stamp", str(captured.exception))
+
+    def test_trusted_release_loader_does_not_write_bytecode(self) -> None:
+        template_root = self.make_project()
+        script = template_root / "templates/scripts/version_release.py"
+        script.parent.mkdir(parents=True)
+        script.write_text("VALUE = 1\n", encoding="utf-8")
+        previous = sys.dont_write_bytecode
+
+        module = sync._trusted_release_module(template_root)
+
+        self.assertEqual(module.VALUE, 1)
+        self.assertEqual(sys.dont_write_bytecode, previous)
+        self.assertFalse((script.parent / "__pycache__").exists())
 
     def test_pre_086_update_is_blocked(self) -> None:
         project = self.make_project()

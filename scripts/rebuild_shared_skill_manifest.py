@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -19,11 +20,7 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 ACTIVE_MANIFEST = REPOSITORY_ROOT / "bridgeforge-codex-manifest.json"
-COMPATIBILITY_MANIFEST = REPOSITORY_ROOT / "shared-skill-manifest.json"
 DEFAULT_MANIFEST = ACTIVE_MANIFEST
-LEGACY_DISTRIBUTION_REVISION = "1e4124358a5d0c6cee9dd73bcb7b18bc904515c9"
-LEGACY_HARVEST_REVISION = "1af7d55b429c847558768241c28a49dda1d0a8f9"
-COMPATIBILITY_ASSET_ROOT = REPOSITORY_ROOT / "scripts" / "compat" / "legacy-shared-skills"
 MANAGED_CONTRACT = REPOSITORY_ROOT / "templates" / "managed-skeleton.json"
 DOGFOOD_MANAGED_CONTRACT = REPOSITORY_ROOT / ".codex" / "managed-skeleton.json"
 MINIMUM_MANAGED_VERSION = (0, 86, 0)
@@ -258,6 +255,133 @@ def _merge_history(
             history[version].append(digest)
             history[version].sort()
             known_hashes.add(digest)
+    return dict(
+        sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
+    )
+
+
+def _merge_projection_history(
+    existing: Any,
+    root: Path,
+    source: str,
+    baselines: dict[str, str],
+    projector: Any,
+) -> dict[str, list[str]]:
+    history = _merge_history(existing, root, "__no_projection_history__", {})
+    for version, revision in baselines.items():
+        payload = _git_blob_at(root, revision, source)
+        if payload is None:
+            continue
+        try:
+            digest = projector(payload)
+        except (TypeError, ValueError):
+            continue
+        values = history.setdefault(version, [])
+        if digest in values:
+            continue
+        values.append(digest)
+        values.sort()
+    return dict(
+        sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
+    )
+
+
+_VERSION_RELEASE_MODULE: Any | None = None
+
+
+def _version_release_module(root: Path) -> Any:
+    global _VERSION_RELEASE_MODULE
+    if _VERSION_RELEASE_MODULE is not None:
+        return _VERSION_RELEASE_MODULE
+    module_path = root / "templates" / "scripts" / "version_release.py"
+    spec = importlib.util.spec_from_file_location(
+        "bridgeforge_contract_version_release",
+        module_path,
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError(f"Cannot load managed projection source: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
+    _VERSION_RELEASE_MODULE = module
+    return module
+
+
+def _managed_markdown_projection_sha256(
+    root: Path,
+    asset: dict[str, Any],
+    payload: bytes,
+) -> str:
+    module = _version_release_module(root)
+    managed, _project = module._managed_blocks_parts(
+        payload,
+        asset,
+        str(asset.get("target", "<managed-markdown>")),
+    )
+    return module._sha256_bytes(managed or b"")
+
+
+def _historical_contract_asset(
+    root: Path,
+    revision: str,
+    asset_id: str,
+) -> dict[str, Any] | None:
+    payload = _git_blob_at(root, revision, "templates/managed-skeleton.json")
+    if payload is None:
+        return None
+    try:
+        contract = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    assets = contract.get("assets") if isinstance(contract, dict) else None
+    if not isinstance(assets, list):
+        return None
+    return next(
+        (
+            dict(item)
+            for item in assets
+            if isinstance(item, dict) and item.get("id") == asset_id
+        ),
+        None,
+    )
+
+
+def _managed_markdown_projection_history(
+    existing: Any,
+    root: Path,
+    current_asset: dict[str, Any],
+    baselines: dict[str, str],
+) -> dict[str, list[str]]:
+    history = _merge_history(existing, root, "__no_projection_history__", {})
+    asset_id = str(current_asset.get("id", ""))
+    for version, revision in baselines.items():
+        history.pop(version, None)
+        historical_asset = _historical_contract_asset(root, revision, asset_id)
+        if historical_asset is None or not isinstance(
+            historical_asset.get("managed_blocks"),
+            dict,
+        ):
+            continue
+        source = historical_asset.get("source")
+        if not isinstance(source, str):
+            continue
+        payload = _git_blob_at(root, revision, source)
+        if payload is None:
+            continue
+        try:
+            digest = _managed_markdown_projection_sha256(
+                root,
+                historical_asset,
+                payload,
+            )
+        except (TypeError, ValueError):
+            continue
+        history[version] = [digest]
     return dict(
         sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
     )
@@ -637,8 +761,48 @@ def rebuild_managed_contract(
                 validation = _codex_hooks_merge_validation(
                     _source_path(root, source).read_bytes()
                 )
+                validation["current_projection_sha256"] = _canonical_json_sha256(
+                    validation["required_handlers"]
+                )
+                previous_validation = asset.get("merge_validation")
+                previous_projection_history = (
+                    previous_validation.get("historical_projection_sha256")
+                    if isinstance(previous_validation, dict)
+                    else None
+                )
+                validation["historical_projection_sha256"] = (
+                    _merge_projection_history(
+                        previous_projection_history,
+                        root,
+                        source,
+                        baselines,
+                        lambda payload: _canonical_json_sha256(
+                            _codex_hooks_merge_validation(payload)["required_handlers"]
+                        ),
+                    )
+                )
                 if asset.get("merge_validation") != validation:
                     asset["merge_validation"] = validation
+                    changed = True
+            managed = asset.get("managed_blocks")
+            if isinstance(managed, dict):
+                payload = _source_path(root, source).read_bytes()
+                projection = _managed_markdown_projection_sha256(
+                    root,
+                    asset,
+                    payload,
+                )
+                if managed.get("current_projection_sha256") != projection:
+                    managed["current_projection_sha256"] = projection
+                    changed = True
+                projection_history = _managed_markdown_projection_history(
+                    managed.get("historical_projection_sha256"),
+                    root,
+                    asset,
+                    baselines,
+                )
+                if managed.get("historical_projection_sha256") != projection_history:
+                    managed["historical_projection_sha256"] = projection_history
                     changed = True
         history_source = source or asset.get("historical_source")
         history: dict[str, list[str]] = {}
@@ -770,30 +934,8 @@ def git_blob_bytes_from_bytes(payload: bytes) -> bytes:
 def rebuild_manifest(manifest_path: Path, *, write: bool = True) -> bool:
     manifest_path = manifest_path.resolve()
     repository_root = manifest_path.parent
-    manifest_missing = not manifest_path.is_file()
-    if manifest_path == ACTIVE_MANIFEST.resolve() and manifest_missing:
-        seed = json.loads(
-            COMPATIBILITY_MANIFEST.read_text(encoding="utf-8-sig")
-        )
-        codex = seed["platforms"]["codex"]
-        manifest = {
-            "schema_version": 1,
-            "canonical_remote": "https://github.com/freakybridge/BridgeForgeCodex.git",
-            "branch": "main",
-            "platforms": {
-                "codex": {
-                    "target": codex["target"],
-                    "skills": [
-                        item
-                        for item in codex["skills"]
-                        if not item.get("legacy_transition")
-                    ],
-                }
-            },
-        }
-    else:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-    changed = manifest_missing
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    changed = False
 
     reconcile_inventory = manifest_path == ACTIVE_MANIFEST.resolve()
     expected_bundle: set[str] = set()
@@ -820,14 +962,6 @@ def rebuild_manifest(manifest_path: Path, *, write: bool = True) -> bool:
             del manifest["product_remote"]
             changed = True
         codex_platform = manifest["platforms"]["codex"]
-        active_skills = [
-            item
-            for item in codex_platform["skills"]
-            if not item.get("legacy_transition")
-        ]
-        if codex_platform["skills"] != active_skills:
-            codex_platform["skills"] = active_skills
-            changed = True
         if set(manifest["platforms"]) != {"codex"}:
             manifest["platforms"] = {"codex": codex_platform}
             changed = True
@@ -861,130 +995,6 @@ def rebuild_manifest(manifest_path: Path, *, write: bool = True) -> bool:
     return changed
 
 
-def _compatibility_asset(
-    platform: str,
-    skill: str,
-    target: str,
-    payload: bytes,
-    *,
-    write: bool,
-) -> tuple[dict[str, str], bool]:
-    relative = Path("scripts/compat/legacy-shared-skills") / platform / skill / target
-    destination = REPOSITORY_ROOT / relative
-    changed = not destination.is_file() or destination.read_bytes() != payload
-    if changed and write:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(payload)
-    return {
-        "source": relative.as_posix(),
-        "target": Path(target).as_posix(),
-        "sha256": f"sha256:{hashlib.sha256(payload).hexdigest()}",
-    }, changed
-
-
-def rebuild_compatibility_manifest(*, write: bool = True) -> bool:
-    raw = _git_blob_at(
-        REPOSITORY_ROOT,
-        LEGACY_DISTRIBUTION_REVISION,
-        "shared-skill-manifest.json",
-    )
-    if raw is None:
-        raise ValueError("Cannot read the pinned legacy distribution manifest")
-    legacy = json.loads(raw.decode("utf-8-sig"))
-    active = json.loads(ACTIVE_MANIFEST.read_text(encoding="utf-8-sig"))
-    active_command = next(
-        item
-        for item in active["platforms"]["codex"]["skills"]
-        if item.get("name") == "bridgeforge-codex"
-    )
-    legacy_entry = REPOSITORY_ROOT / "scripts/bridgeforge_codex_legacy_entry.SKILL.md"
-    bridge = {
-        "name": "bridgeforge",
-        "legacy_transition": True,
-        "files": [{
-            "source": "scripts/bridgeforge_codex_legacy_entry.SKILL.md",
-            "target": "SKILL.md",
-            "sha256": manifest_sha256(legacy_entry),
-        }],
-    }
-    harvest_payload = _git_blob_at(
-        REPOSITORY_ROOT,
-        LEGACY_HARVEST_REVISION,
-        "skills/harvest/SKILL.md",
-    )
-    if harvest_payload is None:
-        raise ValueError("Cannot read the last managed harvest payload")
-
-    changed = False
-    platforms: dict[str, dict[str, Any]] = {}
-    for platform in ("codex", "claude"):
-        frozen: list[dict[str, Any]] = []
-        for skill in legacy["platforms"][platform]["skills"]:
-            name = str(skill["name"])
-            if name == "bridgeforge":
-                continue
-            files: list[dict[str, str]] = []
-            for item in skill["files"]:
-                payload = _git_blob_at(
-                    REPOSITORY_ROOT,
-                    LEGACY_DISTRIBUTION_REVISION,
-                    str(item["source"]),
-                )
-                if payload is None:
-                    raise ValueError(
-                        f"Cannot read pinned legacy payload: {platform}/{name}/{item['target']}"
-                    )
-                rebuilt, file_changed = _compatibility_asset(
-                    platform,
-                    name,
-                    str(item["target"]),
-                    payload,
-                    write=write,
-                )
-                changed = changed or file_changed
-                files.append(rebuilt)
-            frozen.append({
-                "name": name,
-                "legacy_transition": True,
-                "files": files,
-            })
-        harvest_file, harvest_changed = _compatibility_asset(
-            platform,
-            "harvest",
-            "SKILL.md",
-            harvest_payload,
-            write=write,
-        )
-        changed = changed or harvest_changed
-        skills = [bridge, *frozen, {
-            "name": "harvest",
-            "legacy_transition": True,
-            "files": [harvest_file],
-        }]
-        if platform == "codex":
-            skills.append(active_command)
-        platforms[platform] = {
-            "target": legacy["platforms"][platform]["target"],
-            "retired_compatibility_surface": True,
-            "skills": skills,
-        }
-    manifest = {
-        "schema_version": 1,
-        "canonical_remote": "https://github.com/freakybridge/BridgeForge.git",
-        "product_remote": "https://github.com/freakybridge/BridgeForgeCodex.git",
-        "branch": "main",
-        "platforms": platforms,
-    }
-    serialized = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
-    manifest_changed = (
-        not COMPATIBILITY_MANIFEST.is_file()
-        or COMPATIBILITY_MANIFEST.read_text(encoding="utf-8-sig") != serialized
-    )
-    if manifest_changed and write:
-        COMPATIBILITY_MANIFEST.write_text(serialized, encoding="utf-8")
-    return changed or manifest_changed
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1002,22 +1012,17 @@ def main() -> int:
 
     try:
         contract_changed = False
-        compatibility_changed = False
         if args.manifest.resolve() == DEFAULT_MANIFEST.resolve():
             contract_changed = rebuild_managed_contract(write=not args.check)
         changed = rebuild_manifest(args.manifest, write=not args.check)
-        if args.manifest.resolve() == DEFAULT_MANIFEST.resolve():
-            compatibility_changed = rebuild_compatibility_manifest(
-                write=not args.check
-            )
     except (FileNotFoundError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"[manifest] {exc}", file=sys.stderr)
         return 2
 
-    if (changed or contract_changed or compatibility_changed) and args.check:
+    if (changed or contract_changed) and args.check:
         print(f"[manifest] stale: {args.manifest}", file=sys.stderr)
         return 1
-    any_changed = changed or contract_changed or compatibility_changed
+    any_changed = changed or contract_changed
     print(f"[manifest] {'rebuilt' if any_changed else 'already current'}: {args.manifest}")
     return 0
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -46,6 +47,14 @@ PROJECT_TITLE_NORMALIZED = "# {{PROJECT_NAME}} 项目开发规范".encode("utf-8
 
 class SyncBlocked(RuntimeError):
     """The transaction cannot safely continue."""
+
+
+class ReleasePreflightBlocked(SyncBlocked):
+    """The release transition proof rejected the applied skeleton."""
+
+    def __init__(self, message: str, items: tuple[dict[str, Any], ...]) -> None:
+        super().__init__(message)
+        self.items = items
 
 
 @dataclass(frozen=True)
@@ -129,6 +138,8 @@ class Receipt:
     blockers: tuple[dict[str, Any], ...]
     recommended_selection: tuple[str, ...]
     gaps: tuple[dict[str, Any], ...]
+    release_preflight_status: str
+    release_preflight_classification: str | None
     stamp_written_last: bool
     rollback_performed: bool
     timings_ms: dict[str, float]
@@ -3427,6 +3438,113 @@ def _atomic_write(path: Path, payload: bytes, staging_root: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _trusted_release_module(template_root: Path) -> Any:
+    path = template_root / "templates" / "scripts" / "version_release.py"
+    if not path.is_file():
+        raise SyncBlocked(f"trusted release preflight is missing: {path}")
+    module_name = "_bridgeforge_codex_trusted_version_release"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise SyncBlocked(f"trusted release preflight cannot be loaded: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        sys.modules.pop(module_name, None)
+        raise SyncBlocked(f"trusted release preflight cannot be loaded: {exc}") from exc
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
+    return module
+
+
+def _release_preflight_items(exc: Exception) -> tuple[dict[str, Any], ...]:
+    raw_issues = getattr(exc, "issues", ())
+    issues = [item for item in raw_issues if isinstance(item, dict)]
+    if not issues:
+        issues = [{
+            "asset_id": "contract.managed-skeleton",
+            "target": ".codex/managed-skeleton.json",
+            "reason": str(exc),
+        }]
+    return tuple(
+        {
+            "id": f"G{index}",
+            "asset_id": str(item.get("asset_id", "contract.managed-skeleton")),
+            "target": str(item.get("target", ".codex/managed-skeleton.json")),
+            "category": "release_transition_review",
+            "affects_readiness": True,
+            "current_state": "project update was rolled back before the skeleton stamp",
+            "target_state": "release transition proof succeeds for this managed asset",
+            "action": "review-release-transition",
+            "classification_reason": str(item.get("reason", str(exc))),
+            "recommended_action": (
+                "review the listed asset against its trusted managed history; "
+                "preserve project-owned content"
+            ),
+            "recoverability": "the project-sync transaction was rolled back",
+            "executor": "user",
+            "recommended": True,
+            "completion_criteria": "a later project update passes release preflight",
+            "platform_permission": False,
+        }
+        for index, item in enumerate(issues, 1)
+    )
+
+
+def _run_release_preflight(
+    project_root: Path,
+    template_root: Path,
+    prospective_version: str | None,
+) -> tuple[str, str | None, float]:
+    started = time.perf_counter()
+    if not (project_root / ".git").exists():
+        return "not_applicable", None, round((time.perf_counter() - started) * 1000, 1)
+    try:
+        head = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={project_root.resolve().as_posix()}",
+                "rev-parse",
+                "--verify",
+                "HEAD",
+            ],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ReleasePreflightBlocked(
+            f"release preflight could not inspect Git HEAD: {exc}",
+            _release_preflight_items(exc),
+        ) from exc
+    if head.returncode != 0:
+        return "not_applicable", None, round((time.perf_counter() - started) * 1000, 1)
+
+    release = _trusted_release_module(template_root)
+    try:
+        classification, _changed_paths = release.preflight_contract_transition(
+            project_root,
+            prospective_version,
+        )
+    except Exception as exc:
+        release_error = getattr(release, "ReleaseError", ())
+        if not isinstance(release_error, type) or not isinstance(exc, release_error):
+            raise
+        raise ReleasePreflightBlocked(
+            f"release preflight blocked: {exc}",
+            _release_preflight_items(exc),
+        ) from exc
+    return "passed", str(classification), round((time.perf_counter() - started) * 1000, 1)
+
+
 def _run_validation(
     project_root: Path,
     template_root: Path,
@@ -3875,6 +3993,8 @@ def _apply_rebuilt_plan(
     seed_before = _seed_snapshots(root, contract)
     transaction = _Transaction(root)
     stamp_written = False
+    release_preflight_status = "not_required"
+    release_preflight_classification: str | None = None
     try:
         action_started = time.perf_counter()
         if checkpoint:
@@ -3954,15 +4074,32 @@ def _apply_rebuilt_plan(
             (time.perf_counter() - validation_started) * 1000,
             1,
         )
-        if checkpoint:
-            checkpoint("before-stamp")
-        _verify_seed_snapshots(seed_before)
         expected_stamp = (rebuilt.current_version + "\n").encode("utf-8")
-        if (
+        should_write_stamp = (
             not rebuilt.gaps
             and not declined_executable
             and (not stamp.is_file() or stamp.read_bytes() != expected_stamp)
-        ):
+        )
+        should_run_release_preflight = (
+            not rebuilt.gaps
+            and not declined_executable
+            and (should_write_stamp or bool(changed_targets))
+        )
+        if should_run_release_preflight:
+            (
+                release_preflight_status,
+                release_preflight_classification,
+                release_preflight_ms,
+            ) = _run_release_preflight(
+                root,
+                Path(rebuilt.template_root),
+                rebuilt.current_version if should_write_stamp else None,
+            )
+            timings["release_preflight"] = release_preflight_ms
+        if checkpoint:
+            checkpoint("before-stamp")
+        _verify_seed_snapshots(seed_before)
+        if should_write_stamp:
             if stamp_migrations:
                 transaction.delete(_inside(root, LEGACY_STAMP, "legacy version stamp"))
             transaction.write(stamp, expected_stamp)
@@ -3974,6 +4111,11 @@ def _apply_rebuilt_plan(
             transaction.rollback()
         except SyncBlocked as rollback_exc:
             raise SyncBlocked(f"transaction failed ({exc}); {rollback_exc}") from exc
+        if isinstance(exc, ReleasePreflightBlocked):
+            raise ReleasePreflightBlocked(
+                f"transaction failed and was rolled back: {exc}",
+                exc.items,
+            ) from exc
         raise SyncBlocked(f"transaction failed and was rolled back: {exc}") from exc
 
     receipt_gaps = [asdict(item) for item in rebuilt.gaps]
@@ -4076,6 +4218,8 @@ def _apply_rebuilt_plan(
             item_id for item_id, _action, _block in catalog
         ),
         gaps=tuple(receipt_gaps),
+        release_preflight_status=release_preflight_status,
+        release_preflight_classification=release_preflight_classification,
         stamp_written_last=stamp_written,
         rollback_performed=False,
         timings_ms=timings,
@@ -4305,6 +4449,27 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(asdict(receipt), ensure_ascii=False, indent=2))
         return 0
+    except ReleasePreflightBlocked as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "readiness": "blocked",
+                    "execution_status": "failed",
+                    "target_readiness": "action_required",
+                    "error": str(exc),
+                    "release_preflight_status": "blocked",
+                    "release_preflight_classification": None,
+                    "action_required_items": list(exc.items),
+                    "stamp_written_last": False,
+                    "rollback_performed": "rolled back" in str(exc),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        print(f"BLOCKED: {exc}", file=sys.stderr)
+        return 2
     except (OSError, SyncBlocked, KeyError, TypeError, ValueError) as exc:
         print(
             json.dumps(
