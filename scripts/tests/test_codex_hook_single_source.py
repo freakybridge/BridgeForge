@@ -112,17 +112,25 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertIn("PATH fallback is forbidden", result.stderr)
                 self.assertEqual(before, (stamp.read_bytes(), sentinel.read_bytes()))
 
-    def test_handler_audit_maps_all_37_to_behavior(self) -> None:
+    def test_handler_audit_maps_all_36_to_behavior(self) -> None:
         dispatcher_path = TEMPLATE / "hooks" / "hook_dispatcher.py"
         dispatcher = load_module(dispatcher_path, "hook_dispatcher_audit")
         audit = dispatcher.HANDLER_AUDIT
-        self.assertEqual([int(key.split(":", 1)[0]) for key in audit], list(range(1, 38)))
+        self.assertEqual([int(key.split(":", 1)[0]) for key in audit], list(range(1, 37)))
         counts = {
             decision: sum(value[0] == decision for value in audit.values())
             for decision in ("retain", "adapt", "delete")
         }
-        self.assertEqual(counts, {"retain": 17, "adapt": 18, "delete": 2})
+        self.assertEqual(counts, {"retain": 16, "adapt": 18, "delete": 2})
         self.assertEqual(dispatcher.handler_audit_errors(), [])
+        self.assertNotIn(
+            "hooks/target_cleanup.py",
+            {
+                target
+                for targets in dispatcher.RUNTIME_ROUTES.values()
+                for target in targets
+            },
+        )
         for key, (decision, route, target) in audit.items():
             if route in dispatcher.RUNTIME_ROUTES:
                 self.assertIn(target, dispatcher.RUNTIME_ROUTES[route], key)
@@ -372,7 +380,7 @@ class HookSingleSourceTest(unittest.TestCase):
             )
             for name in (
                 "config_health_check.py", "enforce_no_effortlevel.py",
-                "githooks_path_check.py", "show_state.py", "target_cleanup.py", "skill_sync_check.py",
+                "githooks_path_check.py", "show_state.py", "skill_sync_check.py",
             ):
                 (hooks / name).write_text(stub, encoding="utf-8")
             (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
@@ -380,7 +388,7 @@ class HookSingleSourceTest(unittest.TestCase):
             result = run([sys.executable, str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
             self.assertEqual(result.returncode, 7)
             order = log.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(len(order), 8)
+            self.assertEqual(len(order), 7)
             self.assertLess(order.index("memory_rebuild_index.py"), order.index("show_state.py"))
             output = json.loads(result.stdout)
             self.assertEqual(output["hookSpecificOutput"]["hookEventName"], "SessionStart")
@@ -402,7 +410,7 @@ class HookSingleSourceTest(unittest.TestCase):
             )
             for name in (
                 "config_health_check.py", "enforce_no_effortlevel.py",
-                "githooks_path_check.py", "show_state.py", "target_cleanup.py", "skill_sync_check.py",
+                "githooks_path_check.py", "show_state.py", "skill_sync_check.py",
             ):
                 (hooks / name).write_text(stub, encoding="utf-8")
             (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
@@ -432,6 +440,7 @@ class HookSingleSourceTest(unittest.TestCase):
             retired_memory_chain = [
                 "python .codex/hooks/memory_rebuild_then_lint.py",
                 "python .codex/scripts/memory_rebuild_then_lint.py",
+                "python .codex/hooks/target_cleanup.py",
             ]
             (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, {"type": "command", "command": legacy_junction}, *[{"type": "command", "command": item} for item in collision_commands], *[{"type": "command", "command": item} for item in retired_memory_chain]]}]}}), encoding="utf-8")
             (codex / "settings.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}, "hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "third-party-prompt"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "python .codex/hooks/show_state.py session-start", "comment": "locally changed"}]}]}}), encoding="utf-8")
@@ -663,68 +672,6 @@ class HookSingleSourceTest(unittest.TestCase):
             ], root)
             self.assertEqual(health.returncode, 2)
             self.assertIn("table header invalid", health.stdout)
-
-    def test_target_cleanup_finds_all_sibling_rust_workspaces(self) -> None:
-        module = load_module(
-            TEMPLATE / "hooks" / "target_cleanup.py",
-            "target_cleanup_sibling_workspaces",
-        )
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            scripts = root / "scripts"
-            stratus = root / "stratus"
-            scripts.mkdir()
-            stratus.mkdir()
-            (scripts / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
-            (stratus / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
-
-            with mock.patch.object(module, "PROJECT_ROOT", root):
-                self.assertEqual(module.find_workspaces(), [scripts, stratus])
-
-    def test_target_cleanup_root_workspace_takes_precedence(self) -> None:
-        module = load_module(
-            TEMPLATE / "hooks" / "target_cleanup.py",
-            "target_cleanup_root_workspace",
-        )
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            child = root / "child"
-            child.mkdir()
-            (root / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
-            (child / "Cargo.toml").write_text("[workspace]\n", encoding="utf-8")
-
-            with mock.patch.object(module, "PROJECT_ROOT", root):
-                self.assertEqual(module.find_workspaces(), [root])
-
-    def test_target_cleanup_worker_processes_every_workspace(self) -> None:
-        module = load_module(
-            TEMPLATE / "hooks" / "target_cleanup.py",
-            "target_cleanup_worker_workspaces",
-        )
-        workspaces = [Path("scripts"), Path("stratus")]
-        with (
-            mock.patch.object(module, "find_workspaces", return_value=workspaces),
-            mock.patch.object(module, "_incremental_pass", return_value=True) as incremental,
-            mock.patch.object(module, "_deps_pass") as deps,
-            mock.patch.object(module, "stamp_now") as stamp,
-        ):
-            module.run_worker()
-
-        self.assertEqual(
-            incremental.call_args_list,
-            [mock.call(workspaces[0], False), mock.call(workspaces[1], False)],
-        )
-        self.assertEqual(
-            deps.call_args_list,
-            [mock.call(workspaces[0], False), mock.call(workspaces[1], False)],
-        )
-        stamp.assert_called_once_with()
-
-    def test_target_cleanup_templates_match_dogfood_hooks(self) -> None:
-        self.assertEqual(
-            (ROOT / "templates/hooks/target_cleanup.py").read_bytes(),
-            (ROOT / ".codex/hooks/target_cleanup.py").read_bytes(),
-        )
 
     def test_python_310_merge_dispatcher_and_health_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

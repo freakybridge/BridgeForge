@@ -394,9 +394,12 @@ def _retirement_gap_reason(asset: dict[str, Any]) -> str:
     target = str(asset["target"])
     migration = RETIRED_RULE_MIGRATION_TARGETS.get(target)
     base = "retired asset was modified or is not a published managed copy"
-    if migration is None:
-        return base
-    return f"{base}; preserve verbatim and migrate manually to {migration}"
+    guidance = asset.get("retirement_guidance")
+    if isinstance(guidance, str) and guidance.strip():
+        return f"{base}; preserve verbatim and {guidance.strip()}"
+    if migration is not None:
+        return f"{base}; preserve verbatim and migrate manually to {migration}"
+    return base
 
 
 def _blocker_items(blockers: list[str]) -> list[dict[str, Any]]:
@@ -2985,7 +2988,7 @@ def _plan_retirement(
             target,
             "retire",
             "risk",
-            "published no-op asset can be removed; deletion requires the single risk confirmation",
+            "published managed asset is retired and can be removed; deletion requires the single risk confirmation",
             before,
             None,
             project_root,

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "release_version": "1.4.7",
+  "release_version": "1.4.9",
   "host": "codex",
   "minimum_supported_version": "0.86.0",
   "stamp": ".codex/.bridgeforge_codex_version",
@@ -51,6 +51,9 @@
     ],
     "1.4.5": [
       "sha256:4e5a9c4de6c1072488d462d328d8b46c78d5a426be4c645218fae90ca32e99e8"
+    ],
+    "1.4.7": [
+      "sha256:8ab71dfaf03fcebc4d985895b377f293538d8c3a72a5815d2c1d495259ae6bbe"
     ]
   },
   "assets": [
@@ -1133,7 +1136,7 @@
       "source": "templates/hooks/hook_dispatcher.py",
       "target": ".codex/hooks/hook_dispatcher.py",
       "strategy": "whole",
-      "current_sha256": "sha256:a306c7a1538e11568595c54f9eb3928f54c81a9d64e3a04c083d8f860773fd2d",
+      "current_sha256": "sha256:20213f64ca6e20a1140f3d48f6cd417f8b663154a1c46ad992c33190d702bbca",
       "historical_sha256": {
         "0.86.0": [
           "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
@@ -1425,10 +1428,10 @@
     },
     {
       "id": "codex.hook.target-cleanup",
-      "source": "templates/hooks/target_cleanup.py",
       "target": ".codex/hooks/target_cleanup.py",
-      "strategy": "whole",
-      "current_sha256": "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c",
+      "strategy": "retirement",
+      "historical_source": "templates/hooks/target_cleanup.py",
+      "retirement_guidance": "migrate project-specific cleanup to a project-owned hook name",
       "historical_sha256": {
         "0.86.0": [
           "sha256:91b6ba17324471d120f9dbaaa468b10bea40442d2bd820baea7c9d2693a2001c"
@@ -1594,7 +1597,7 @@
       "source": "templates/scripts/hooks_merge.py",
       "target": ".codex/scripts/hooks_merge.py",
       "strategy": "whole",
-      "current_sha256": "sha256:baec1a62948a97c4f0142204e2fea115922741c22334c36699a57444422843e6",
+      "current_sha256": "sha256:eea03e78a7f1df6aa8b922e97535ecd5d78cee37190ad339dc28c424d30ed053",
       "historical_sha256": {
         "0.86.0": [
           "sha256:6590795fcb9bf512e5687f593d9a04fb77c8a23168469b612a29f83295b90ff4"
@@ -1790,6 +1793,9 @@
         ],
         "1.4.5": [
           "sha256:fb5b2369cb7abd8a704e031a15077e023e2ebcaa42f0147103a64f021979adec"
+        ],
+        "1.4.7": [
+          "sha256:b1ce5ee1ab003c18c046c5c3f5db2a1deee3362a8587a1cba9c4c2c68ca8f84b"
         ]
       }
     },

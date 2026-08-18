@@ -60,7 +60,7 @@ RUNTIME_ROUTES = {
         "scripts/memory_rebuild_index.py", "scripts/memory_context.py",
     ),
     "session-after": (
-        "hooks/show_state.py", "hooks/target_cleanup.py", "hooks/skill_sync_check.py",
+        "hooks/show_state.py", "hooks/skill_sync_check.py",
     ),
 }
 
@@ -93,16 +93,15 @@ HANDLER_AUDIT = {
     "25:UserPrompt:focus_reminder.py": ("retain", "user-prompt", "hooks/focus_reminder.py"),
     "26:SessionStart:config_health_check.py": ("retain", "session-before", "hooks/config_health_check.py"),
     "27:SessionStart:show_state.py": ("adapt", "session-after", "hooks/show_state.py"),
-    "28:SessionStart:target_cleanup.py": ("retain", "session-after", "hooks/target_cleanup.py"),
-    "29:SessionStart:skill_sync_check.py": ("retain", "session-after", "hooks/skill_sync_check.py"),
-    "30:SessionStart:enforce_no_effortlevel.py": ("retain", "session-before", "hooks/enforce_no_effortlevel.py"),
-    "31:SessionStart:githooks_path_check.py": ("retain", "session-before", "hooks/githooks_path_check.py"),
-    "32:SessionStart:memory_rebuild_index.py": ("adapt", "session-before", "scripts/memory_rebuild_index.py"),
-    "33:SessionStart:memory_context.py": ("adapt", "session-before", "scripts/memory_context.py"),
-    "34:UserPrompt:memory_router.py": ("adapt", "user-prompt", "scripts/memory_router.py"),
-    "35:PostTool:Read:memory_router.py": ("adapt", "post-read", "scripts/memory_router.py"),
-    "36:PostTool:Edit|Write:mirror_drift_check.py": ("adapt", "post-edit", "hooks/mirror_drift_check.py"),
-    "37:PostTool:Edit|Write:instruction_source_check.py": ("adapt", "post-edit", "hooks/instruction_source_check.py"),
+    "28:SessionStart:skill_sync_check.py": ("retain", "session-after", "hooks/skill_sync_check.py"),
+    "29:SessionStart:enforce_no_effortlevel.py": ("retain", "session-before", "hooks/enforce_no_effortlevel.py"),
+    "30:SessionStart:githooks_path_check.py": ("retain", "session-before", "hooks/githooks_path_check.py"),
+    "31:SessionStart:memory_rebuild_index.py": ("adapt", "session-before", "scripts/memory_rebuild_index.py"),
+    "32:SessionStart:memory_context.py": ("adapt", "session-before", "scripts/memory_context.py"),
+    "33:UserPrompt:memory_router.py": ("adapt", "user-prompt", "scripts/memory_router.py"),
+    "34:PostTool:Read:memory_router.py": ("adapt", "post-read", "scripts/memory_router.py"),
+    "35:PostTool:Edit|Write:mirror_drift_check.py": ("adapt", "post-edit", "hooks/mirror_drift_check.py"),
+    "36:PostTool:Edit|Write:instruction_source_check.py": ("adapt", "post-edit", "hooks/instruction_source_check.py"),
 }
 
 

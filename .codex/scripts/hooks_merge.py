@@ -32,10 +32,10 @@ MANAGED_HOOK_NAMES = (
     "requirements_check.py", "cargo_default_run_check.py", "fallback_smell_check.py",
     "encoding_check.py", "test_receipt.py", "session_snapshot.py", "show_state.py",
     "clarify_reminder.py", "focus_reminder.py",
-    "config_health_check.py", "target_cleanup.py", "skill_sync_check.py",
+    "config_health_check.py", "skill_sync_check.py",
     "enforce_no_effortlevel.py", "githooks_path_check.py",
 )
-RETIRED_MANAGED_HOOK_NAMES = ("context_warning.py",)
+RETIRED_MANAGED_HOOK_NAMES = ("context_warning.py", "target_cleanup.py")
 MANAGED_PATHS = tuple(
     f"hooks/{name}" for name in MANAGED_HOOK_NAMES + RETIRED_MANAGED_HOOK_NAMES
 ) + (

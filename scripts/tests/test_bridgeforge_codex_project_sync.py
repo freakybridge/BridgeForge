@@ -194,6 +194,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "0.94.4",
             "1.4.3",
             "1.4.5",
+            "1.4.7",
             "1.4.1",
             "1.3.0",
             "0.92.0",
@@ -253,6 +254,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         for retired in (
             "context_warning.py",
             "model_policy_check.py",
+            "target_cleanup.py",
             "version_check.py",
         ):
             self.assertFalse((ROOT / "templates/hooks" / retired).exists())
@@ -279,6 +281,19 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         }
         self.assertIn(".codex/scripts/bridgeforge_switch.py", retirement_targets)
         self.assertIn(".codex/scripts/harness_parity_check.py", retirement_targets)
+        self.assertIn(".codex/hooks/target_cleanup.py", retirement_targets)
+        target_cleanup = next(
+            asset
+            for asset in contract["assets"]
+            if asset["id"] == "codex.hook.target-cleanup"
+        )
+        self.assertNotIn("source", target_cleanup)
+        self.assertNotIn("current_sha256", target_cleanup)
+        self.assertEqual(
+            target_cleanup["historical_source"],
+            "templates/hooks/target_cleanup.py",
+        )
+        self.assertIn("project-owned hook name", target_cleanup["retirement_guidance"])
 
     def test_active_factory_surfaces_do_not_reference_legacy_template_root(self) -> None:
         legacy_root = "templates" + "/codex/"
@@ -1320,6 +1335,84 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                 for item in gap_plan.actions
             )
         )
+
+    def test_target_cleanup_retirement_removes_only_a_published_copy(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / ".codex/hooks/target_cleanup.py"
+        target.write_bytes(
+            git_blob(
+                "5a6c5564e3d828358c850113b856bcd4f74e15e0",
+                "templates/hooks/target_cleanup.py",
+            )
+        )
+        stamp = project / ".codex/.bridgeforge_codex_version"
+        stamp.write_text("1.4.7\n", encoding="utf-8")
+
+        plan = sync.build_plan(project, ROOT, "update")
+        actions = [
+            item
+            for item in plan.risk_actions
+            if item.asset_id == "codex.hook.target-cleanup"
+        ]
+        self.assertEqual(len(actions), 1)
+        declined = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            decline_risk=True,
+        )
+        self.assertTrue(target.is_file())
+        self.assertFalse(declined.stamp_written_last)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "1.4.7\n")
+
+        plan = sync.build_plan(project, ROOT, "update")
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+            confirmed_risk=True,
+        )
+        self.assertFalse(target.exists())
+        self.assertIn("codex.hook.target-cleanup", receipt.risk_applied)
+        replan = sync.build_plan(project, ROOT, "update")
+        self.assertFalse(
+            any(
+                item.asset_id == "codex.hook.target-cleanup"
+                for item in replan.actions + replan.gaps
+            )
+        )
+
+    def test_modified_target_cleanup_is_preserved_with_project_guidance(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / ".codex/hooks/target_cleanup.py"
+        payload = b"project-owned cleanup policy\n"
+        target.write_bytes(payload)
+        stamp = project / ".codex/.bridgeforge_codex_version"
+        stamp.write_text("1.4.7\n", encoding="utf-8")
+
+        plan = sync.build_plan(project, ROOT, "update")
+        gaps = [
+            item
+            for item in plan.gaps
+            if item.asset_id == "codex.hook.target-cleanup"
+        ]
+        self.assertEqual(len(gaps), 1)
+        self.assertIn("preserve verbatim", gaps[0].reason)
+        self.assertIn("project-owned hook name", gaps[0].reason)
+        self.assertFalse(
+            any(
+                item.asset_id == "codex.hook.target-cleanup"
+                for item in plan.actions
+            )
+        )
+
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        self.assertEqual(target.read_bytes(), payload)
+        self.assertFalse(receipt.stamp_written_last)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "1.4.7\n")
 
     def test_fingerprint_drift_has_zero_transaction_writes(self) -> None:
         project = self.make_project()
