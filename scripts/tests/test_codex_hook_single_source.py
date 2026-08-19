@@ -42,6 +42,37 @@ def load_module(path: Path, name: str):
     return module
 
 
+def prepare_project_runtime(project_root: Path) -> Path:
+    created = run(
+        [
+            sys.executable,
+            "-m",
+            "venv",
+            "--without-pip",
+            str(project_root / ".venv"),
+        ],
+        project_root,
+    )
+    if created.returncode != 0:
+        raise AssertionError(created.stdout + created.stderr)
+    return (
+        project_root / ".venv" / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else project_root / ".venv" / "bin" / "python"
+    )
+
+
+def prepare_dispatcher_runtime(project_root: Path) -> Path:
+    project_python = prepare_project_runtime(project_root)
+    scripts = project_root / ".codex" / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(
+        TEMPLATE / "scripts" / "project_runtime.py",
+        scripts / "project_runtime.py",
+    )
+    return project_python
+
+
 class HookSingleSourceTest(unittest.TestCase):
     def test_atomic_write_stages_outside_codex_directory(self) -> None:
         module = load_module(
@@ -112,6 +143,24 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertIn("PATH fallback is forbidden", result.stderr)
                 self.assertEqual(before, (stamp.read_bytes(), sentinel.read_bytes()))
 
+            with self.subTest(precommit=precommit, runtime="missing"), \
+                    tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                sentinel = project / "sentinel.txt"
+                sentinel.write_text("unchanged\n", encoding="utf-8")
+                result = subprocess.run(
+                    [shell, str(precommit)],
+                    cwd=project,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("project .venv is missing", result.stderr)
+                self.assertEqual(sentinel.read_text(encoding="utf-8"), "unchanged\n")
+
     def test_handler_audit_maps_all_36_to_behavior(self) -> None:
         dispatcher_path = TEMPLATE / "hooks" / "hook_dispatcher.py"
         dispatcher = load_module(dispatcher_path, "hook_dispatcher_audit")
@@ -140,8 +189,13 @@ class HookSingleSourceTest(unittest.TestCase):
             else:
                 self.assertEqual(decision, "delete")
                 self.assertEqual(route, "duplicate")
-                duplicate_key = next(item for item in audit if item.startswith(target + ":"))
-                self.assertEqual(key.rsplit(":", 1)[-1], duplicate_key.rsplit(":", 1)[-1])
+                duplicate_key = next(
+                    item for item in audit if item.startswith(target + ":")
+                )
+                self.assertEqual(
+                    key.rsplit(":", 1)[-1],
+                    duplicate_key.rsplit(":", 1)[-1],
+                )
                 self.assertIn(":PowerShell:", key)
                 self.assertIn(":Bash:", duplicate_key)
 
@@ -155,6 +209,29 @@ class HookSingleSourceTest(unittest.TestCase):
         )
         errors = dispatcher.handler_audit_errors(broken_routes)
         self.assertTrue(any(error.startswith("02:") for error in errors), errors)
+
+    def test_dispatcher_blocks_invalid_project_runtime_before_any_route(self) -> None:
+        dispatcher = load_module(
+            TEMPLATE / "hooks" / "hook_dispatcher.py",
+            "hook_dispatcher_runtime_contract",
+        )
+        for reason in (
+            "project runtime must be CPython",
+            "project runtime prefix is not the target project .venv",
+            "current Python is not the target project .venv interpreter",
+        ):
+            with self.subTest(reason=reason), mock.patch.object(
+                dispatcher,
+                "_project_runtime_error",
+                return_value=reason,
+            ), mock.patch.object(dispatcher, "_read_payload") as read_payload, \
+                    mock.patch.object(sys, "argv", ["hook_dispatcher.py", "pre-tool"]):
+                stderr = io.StringIO()
+                with redirect_stderr(stderr):
+                    result = dispatcher.main()
+                self.assertEqual(result, 2)
+                self.assertIn(reason, stderr.getvalue())
+                read_payload.assert_not_called()
 
     def test_retired_context_budget_is_absent_from_active_user_prompt_contract(self) -> None:
         template_hooks = json.loads(
@@ -236,6 +313,7 @@ class HookSingleSourceTest(unittest.TestCase):
             (host / "hooks").mkdir(parents=True)
             (host / "scripts").mkdir()
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", host / "hooks" / "hook_dispatcher.py")
+            project_python = prepare_dispatcher_runtime(root)
             log = root / "order.log"
             stub = (
                 "import os,sys\n"
@@ -255,7 +333,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 "tool_name": "apply_patch",
                 "tool_input": {"command": "*** Begin Patch\n*** Update File: .codex/memory/topic.md\n@@\n-old\n+new\n*** End Patch"},
             }
-            result = run([sys.executable, str(host / "hooks" / "hook_dispatcher.py"), "post-edit"], root, payload)
+            result = run([str(project_python), str(host / "hooks" / "hook_dispatcher.py"), "post-edit"], root, payload)
             self.assertEqual(result.returncode, 0, result.stderr)
             order = log.read_text(encoding="utf-8").splitlines()
             self.assertLess(order.index("encoding_check.py"), order.index("memory_rebuild_index.py"))
@@ -265,7 +343,7 @@ class HookSingleSourceTest(unittest.TestCase):
             env = dict(os.environ)
             env.update(PYTHONUTF8="1", STUB_EXIT="7")
             failed = subprocess.run(
-                [sys.executable, str(host / "hooks" / "hook_dispatcher.py"), "post-edit"],
+                [str(project_python), str(host / "hooks" / "hook_dispatcher.py"), "post-edit"],
                 cwd=root,
                 input=json.dumps(payload),
                 capture_output=True,
@@ -284,6 +362,7 @@ class HookSingleSourceTest(unittest.TestCase):
             hooks = root / ".codex" / "hooks"
             hooks.mkdir(parents=True)
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
+            project_python = prepare_dispatcher_runtime(root)
             log = root / "pre.log"
             ordinary = (
                 "import os\n"
@@ -297,7 +376,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 encoding="utf-8",
             )
             single = {"tool_name": "apply_patch", "tool_input": {"command": "*** Add File: .codex/memory/topic.md"}}
-            allowed = run([sys.executable, str(hooks / "hook_dispatcher.py"), "pre-tool"], root, single)
+            allowed = run([str(project_python), str(hooks / "hook_dispatcher.py"), "pre-tool"], root, single)
             self.assertEqual(allowed.returncode, 0, allowed.stderr)
             self.assertEqual(
                 log.read_text(encoding="utf-8").splitlines(),
@@ -312,7 +391,7 @@ class HookSingleSourceTest(unittest.TestCase):
 
             log.write_text("", encoding="utf-8")
             mixed = {"tool_name": "apply_patch", "tool_input": {"command": "*** Add File: .codex/memory/topic.md\n*** Update File: .codex/hooks.json"}}
-            default_boundary = run([sys.executable, str(hooks / "hook_dispatcher.py"), "pre-tool"], root, mixed)
+            default_boundary = run([str(project_python), str(hooks / "hook_dispatcher.py"), "pre-tool"], root, mixed)
             self.assertEqual(default_boundary.returncode, 0, default_boundary.stderr)
             self.assertNotIn("allow_memory_write.py", log.read_text(encoding="utf-8"))
             mixed_output = json.loads(default_boundary.stdout)
@@ -328,6 +407,7 @@ class HookSingleSourceTest(unittest.TestCase):
             scripts.mkdir()
             for name in ("hook_dispatcher.py", "cross_project_write_guard.py", "user_config_write_guard.py"):
                 shutil.copy2(TEMPLATE / "hooks" / name, hooks / name)
+            project_python = prepare_dispatcher_runtime(root)
             for name in ("memory_dup_check.py", "allow_memory_write.py"):
                 (hooks / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
 
@@ -336,7 +416,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 "tool_name": "apply_patch",
                 "tool_input": {"command": f"*** Update File: inside.md\n*** Move to: {outside}"},
             }
-            blocked = run([sys.executable, str(hooks / "hook_dispatcher.py"), "pre-tool"], root, payload)
+            blocked = run([str(project_python), str(hooks / "hook_dispatcher.py"), "pre-tool"], root, payload)
             self.assertEqual(blocked.returncode, 2)
             self.assertIn("cross-project-write-guard", blocked.stderr)
 
@@ -348,7 +428,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 "tool_name": "apply_patch",
                 "tool_input": {"command": f"*** Update File: inside.md\n*** Move to: {user_config}"},
             }
-            protected = run([sys.executable, str(hooks / "hook_dispatcher.py"), "pre-tool"], root, user_payload)
+            protected = run([str(project_python), str(hooks / "hook_dispatcher.py"), "pre-tool"], root, user_payload)
             self.assertEqual(protected.returncode, 2)
             self.assertIn("user-config-write-guard", protected.stderr)
 
@@ -363,7 +443,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 "requirements_check.py", "cargo_default_run_check.py", "fallback_smell_check.py",
             ):
                 (hooks / name).write_text(probe if name == "encoding_check.py" else "raise SystemExit(0)\n", encoding="utf-8")
-            post = run([sys.executable, str(hooks / "hook_dispatcher.py"), "post-edit"], root, payload)
+            post = run([str(project_python), str(hooks / "hook_dispatcher.py"), "post-edit"], root, payload)
             self.assertEqual(post.returncode, 0, post.stderr)
             self.assertIn(str(outside), observed.read_text(encoding="utf-8").splitlines())
 
@@ -375,6 +455,7 @@ class HookSingleSourceTest(unittest.TestCase):
             hooks.mkdir(parents=True)
             scripts.mkdir()
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
+            project_python = prepare_dispatcher_runtime(root)
             for name in (
                 "encoding_check.py", "mirror_drift_check.py", "instruction_source_check.py",
                 "rule_index_check.py", "rule_size_check.py",
@@ -383,7 +464,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 (hooks / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
             (hooks / "fallback_smell_check.py").write_text("print('[fallback-smell] soft warning')\n", encoding="utf-8")
             payload = {"tool_name": "apply_patch", "tool_input": {"command": "*** Update File: app.py"}}
-            edited = run([sys.executable, str(hooks / "hook_dispatcher.py"), "post-edit"], root, payload)
+            edited = run([str(project_python), str(hooks / "hook_dispatcher.py"), "post-edit"], root, payload)
             edit_output = json.loads(edited.stdout)
             self.assertEqual(edit_output["hookSpecificOutput"]["hookEventName"], "PostToolUse")
             self.assertIn("[fallback-smell]", edit_output["hookSpecificOutput"]["additionalContext"])
@@ -391,7 +472,7 @@ class HookSingleSourceTest(unittest.TestCase):
 
             (hooks / "test_receipt.py").write_text("print('[test-receipt] recorded')\n", encoding="utf-8")
             shell = run(
-                [sys.executable, str(hooks / "hook_dispatcher.py"), "post-shell"],
+                [str(project_python), str(hooks / "hook_dispatcher.py"), "post-shell"],
                 root,
                 {"tool_name": "Bash", "tool_input": {"command": "pytest"}},
             )
@@ -408,6 +489,7 @@ class HookSingleSourceTest(unittest.TestCase):
             hooks.mkdir(parents=True)
             scripts.mkdir()
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
+            project_python = prepare_dispatcher_runtime(root)
             log = root / "session.log"
             stub = (
                 "import os,sys\n"
@@ -422,7 +504,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 (hooks / name).write_text(stub, encoding="utf-8")
             (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
             (scripts / "memory_context.py").write_text(stub, encoding="utf-8")
-            result = run([sys.executable, str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
+            result = run([str(project_python), str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
             self.assertEqual(result.returncode, 7)
             order = log.read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(order), 7)
@@ -439,6 +521,7 @@ class HookSingleSourceTest(unittest.TestCase):
             hooks.mkdir(parents=True)
             scripts.mkdir()
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
+            project_python = prepare_dispatcher_runtime(root)
             log = root / "session.log"
             stub = (
                 "import os,sys\n"
@@ -452,7 +535,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 (hooks / name).write_text(stub, encoding="utf-8")
             (scripts / "memory_rebuild_index.py").write_text(stub, encoding="utf-8")
             (scripts / "memory_context.py").write_text(stub, encoding="utf-8")
-            result = run([sys.executable, str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
+            result = run([str(project_python), str(hooks / "hook_dispatcher.py"), "session-start"], root, {})
             self.assertEqual(result.returncode, 9)
             order = log.read_text(encoding="utf-8").splitlines()
             self.assertIn("memory_rebuild_index.py", order)
@@ -466,7 +549,7 @@ class HookSingleSourceTest(unittest.TestCase):
             codex = root / ".codex"
             codex.mkdir()
             template = root / "template-hooks.json"
-            template.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "python .codex/hooks/hook_dispatcher.py session-start"}]}]}}), encoding="utf-8")
+            template.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"type": "command", "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:session-start", "command": "python .codex/hooks/hook_dispatcher.py session-start"}]}]}}), encoding="utf-8")
             collision_commands = [
                 "python vendor/show_state.py",
                 "python .codex/hooks/vendor/show_state.py",
@@ -499,12 +582,49 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertIn("hook_dispatcher.py", serialized)
             for command in collision_commands:
                 self.assertIn(command, serialized)
-            self.assertNotIn(legacy_junction, serialized)
+            self.assertIn(legacy_junction, serialized)
             for command in retired_memory_chain:
-                self.assertNotIn(command, serialized)
-            self.assertNotIn("locally changed", serialized)
+                self.assertIn(command, serialized)
+            self.assertIn("locally changed", serialized)
             self.assertEqual(hooks["custom"], 1)
             self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
+
+    def test_merge_rejects_duplicate_json_keys_without_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            codex = root / ".codex"
+            codex.mkdir()
+            hooks = codex / "hooks.json"
+            settings = codex / "settings.json"
+            stamp = codex / ".bridgeforge_codex_version"
+            hooks.write_text(
+                '{"hooks": {}, "hooks": {"Stop": []}}\n',
+                encoding="utf-8",
+            )
+            settings.write_text('{"permissions": {}}\n', encoding="utf-8")
+            stamp.write_text("old\n", encoding="utf-8")
+            before = {
+                path: path.read_bytes()
+                for path in (hooks, settings, stamp)
+            }
+
+            result = run(
+                [
+                    sys.executable,
+                    str(TEMPLATE / "scripts" / "hooks_merge.py"),
+                    "--project-root",
+                    str(root),
+                    "--template-hooks",
+                    str(TEMPLATE / "hooks.json"),
+                    "--apply",
+                    "--confirmed",
+                ],
+                root,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("duplicate JSON key: hooks", result.stderr)
+            self.assertEqual(before, {path: path.read_bytes() for path in before})
 
     def test_merge_initializes_new_project_from_template(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -592,13 +712,55 @@ class HookSingleSourceTest(unittest.TestCase):
             (codex / "scripts").mkdir()
             shutil.copy2(TEMPLATE / "hooks" / "config_health_check.py", codex / "hooks" / "config_health_check.py")
             shutil.copy2(TEMPLATE / "scripts" / "hook_config_policy.py", codex / "scripts" / "hook_config_policy.py")
+            shutil.copy2(TEMPLATE / "scripts" / "project_runtime.py", codex / "scripts" / "project_runtime.py")
             (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
             (codex / "settings.json").write_text('{"hooks": {}}\n', encoding="utf-8")
             (codex / "config.toml").write_text("[hooks]\n", encoding="utf-8")
-            result = run([sys.executable, str(codex / "hooks" / "config_health_check.py"), "--strict"], root)
+            project_python = prepare_project_runtime(root)
+            result = run([str(project_python), str(codex / "hooks" / "config_health_check.py"), "--strict"], root)
             self.assertEqual(result.returncode, 2)
             self.assertIn("settings.json contains hooks", result.stdout)
             self.assertIn("config.toml contains a hooks table", result.stdout)
+
+    def test_strict_health_gate_rejects_non_project_python(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            codex = root / ".codex"
+            (codex / "hooks").mkdir(parents=True)
+            (codex / "scripts").mkdir()
+            shutil.copy2(
+                TEMPLATE / "hooks" / "config_health_check.py",
+                codex / "hooks" / "config_health_check.py",
+            )
+            shutil.copy2(
+                TEMPLATE / "hooks" / "memory_lint.py",
+                codex / "hooks" / "memory_lint.py",
+            )
+            shutil.copy2(
+                TEMPLATE / "scripts" / "hook_config_policy.py",
+                codex / "scripts" / "hook_config_policy.py",
+            )
+            shutil.copy2(
+                TEMPLATE / "scripts" / "project_runtime.py",
+                codex / "scripts" / "project_runtime.py",
+            )
+            (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
+            (codex / "settings.json").write_text(
+                '{"permissions": {}}\n',
+                encoding="utf-8",
+            )
+
+            result = run(
+                [
+                    sys.executable,
+                    str(codex / "hooks" / "config_health_check.py"),
+                    "--strict",
+                ],
+                root,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("PROJECT_RUNTIME: project .venv is missing", result.stdout)
 
     def test_strict_health_gate_matches_merge_for_inline_toml_forms(self) -> None:
         forms = (
@@ -621,10 +783,12 @@ class HookSingleSourceTest(unittest.TestCase):
                 (codex / "scripts").mkdir()
                 shutil.copy2(TEMPLATE / "hooks" / "config_health_check.py", codex / "hooks" / "config_health_check.py")
                 shutil.copy2(TEMPLATE / "scripts" / "hook_config_policy.py", codex / "scripts" / "hook_config_policy.py")
+                shutil.copy2(TEMPLATE / "scripts" / "project_runtime.py", codex / "scripts" / "project_runtime.py")
                 (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
                 (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
                 (codex / "config.toml").write_text(form, encoding="utf-8")
-                result = run([sys.executable, str(codex / "hooks" / "config_health_check.py"), "--strict"], root)
+                project_python = prepare_project_runtime(root)
+                result = run([str(project_python), str(codex / "hooks" / "config_health_check.py"), "--strict"], root)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("config.toml contains a hooks table", result.stdout)
 
@@ -653,10 +817,14 @@ class HookSingleSourceTest(unittest.TestCase):
                     TEMPLATE / "scripts" / "hook_config_policy.py",
                     codex / "scripts" / "hook_config_policy.py",
                 )
+                shutil.copy2(
+                    TEMPLATE / "scripts" / "project_runtime.py",
+                    codex / "scripts" / "project_runtime.py",
+                )
                 (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
                 (codex / "config.toml").write_text(form, encoding="utf-8")
-                template = root / "template.json"
-                template.write_text('{"hooks": {}}\n', encoding="utf-8")
+                project_python = prepare_project_runtime(root)
+                template = TEMPLATE / "hooks.json"
                 merged = run([
                     sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
                     "--project-root", str(root), "--template-hooks", str(template),
@@ -665,7 +833,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertEqual(merged.returncode, 0, merged.stderr)
                 self.assertFalse((codex / ".bridgeforge_codex_version").exists())
                 health = run([
-                    sys.executable,
+                    str(project_python),
                     str(codex / "hooks" / "config_health_check.py"),
                     "--strict",
                 ], root)
@@ -685,6 +853,10 @@ class HookSingleSourceTest(unittest.TestCase):
                 TEMPLATE / "scripts" / "hook_config_policy.py",
                 codex / "scripts" / "hook_config_policy.py",
             )
+            shutil.copy2(
+                TEMPLATE / "scripts" / "project_runtime.py",
+                codex / "scripts" / "project_runtime.py",
+            )
             (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
             (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
             (codex / "config.toml").write_text('["hooks\\q"]\n', encoding="utf-8")
@@ -692,6 +864,7 @@ class HookSingleSourceTest(unittest.TestCase):
             stamp.write_text("old\n", encoding="utf-8")
             template = root / "template.json"
             template.write_text('{"hooks": {}}\n', encoding="utf-8")
+            project_python = prepare_project_runtime(root)
 
             merged = run([
                 sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
@@ -703,7 +876,7 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
 
             health = run([
-                sys.executable,
+                str(project_python),
                 str(codex / "hooks" / "config_health_check.py"),
                 "--strict",
             ], root)

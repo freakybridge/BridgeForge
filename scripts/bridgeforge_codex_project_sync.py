@@ -27,7 +27,6 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
-MIN_PYTHON = (3, 11)
 HASH_RE = re.compile(r"sha256:[0-9a-f]{64}")
 SEMVER_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 FILE_ATTRIBUTE_REPARSE_POINT = 0x400
@@ -94,6 +93,10 @@ class Plan:
     gaps: list[Gap]
     blockers: list[str]
     project_requirements: list[dict[str, Any]]
+    release_preflight_status: str = "not_required"
+    release_preflight_classification: str | None = None
+    release_preflight_items: tuple[dict[str, Any], ...] = ()
+    release_preflight_ms: float = 0.0
     aggregate_fingerprint: str = ""
 
     @property
@@ -448,11 +451,23 @@ def _selection_fingerprint(
     plan: Plan,
     selected_ids: tuple[str, ...],
     custom_directives: tuple[str, ...] = (),
+    prospective_snapshot: dict[str, bytes | None] | None = None,
+    release_preflight_status: str = "not_required",
+    release_preflight_classification: str | None = None,
 ) -> str:
     return _sha256_bytes(_canonical_json({
         "aggregate_fingerprint": plan.aggregate_fingerprint,
         "selected_action_ids": list(selected_ids),
         "custom_absorption_directives": list(custom_directives),
+        "prospective_snapshot": [
+            {
+                "target": target,
+                "sha256": None if payload is None else _sha256_bytes(payload),
+            }
+            for target, payload in sorted((prospective_snapshot or {}).items())
+        ],
+        "release_preflight_status": release_preflight_status,
+        "release_preflight_classification": release_preflight_classification,
     }))
 
 
@@ -977,6 +992,10 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
         section_layout = asset.get("section_layout")
         agents_zones = asset.get("agents_zones")
         if agents_zones is not None:
+            if managed_blocks is not None or section_layout is not None:
+                raise SyncBlocked(
+                    f"asset {asset_id!r} agents_zones must be the only AGENTS ownership rule"
+                )
             if (
                 strategy != "whole"
                 or not isinstance(agents_zones, dict)
@@ -995,7 +1014,6 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
             ]
             required_headings = project_zone.get("required_headings")
             required_content = project_zone.get("required_content_headings", [])
-            migrations = project_zone.get("legacy_section_migrations", [])
             if (
                 any(not isinstance(value, str) or "\n" in value for value in marker_values)
                 or len(set(marker_values)) != 4
@@ -1012,30 +1030,13 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                 or not isinstance(required_content, list)
                 or any(item not in required_headings for item in required_content)
                 or len(set(required_content)) != len(required_content)
-                or not isinstance(migrations, list)
+                or "legacy_section_migrations" in project_zone
             ):
                 raise SyncBlocked(f"asset {asset_id!r} agents_zones is invalid")
             _declared_hashes(
                 public_zone.get("historical_sha256", {}),
                 f"asset {asset_id!r} public zone history",
             )
-            migration_sources: set[str] = set()
-            migration_targets: set[str] = set()
-            for migration in migrations:
-                if not isinstance(migration, dict):
-                    raise SyncBlocked(f"asset {asset_id!r} zone migration is invalid")
-                legacy_heading = migration.get("legacy_heading")
-                project_heading = migration.get("project_heading")
-                if (
-                    not isinstance(legacy_heading, str)
-                    or not isinstance(project_heading, str)
-                    or project_heading not in required_headings
-                    or legacy_heading in migration_sources
-                    or project_heading in migration_targets
-                ):
-                    raise SyncBlocked(f"asset {asset_id!r} zone migration is invalid")
-                migration_sources.add(legacy_heading)
-                migration_targets.add(project_heading)
         if section_layout is not None:
             if (
                 strategy != "whole"
@@ -1158,6 +1159,21 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                 raise SyncBlocked(f"asset {asset_id!r} source is missing or unsafe: {source}")
             if _sha256_path(source_path) != current_hash:
                 raise SyncBlocked(f"asset {asset_id!r} current hash is stale")
+            if strategy == "region":
+                region = asset.get("region")
+                if (
+                    not isinstance(region, dict)
+                    or not isinstance(region.get("begin"), str)
+                    or not isinstance(region.get("end"), str)
+                    or region.get("begin") == region.get("end")
+                    or not isinstance(region.get("current_sha256"), str)
+                    or not HASH_RE.fullmatch(str(region.get("current_sha256")))
+                    or "historical_sha256" in asset
+                    or "historical_sha256" in region
+                ):
+                    raise SyncBlocked(
+                        f"asset {asset_id!r} region must use the current ownership rule only"
+                    )
             if managed_blocks is not None:
                 headings = tuple(str(item) for item in managed_blocks.get("headings", []))
                 additive_headings = tuple(
@@ -1190,31 +1206,15 @@ def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
                         )
             if section_layout is not None:
                 source_payload = source_path.read_bytes()
-                zone_migrations = {
-                    str(item["legacy_heading"]): str(item["project_heading"])
-                    for item in (
-                        agents_zones.get("project", {}).get(
-                            "legacy_section_migrations", []
-                        )
-                        if isinstance(agents_zones, dict)
-                        else []
-                    )
-                }
                 expected_headings: list[str] = []
                 for group in section_layout["groups"]:
                     if isinstance(group.get("sections"), list):
                         expected_headings.extend(
-                            zone_migrations.get(
-                                str(item["heading"]), str(item["heading"])
-                            )
+                            str(item["heading"])
                             for item in group["sections"]
                         )
                     else:
-                        expected_headings.append(
-                            zone_migrations.get(
-                                str(group["heading"]), str(group["heading"])
-                            )
-                        )
+                        expected_headings.append(str(group["heading"]))
                 source_sections = _markdown_heading_sections(
                     source_payload,
                     tuple(expected_headings),
@@ -1687,8 +1687,8 @@ def _plan_section_layout(
                 review_payload,
                 0,
                 len(review_payload),
-                reason=f"legacy AGENTS structure cannot be parsed safely: {exc}",
-                recommended_owner="project zone after structural repair",
+                reason=f"managed Markdown structure cannot be parsed safely: {exc}",
+                recommended_owner="project-owned sections after structural repair",
                 recommended_action=(
                     "repair duplicate headings or encoding, classify every remaining "
                     "section, then rerun bridgeforge-codex"
@@ -1704,39 +1704,6 @@ def _plan_section_layout(
         ]
 
     gaps: list[Gap] = []
-    if asset.get("agents_zones") is not None:
-        accepted_residuals = _declared_hashes(
-            layout.get("trusted_residual_sha256", {}),
-            f"asset {asset['id']!r} layout residual history",
-        )
-        accepted_residuals.add(_layout_residual_hash(desired, layout))
-        observed_residual = _layout_residual_hash(before, layout)
-        if observed_residual not in accepted_residuals:
-            residual_payload, residual_spans = _layout_residual_segments(before, layout)
-            review_items = tuple(
-                _content_review_item(
-                    residual_payload,
-                    start,
-                    finish,
-                    reason=(
-                        "content outside every recognized legacy section does not match "
-                        "a trusted layout residual"
-                    ),
-                    recommended_action=(
-                        "classify this exact span as project-owned or obsolete public "
-                        "content, then rerun bridgeforge-codex"
-                    ),
-                )
-                for start, finish in residual_spans
-                if residual_payload[start:finish].strip()
-            )
-            return before, [Gap(
-                str(asset["id"]),
-                str(asset["target"]),
-                "legacy AGENTS contains unclassified content outside recognized "
-                f"sections; original file preserved (observed {observed_residual})",
-                review_items,
-            )]
     rendered: dict[str, bytes] = {}
     matched_spans: list[tuple[int, int]] = []
     for entry in entries:
@@ -2408,91 +2375,6 @@ def _agents_project_sections(
     return sections
 
 
-def _legacy_agents_source(
-    asset: dict[str, Any],
-    desired: bytes,
-) -> bytes:
-    zones = asset["agents_zones"]
-    migrations = {
-        str(item["legacy_heading"]): str(item["project_heading"])
-        for item in zones["project"]["legacy_section_migrations"]
-    }
-    source_headings = tuple(
-        migrations.get(str(entry["heading"]), str(entry["heading"]))
-        for entry in _layout_sections(asset["section_layout"])
-    )
-    source_sections = _markdown_heading_sections(desired, source_headings)
-    blocks: list[bytes] = []
-    for group in asset["section_layout"]["groups"]:
-        children = group.get("sections")
-        entries = children if isinstance(children, list) else [group]
-        group_parts: list[bytes] = []
-        if isinstance(children, list):
-            group_parts.append(str(group["heading"]).encode("utf-8"))
-        for entry in entries:
-            legacy_heading = str(entry["heading"])
-            source_heading = migrations.get(legacy_heading, legacy_heading)
-            span = source_sections.get(source_heading)
-            if span is None:
-                raise SyncBlocked(
-                    f"AGENTS zone source is missing migration heading: {source_heading}"
-                )
-            group_parts.append(
-                _rename_layout_block(desired[slice(*span)], legacy_heading).rstrip(b"\n")
-            )
-        blocks.append(b"\n\n".join(group_parts))
-    legacy = b"\n\n".join(blocks).rstrip(b"\n") + b"\n"
-    for marker in (
-        zones["public"]["begin"],
-        zones["public"]["end"],
-        zones["project"]["begin"],
-        zones["project"]["end"],
-    ):
-        legacy = re.sub(
-            br"(?m)^" + re.escape(str(marker).encode("utf-8")) + br"\n?",
-            b"",
-            legacy,
-        )
-    return legacy.rstrip(b"\n") + b"\n"
-
-
-def _preserve_agents_public_rendered_tokens(
-    source_public: bytes,
-    target_public: bytes,
-    asset: dict[str, Any],
-) -> bytes:
-    rendered_entries = [
-        entry
-        for entry in _layout_sections(asset["section_layout"])
-        if entry.get("hash_normalizer") is not None
-    ]
-    if not rendered_entries:
-        return source_public
-    headings = tuple(str(entry["heading"]) for entry in rendered_entries)
-    source_sections = _markdown_heading_sections(source_public, headings)
-    target_sections = _markdown_heading_sections(target_public, headings)
-    replacements: list[tuple[int, int, bytes]] = []
-    for entry in rendered_entries:
-        heading = str(entry["heading"])
-        source_span = source_sections.get(heading)
-        target_span = target_sections.get(heading)
-        if source_span is None or target_span is None:
-            raise SyncBlocked(f"AGENTS rendered token migration is incomplete: {heading}")
-        replacements.append((
-            source_span[0],
-            source_span[1],
-            _preserve_layout_rendered_tokens(
-                source_public[slice(*source_span)],
-                target_public[slice(*target_span)],
-                entry,
-            ),
-        ))
-    result = source_public
-    for start, finish, replacement in sorted(replacements, reverse=True):
-        result = result[:start] + replacement + result[finish:]
-    return result
-
-
 def _plan_agents_zones(
     asset: dict[str, Any],
     desired: bytes,
@@ -2516,74 +2398,26 @@ def _plan_agents_zones(
         raise SyncBlocked(f"canonical AGENTS zones are invalid: {exc}") from exc
 
     if marker_count == 0:
-        try:
-            legacy_source = _legacy_agents_source(asset, desired)
-            migrated, gaps = _plan_section_layout(
-                asset, legacy_source, before, project_root
-            )
-        except SyncBlocked as exc:
-            return [], [Gap(
-                str(asset["id"]), str(asset["target"]),
-                f"legacy AGENTS migration is ambiguous: {exc}",
-                (_content_review_item(
-                    _git_blob_bytes(before),
-                    0,
-                    len(_git_blob_bytes(before)),
-                    reason=f"legacy AGENTS structure cannot be parsed safely: {exc}",
-                    recommended_owner="project zone after structural repair",
-                    recommended_action=(
-                        "repair the listed structure, classify every remaining section, "
-                        "then rerun bridgeforge-codex"
-                    ),
-                ),),
-            )]
-        if gaps:
-            return [], gaps
-        migrations = tuple(
+        return [], [Gap(
+            str(asset["id"]),
+            str(asset["target"]),
             (
-                str(item["legacy_heading"]),
-                str(item["project_heading"]),
-            )
-            for item in zones["project"]["legacy_section_migrations"]
-        )
-        legacy_sections = _markdown_heading_sections(
-            migrated, tuple(item[0] for item in migrations)
-        )
-        public_after = _preserve_agents_public_rendered_tokens(
-            desired_parts[1], migrated, asset
-        )
-        project_after = desired_parts[3]
-        replacements: list[tuple[int, int, bytes]] = []
-        project_sections = _agents_project_sections(project_after, zones)
-        for legacy_heading, project_heading in migrations:
-            legacy_span = legacy_sections.get(legacy_heading)
-            project_span = project_sections.get(project_heading)
-            if legacy_span is None or project_span is None:
-                raise SyncBlocked(
-                    f"AGENTS migration mapping is incomplete: {legacy_heading} -> {project_heading}"
-                )
-            replacements.append((
-                project_span[0], project_span[1],
-                _rename_layout_block(
-                    migrated[slice(*legacy_span)], project_heading
+                "AGENTS.md does not use the current public/project zones; "
+                "adapt it explicitly to the agents_zones contract before rerunning "
+                "bridgeforge-codex; original file preserved"
+            ),
+            (_content_review_item(
+                _git_blob_bytes(before),
+                0,
+                len(_git_blob_bytes(before)),
+                reason="unzoned AGENTS ownership cannot be proven by the current contract",
+                recommended_owner="explicitly adapted public and project zones",
+                recommended_action=(
+                    "preserve project-owned rules, place them in the project zone, "
+                    "and restore the exact current public zone"
                 ),
-            ))
-        for start, finish, replacement in sorted(replacements, reverse=True):
-            project_after = project_after[:start] + replacement + project_after[finish:]
-        after = b"".join((
-            desired_parts[0], public_after, desired_parts[2],
-            project_after, desired_parts[4],
-        ))
-        return [
-            _action(
-                asset, target, "migrate-agents-zones", "safe",
-                "migrate verified legacy project sections into the project-owned zone",
-                before, after, project_root,
-                local_impact=(
-                    "recognized project section bodies are preserved; unclassified legacy content blocks migration"
-                ),
-            )
-        ], []
+            ),),
+        )]
 
     try:
         before_parts = _agents_zone_parts(before, zones)
@@ -2627,11 +2461,8 @@ def _plan_agents_zones(
                 ),
             ),),
         )]
-    public_after = _preserve_agents_public_rendered_tokens(
-        desired_parts[1], before_parts[1], asset
-    )
     after = b"".join((
-        desired_parts[0], public_after, desired_parts[2],
+        desired_parts[0], desired_parts[1], desired_parts[2],
         before_parts[3], desired_parts[4],
     ))
     if after == before:
@@ -2808,55 +2639,67 @@ def _dispatcher_stage(handler: Any) -> str | None:
     return match.group(1) if match else "unknown"
 
 
-def _merge_codex_hooks(current: Any, canonical: Any, conflicts: list[str]) -> Any:
+def _merge_codex_hooks(
+    current: Any,
+    canonical: Any,
+    conflicts: list[str],
+    ownership: Any,
+    legacy_validation: Any,
+) -> Any:
     if not isinstance(current, dict) or not isinstance(canonical, dict):
         conflicts.append("<root>")
         return current
-    merged = copy.deepcopy(current)
-    if "description" not in merged:
-        merged["description"] = canonical.get("description")
-    target_hooks = merged.get("hooks")
-    source_hooks = canonical.get("hooks")
-    if not isinstance(target_hooks, dict) or not isinstance(source_hooks, dict):
-        conflicts.append("hooks")
-        return merged
-    for event, canonical_groups in source_hooks.items():
-        if event not in target_hooks:
-            target_hooks[event] = copy.deepcopy(canonical_groups)
-            continue
-        target_groups = target_hooks[event]
-        if not isinstance(target_groups, list) or not isinstance(canonical_groups, list):
-            conflicts.append(f"hooks.{event}")
-            continue
-        for canonical_group in canonical_groups:
-            if not isinstance(canonical_group, dict):
-                conflicts.append(f"hooks.{event}")
-                continue
-            matcher = canonical_group.get("matcher")
-            matching = [
-                group
-                for group in target_groups
-                if isinstance(group, dict) and group.get("matcher") == matcher
-            ]
-            if not matching:
-                target_groups.append(copy.deepcopy(canonical_group))
-                continue
-            group = matching[0]
-            target_handlers = group.get("hooks")
-            canonical_handlers = canonical_group.get("hooks")
-            if not isinstance(target_handlers, list) or not isinstance(canonical_handlers, list):
-                conflicts.append(f"hooks.{event}[matcher={matcher!r}]")
-                continue
-            for expected in canonical_handlers:
-                stage = _dispatcher_stage(expected)
-                candidates = [item for item in target_handlers if _dispatcher_stage(item) == stage]
-                if not candidates:
-                    target_handlers.append(copy.deepcopy(expected))
-                elif len(candidates) == 1 and candidates[0] == expected:
+    try:
+        expected = ownership.expected_groups(
+            canonical,
+            managed_prefix="bridgeforge-codex.project-hook.v1:",
+        )
+        current_ids = {
+            (
+                str(item["event"]),
+                str(item["matcher"]),
+                str(_dispatcher_stage(item["handler"])),
+            ): str(item["id"])
+            for item in expected
+        }
+        legacy_handlers: list[dict[str, str]] = []
+        old_required = (
+            legacy_validation.get("required_handlers")
+            if isinstance(legacy_validation, dict)
+            else None
+        )
+        if isinstance(old_required, list):
+            for item in old_required:
+                if not isinstance(item, dict):
                     continue
-                else:
-                    conflicts.append(f"hooks.{event}.dispatcher[{stage}]")
-    return merged
+                key = (
+                    str(item.get("event", "")),
+                    str(item.get("matcher", "")),
+                    str(item.get("stage", "")),
+                )
+                managed_id = current_ids.get(key)
+                digest = item.get("sha256") or item.get("handler_sha256")
+                if managed_id is None or not isinstance(digest, str):
+                    continue
+                legacy_handlers.append({
+                    "id": managed_id,
+                    "event": key[0],
+                    "matcher": key[1],
+                    "handler_sha256": digest,
+                })
+        merged, _external, _receipts = ownership.canonicalize(
+            current,
+            expected,
+            managed_prefixes=("bridgeforge-codex.project-hook.v1:",),
+            label=".codex/hooks.json",
+            managed_looking=lambda handler: _dispatcher_stage(handler) is not None,
+            legacy_handlers=legacy_handlers,
+            managed_top_level={"description": canonical.get("description")},
+        )
+        return merged
+    except ownership.HooksOwnershipError as exc:
+        conflicts.append(str(exc))
+        return current
 
 
 def _plan_merge(
@@ -2864,6 +2707,8 @@ def _plan_merge(
     source: bytes,
     target: Path,
     project_root: Path,
+    hooks_ownership: Any | None = None,
+    legacy_validation: Any = None,
 ) -> tuple[list[Action], list[Gap]]:
     whole_actions, whole_gaps = _plan_whole(asset, source, target, project_root)
     if whole_actions or not target.exists() or not whole_gaps:
@@ -2872,15 +2717,43 @@ def _plan_merge(
         return [], whole_gaps
     before = target.read_bytes()
     desired_source = _render_source(source, asset, project_root)
-    try:
-        current = json.loads(before.decode("utf-8-sig"))
-        canonical = json.loads(desired_source.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return [], [Gap(asset["id"], asset["target"], "merge target is not valid UTF-8 JSON")]
     conflicts: list[str] = []
     if asset.get("merge_policy") == "codex-hooks":
-        merged = _merge_codex_hooks(current, canonical, conflicts)
+        if hooks_ownership is None:
+            return [], [Gap(asset["id"], asset["target"], "hooks ownership parser is unavailable")]
+        try:
+            current = hooks_ownership.load_document(before, str(target))
+            canonical = hooks_ownership.load_document(
+                desired_source,
+                f"canonical {asset['target']}",
+            )
+        except hooks_ownership.HooksOwnershipError as exc:
+            return [], [
+                Gap(
+                    asset["id"],
+                    asset["target"],
+                    f"hooks ownership is ambiguous: {exc}",
+                )
+            ]
+        merged = _merge_codex_hooks(
+            current,
+            canonical,
+            conflicts,
+            hooks_ownership,
+            legacy_validation,
+        )
     else:
+        try:
+            current = json.loads(before.decode("utf-8-sig"))
+            canonical = json.loads(desired_source.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return [], [
+                Gap(
+                    asset["id"],
+                    asset["target"],
+                    "merge target is not valid UTF-8 JSON",
+                )
+            ]
         merged = _merge_generic(current, canonical, "", conflicts)
     after = (json.dumps(merged, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     actions: list[Action] = []
@@ -2891,14 +2764,14 @@ def _plan_merge(
                 target,
                 "merge",
                 "safe",
-                "deterministic merge adds only missing managed values",
+                "canonicalize managed hooks zones and preserve external handlers",
                 before,
                 after,
                 project_root,
             )
         )
     gaps = [
-        Gap(asset["id"], asset["target"], f"preserved conflicting JSON field: {item}")
+        Gap(asset["id"], asset["target"], f"hooks ownership is ambiguous: {item}")
         for item in sorted(set(conflicts))
     ]
     return actions, gaps
@@ -2943,23 +2816,11 @@ def _plan_region(
     if not target.is_file() or _is_reparse(target):
         return [], [Gap(asset["id"], asset["target"], "region target is not a regular file")]
     before = target.read_bytes()
-    target_begin = begin
-    target_end_marker = end
-    legacy_begin = b"# >>> BRIDGEFORGE_MANAGED_BEGIN"
-    legacy_end = b"# <<< BRIDGEFORGE_MANAGED_END"
-    if (
-        before.count(legacy_begin) == 1
-        and before.count(legacy_end) == 1
-        and begin not in before
-        and end not in before
-    ):
-        target_begin = legacy_begin
-        target_end_marker = legacy_end
     try:
         target_start, target_end = _marker_slice(
             before,
-            target_begin,
-            target_end_marker,
+            begin,
+            end,
         )
     except SyncBlocked as exc:
         return [], [Gap(asset["id"], asset["target"], f"region ownership is ambiguous: {exc}")]
@@ -3122,8 +2983,28 @@ def _fingerprint(plan: Plan) -> str:
         "gaps": [asdict(item) for item in plan.gaps],
         "blockers": plan.blockers,
         "project_requirements": plan.project_requirements,
+        "release_preflight_status": plan.release_preflight_status,
+        "release_preflight_classification": plan.release_preflight_classification,
+        "release_preflight_items": list(plan.release_preflight_items),
     }
     return _sha256_bytes(_canonical_json(payload))
+
+
+def _prospective_snapshot(actions: list[Action]) -> dict[str, bytes | None]:
+    snapshot: dict[str, bytes | None] = {}
+    for action in actions:
+        if action.action in {
+            "memory-organize",
+            "migrate-stamp",
+        }:
+            continue
+        if action.action == "retire":
+            snapshot[action.target] = None
+            continue
+        if action.payload is None:
+            raise SyncBlocked(f"action {action.asset_id} has no prospective payload")
+        snapshot[action.target] = action.payload
+    return snapshot
 
 
 LEGACY_STAMP = ".codex/.bridgeforge_version"
@@ -3143,10 +3024,78 @@ def _detect_mode(project_root: Path, requested: str) -> str:
     return "init"
 
 
+def _trusted_hooks_ownership_module(template_root: Path) -> Any:
+    path = template_root / "templates" / "scripts" / "hooks_ownership.py"
+    if not path.is_file():
+        raise SyncBlocked(f"trusted hooks ownership parser is missing: {path}")
+    module_name = "_bridgeforge_codex_trusted_hooks_ownership"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise SyncBlocked(f"trusted hooks ownership parser cannot be loaded: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        sys.modules.pop(module_name, None)
+        raise SyncBlocked(f"trusted hooks ownership parser cannot be loaded: {exc}") from exc
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
+    return module
+
+
+def _trusted_project_runtime_module(template_root: Path) -> Any:
+    path = template_root / "templates" / "scripts" / "project_runtime.py"
+    if not path.is_file():
+        raise SyncBlocked(f"trusted project runtime validator is missing: {path}")
+    module_name = "_bridgeforge_codex_trusted_project_runtime"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise SyncBlocked(f"trusted project runtime validator cannot be loaded: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        sys.modules.pop(module_name, None)
+        raise SyncBlocked(
+            f"trusted project runtime validator cannot be loaded: {exc}"
+        ) from exc
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
+    return module
+
+
+def _project_merge_validations(project_root: Path) -> dict[str, Any]:
+    path = project_root / ".codex" / "managed-skeleton.json"
+    if not path.is_file():
+        return {}
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    assets = contract.get("assets") if isinstance(contract, dict) else None
+    if not isinstance(assets, list):
+        return {}
+    return {
+        str(asset["id"]): copy.deepcopy(asset.get("merge_validation"))
+        for asset in assets
+        if isinstance(asset, dict)
+        and isinstance(asset.get("id"), str)
+        and asset.get("merge_policy") == "codex-hooks"
+    }
+
+
 def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> Plan:
     root = _plain_root(project_root, "project root")
     template = _plain_root(template_root, "template root")
     contract, contract_path = load_contract(template)
+    hooks_ownership = _trusted_hooks_ownership_module(template)
+    previous_merge_validations = _project_merge_validations(root)
     selected_mode = _detect_mode(root, mode)
     current_version = (template / "VERSION").read_text(encoding="utf-8-sig").strip()
     current_semver = _semver(current_version, "bridgeforge-codex VERSION")
@@ -3228,7 +3177,14 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             if strategy == "whole":
                 asset_actions, asset_gaps = _plan_whole(asset, source, target, root)
             elif strategy == "merge":
-                asset_actions, asset_gaps = _plan_merge(asset, source, target, root)
+                asset_actions, asset_gaps = _plan_merge(
+                    asset,
+                    source,
+                    target,
+                    root,
+                    hooks_ownership,
+                    previous_merge_validations.get(str(asset["id"])),
+                )
             elif strategy == "seed":
                 asset_actions, asset_gaps = _plan_seed(asset, source, target, root)
             else:
@@ -3316,6 +3272,38 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         blockers=blockers,
         project_requirements=project_requirements,
     )
+    prospective_snapshot = _prospective_snapshot(plan.safe_actions)
+    has_unconfirmed_actions = any(
+        item.classification in {"risk", "absorb"} for item in actions
+    )
+    expected_stamp = (current_version + "\n").encode("utf-8")
+    needs_stamp = not stamp.is_file() or stamp.read_bytes() != expected_stamp
+    if (
+        not blockers
+        and not gaps
+        and not project_requirements
+        and not has_unconfirmed_actions
+        and (prospective_snapshot or needs_stamp)
+    ):
+        preflight_started = time.perf_counter()
+        try:
+            (
+                plan.release_preflight_status,
+                plan.release_preflight_classification,
+                plan.release_preflight_ms,
+            ) = _run_release_preflight(
+                root,
+                template,
+                current_version if needs_stamp else None,
+                prospective_snapshot,
+            )
+        except ReleasePreflightBlocked as exc:
+            plan.release_preflight_status = "blocked"
+            plan.release_preflight_items = _zero_write_preflight_items(exc.items)
+            plan.release_preflight_ms = round(
+                (time.perf_counter() - preflight_started) * 1000,
+                1,
+            )
     plan.aggregate_fingerprint = _fingerprint(plan)
     return plan
 
@@ -3494,10 +3482,24 @@ def _release_preflight_items(exc: Exception) -> tuple[dict[str, Any], ...]:
     )
 
 
+def _zero_write_preflight_items(
+    items: tuple[dict[str, Any], ...],
+) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        {
+            **item,
+            "current_state": "prospective update rejected before any write",
+            "recoverability": "zero writes were performed",
+        }
+        for item in items
+    )
+
+
 def _run_release_preflight(
     project_root: Path,
     template_root: Path,
     prospective_version: str | None,
+    snapshot: dict[str, bytes | None] | None = None,
 ) -> tuple[str, str | None, float]:
     started = time.perf_counter()
     if not (project_root / ".git").exists():
@@ -3530,8 +3532,9 @@ def _run_release_preflight(
 
     release = _trusted_release_module(template_root)
     try:
-        classification, _changed_paths = release.preflight_contract_transition(
+        classification, _changed_paths = release.evaluate_release_transition(
             project_root,
+            snapshot,
             prospective_version,
         )
     except Exception as exc:
@@ -3554,11 +3557,16 @@ def _run_validation(
 ) -> dict[str, float]:
     memory_lint = template_root / "templates" / "hooks" / "memory_lint.py"
     health = template_root / "templates" / "hooks" / "config_health_check.py"
+    runtime_contract = _trusted_project_runtime_module(template_root)
+    try:
+        project_python = runtime_contract.expected_project_python(project_root)
+    except runtime_contract.ProjectRuntimeError as exc:
+        raise SyncBlocked(f"project validator runtime is invalid: {exc}") from exc
     validators = (
         (
             memory_lint,
             [
-                sys.executable,
+                str(project_python),
                 str(memory_lint),
                 "--organize",
                 "--project-root",
@@ -3568,7 +3576,7 @@ def _run_validation(
         ),
         (
             health,
-            [sys.executable, str(health), "--strict"],
+            [str(project_python), str(health), "--strict"],
             "config health check",
         ),
     )
@@ -3927,6 +3935,11 @@ def _apply_rebuilt_plan(
     timings["replan"] = round(replan_ms, 1)
     if rebuilt.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("aggregate fingerprint drifted; zero writes performed")
+    if rebuilt.release_preflight_status == "blocked":
+        raise ReleasePreflightBlocked(
+            "planned release preflight rejected the prospective update; zero writes performed",
+            rebuilt.release_preflight_items,
+        )
     if custom_absorption_directives and selected_risk_ids is None:
         raise SyncBlocked(
             "custom absorption directives require the single partial selection decision"
@@ -3990,11 +4003,56 @@ def _apply_rebuilt_plan(
 
     contract, _contract_path = load_contract(Path(rebuilt.template_root))
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
+    expected_stamp = (rebuilt.current_version + "\n").encode("utf-8")
+    should_write_stamp = (
+        not rebuilt.gaps
+        and not declined_executable
+        and (not stamp.is_file() or stamp.read_bytes() != expected_stamp)
+    )
+    selected_snapshot = _prospective_snapshot(selected)
+    should_run_release_preflight = (
+        not rebuilt.gaps
+        and not declined_executable
+        and (should_write_stamp or bool(selected_snapshot))
+    )
+    selected_preflight_status = "not_required"
+    selected_preflight_classification: str | None = None
+    if should_run_release_preflight:
+        try:
+            (
+                selected_preflight_status,
+                selected_preflight_classification,
+                selected_preflight_ms,
+            ) = _run_release_preflight(
+                root,
+                Path(rebuilt.template_root),
+                rebuilt.current_version if should_write_stamp else None,
+                selected_snapshot,
+            )
+            timings["prospective_release_preflight"] = selected_preflight_ms
+        except ReleasePreflightBlocked as exc:
+            raise ReleasePreflightBlocked(
+                "selected release preflight rejected the confirmed update; zero writes performed",
+                _zero_write_preflight_items(exc.items),
+            ) from exc
+    catalog = _executable_catalog(rebuilt)
+    selection_fingerprint = (
+        _selection_fingerprint(
+            rebuilt,
+            selected_action_ids,
+            custom_absorption_directives,
+            selected_snapshot,
+            selected_preflight_status,
+            selected_preflight_classification,
+        )
+        if catalog
+        else None
+    )
     seed_before = _seed_snapshots(root, contract)
     transaction = _Transaction(root)
     stamp_written = False
-    release_preflight_status = "not_required"
-    release_preflight_classification: str | None = None
+    release_preflight_status = selected_preflight_status
+    release_preflight_classification = selected_preflight_classification
     try:
         action_started = time.perf_counter()
         if checkpoint:
@@ -4074,17 +4132,6 @@ def _apply_rebuilt_plan(
             (time.perf_counter() - validation_started) * 1000,
             1,
         )
-        expected_stamp = (rebuilt.current_version + "\n").encode("utf-8")
-        should_write_stamp = (
-            not rebuilt.gaps
-            and not declined_executable
-            and (not stamp.is_file() or stamp.read_bytes() != expected_stamp)
-        )
-        should_run_release_preflight = (
-            not rebuilt.gaps
-            and not declined_executable
-            and (should_write_stamp or bool(changed_targets))
-        )
         if should_run_release_preflight:
             (
                 release_preflight_status,
@@ -4096,6 +4143,19 @@ def _apply_rebuilt_plan(
                 rebuilt.current_version if should_write_stamp else None,
             )
             timings["release_preflight"] = release_preflight_ms
+            if (
+                (
+                    selected_preflight_status,
+                    selected_preflight_classification,
+                )
+                != (
+                    release_preflight_status,
+                    release_preflight_classification,
+                )
+            ):
+                raise SyncBlocked(
+                    "release preflight decision drifted between prospective and applied snapshots"
+                )
         if checkpoint:
             checkpoint("before-stamp")
         _verify_seed_snapshots(seed_before)
@@ -4154,7 +4214,6 @@ def _apply_rebuilt_plan(
         manual_steps=manual_steps,
         blockers=blockers,
     )
-    catalog = _executable_catalog(rebuilt)
     selected_absorption_id_set = set(selected_absorption_ids)
     conflict_file_items = tuple(
         _action_item(item_id, action, block)
@@ -4197,15 +4256,7 @@ def _apply_rebuilt_plan(
         upstream_absorption_declined=absorption_declined,
         selected_absorption_ids=selected_absorption_ids,
         selected_action_ids=selected_action_ids,
-        selection_fingerprint=(
-            _selection_fingerprint(
-                rebuilt,
-                selected_action_ids,
-                custom_absorption_directives,
-            )
-            if catalog
-            else None
-        ),
+        selection_fingerprint=selection_fingerprint,
         custom_absorption_directives=custom_absorption_directives,
         conflict_file_items=conflict_file_items,
         managed_block_effects=managed_block_effects,
@@ -4237,6 +4288,7 @@ def _plan_payload(
         _action_item(item_id, action, block)
         for item_id, action, block in catalog
     ])
+    required_actions.extend(plan.release_preflight_items)
     upstream_absorption_actions = [
         _action_item(item_id, action, block)
         for item_id, action, block in _absorption_catalog(plan)
@@ -4261,10 +4313,19 @@ def _plan_payload(
     optional_actions: list[dict[str, Any]] = []
     manual_steps = _manual_items(plan.gaps)
     action_required_items = _action_required_items(plan.gaps)
+    action_required_items.extend(plan.release_preflight_items)
     blockers = _blocker_items(plan.blockers)
     payload = {
-        "status": "blocked" if plan.blockers else ("completed_with_gaps" if plan.gaps else "planned"),
-        "readiness": "blocked" if plan.blockers else ("degraded" if plan.gaps else "ready"),
+        "status": "blocked" if plan.blockers else (
+            "completed_with_gaps"
+            if plan.gaps or plan.release_preflight_items
+            else "planned"
+        ),
+        "readiness": "blocked" if plan.blockers else (
+            "degraded"
+            if plan.gaps or plan.release_preflight_items
+            else "ready"
+        ),
         "execution_status": "failed" if plan.blockers else "planned",
         "target_readiness": _target_readiness(
             required_actions=required_actions,
@@ -4328,6 +4389,10 @@ def _plan_payload(
         "manual_steps": manual_steps,
         "action_required_items": action_required_items,
         "blocker_items": blockers,
+        "release_preflight_status": plan.release_preflight_status,
+        "release_preflight_classification": plan.release_preflight_classification,
+        "release_preflight_items": list(plan.release_preflight_items),
+        "release_preflight_timing_ms": plan.release_preflight_ms,
         "recommended_selection": selected_ids,
         "confirmation": (
             {
@@ -4414,10 +4479,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if sys.version_info < MIN_PYTHON:
-        print("BLOCKED: bridgeforge_codex_project_sync requires Python 3.11+", file=sys.stderr)
-        return 2
     try:
+        runtime_root = _plain_root(args.project_root, "project root")
+        runtime_template = _plain_root(args.template_root, "template root")
+        runtime_contract = _trusted_project_runtime_module(runtime_template)
+        try:
+            runtime_contract.validate_project_runtime(
+                runtime_root,
+                executable=sys.executable,
+            )
+        except runtime_contract.ProjectRuntimeError as exc:
+            raise SyncBlocked(f"project runtime contract rejected: {exc}") from exc
+        except Exception as exc:
+            raise SyncBlocked(
+                "project runtime contract validation failed closed: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
         plan_started = time.perf_counter()
         plan = build_plan(args.project_root, args.template_root, args.mode)
         plan_ms = round((time.perf_counter() - plan_started) * 1000, 1)

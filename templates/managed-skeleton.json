@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "release_version": "1.4.14",
+  "release_version": "1.4.22",
   "host": "codex",
   "minimum_supported_version": "0.86.0",
   "stamp": ".codex/.bridgeforge_codex_version",
@@ -60,6 +60,9 @@
     ],
     "1.4.11": [
       "sha256:34c0a6a7cc316ccfff00d083065d41a0a7810ff1fc0eae7d90c0c942c53e7a52"
+    ],
+    "1.4.14": [
+      "sha256:fc31bcd441737886e5aba9bfb96e730d5329f754b59b3ebd6c0583d276bd696b"
     ]
   },
   "assets": [
@@ -68,56 +71,12 @@
       "source": "templates/AGENTS.md",
       "target": "AGENTS.md",
       "strategy": "whole",
-      "managed_blocks": {
-        "format": "markdown-headings",
-        "headings": [
-          "### 2.1 原生指令承载索引"
-        ],
-        "additive_headings": [],
-        "keyed_tables": [],
-        "current_projection_sha256": "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357",
-        "historical_projection_sha256": {
-          "0.94.0": [
-            "sha256:d8014d612780d28b13d0e7efbd0e1a4a9b10cfa25d9ef3be213cf381e71713e4"
-          ],
-          "0.94.1": [
-            "sha256:d8014d612780d28b13d0e7efbd0e1a4a9b10cfa25d9ef3be213cf381e71713e4"
-          ],
-          "0.94.2": [
-            "sha256:4321ba6634dd05ecddd443a944eae0309ca661d1b149130a32d998bbb64171c2"
-          ],
-          "0.94.4": [
-            "sha256:3837dd4010f5217e3d06a51744d8fdcee5f71398639242fa9e104c3ef2330643"
-          ],
-          "1.3.0": [
-            "sha256:69d692262d2b61f52e5136598e0dffac0eac75dfb4b838f04fc768c14e9c5d4b"
-          ],
-          "1.4.1": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ],
-          "1.4.3": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ],
-          "1.4.5": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ],
-          "1.4.7": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ],
-          "1.4.9": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ],
-          "1.4.11": [
-            "sha256:4b24ecd6fb07f448ca0d22390c5834105bb9d95ae6cf51baf08bc92151567357"
-          ]
-        }
-      },
       "agents_zones": {
         "format": "bridgeforge-agents-zones",
         "public": {
           "begin": "<!-- BRIDGEFORGE:PUBLIC:BEGIN -->",
           "end": "<!-- BRIDGEFORGE:PUBLIC:END -->",
-          "current_sha256": "sha256:64220b49b5decc566cab8a8875ab71c46ed317bfc8ec2897c2d79f8f789805a4",
+          "current_sha256": "sha256:26a284c1e535afddd4ccaa0e8cce21df831b0d83b3d25d4aed6b54c185ca6121",
           "historical_sha256": {
             "1.3.0": [
               "sha256:449da4464a0092b82d72cea84eb10c729b1bf4a97f03e3b5e469f21198c1a258"
@@ -142,306 +101,10 @@
             "### 项目架构红线",
             "### 项目目录地图",
             "### 项目快速命令"
-          ],
-          "legacy_section_migrations": [
-            {
-              "legacy_heading": "### 1.1 架构红线",
-              "project_heading": "### 项目架构红线"
-            },
-            {
-              "legacy_heading": "## 3 项目目录地图",
-              "project_heading": "### 项目目录地图"
-            },
-            {
-              "legacy_heading": "### 4.2 快速命令",
-              "project_heading": "### 项目快速命令"
-            }
           ]
         }
       },
-      "section_layout": {
-        "format": "markdown-section-layout",
-        "groups": [
-          {
-            "heading": "## 1 项目基础约束",
-            "sections": [
-              {
-                "heading": "### 1.1 架构红线",
-                "legacy_headings": [
-                  "## 1. 架构红线"
-                ],
-                "ownership": "project",
-                "required": true
-              },
-              {
-                "heading": "### 1.2 专业表达风格",
-                "legacy_headings": [
-                  "## 0.5 专业表达风格"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 0.5 专业表达风格": {
-                    "0.86.0": [
-                      "sha256:49892476d621861790eaa54cfc8f938eb31485513a3b164c0f5252eed190736e"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 1.3 工具与证据红线",
-                "legacy_headings": [
-                  "## 2.5 工具与证据红线"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 2.5 工具与证据红线": {
-                    "0.86.0": [
-                      "sha256:ca5ae2ccd20302a5a8aa78205db94f55bcc7b19e274b59a39e747006b9ed4fc2"
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          {
-            "heading": "## 2 BridgeForgeCodex 协作骨架",
-            "sections": [
-              {
-                "heading": "### 2.1 原生指令承载索引",
-                "legacy_headings": [],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {}
-              },
-              {
-                "heading": "### 2.2 Memory 项目内托管",
-                "legacy_headings": [
-                  "## 5. Memory 项目内托管"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 5. Memory 项目内托管": {
-                    "0.86.0": [
-                      "sha256:4be1260c7b5df93a63c27d02520031e68cdcc592130e920daf6031cebdab6644"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 2.3 文档管理",
-                "legacy_headings": [
-                  "## 11. 文档管理（红线）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 11. 文档管理（红线）": {
-                    "0.86.0": [
-                      "sha256:258afc8771dd968c946404e33fa1ab3afe174001c0314af7d1d19090a3574154"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 2.4 Skills",
-                "legacy_headings": [
-                  "## 4. Skills（可调用技能）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 4. Skills（可调用技能）": {
-                    "0.86.0": [
-                      "sha256:fc30309a0f010968adfbd33b0c685ffc8f6c9ce9b3aaf21d2b45c709cc7fbf84"
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          {
-            "heading": "## 3 项目目录地图",
-            "legacy_headings": [
-              "## 7. 项目结构速查"
-            ],
-            "ownership": "project",
-            "required": true
-          },
-          {
-            "heading": "## 4 开发",
-            "sections": [
-              {
-                "heading": "### 4.1 换机首次启动 Checklist",
-                "legacy_headings": [
-                  "## 6. 换机首次启动 Checklist"
-                ],
-                "ownership": "managed",
-                "hash_normalizer": "project-name-clone-command",
-                "trusted_legacy_sha256": {
-                  "## 6. 换机首次启动 Checklist": {
-                    "0.86.0": [
-                      "sha256:70bf3dd883293b4f48c0156b1d190b040f74650580e0a2655eb8a5416aac89ba"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 4.2 快速命令",
-                "legacy_headings": [
-                  "## 3. 快速命令"
-                ],
-                "ownership": "project",
-                "required": true
-              },
-              {
-                "heading": "### 4.3 模型与 Skill 执行分工",
-                "legacy_headings": [
-                  "## 4.5 Codex 模型 / effort（平台默认）",
-                  "### 4.6 Skill 分段路由（强制）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 4.5 Codex 模型 / effort（平台默认）": {
-                    "0.86.0": [
-                      "sha256:eac06f02a4ec87713dfcb2fad7968386d0237dbb9a82ff4aa60c166e83b3ace8"
-                    ],
-                    "0.91.1": [
-                      "sha256:bb2eb6a92fda76eb17ecdb0c707eb216228c6c1024216c48af56080e08c4ff2c"
-                    ]
-                  },
-                  "### 4.6 Skill 分段路由（强制）": {
-                    "0.86.0": [
-                      "sha256:d77ec53b9849ff09b86bdc1c91c19b8e8bf4f7d7c28f4e72f97e3461737c9ac4"
-                    ],
-                    "0.91.1": [
-                      "sha256:40fdfad796fd227d0f7b61940b5190c7f01d134c2439b5a8a9d4e17e62993e68"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 4.4 较大需求主动澄清 — `[clarify]`",
-                "legacy_headings": [
-                  "## 9.5 较大需求主动澄清 — `[clarify]`"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 9.5 较大需求主动澄清 — `[clarify]`": {
-                    "0.86.0": [
-                      "sha256:eb1e844afab26d8db4991219e0dc4b11d40a10f3917ff131e0f20e80a15b74a0"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 4.5 任务防漂移 — `[focus]`",
-                "legacy_headings": [
-                  "## 9.6 任务防漂移 — `[focus]`"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 9.6 任务防漂移 — `[focus]`": {
-                    "0.86.0": [
-                      "sha256:316f8f23bf3176f228ef4d73199771e3eab2d2222c9c19d15d65322846c2fb80"
-                    ]
-                  }
-                }
-              }
-            ]
-          },
-          {
-            "heading": "## 5 Debug 与验证",
-            "sections": [
-              {
-                "heading": "### 5.1 主观体验报告主动问范式",
-                "legacy_headings": [
-                  "## 9. 主观体验报告主动问范式（红线）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 9. 主观体验报告主动问范式（红线）": {
-                    "0.86.0": [
-                      "sha256:8db34ccf540b6f1762ba129d524a7952f04b0d0cc50379439b14b5956155127b"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 5.2 鬼打墙觉察与渐进升级",
-                "legacy_headings": [
-                  "## 8. 鬼打墙觉察 + 渐进升级（红线）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 8. 鬼打墙觉察 + 渐进升级（红线）": {
-                    "0.86.0": [
-                      "sha256:06aad7cadbb86f32c6a30f550e8d1d67b32b18aec707b90200aef8eb17289d54"
-                    ]
-                  }
-                }
-              },
-              {
-                "heading": "### 5.3 自改审计独立性",
-                "legacy_headings": [
-                  "## 8.5 自改审计独立性（红线）"
-                ],
-                "ownership": "managed",
-                "trusted_legacy_sha256": {
-                  "## 8.5 自改审计独立性（红线）": {
-                    "0.86.0": [
-                      "sha256:39641910930507cbf30eac8144438b84fc772dc53f9d45fedbeca40e6d64319e"
-                    ]
-                  }
-                }
-              }
-            ]
-          }
-        ],
-        "retired_sections": [
-          {
-            "legacy_headings": [
-              "## 10. 上下文成本与预算 — `[ctx-budget]`"
-            ],
-            "trusted_legacy_sha256": {
-              "## 10. 上下文成本与预算 — `[ctx-budget]`": {
-                "0.94.4": [
-                  "sha256:26e7cefd5d75a3c461428fb32d82e2cb33f5ee771139d481b2da9f16be21b33a"
-                ]
-              }
-            }
-          },
-          {
-            "legacy_headings": [
-              "### 2.1 规则文件索引",
-              "## 2. 规则文件索引"
-            ],
-            "trusted_legacy_sha256": {
-              "### 2.1 规则文件索引": {
-                "1.0.0": [
-                  "sha256:2601eb56981d4e216cc28c112b06afaf6dc049c3f5904d1b78f24acb466f0d1c"
-                ]
-              },
-              "## 2. 规则文件索引": {
-                "0.86.0": [
-                  "sha256:a44d6e739b7d2bf4b6542631cba5fbd6f439d97235d5e4c413f7f8db2f1bbce8"
-                ],
-                "0.94.4": [
-                  "sha256:be430726184edd84c919d83d0da8a779ac576baee6ad6265ce2c3b99e82b744e"
-                ]
-              }
-            }
-          }
-        ],
-        "trusted_residual_sha256": {
-          "0.86.0": [
-            "sha256:7c8e9581e41c03e3e028dc661c8d23afcc19194cc6895787790c937fd950c1de"
-          ],
-          "1.3.0": [
-            "sha256:7f155559c787255302ef114ae9048ec922cd56c4254fa88d6c195c60fc351522"
-          ],
-          "1.4.1": [
-            "sha256:99c20e9e63b0f60fead82dccf7d8013d12749178800804f514d6bc9a50c62bb9"
-          ]
-        }
-      },
-      "current_sha256": "sha256:dc12747a04b164a59201185716554690e0ad3ff590d895a43ffebcb93fa22261",
+      "current_sha256": "sha256:5a2d6650df4cae3169a2865b99a170e0a018e52310b47776ec294412d7d7678c",
       "historical_sha256": {
         "0.86.0": [
           "sha256:1dccdd44746a585895ad780d0919793c4d2c919224ec396333dc0e684d972d54"
@@ -472,7 +135,7 @@
       "source": "templates/hooks.json",
       "target": ".codex/hooks.json",
       "strategy": "merge",
-      "current_sha256": "sha256:0522c2f8131b65256f56ddbf7cdbc36d5b0b757599d05d21cc0e737a82f29277",
+      "current_sha256": "sha256:869f8f6c5061e062f63181ca6b7a05a91a15cfa3c5d372183a1ecf401d88b56e",
       "historical_sha256": {
         "0.86.0": [
           "sha256:8ca279ad3641b9ca2ad356820102d7a74c4937d2535a5f068b86af2f7ad88541"
@@ -492,138 +155,69 @@
       },
       "merge_policy": "codex-hooks",
       "merge_validation": {
-        "format": "codex-hooks-dispatchers-v1",
+        "format": "codex-hooks-zones-v2",
         "required_handlers": [
           {
+            "id": "bridgeforge-codex.project-hook.v1:post-compact",
             "event": "PostCompact",
             "matcher": "",
             "stage": "post-compact",
-            "sha256": "sha256:501415b9f64e95c8471594d5a825926d5c754772d8b3740c69b58db53764a10b"
+            "sha256": "sha256:544e19b2950c5aef9085363c3748e3e2e936c26b769ffdeed2697da3ba0e2d17"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:post-read",
             "event": "PostToolUse",
             "matcher": "*",
             "stage": "post-read",
-            "sha256": "sha256:fb512f75e056c5116a42cf0a86d0f1009a440a971055f28d0c308573175c54a4"
+            "sha256": "sha256:ad45eaf1553eb9d3d20bbebe4d518bd09bd2df3ceeafc05f314ecedb9de70897"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:post-shell",
             "event": "PostToolUse",
             "matcher": "Bash",
             "stage": "post-shell",
-            "sha256": "sha256:9d15a0a9e4d309313a86f64b20c047686d6194daad03b6cd00b045702a94fc15"
+            "sha256": "sha256:689c595435b66968a58206db08932f41f08b78d7a2393d3e4b7d2513f6d29f70"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:post-edit",
             "event": "PostToolUse",
             "matcher": "Edit|Write",
             "stage": "post-edit",
-            "sha256": "sha256:b2f5498bae33e55ab375b6e811d8f547dd122a0064982a7d1d0deeefa208320e"
+            "sha256": "sha256:d2d5736d4ef0de1cbaeb3dd6d336ecf7d86d4c53a9e0a5276dc6f7dcfffa60e9"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:pre-tool",
             "event": "PreToolUse",
             "matcher": "Bash|Edit|Write",
             "stage": "pre-tool",
-            "sha256": "sha256:12dc6ccd5fd64a2bd3d2c41b38383dae471fa9b2ff443c5b7ee7d118fac4a374"
+            "sha256": "sha256:e998c44d411032a8ae25c26857c3b8288e32bed27107778226ab93ceefb324c1"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:session-start",
             "event": "SessionStart",
             "matcher": "",
             "stage": "session-start",
-            "sha256": "sha256:235ca11d2b8d9d6e661c606d6426e789493b34bd3281ccc27da29fba1ca1bc17"
+            "sha256": "sha256:a5dd8f1b1675f4245523e18dfdee6c75fabbbe28563fac7b8fd46f0d0a50071c"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:stop",
             "event": "Stop",
             "matcher": "",
             "stage": "stop",
-            "sha256": "sha256:85fbe30fdcbbd51b36d6dbe5496d1b710b138d1de3965a4ce11a885b0955b917"
+            "sha256": "sha256:b7ed4af870fcd66613b0d0c7fadfcf3ab65a5cb87923e5980f4eb83eae46d703"
           },
           {
+            "id": "bridgeforge-codex.project-hook.v1:user-prompt",
             "event": "UserPromptSubmit",
             "matcher": "",
             "stage": "user-prompt",
-            "sha256": "sha256:49ddda425228f7f9c88644b94063242011454ef29ba3ed1d9c3e8b65a17aa2eb"
+            "sha256": "sha256:7a5db6e71b530bbeac7c99c5fd90585de3aaa4ab48a6e778015ecb8b5314c6a0"
           }
         ],
-        "current_projection_sha256": "sha256:0107f6fb1221dba43943201d3549637e69b0d91a0e1eefba7aa71dcf5555fbc9",
-        "historical_projection_sha256": {
-          "0.86.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.86.1": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.86.2": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.86.4": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.86.6": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.86.7": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.87.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.88.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.88.2": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.88.4": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.90.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.91.1": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.92.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.92.1": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.93.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.94.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.94.1": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.94.2": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "0.94.4": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.3.0": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.1": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.3": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.5": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.7": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.9": [
-            "sha256:8910803bb4e2be025c63de9fffc28d792d84b6bcbaec065dc1ae3cc6894166f2"
-          ],
-          "1.4.11": [
-            "sha256:0107f6fb1221dba43943201d3549637e69b0d91a0e1eefba7aa71dcf5555fbc9"
-          ]
-        }
+        "managed_top_level": {
+          "description": "bridgeforge-codex project lifecycle hooks. This is the only managed Codex hook registration source."
+        },
+        "current_projection_sha256": "sha256:d9420f26f132c90b5034bc83f3a4d659e570e4e2916a3460f39ef91e2d631db2"
       }
     },
     {
@@ -724,7 +318,7 @@
       "source": "templates/agents/mechanical-sync-worker.toml",
       "target": ".codex/agents/mechanical-sync-worker.toml",
       "strategy": "whole",
-      "current_sha256": "sha256:4c553960c7733ad76bed8bdb078709836df6a75560390e99f348d19918e80ecf",
+      "current_sha256": "sha256:3561c215ce3610421734e5173f911e38dc43657eee93272ec28ab520e6f8b871",
       "historical_sha256": {
         "0.86.0": [
           "sha256:4c553960c7733ad76bed8bdb078709836df6a75560390e99f348d19918e80ecf"
@@ -851,6 +445,9 @@
             "sha256:61494c3b5ea5065c6d4a52c5371e04727b86fecb84712a185614635f1c9fd444"
           ],
           "1.4.11": [
+            "sha256:61494c3b5ea5065c6d4a52c5371e04727b86fecb84712a185614635f1c9fd444"
+          ],
+          "1.4.14": [
             "sha256:61494c3b5ea5065c6d4a52c5371e04727b86fecb84712a185614635f1c9fd444"
           ]
         }
@@ -1031,36 +628,11 @@
       "source": ".githooks/pre-commit",
       "target": ".githooks/pre-commit",
       "strategy": "region",
-      "current_sha256": "sha256:82d5f1e9f34355373f4a428488a6908b9e0d6367be634929b9e1842a71b90083",
-      "historical_sha256": {
-        "0.86.0": [
-          "sha256:c3f2f62eb95db6e99db50e1196592df352e59d2eff441cd47d1702e370415d16"
-        ],
-        "0.90.0": [
-          "sha256:c3f2f62eb95db6e99db50e1196592df352e59d2eff441cd47d1702e370415d16"
-        ],
-        "1.1.0": [
-          "sha256:ba290ab4f5e737299a5214b2187f24c0ffb83a5277aeae5500d65b4a0e9c1925"
-        ],
-        "1.3.0": [
-          "sha256:1b1325ac93ee14a97157e7b45eb908c6deccb08a4874bd27ac0f29fb01f59f50"
-        ],
-        "1.4.1": [
-          "sha256:82d5f1e9f34355373f4a428488a6908b9e0d6367be634929b9e1842a71b90083"
-        ]
-      },
+      "current_sha256": "sha256:ed93155b03c290064ad0b8fcec62f0aad5b1296b5e77c3145fbee57284cb05d0",
       "region": {
         "begin": "# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
         "end": "# <<< BRIDGEFORGE_CODEX_MANAGED_END",
-        "current_sha256": "sha256:c8d6b6403c1ae869fd357bd3e7848285fc2b0214321f48d020adc9bfa0a99136",
-        "historical_sha256": {
-          "1.3.0": [
-            "sha256:319ec6d6701f6b7478689dbe7deafaaeb43f6518fb2cb8e7332aa9abc1556264"
-          ],
-          "1.4.1": [
-            "sha256:c8d6b6403c1ae869fd357bd3e7848285fc2b0214321f48d020adc9bfa0a99136"
-          ]
-        }
+        "current_sha256": "sha256:6d4b275e8df00ec7ef2e6317b278a68c2cd195d350371382a4c48f2d3fd59ef5"
       }
     },
     {
@@ -1122,7 +694,7 @@
       "source": "templates/hooks/config_health_check.py",
       "target": ".codex/hooks/config_health_check.py",
       "strategy": "whole",
-      "current_sha256": "sha256:e3d14a1f32504f7b7a3d97663a396a64ab66366840f8630b84097929509080b5",
+      "current_sha256": "sha256:df7812d1402697c10fbad013882beea1f1adf96e143346676a981a86e8d8a788",
       "historical_sha256": {
         "0.86.0": [
           "sha256:074d3d7c878ad99bbb3dc1bd2831053a163ef9ff71fbb164412304738b09c0a3"
@@ -1298,7 +870,7 @@
       "source": "templates/hooks/hook_dispatcher.py",
       "target": ".codex/hooks/hook_dispatcher.py",
       "strategy": "whole",
-      "current_sha256": "sha256:20213f64ca6e20a1140f3d48f6cd417f8b663154a1c46ad992c33190d702bbca",
+      "current_sha256": "sha256:de95aabb620da92b95554123fe88d976fbc5e606a26ae227e74f2fc16d15bed3",
       "historical_sha256": {
         "0.86.0": [
           "sha256:d3b443cc60f6127a1f71a590f5c722d9f8d27f46324e6834f4fbf66cc4f55717"
@@ -1564,6 +1136,9 @@
         ],
         "1.4.1": [
           "sha256:a24847a8bd425ef3ef84ffee5ad311ae133fac84dc56a32d33fe45348ec79db3"
+        ],
+        "1.4.14": [
+          "sha256:48232c650790395888ec38ed70ed1b2d5e97cbdf63976a4ca1380a96e4223a1b"
         ]
       }
     },
@@ -1700,7 +1275,7 @@
       "source": "templates/scripts/codex_git_sync.py",
       "target": ".codex/scripts/codex_git_sync.py",
       "strategy": "whole",
-      "current_sha256": "sha256:3e2ab91b29783fa499e912d97f234456e5a7cbe837f6dd6cc04bd540ba9f9ba0",
+      "current_sha256": "sha256:299d690fda00a1d1be910bae0840f485250514f8d997d843cf1e2e82d5cbdd4f",
       "historical_sha256": {
         "0.86.0": [
           "sha256:ba1bb56c5d5fdf3519ce9df2d2723733e49253761e066bd86027a9dda81b1fe9"
@@ -1758,11 +1333,19 @@
       }
     },
     {
+      "id": "codex.script.hooks-ownership",
+      "source": "templates/scripts/hooks_ownership.py",
+      "target": ".codex/scripts/hooks_ownership.py",
+      "strategy": "whole",
+      "historical_sha256": {},
+      "current_sha256": "sha256:15fbe01d4c16612bb620be67dfabbcde37cf0dbad8e5d4f3df17c27cc6a169b8"
+    },
+    {
       "id": "codex.script.hooks-merge",
       "source": "templates/scripts/hooks_merge.py",
       "target": ".codex/scripts/hooks_merge.py",
       "strategy": "whole",
-      "current_sha256": "sha256:eea03e78a7f1df6aa8b922e97535ecd5d78cee37190ad339dc28c424d30ed053",
+      "current_sha256": "sha256:fb8d27207ab18e8130c89e045225223dfa2d2097816b4354eb9b98bbeacdca75",
       "historical_sha256": {
         "0.86.0": [
           "sha256:6590795fcb9bf512e5687f593d9a04fb77c8a23168469b612a29f83295b90ff4"
@@ -1923,11 +1506,19 @@
       }
     },
     {
+      "id": "codex.script.project-runtime",
+      "source": "templates/scripts/project_runtime.py",
+      "target": ".codex/scripts/project_runtime.py",
+      "strategy": "whole",
+      "historical_sha256": {},
+      "current_sha256": "sha256:7e56c969bfcb1315f0feb6f29ad9e528dfed2c464033b9139e942efbbf5f82a7"
+    },
+    {
       "id": "codex.script.version-release",
       "source": "templates/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:34f2c7c24dd626459dc9a550e5ea8d70cca5e6d183b2c7211a0a4496cbb9feb4",
+      "current_sha256": "sha256:b5ed6f361af5af1fafe2677b3f32be98b58df3ca3338daab540471fb71a0749e",
       "historical_sha256": {
         "0.86.0": [
           "sha256:927ff9c08c6e48e6a4db31df8f35cd8b689b7fab35568498099452e66c40f349"
@@ -1964,6 +1555,9 @@
         ],
         "1.4.7": [
           "sha256:b1ce5ee1ab003c18c046c5c3f5db2a1deee3362a8587a1cba9c4c2c68ca8f84b"
+        ],
+        "1.4.14": [
+          "sha256:34f2c7c24dd626459dc9a550e5ea8d70cca5e6d183b2c7211a0a4496cbb9feb4"
         ]
       }
     },

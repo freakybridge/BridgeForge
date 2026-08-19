@@ -30,7 +30,7 @@ argument: 搜索关键词
    `light-explorer`，由它运行对应搜索脚本：
 
    ```bash
-   python .codex/scripts/memory_search.py <关键词>
+   .venv/Scripts/python.exe .codex/scripts/memory_search.py <关键词>
    ```
 
 4. 脚本必须递归覆盖 `memory/**/*.md`，并检索正文及

@@ -103,40 +103,33 @@ def _dispatcher_stage(handler: Any) -> str | None:
 
 def _codex_hooks_merge_validation(payload: bytes) -> dict[str, Any]:
     try:
-        document = json.loads(payload.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        module = _version_release_module(REPOSITORY_ROOT)
+        document = module._load_hooks_document(payload, "templates/hooks.json")
+        groups = module._expected_hooks_groups(
+            document,
+            managed_prefix="bridgeforge-codex.project-hook.v1:",
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RuntimeError) as exc:
         raise ValueError(f"Codex hooks source is invalid JSON: {exc}") from exc
-    hooks = document.get("hooks") if isinstance(document, dict) else None
-    if not isinstance(hooks, dict):
-        raise ValueError("Codex hooks source has no hooks object")
-    required: list[dict[str, str]] = []
-    for event, groups in hooks.items():
-        if not isinstance(event, str) or not isinstance(groups, list):
-            raise ValueError("Codex hooks source contains an invalid event group")
-        for group in groups:
-            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
-                raise ValueError("Codex hooks source contains an invalid matcher group")
-            matcher = group.get("matcher")
-            if matcher is not None and not isinstance(matcher, str):
-                raise ValueError("Codex hooks source contains an invalid matcher")
-            for handler in group["hooks"]:
-                stage = _dispatcher_stage(handler)
-                if stage is None:
-                    continue
-                required.append({
-                    "event": event,
-                    "matcher": matcher if isinstance(matcher, str) else "",
-                    "stage": stage,
-                    "sha256": _canonical_json_sha256(handler),
-                })
+    required = [
+        {
+            "id": str(item["id"]),
+            "event": str(item["event"]),
+            "matcher": str(item["matcher"]),
+            "stage": str(_dispatcher_stage(item["handler"])),
+            "sha256": str(item["handler_sha256"]),
+        }
+        for item in groups
+    ]
     if not required:
         raise ValueError("Codex hooks source has no managed dispatcher handlers")
     required.sort(key=lambda item: (item["event"], item["matcher"], item["stage"]))
     if len({(item["event"], item["matcher"], item["stage"]) for item in required}) != len(required):
         raise ValueError("Codex hooks source contains duplicate managed dispatcher stages")
     return {
-        "format": "codex-hooks-dispatchers-v1",
+        "format": "codex-hooks-zones-v2",
         "required_handlers": required,
+        "managed_top_level": {"description": document.get("description")},
     }
 
 
@@ -260,32 +253,6 @@ def _merge_history(
     )
 
 
-def _merge_projection_history(
-    existing: Any,
-    root: Path,
-    source: str,
-    baselines: dict[str, str],
-    projector: Any,
-) -> dict[str, list[str]]:
-    history = _merge_history(existing, root, "__no_projection_history__", {})
-    for version, revision in baselines.items():
-        payload = _git_blob_at(root, revision, source)
-        if payload is None:
-            continue
-        try:
-            digest = projector(payload)
-        except (TypeError, ValueError):
-            continue
-        values = history.setdefault(version, [])
-        if digest in values:
-            continue
-        values.append(digest)
-        values.sort()
-    return dict(
-        sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
-    )
-
-
 _VERSION_RELEASE_MODULE: Any | None = None
 
 
@@ -330,25 +297,62 @@ def _historical_contract_asset(
     root: Path,
     revision: str,
     asset_id: str,
+    *,
+    strict: bool = False,
 ) -> dict[str, Any] | None:
     payload = _git_blob_at(root, revision, "templates/managed-skeleton.json")
     if payload is None:
+        if strict:
+            raise ValueError(
+                f"Historical managed contract is missing: {asset_id}@{revision}"
+            )
         return None
     try:
         contract = json.loads(payload.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError):
+        if strict:
+            raise ValueError(
+                f"Historical managed contract is invalid: {asset_id}@{revision}"
+            )
         return None
-    assets = contract.get("assets") if isinstance(contract, dict) else None
+    if not isinstance(contract, dict):
+        if strict:
+            raise ValueError(
+                f"Historical managed contract is invalid: {asset_id}@{revision}"
+            )
+        return None
+    if contract.get("schema_version") == 1:
+        return None
+    if strict and contract.get("schema_version") != 2:
+        raise ValueError(
+            f"Historical managed contract schema is unsupported: {asset_id}@{revision}"
+        )
+    assets = contract.get("assets")
     if not isinstance(assets, list):
+        if strict:
+            raise ValueError(
+                f"Historical managed contract assets are invalid: {asset_id}@{revision}"
+            )
         return None
-    return next(
-        (
-            dict(item)
-            for item in assets
-            if isinstance(item, dict) and item.get("id") == asset_id
-        ),
-        None,
-    )
+    if strict:
+        stable_ids: list[str] = []
+        for item in assets:
+            stable_id = item.get("id") if isinstance(item, dict) else None
+            if not isinstance(stable_id, str) or not stable_id:
+                raise ValueError(
+                    f"Historical managed contract asset is invalid: {asset_id}@{revision}"
+                )
+            stable_ids.append(stable_id)
+        if len(stable_ids) != len(set(stable_ids)):
+            raise ValueError(
+                f"Historical managed contract has duplicate asset ids: {asset_id}@{revision}"
+            )
+    matches = [
+        dict(item)
+        for item in assets
+        if isinstance(item, dict) and item.get("id") == asset_id
+    ]
+    return matches[0] if matches else None
 
 
 def _managed_markdown_projection_history(
@@ -408,34 +412,6 @@ def _managed_region_block(payload: bytes, begin: str, end: str) -> bytes | None:
     start = normalized.index(begin_bytes)
     finish = normalized.index(end_bytes, start + len(begin_bytes)) + len(end_bytes)
     return normalized[start:finish]
-
-
-def _merge_region_history(
-    existing: Any,
-    root: Path,
-    source: str,
-    baselines: dict[str, str],
-    begin: str,
-    end: str,
-) -> dict[str, list[str]]:
-    history = _merge_history(existing, root, "__no_region_history__", {})
-    known = {value for values in history.values() for value in values}
-    for version, revision in baselines.items():
-        payload = _git_blob_at(root, revision, source)
-        if payload is None:
-            continue
-        block = _managed_region_block(payload, begin, end)
-        if block is None:
-            continue
-        digest = f"sha256:{hashlib.sha256(block).hexdigest()}"
-        if digest in known:
-            continue
-        history.setdefault(version, []).append(digest)
-        history[version].sort()
-        known.add(digest)
-    return dict(
-        sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
-    )
 
 
 def _merge_agents_public_history(
@@ -665,6 +641,23 @@ def rebuild_managed_contract(
     if contract.get("schema_version") != 2 or not isinstance(contract.get("assets"), list):
         raise ValueError("Codex managed-skeleton.json must use schema v2 before rebuild")
     for asset in contract["assets"]:
+        if not isinstance(asset, dict):
+            raise ValueError("Codex managed contract asset is invalid")
+        zones = asset.get("agents_zones")
+        if zones is not None:
+            project = zones.get("project") if isinstance(zones, dict) else None
+            if (
+                not isinstance(zones, dict)
+                or zones.get("format") != "bridgeforge-agents-zones"
+                or not isinstance(zones.get("public"), dict)
+                or not isinstance(project, dict)
+                or asset.get("managed_blocks") is not None
+                or asset.get("section_layout") is not None
+                or "legacy_section_migrations" in project
+            ):
+                raise ValueError(
+                    "Codex AGENTS must use agents_zones as its only ownership rule"
+                )
         managed = asset.get("managed_blocks") if isinstance(asset, dict) else None
         if managed is None:
             continue
@@ -764,23 +757,6 @@ def rebuild_managed_contract(
                 validation["current_projection_sha256"] = _canonical_json_sha256(
                     validation["required_handlers"]
                 )
-                previous_validation = asset.get("merge_validation")
-                previous_projection_history = (
-                    previous_validation.get("historical_projection_sha256")
-                    if isinstance(previous_validation, dict)
-                    else None
-                )
-                validation["historical_projection_sha256"] = (
-                    _merge_projection_history(
-                        previous_projection_history,
-                        root,
-                        source,
-                        baselines,
-                        lambda payload: _canonical_json_sha256(
-                            _codex_hooks_merge_validation(payload)["required_handlers"]
-                        ),
-                    )
-                )
                 if asset.get("merge_validation") != validation:
                     asset["merge_validation"] = validation
                     changed = True
@@ -804,34 +780,39 @@ def rebuild_managed_contract(
                 if managed.get("historical_projection_sha256") != projection_history:
                     managed["historical_projection_sha256"] = projection_history
                     changed = True
-        history_source = source or asset.get("historical_source")
-        history: dict[str, list[str]] = {}
-        if history_source:
-            history = _merge_history(
-                asset.get("historical_sha256"),
-                root,
-                history_source,
-                baselines,
+        if asset.get("strategy") == "region":
+            if "historical_sha256" in asset:
+                asset.pop("historical_sha256")
+                changed = True
+        else:
+            history_source = source or asset.get("historical_source")
+            history: dict[str, list[str]] = {}
+            if history_source:
+                history = _merge_history(
+                    asset.get("historical_sha256"),
+                    root,
+                    history_source,
+                    baselines,
+                )
+            transition_hash = PRE_FLATTEN_ASSET_SHA256.get(str(asset.get("id")))
+            if transition_hash is not None:
+                transition_hashes = history.setdefault(PRE_FLATTEN_VERSION, [])
+                if transition_hash not in transition_hashes:
+                    transition_hashes.append(transition_hash)
+                    transition_hashes.sort()
+            project_zone_transition = PROJECT_ZONE_TRANSITION_ASSET_SHA256.get(
+                str(asset.get("id"))
             )
-        transition_hash = PRE_FLATTEN_ASSET_SHA256.get(str(asset.get("id")))
-        if transition_hash is not None:
-            transition_hashes = history.setdefault(PRE_FLATTEN_VERSION, [])
-            if transition_hash not in transition_hashes:
-                transition_hashes.append(transition_hash)
-                transition_hashes.sort()
-        project_zone_transition = PROJECT_ZONE_TRANSITION_ASSET_SHA256.get(
-            str(asset.get("id"))
-        )
-        if project_zone_transition is not None:
-            transition_hashes = history.setdefault(
-                PROJECT_ZONE_TRANSITION_VERSION, []
-            )
-            if project_zone_transition not in transition_hashes:
-                transition_hashes.append(project_zone_transition)
-                transition_hashes.sort()
-        if asset.get("historical_sha256") != history:
-            asset["historical_sha256"] = history
-            changed = True
+            if project_zone_transition is not None:
+                transition_hashes = history.setdefault(
+                    PROJECT_ZONE_TRANSITION_VERSION, []
+                )
+                if project_zone_transition not in transition_hashes:
+                    transition_hashes.append(project_zone_transition)
+                    transition_hashes.sort()
+            if asset.get("historical_sha256") != history:
+                asset["historical_sha256"] = history
+                changed = True
         layout = asset.get("section_layout") if isinstance(asset, dict) else None
         if isinstance(layout, dict) and isinstance(source, str):
             history_entries = [
@@ -855,18 +836,6 @@ def rebuild_managed_contract(
                     changed = True
         zones = asset.get("agents_zones") if isinstance(asset, dict) else None
         if isinstance(zones, dict) and isinstance(source, str):
-            if not isinstance(layout, dict):
-                raise ValueError("Codex AGENTS zones require a legacy section layout")
-            residual_history = _merge_layout_residual_history(
-                layout.get("trusted_residual_sha256"),
-                root,
-                source,
-                baselines,
-                layout,
-            )
-            if layout.get("trusted_residual_sha256") != residual_history:
-                layout["trusted_residual_sha256"] = residual_history
-                changed = True
             public = zones["public"]
             source_payload = _source_path(root, source).read_bytes()
             public_payload = _agents_public_block(
@@ -897,16 +866,8 @@ def rebuild_managed_contract(
             if region.get("current_sha256") != current_region_hash:
                 region["current_sha256"] = current_region_hash
                 changed = True
-            region_history = _merge_region_history(
-                region.get("historical_sha256"),
-                root,
-                source,
-                baselines,
-                begin,
-                end,
-            )
-            if region.get("historical_sha256") != region_history:
-                region["historical_sha256"] = region_history
+            if "historical_sha256" in region:
+                region.pop("historical_sha256")
                 changed = True
 
     serialized = json.dumps(contract, ensure_ascii=False, indent=2) + "\n"

@@ -5,7 +5,7 @@ The model still owns the review and commit-message decision. This runner keeps
 the actual git plumbing in one narrow, repo-local command so Codex can request a
 single persistent approval for:
 
-    python .codex/scripts/codex_git_sync.py
+    .venv/Scripts/python.exe .codex/scripts/codex_git_sync.py
 
 It deliberately refuses risky history repair. Diverged branches, missing
 upstream, stash-pop conflicts, and push races stop for user handling.
@@ -19,6 +19,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from project_runtime import ProjectRuntimeError, validate_project_runtime
 from version_release import ReleaseError, ReleasePlan, apply_release_plan, build_release_plan
 
 try:
@@ -356,6 +357,11 @@ def sync(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    try:
+        validate_project_runtime(REPO_ROOT, executable=sys.executable)
+    except ProjectRuntimeError as exc:
+        print(f"[git-sync] project runtime contract rejected: {exc}", file=sys.stderr)
+        return 2
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-m", "--message", help="Commit message to use when local changes are staged.")
     parser.add_argument("--message-file", help="Read the commit message from a UTF-8 file.")

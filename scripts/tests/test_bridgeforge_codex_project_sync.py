@@ -54,7 +54,29 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         return Path(temporary.name)
 
+    def prepare_project_runtime(self, project: Path) -> Path:
+        python = project / ".venv" / "Scripts" / "python.exe"
+        if not python.is_file():
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "venv",
+                    "--without-pip",
+                    str(project / ".venv"),
+                ],
+                cwd=project,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return python
+
     def apply_init(self, project: Path) -> sync.Receipt:
+        self.prepare_project_runtime(project)
         plan = sync.build_plan(project, ROOT, "init")
         self.assertFalse(plan.blockers)
         self.assertFalse(plan.risk_actions)
@@ -135,24 +157,41 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             item for item in contract["assets"] if item["id"] == "codex.precommit"
         )
         self.assertRegex(precommit["region"]["current_sha256"], r"^sha256:[0-9a-f]{64}$")
-        self.assertIn("1.4.1", precommit["region"]["historical_sha256"])
+        self.assertEqual(
+            precommit["region"]["begin"],
+            "# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
+        )
+        self.assertEqual(
+            precommit["region"]["end"],
+            "# <<< BRIDGEFORGE_CODEX_MANAGED_END",
+        )
+        self.assertNotIn("historical_sha256", precommit)
+        self.assertNotIn("historical_sha256", precommit["region"])
         hooks_config = next(
             item for item in contract["assets"] if item["id"] == "codex.hooks-config"
         )
         self.assertEqual(
             hooks_config["merge_validation"]["format"],
-            "codex-hooks-dispatchers-v1",
+            "codex-hooks-zones-v2",
         )
         self.assertTrue(hooks_config["merge_validation"]["required_handlers"])
         for handler in hooks_config["merge_validation"]["required_handlers"]:
+            self.assertRegex(
+                handler["id"],
+                r"^bridgeforge-codex\.project-hook\.v1:",
+            )
             self.assertRegex(handler["sha256"], r"^sha256:[0-9a-f]{64}$")
         self.assertRegex(
             hooks_config["merge_validation"]["current_projection_sha256"],
             r"^sha256:[0-9a-f]{64}$",
         )
-        self.assertIn(
-            "1.4.11",
-            hooks_config["merge_validation"]["historical_projection_sha256"],
+        self.assertNotIn(
+            "historical_projection_sha256",
+            hooks_config["merge_validation"],
+        )
+        self.assertEqual(
+            set(hooks_config["merge_validation"]["managed_top_level"]),
+            {"description"},
         )
         readme = next(
             item for item in contract["assets"] if item["id"] == "codex.doc.readme"
@@ -172,7 +211,6 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         baselines = manifest_builder._baseline_revisions(ROOT)
         assets_by_id = {item["id"]: item for item in contract["assets"]}
         for asset_id, versions in {
-            "root.agents": ("0.94.0", "0.94.2", "0.94.4"),
             "codex.doc.readme": ("0.94.0", "0.94.1"),
         }.items():
             for version in versions:
@@ -206,28 +244,11 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         active = next(item for item in contract["assets"] if item["id"] == "root.agents")
         self.assertIn("0.86.0", active["historical_sha256"])
         self.assertIn("0.90.0", active["historical_sha256"])
-        self.assertNotIn("## 1. 架构红线", active["managed_blocks"]["headings"])
-        self.assertNotIn("## 3. 快速命令", active["managed_blocks"]["headings"])
-        self.assertEqual(
-            active["managed_blocks"]["headings"],
-            ["### 2.1 原生指令承载索引"],
-        )
-        self.assertEqual(active["managed_blocks"]["keyed_tables"], [])
-        self.assertEqual(active["managed_blocks"]["additive_headings"], [])
-        layout = active["section_layout"]
-        self.assertEqual(layout["format"], "markdown-section-layout")
-        project_sections = {
-            entry["heading"]
-            for entry in sync._layout_sections(layout)
-            if entry["ownership"] == "project" and entry.get("required") is True
-        }
-        self.assertEqual(project_sections, {
-            "### 1.1 架构红线",
-            "## 3 项目目录地图",
-            "### 4.2 快速命令",
-        })
+        self.assertNotIn("managed_blocks", active)
+        self.assertNotIn("section_layout", active)
         zones = active["agents_zones"]
         self.assertEqual(zones["format"], "bridgeforge-agents-zones")
+        self.assertNotIn("legacy_section_migrations", zones["project"])
         self.assertEqual(
             zones["project"]["required_content_headings"],
             [
@@ -276,6 +297,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             "1.4.7",
             "1.4.9",
             "1.4.11",
+            "1.4.14",
             "1.4.1",
             "1.3.0",
             "0.92.0",
@@ -320,6 +342,146 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                         manifest_builder.PROJECT_ZONE_TRANSITION_VERSION
                     ],
                 )
+
+    def test_agents_zones_rejects_parallel_legacy_ownership_rules(self) -> None:
+        contract = json.loads(
+            (ROOT / "templates/managed-skeleton.json").read_text(encoding="utf-8")
+        )
+        asset = next(item for item in contract["assets"] if item["id"] == "root.agents")
+        invalid_variants = (
+            {"managed_blocks": {"format": "markdown-headings"}},
+            {"section_layout": {"format": "markdown-section-layout"}},
+            {"legacy_section_migrations": []},
+        )
+        for variant in invalid_variants:
+            with self.subTest(variant=next(iter(variant))):
+                invalid = copy.deepcopy(contract)
+                invalid_asset = next(
+                    item for item in invalid["assets"] if item["id"] == asset["id"]
+                )
+                key, value = next(iter(variant.items()))
+                if key == "legacy_section_migrations":
+                    invalid_asset["agents_zones"]["project"][key] = value
+                else:
+                    invalid_asset[key] = value
+                with tempfile.TemporaryDirectory(dir=ROOT) as raw:
+                    path = Path(raw) / "managed-skeleton.json"
+                    path.write_text(json.dumps(invalid), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        "agents_zones as its only ownership rule",
+                    ):
+                        manifest_builder.rebuild_managed_contract(path, write=False)
+
+    def test_strict_historical_contract_asset_rejects_corruption(self) -> None:
+        invalid_payloads = (
+            None,
+            b"{not-json",
+            json.dumps({"schema_version": 2, "assets": {}}).encode("utf-8"),
+            json.dumps({
+                "schema_version": 2,
+                "assets": ["not-an-asset"],
+            }).encode("utf-8"),
+            json.dumps({
+                "schema_version": 2,
+                "assets": [
+                    {"id": "codex.precommit"},
+                    {"id": "codex.precommit"},
+                ],
+            }).encode("utf-8"),
+        )
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload), mock.patch.object(
+                manifest_builder,
+                "_git_blob_at",
+                return_value=payload,
+            ):
+                with self.assertRaises(ValueError):
+                    manifest_builder._historical_contract_asset(
+                        ROOT,
+                        "historical-revision",
+                        "codex.precommit",
+                        strict=True,
+                    )
+
+        valid_without_asset = json.dumps({
+            "schema_version": 2,
+            "assets": [{"id": "root.agents"}],
+        }).encode("utf-8")
+        with mock.patch.object(
+            manifest_builder,
+            "_git_blob_at",
+            return_value=valid_without_asset,
+        ):
+            self.assertIsNone(
+                manifest_builder._historical_contract_asset(
+                    ROOT,
+                    "historical-revision",
+                    "codex.precommit",
+                    strict=True,
+                )
+            )
+
+        schema_v1 = json.dumps({
+            "schema_version": 1,
+            "managed_regions": [{
+                "path": ".githooks/pre-commit",
+                "begin": "# BEGIN",
+                "end": "# END",
+            }],
+        }).encode("utf-8")
+        with mock.patch.object(
+            manifest_builder,
+            "_git_blob_at",
+            return_value=schema_v1,
+        ):
+            historical_asset = manifest_builder._historical_contract_asset(
+                ROOT,
+                "historical-revision",
+                "codex.precommit",
+                strict=True,
+            )
+        self.assertIsNone(historical_asset)
+
+    def test_region_planner_rejects_legacy_marker_without_writes(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        precommit = project / ".githooks/pre-commit"
+        precommit.write_bytes(
+            precommit.read_bytes()
+            .replace(
+                b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
+                b"# >>> BRIDGEFORGE_MANAGED_BEGIN",
+                1,
+            )
+            .replace(
+                b"# <<< BRIDGEFORGE_CODEX_MANAGED_END",
+                b"# <<< BRIDGEFORGE_MANAGED_END",
+                1,
+            )
+        )
+        before = precommit.read_bytes()
+        stamp = project / ".codex/.bridgeforge_codex_version"
+
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertFalse(any(
+            item.asset_id == "codex.precommit" for item in plan.actions
+        ))
+        self.assertTrue(any(
+            item.asset_id == "codex.precommit"
+            and "region ownership is ambiguous" in item.reason
+            for item in plan.gaps
+        ))
+        receipt = sync.apply_plan(
+            plan,
+            plan_fingerprint=plan.aggregate_fingerprint,
+        )
+        self.assertEqual(precommit.read_bytes(), before)
+        self.assertFalse(receipt.stamp_written_last)
+        self.assertEqual(
+            stamp.read_text(encoding="utf-8"),
+            CURRENT_VERSION + "\n",
+        )
 
     def test_contract_dogfood_manifest_and_retirements_are_current(self) -> None:
         template_contract = ROOT / "templates/managed-skeleton.json"
@@ -499,7 +661,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertEqual(marker.read_bytes(), before)
         self.assertFalse((project / "scripts/tests/test_project_only.py").exists())
 
-    def test_exact_legacy_layout_migrates_and_preserves_project_sections(self) -> None:
+    def test_exact_legacy_layout_requires_explicit_zone_adaptation(self) -> None:
         project = self.make_project()
         self.apply_init(project)
         agents = project / "AGENTS.md"
@@ -516,51 +678,22 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         stamp.write_text("0.94.2\n", encoding="utf-8")
 
         plan = sync.build_plan(project, ROOT, "update")
-        self.assertFalse(plan.gaps)
         self.assertTrue(any(
             item.asset_id == "root.agents"
-            and item.action == "migrate-agents-zones"
-            for item in plan.safe_actions
+            and "does not use the current public/project zones" in item.reason
+            for item in plan.gaps
         ))
+        before = agents.read_bytes()
         receipt = sync.apply_plan(
             plan,
             plan_fingerprint=plan.aggregate_fingerprint,
             confirmed_risk=True,
         )
-        migrated = agents.read_text(encoding="utf-8")
-        for marker in (
-            "<!-- BRIDGEFORGE:PUBLIC:BEGIN -->",
-            "<!-- BRIDGEFORGE:PROJECT:BEGIN -->",
-            "### 项目架构红线",
-            "### 项目目录地图",
-            "### 项目快速命令",
-            "必须保持 fixture 数据流单向",
-            ".venv/Scripts/python.exe -m unittest",
-            "`src/`：fixture 源码入口",
-        ):
-            self.assertIn(marker, migrated)
-        for legacy in (
-            "## 1. 架构红线",
-            "## 3. 快速命令",
-            "## 7. 项目结构速查",
-            "[ctx-budget]",
-        ):
-            self.assertNotIn(legacy, migrated)
-        self.assertFalse(retired_hook.exists())
-        self.assertNotIn(
-            "context budget",
-            (project / ".codex/hooks.json").read_text(encoding="utf-8").casefold(),
-        )
-        self.assertEqual(receipt.project_readiness, "ready")
-        self.assertEqual(receipt.target_readiness, "ready")
-        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), CURRENT_VERSION)
+        self.assertEqual(agents.read_bytes(), before)
+        self.assertFalse(receipt.stamp_written_last)
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "0.94.2\n")
 
-        second = sync.build_plan(project, ROOT, "update")
-        self.assertFalse(second.actions)
-        self.assertFalse(second.gaps)
-        self.assertFalse(second.project_requirements)
-
-    def test_legacy_layout_preserves_rendered_project_name_outside_worktree_name(self) -> None:
+    def test_unzoned_agents_with_other_project_name_require_explicit_adaptation(self) -> None:
         project = self.make_project()
         self.apply_init(project)
         agents = project / "AGENTS.md"
@@ -572,23 +705,19 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         stamp.write_text("0.94.4\n", encoding="utf-8")
 
         plan = sync.build_plan(project, ROOT, "update")
-        self.assertFalse(plan.gaps)
+        self.assertTrue(any(
+            item.asset_id == "root.agents"
+            and "does not use the current public/project zones" in item.reason
+            for item in plan.gaps
+        ))
+        before = agents.read_bytes()
         receipt = sync.apply_plan(
             plan,
             plan_fingerprint=plan.aggregate_fingerprint,
             confirmed_risk=True,
         )
-        migrated = agents.read_text(encoding="utf-8")
-        self.assertIn(
-            "git clone <repo_url> causis_risk_suite && cd causis_risk_suite",
-            migrated,
-        )
-        self.assertNotIn(project.name, migrated)
-        self.assertTrue(receipt.stamp_written_last)
-
-        second = sync.build_plan(project, ROOT, "update")
-        self.assertFalse(second.actions)
-        self.assertFalse(second.gaps)
+        self.assertEqual(agents.read_bytes(), before)
+        self.assertFalse(receipt.stamp_written_last)
 
     def test_legacy_unclassified_preamble_or_group_prose_is_preserved_as_gap(self) -> None:
         for case in ("preamble", "group-prose"):
@@ -600,20 +729,8 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                     legacy = self.legacy_agents(project_name=project.name)
                     legacy = "PROJECT CUSTOM PREAMBLE MUST SURVIVE.\n\n" + legacy
                 else:
-                    contract = json.loads(
-                        (ROOT / "templates/managed-skeleton.json").read_text(
-                            encoding="utf-8"
-                        )
-                    )
-                    asset = next(
-                        item for item in contract["assets"]
-                        if item["id"] == "root.agents"
-                    )
-                    desired = (ROOT / "templates/AGENTS.md").read_bytes().replace(
-                        b"{{PROJECT_NAME}}", project.name.encode("utf-8")
-                    )
-                    legacy = sync._legacy_agents_source(asset, desired).decode("utf-8")
-                    heading = "## 1 项目基础约束"
+                    legacy = self.legacy_agents(project_name=project.name)
+                    heading = "## 1. 架构红线"
                     self.assertIn(heading, legacy)
                     legacy = legacy.replace(
                         heading,
@@ -629,7 +746,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                 ))
                 self.assertTrue(any(
                     item.asset_id == "root.agents"
-                    and "unclassified content" in item.reason
+                    and "does not use the current public/project zones" in item.reason
                     for item in plan.gaps
                 ))
                 receipt = sync.apply_plan(
@@ -654,7 +771,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         self.assertTrue(any(
             item.asset_id == "root.agents"
-            and "managed legacy section drifted" in item.reason
+            and "does not use the current public/project zones" in item.reason
             for item in plan.gaps
         ))
         receipt = sync.apply_plan(
@@ -702,7 +819,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertEqual(actions, [])
         self.assertTrue(any("public zone drifted" in item.reason for item in gaps))
 
-    def test_partial_or_reversed_zone_markers_fail_closed(self) -> None:
+    def test_missing_duplicate_or_reversed_zone_markers_fail_closed(self) -> None:
         project = self.make_project()
         contract = json.loads(
             (ROOT / "templates/managed-skeleton.json").read_text(encoding="utf-8")
@@ -710,13 +827,31 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         asset = next(item for item in contract["assets"] if item["id"] == "root.agents")
         source = (ROOT / "templates/AGENTS.md").read_bytes()
         target = project / "AGENTS.md"
-        target.write_bytes(source.replace(b"<!-- BRIDGEFORGE:PROJECT:END -->", b""))
-        actions, gaps = sync._plan_whole(asset, source, target, project)
-        self.assertEqual(actions, [])
-        self.assertTrue(any("missing or duplicated" in item.reason for item in gaps))
-        action_required = sync._action_required_items(gaps)
-        self.assertEqual([item["id"] for item in action_required], ["G1"])
-        self.assertIn("marker", action_required[0]["classification_reason"])
+        public_begin = b"<!-- BRIDGEFORGE:PUBLIC:BEGIN -->"
+        project_begin = b"<!-- BRIDGEFORGE:PROJECT:BEGIN -->"
+        reversed_markers = source.replace(public_begin, b"<!-- TEMP -->", 1)
+        reversed_markers = reversed_markers.replace(project_begin, public_begin, 1)
+        reversed_markers = reversed_markers.replace(b"<!-- TEMP -->", project_begin, 1)
+        cases = {
+            "missing": (
+                source.replace(b"<!-- BRIDGEFORGE:PROJECT:END -->", b""),
+                "missing or duplicated",
+            ),
+            "duplicate": (
+                source.replace(public_begin, public_begin + b"\n" + public_begin, 1),
+                "missing or duplicated",
+            ),
+            "reversed": (reversed_markers, "reversed or nested"),
+        }
+        for name, (payload, expected_reason) in cases.items():
+            with self.subTest(case=name):
+                target.write_bytes(payload)
+                actions, gaps = sync._plan_whole(asset, source, target, project)
+                self.assertEqual(actions, [])
+                self.assertTrue(any(expected_reason in item.reason for item in gaps))
+                action_required = sync._action_required_items(gaps)
+                self.assertEqual([item["id"] for item in action_required], ["G1"])
+                self.assertIn("marker", action_required[0]["classification_reason"])
 
     def test_custom_legacy_title_is_gap_and_layout_is_unwritten(self) -> None:
         project = self.make_project()
@@ -736,10 +871,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         self.assertTrue(any(
             item.asset_id == "root.agents"
-            and (
-                "unrecognized top-level layout heading" in item.reason
-                or "unclassified content outside recognized sections" in item.reason
-            )
+            and "does not use the current public/project zones" in item.reason
             for item in plan.gaps
         ))
         action_required = sync._plan_payload(plan)["action_required_items"]
@@ -747,13 +879,10 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             [item["id"] for item in action_required],
             [f"G{index}" for index in range(1, len(action_required) + 1)],
         )
-        custom_item = next(
-            item
-            for item in action_required
-            if "项目自定义架构约束" in item["content_summary"]
-        )
+        custom_item = action_required[0]
         self.assertIn("AGENTS.md lines", custom_item["source_location"])
-        self.assertIn("classify", custom_item["recommended_action"])
+        self.assertIn("unzoned AGENTS ownership", custom_item["classification_reason"])
+        self.assertIn("project zone", custom_item["recommended_action"])
         self.assertFalse(any(item.asset_id == "root.agents" for item in plan.actions))
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(receipt.action_required_items, tuple(action_required))
@@ -777,13 +906,13 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         self.assertTrue(any(
             item.asset_id == "root.agents"
-            and "managed legacy section drifted" in item.reason
+            and "does not use the current public/project zones" in item.reason
             for item in plan.gaps
         ))
         action_required = sync._plan_payload(plan)["action_required_items"]
         self.assertEqual(len(action_required), 1)
         self.assertIn("项目本地表达扩展", action_required[0]["content_summary"])
-        self.assertIn("exact or trusted duplicates", action_required[0]["recommended_action"])
+        self.assertIn("project zone", action_required[0]["recommended_action"])
         self.assertFalse(any(item.asset_id == "root.agents" for item in plan.actions))
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(receipt.action_required_items, tuple(action_required))
@@ -805,8 +934,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         self.assertTrue(any(
             item.asset_id == "root.agents"
-            and "retired legacy section drifted" in item.reason
-            and "## 10. 上下文成本与预算" in item.reason
+            and "does not use the current public/project zones" in item.reason
             for item in plan.gaps
         ))
         self.assertFalse(any(item.asset_id == "root.agents" for item in plan.actions))
@@ -995,7 +1123,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         self.assertTrue(any(
             gap.asset_id == "root.agents"
-            and "retired legacy section drifted" in gap.reason
+            and "does not use the current public/project zones" in gap.reason
             for gap in plan.gaps
         ))
         self.assertFalse(any(
@@ -1062,53 +1190,71 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
         self.assertEqual(effect["managed_key"], "0_architecture/")
 
-    def test_layout_migration_git_diff_failure_rolls_back_before_stamp(self) -> None:
+    def test_confirmed_absorption_is_preflighted_before_any_write(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        target = project / "doc/README.md"
+        target.write_text(
+            target.read_text(encoding="utf-8").replace(
+                "系统当前架构、关键接口、数据流与 ADR",
+                "项目定制的架构目录说明",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        before = target.read_bytes()
+        stamp = project / ".codex/.bridgeforge_codex_version"
+        stamp_before = stamp.read_bytes()
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(plan.absorption_actions)
+        items = sync._release_preflight_items(
+            RuntimeError("selected absorption is not releasable")
+        )
+        checkpoints: list[str] = []
+
+        with mock.patch.object(
+            sync,
+            "_run_release_preflight",
+            side_effect=sync.ReleasePreflightBlocked("preflight rejected", items),
+        ):
+            with self.assertRaises(sync.ReleasePreflightBlocked) as captured:
+                sync.apply_plan(
+                    plan,
+                    plan_fingerprint=plan.aggregate_fingerprint,
+                    confirmed_risk=True,
+                    checkpoint=checkpoints.append,
+                )
+
+        self.assertIn("zero writes performed", str(captured.exception))
+        self.assertEqual(
+            captured.exception.items[0]["recoverability"],
+            "zero writes were performed",
+        )
+        self.assertEqual(checkpoints, [])
+        self.assertEqual(target.read_bytes(), before)
+        self.assertEqual(stamp.read_bytes(), stamp_before)
+
+    def test_unzoned_agents_stop_before_release_preflight_and_write(self) -> None:
         project = self.make_project()
         self.apply_init(project)
         stamp = project / ".codex/.bridgeforge_codex_version"
         stamp.write_text("0.94.4\n", encoding="utf-8")
         target = project / "AGENTS.md"
         target.write_text(self.legacy_agents(), encoding="utf-8")
-        subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "fixture@example.invalid"],
-            cwd=project,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Fixture"],
-            cwd=project,
-            check=True,
-        )
-        subprocess.run(["git", "add", "."], cwd=project, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "baseline"],
-            cwd=project,
-            check=True,
-            capture_output=True,
-        )
-        target.write_text(
-            target.read_text(encoding="utf-8").replace(
-                "- 必须保持 fixture 数据流单向。",
-                "- 必须保持 fixture 数据流单向。 ",
-                1,
-            ),
-            encoding="utf-8",
-        )
         before = target.read_bytes()
-        plan = sync.build_plan(project, ROOT, "update")
+        with mock.patch.object(sync, "_run_release_preflight") as preflight:
+            plan = sync.build_plan(project, ROOT, "update")
+        preflight.assert_not_called()
         self.assertTrue(any(
-            action.asset_id == "root.agents"
-            and action.action == "migrate-agents-zones"
-            for action in plan.safe_actions
+            gap.asset_id == "root.agents"
+            and "does not use the current public/project zones" in gap.reason
+            for gap in plan.gaps
         ))
-        with self.assertRaisesRegex(sync.SyncBlocked, "rolled back: managed git diff check"):
-            sync.apply_plan(
-                plan,
-                plan_fingerprint=plan.aggregate_fingerprint,
-            )
+        receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(target.read_bytes(), before)
+        self.assertFalse(receipt.stamp_written_last)
         self.assertEqual(stamp.read_text(encoding="utf-8"), "0.94.4\n")
+
     def test_heading_scanner_ignores_fenced_examples_and_fails_unclosed(self) -> None:
         heading = "## 1. Managed"
         payload = (
@@ -1143,8 +1289,8 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         plan = sync.build_plan(project, ROOT, "update")
         action_required = sync._plan_payload(plan)["action_required_items"]
         self.assertEqual([item["id"] for item in action_required], ["G1"])
-        self.assertIn("project example", action_required[0]["content_summary"])
-        self.assertIn("unclosed Markdown fence", action_required[0]["classification_reason"])
+        self.assertIn("unzoned AGENTS ownership", action_required[0]["classification_reason"])
+        self.assertIn("project zone", action_required[0]["recommended_action"])
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         self.assertEqual(receipt.action_required_items, tuple(action_required))
         self.assertEqual(agents.read_bytes(), before)
@@ -1295,6 +1441,128 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
             )
         )
         self.assertIn(b"# project-owned extension", precommit.read_bytes())
+
+    def test_hooks_zones_canonicalize_trusted_mixed_duplicate_and_preserve_project(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        hooks_path = project / ".codex/hooks.json"
+        hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+        required: list[dict[str, str]] = []
+        for event, groups in hooks["hooks"].items():
+            for group in groups:
+                matcher = str(group.get("matcher", ""))
+                for handler in group["hooks"]:
+                    handler.pop("bridgeforgeCodexId", None)
+                    stage = sync._dispatcher_stage(handler)
+                    assert stage is not None
+                    required.append({
+                        "event": event,
+                        "matcher": matcher,
+                        "stage": stage,
+                        "sha256": manifest_builder._canonical_json_sha256(handler),
+                    })
+        session_groups = hooks["hooks"]["SessionStart"]
+        legacy_session = copy.deepcopy(session_groups[0]["hooks"][0])
+        project_handler = {
+            "type": "command",
+            "command": "python .codex/hooks/vault_junction_check.py",
+            "comment": "project-owned vault handler",
+        }
+        session_groups[:] = [
+            {"hooks": [project_handler, legacy_session]},
+            {"hooks": [copy.deepcopy(legacy_session)]},
+        ]
+        hooks_path.write_text(
+            json.dumps(hooks, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        contract_path = project / ".codex/managed-skeleton.json"
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        hooks_asset = next(
+            item for item in contract["assets"] if item["id"] == "codex.hooks-config"
+        )
+        hooks_asset["merge_validation"] = {
+            "format": "codex-hooks-dispatchers-v1",
+            "required_handlers": required,
+            "current_projection_sha256": manifest_builder._canonical_json_sha256(required),
+        }
+        contract["release_version"] = "1.4.11"
+        contract_path.write_text(
+            json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (project / ".codex/.bridgeforge_codex_version").write_text(
+            "1.4.11\n",
+            encoding="utf-8",
+        )
+
+        plan = sync.build_plan(project, ROOT, "update")
+        self.assertFalse(
+            any(gap.asset_id == "codex.hooks-config" for gap in plan.gaps)
+        )
+        action = next(
+            item for item in plan.safe_actions if item.asset_id == "codex.hooks-config"
+        )
+        self.assertIsNotNone(action.payload)
+        migrated = json.loads((action.payload or b"").decode("utf-8"))
+        session_handlers = [
+            handler
+            for group in migrated["hooks"]["SessionStart"]
+            for handler in group["hooks"]
+        ]
+        self.assertEqual(session_handlers.count(project_handler), 1)
+        managed = [
+            handler
+            for handler in session_handlers
+            if handler.get("bridgeforgeCodexId")
+            == "bridgeforge-codex.project-hook.v1:session-start"
+        ]
+        self.assertEqual(len(managed), 1)
+        managed_group = next(
+            group
+            for group in migrated["hooks"]["SessionStart"]
+            if group["hooks"] == managed
+        )
+        self.assertEqual(managed_group["hooks"], managed)
+
+        hooks["hooks"]["SessionStart"][0]["hooks"][1]["comment"] = "drifted"
+        hooks_path.write_text(
+            json.dumps(hooks, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        blocked = sync.build_plan(project, ROOT, "update")
+        self.assertTrue(
+            any(
+                gap.asset_id == "codex.hooks-config"
+                and "no trusted ownership" in gap.reason
+                for gap in blocked.gaps
+            )
+        )
+
+    def test_hooks_zones_reject_duplicate_json_keys_without_action(self) -> None:
+        project = self.make_project()
+        self.apply_init(project)
+        hooks_path = project / ".codex/hooks.json"
+        canonical = json.loads(hooks_path.read_text(encoding="utf-8"))
+        hooks_path.write_text(
+            '{"hooks": {}, "hooks": '
+            + json.dumps(canonical["hooks"], ensure_ascii=False)
+            + ', "description": '
+            + json.dumps(canonical["description"], ensure_ascii=False)
+            + "}\n",
+            encoding="utf-8",
+        )
+
+        plan = sync.build_plan(project, ROOT, "update")
+
+        self.assertFalse(
+            any(item.asset_id == "codex.hooks-config" for item in plan.actions)
+        )
+        hooks_gaps = [
+            item for item in plan.gaps if item.asset_id == "codex.hooks-config"
+        ]
+        self.assertEqual(len(hooks_gaps), 1)
+        self.assertIn("duplicate JSON key: hooks", hooks_gaps[0].reason)
 
     def test_retirement_requires_one_risk_decision_and_preserves_modifications(self) -> None:
         project = self.make_project()
@@ -1540,6 +1808,7 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
 
     def test_release_preflight_passes_before_init_stamp(self) -> None:
         project = self.make_project()
+        self.prepare_project_runtime(project)
         self.init_git_project(project)
         plan = sync.build_plan(project, ROOT, "init")
 
@@ -1553,7 +1822,56 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         self.assertTrue(receipt.stamp_written_last)
         self.assertIn("release_preflight", receipt.timings_ms)
 
-    def test_release_preflight_failure_rolls_back_and_returns_review_items(self) -> None:
+    def test_plan_reports_release_preflight_failure_before_any_write(self) -> None:
+        project = self.make_project()
+        self.init_git_project(project)
+        before_status = subprocess.run(
+            ["git", "status", "--porcelain=v1"],
+            cwd=project,
+            capture_output=True,
+            check=True,
+        ).stdout
+        items = sync._release_preflight_items(
+            RuntimeError("prospective managed projection drifted")
+        )
+
+        with mock.patch.object(sync, "_project_requirement_items", return_value=[]), \
+                mock.patch.object(
+                    sync,
+                    "_run_release_preflight",
+                    side_effect=sync.ReleasePreflightBlocked("preflight rejected", items),
+                ):
+            plan = sync.build_plan(project, ROOT, "init")
+            payload = sync._plan_payload(plan)
+            with self.assertRaises(sync.ReleasePreflightBlocked):
+                sync.apply_plan(
+                    plan,
+                    plan_fingerprint=plan.aggregate_fingerprint,
+                )
+
+        self.assertEqual(plan.release_preflight_status, "blocked")
+        self.assertEqual(payload["target_readiness"], "action_required")
+        self.assertEqual(payload["release_preflight_items"][0]["id"], "G1")
+        self.assertEqual(payload["action_required_items"][0]["id"], "G1")
+        self.assertIsInstance(payload["release_preflight_timing_ms"], float)
+        self.assertGreaterEqual(payload["release_preflight_timing_ms"], 0)
+        self.assertEqual(
+            payload["release_preflight_items"][0]["recoverability"],
+            "zero writes were performed",
+        )
+        self.assertNotEqual(payload["readiness"], "ready")
+        self.assertEqual(
+            subprocess.run(
+                ["git", "status", "--porcelain=v1"],
+                cwd=project,
+                capture_output=True,
+                check=True,
+            ).stdout,
+            before_status,
+        )
+        self.assertFalse((project / ".codex").exists())
+
+    def test_apply_rechecks_prospective_preflight_before_any_write(self) -> None:
         project = self.make_project()
         plan = sync.build_plan(project, ROOT, "init")
         items = sync._release_preflight_items(RuntimeError("managed projection drifted"))
@@ -1569,17 +1887,22 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
                     plan_fingerprint=plan.aggregate_fingerprint,
                 )
 
-        self.assertIn("rolled back", str(captured.exception))
+        self.assertIn("zero writes performed", str(captured.exception))
         self.assertEqual(captured.exception.items[0]["id"], "G1")
         self.assertEqual(
             captured.exception.items[0]["category"],
             "release_transition_review",
         )
+        self.assertEqual(
+            captured.exception.items[0]["recoverability"],
+            "zero writes were performed",
+        )
         self.assertFalse((project / ".codex/.bridgeforge_codex_version").exists())
         self.assertFalse((project / ".codex/managed-skeleton.json").exists())
 
-    def test_same_version_managed_retirement_is_preflighted_and_rolled_back(self) -> None:
+    def test_same_version_managed_retirement_is_preflighted_before_any_write(self) -> None:
         project = self.make_project()
+        self.prepare_project_runtime(project)
         self.init_git_project(project)
         plan = sync.build_plan(project, ROOT, "init")
         sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
@@ -1624,19 +1947,29 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
         )
 
         repair = sync.build_plan(project, ROOT, "update")
+        checkpoints: list[str] = []
         with self.assertRaises(sync.ReleasePreflightBlocked) as captured:
             sync.apply_plan(
                 repair,
                 plan_fingerprint=repair.aggregate_fingerprint,
                 confirmed_risk=True,
+                checkpoint=checkpoints.append,
             )
 
         self.assertTrue(target.is_file())
+        self.assertEqual(checkpoints, [])
+        self.assertEqual(
+            captured.exception.items[0]["recoverability"],
+            "zero writes were performed",
+        )
         self.assertEqual(
             captured.exception.items[0]["asset_id"],
             "codex.hook.target-cleanup",
         )
-        self.assertIn("missing updated skeleton stamp", str(captured.exception))
+        self.assertIn(
+            "missing updated skeleton stamp",
+            captured.exception.items[0]["classification_reason"],
+        )
 
     def test_trusted_release_loader_does_not_write_bytecode(self) -> None:
         template_root = self.make_project()
@@ -1762,10 +2095,20 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
 
     def test_cli_apply_builds_one_immediate_replan_and_emits_timings(self) -> None:
         project = self.make_project()
+        self.prepare_project_runtime(project)
         displayed = sync.build_plan(project, ROOT, "init")
         output = io.StringIO()
+        runtime_contract = mock.Mock()
+        runtime_contract.ProjectRuntimeError = RuntimeError
+        runtime_contract.expected_project_python.return_value = (
+            project / ".venv" / "Scripts" / "python.exe"
+        )
 
-        with mock.patch.object(sync, "build_plan", wraps=sync.build_plan) as build:
+        with mock.patch.object(
+            sync,
+            "_trusted_project_runtime_module",
+            return_value=runtime_contract,
+        ), mock.patch.object(sync, "build_plan", wraps=sync.build_plan) as build:
             with redirect_stdout(output):
                 exit_code = sync.main(
                     [
@@ -1790,8 +2133,15 @@ class BridgeForgeProjectSyncTests(unittest.TestCase):
 
     def test_cli_plan_emits_timing_receipt(self) -> None:
         project = self.make_project()
+        self.prepare_project_runtime(project)
         output = io.StringIO()
-        with redirect_stdout(output):
+        runtime_contract = mock.Mock()
+        runtime_contract.ProjectRuntimeError = RuntimeError
+        with mock.patch.object(
+            sync,
+            "_trusted_project_runtime_module",
+            return_value=runtime_contract,
+        ), redirect_stdout(output):
             exit_code = sync.main(
                 [
                     "--project-root",

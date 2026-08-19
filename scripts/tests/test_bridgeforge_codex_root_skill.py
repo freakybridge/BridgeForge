@@ -152,13 +152,19 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
     def test_python_preflight_native_memory_and_layout_are_in_one_orchestration(self) -> None:
         text = SKILL.read_text(encoding="utf-8")
         preflight = text.index("## 2. Python preflight")
+        mode = text.index("按以下顺序只读判定并锁定 `$MODE`", preflight)
+        bootstrap = text.index("project_runtime.py", mode)
         native_memory = text.index("codex_memory_sync.py", preflight)
         layout = text.index("bridgeforge_codex_migrate_layout.py", native_memory)
         project_sync = text.index("bridgeforge_codex_project_sync.py", layout)
-        self.assertLess(preflight, native_memory)
+        self.assertLess(preflight, mode)
+        self.assertLess(mode, bootstrap)
+        self.assertLess(bootstrap, native_memory)
         self.assertLess(native_memory, layout)
         self.assertLess(layout, project_sync)
         self.assertNotIn("\npython ", text)
+        self.assertIn("status --project-root .", text)
+        self.assertIn("禁止持久化任一项目的绝对 Python 路径", text)
         self.assertIn("本轮统一 safe/risk/gap accumulator", text)
 
     def test_references_are_codex_only_and_have_no_switch(self) -> None:

@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -41,6 +42,32 @@ def _git_blob(revision: str, source: str) -> bytes | None:
         check=False,
     )
     return result.stdout if result.returncode == 0 else None
+
+
+def _prepare_project_runtime(project: Path) -> Path:
+    python = (
+        project / ".venv" / "Scripts" / "python.exe"
+        if sys.platform == "win32"
+        else project / ".venv" / "bin" / "python"
+    )
+    created = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "venv",
+            "--without-pip",
+            str(project / ".venv"),
+        ],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if created.returncode != 0:
+        raise AssertionError(created.stdout + created.stderr)
+    return python
 
 
 def _materialize_published_project(
@@ -93,13 +120,25 @@ def _published_lineage_check(contract: dict[str, object]) -> dict[str, object]:
                 )
                 plan = sync.build_plan(project, ROOT, "update")
                 if plan.blockers or plan.gaps:
+                    explicit_adaptation = (
+                        not plan.blockers
+                        and len(plan.gaps) == 1
+                        and plan.gaps[0].asset_id == "codex.precommit"
+                        and "managed region markers" in plan.gaps[0].reason
+                    )
                     results.append({
                         "version": version,
-                        "ok": False,
+                        "ok": explicit_adaptation,
+                        "status": (
+                            "explicit-precommit-adaptation-required"
+                            if explicit_adaptation
+                            else "unexpected-gap"
+                        ),
                         "blockers": list(plan.blockers),
-                        "gaps": list(plan.gaps),
+                        "gaps": [asdict(item) for item in plan.gaps],
                     })
                     continue
+                _prepare_project_runtime(project)
                 receipt = sync.apply_plan(
                     plan,
                     plan_fingerprint=plan.aggregate_fingerprint,
@@ -125,9 +164,13 @@ def _published_lineage_check(contract: dict[str, object]) -> dict[str, object]:
             except Exception as exc:
                 results.append({"version": version, "ok": False, "error": str(exc)})
     return {
-        "name": "published-lineage-executable",
+        "name": "published-lineage-behavior",
         "ok": bool(results) and all(bool(item["ok"]) for item in results),
-        "migrated_count": sum(bool(item["ok"]) for item in results),
+        "migrated_count": sum(item.get("status") == "completed" for item in results),
+        "explicit_adaptation_count": sum(
+            item.get("status") == "explicit-precommit-adaptation-required"
+            for item in results
+        ),
         "expected_count": len(baselines),
         "results": results,
     }
@@ -164,6 +207,7 @@ def main() -> int:
             if item.get("category") == "unsupported_legacy_notice"
         ]
         checks.append({"name": "claude-existence-only", "ok": len(notice) == 1})
+        _prepare_project_runtime(project)
         receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
         checks.append({
             "name": "codex-init-stamp-last",

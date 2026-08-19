@@ -8,6 +8,7 @@ this file instead of relying on JSON array order.
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import re
 import subprocess
@@ -135,6 +136,26 @@ def _python_version_error(version_info: object = sys.version_info) -> str | None
         f"Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ is required; "
         f"running {major}.{minor}"
     )
+
+
+def _project_runtime_error() -> str | None:
+    contract_path = SCRIPT_DIR / "project_runtime.py"
+    if not contract_path.is_file():
+        return f"project runtime validator is missing: {contract_path}"
+    module_name = "_bridgeforge_codex_hook_project_runtime"
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, contract_path)
+        if spec is None or spec.loader is None:
+            return f"project runtime validator cannot be loaded: {contract_path}"
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        module.validate_project_runtime(REPO_ROOT, executable=sys.executable)
+        return None
+    except Exception as exc:
+        return f"project runtime contract rejected: {type(exc).__name__}: {exc}"
+    finally:
+        sys.modules.pop(module_name, None)
 
 
 def _read_payload() -> tuple[dict, bytes]:
@@ -370,6 +391,10 @@ def main(version_info: object = sys.version_info) -> int:
     version_error = _python_version_error(version_info)
     if version_error:
         print(f"[hook-dispatch] BLOCKED: {version_error}", file=sys.stderr)
+        return 2
+    runtime_error = _project_runtime_error()
+    if runtime_error:
+        print(f"[hook-dispatch] BLOCKED: {runtime_error}", file=sys.stderr)
         return 2
     if len(sys.argv) != 2:
         print("usage: hook_dispatcher.py EVENT", file=sys.stderr)

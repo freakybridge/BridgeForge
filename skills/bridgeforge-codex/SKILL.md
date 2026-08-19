@@ -40,10 +40,28 @@ $PROJECT_ENTRY_FILE = "AGENTS.md"
 
 ## 2. Python preflight
 
-在运行任何 Python planner 或 apply 前锁定本轮唯一解释器。项目存在 `.venv` 时只能使用
-`.venv/Scripts/python.exe`；缺失、损坏或低于 Python 3.11 必须阻断，禁止回退 PATH。
-没有 `.venv` 时才可从 PATH 选择一个 Python 3.11+。锁定为 `$HOOK_PYTHON` 后，本轮所有
-Python 命令必须使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换解释器。
+在运行任何 Python planner、status 或 apply 前，先按以下顺序只读判定并锁定 `$MODE`：
+
+1. 新 `.codex/.bridgeforge_codex_version` 或旧 `.codex/.bridgeforge_version` 存在：update。
+2. `.codex/` 或 `AGENTS.md` 存在：adopt。
+3. 否则：init。
+
+双戳、异常值或旧版本低于 `0.86.0` 时必须在创建 `.venv` 前阻断且零写入。每个项目必须使用
+自己的 CPython 3.11+ `.venv/Scripts/python.exe`。`.venv` 已存在时只能把它锁定为
+`$HOOK_PYTHON`；缺失时只有 init/adopt 可以从 PATH 选择一次经验证的 CPython 3.11+，并且
+该解释器只能执行：
+
+```powershell
+& $BOOTSTRAP_PYTHON `
+  -B `
+  (Join-Path $BRIDGEFORGE_CODEX_HOME "templates\scripts\project_runtime.py") `
+  bootstrap --project-root . --mode $MODE --bootstrap-executable $BOOTSTRAP_PYTHON
+```
+
+创建成功后立即把 `.venv/Scripts/python.exe` 锁定为 `$HOOK_PYTHON`，再运行同一模块的
+`validate --project-root . --executable $HOOK_PYTHON`。update 缺失 `.venv`，或者现有 `.venv`
+损坏、低于 3.11、不是 CPython、路径逃逸时必须阻断，禁止重建或回退 PATH。锁定后本轮所有
+Python 命令只能使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换解释器。
 
 ## 3. Codex 原生 memories planner
 
@@ -52,7 +70,8 @@ Python 命令必须使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换�
 
 ```powershell
 & $HOOK_PYTHON `
-  (Join-Path $BRIDGEFORGE_CODEX_HOME "scripts\codex_memory_sync.py") status
+  (Join-Path $BRIDGEFORGE_CODEX_HOME "scripts\codex_memory_sync.py") `
+  status --project-root .
 ```
 
 - `declined`：只记用户级 gap，禁止再次询问或改配置。
@@ -72,11 +91,12 @@ Python 命令必须使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换�
 远端较新自动恢复、生命周期 hook 会持续自动同步、目标必须是指定 private 仓库。确认后
 形成长期授权；目录、远端、可见性或协议未变化时，日常同步和 hook 修复不得重复询问。
 
-`repair-hook/setup/decline` 都属于本轮统一 safe/risk/gap accumulator；禁止提前执行或另问
+`repair-hook/setup/decline` 都必须传 `--project-root .`，并属于本轮统一 safe/risk/gap accumulator；
+禁止提前执行或另问
 一次。`repair-hook` 只能修改用户 hooks 并验证解释器，禁止访问 GitHub、Git、读取 Memory
 或调用 `reconcile`。项目骨架更新禁止顺手执行完整 `reconcile`；实际同步只由已授权的
 生命周期 hook 独立触发，且每次同步前必须验证长期授权、远端身份与 private 状态。用户级
-hook 必须使用稳定基础解释器，禁止持久化项目 `.venv` 路径。
+hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久化任一项目的绝对 Python 路径。
 
 ## 4. 当前项目遗留 `.agents/` planner
 
@@ -94,13 +114,8 @@ hook 必须使用稳定基础解释器，禁止持久化项目 `.venv` 路径。
 
 ## 5. 模式与只读计划
 
-按以下顺序唯一判定：
-
-1. 新 `.codex/.bridgeforge_codex_version` 或旧 `.codex/.bridgeforge_version` 存在：update。
-2. `.codex/` 或 `AGENTS.md` 存在：adopt。
-3. 否则：init。
-
-双戳、异常值或旧版本低于 `0.86.0` 时阻断且零写入。按模式只读取一个手册：
+继续使用 Python preflight 已锁定的唯一 `$MODE` 和 `$HOOK_PYTHON`，禁止重新判定模式或切换
+解释器。按模式只读取一个手册：
 
 | 模式 | 手册 |
 |---|---|
@@ -142,8 +157,12 @@ apply 必须传紧邻计划的 fingerprint 和唯一用户选择。禁止人工 
 
 - 只修改 schema v2 逐资产登记的 Codex 目标；
 - 保留 project-owned、未知文件和人工定制；
-- 先应用并验证资产，再用产品侧可信 `version_release.py` 对 Git 实际 changed paths 运行只读
-  release preflight，最后写 `.codex/.bridgeforge_codex_version`；
+- Planner 必须先用产品侧可信 `version_release.py::evaluate_release_transition()` 检查内存中的
+  prospective snapshot；只有通过才允许报告 `ready`；
+- Apply 与后续 `$git-sync` 的骨架 transition 必须直接调用同一个 evaluator，分别检查真实
+  工作区和提交前快照；禁止另建近似判断；
+- 先应用并验证资产，再用同一 evaluator 复核 Git 实际 changed paths，最后写
+  `.codex/.bridgeforge_codex_version`；
 - 旧戳只有在确认、无 gap 且验证成功时才事务删除；
 - release preflight 或其他验证失败时回滚本轮全部写入，并保留旧戳；
 - 当前骨架戳已等于目标版本但本轮修改了受管资产时，仍必须按真实 changed paths 运行 preflight；
@@ -154,8 +173,9 @@ apply 必须传紧邻计划的 fingerprint 和唯一用户选择。禁止人工 
 
 必须报告用户级刷新 commit、execution_status 与 target_readiness、applied/declined、
 gaps、`action_required_items`、blockers、版本戳终态、rollback、验证命令和工作区状态。
-项目同步收据必须另外报告 `release_preflight_status`、ownership classification 与耗时；预检
-阻断时按 stable asset id/target/reason 显示 `G*` 清单，禁止只返回聚合报错。
+项目同步计划与收据必须报告 `release_preflight_status`、ownership classification 与耗时；模拟
+预检阻断时必须在首次 plan 按 stable asset id/target/reason 显示 `G*` 清单，禁止先报告
+`ready` 或只返回聚合报错。
 Native Memory 必须另外报告 `project_readiness`、`user_native_memory_readiness`、长期授权
 状态、hook 修复结果和 `remote_reconcile=applied/declined/not_requested`；禁止用项目 ready
 掩盖用户级同步 gap，也禁止把本轮未执行的 reconcile 描述成已完成。

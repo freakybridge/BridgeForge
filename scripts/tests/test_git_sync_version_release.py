@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,26 +39,99 @@ def write_contract_transition_fixture(
     repo: Path,
     *,
     customize_old_agents: bool = False,
+    legacy_unzoned_agents: bool = False,
     include_renamed_asset: bool = False,
     include_stale_same_target_asset: bool = False,
     include_merge_noop_asset: bool = False,
     drift_merge_target_before_baseline: bool = False,
     omit_merge_handler_before_baseline: bool = False,
     duplicate_merge_handler_before_baseline: bool = False,
+    legacy_merge_without_projection: bool = False,
+    include_project_merge_handler: bool = True,
+    include_region_asset: bool = False,
+    old_region_mode: str = "valid",
 ) -> set[str]:
     host = repo / ".codex"
     host.mkdir(parents=True)
-    old_agents = (
-        "# Project\n\n## Project\n\nproject defaults\n\n"
-        "## Managed\n\nold public\n"
-    )
+    if legacy_unzoned_agents:
+        old_agents = (
+            "# Project\n\n## Project\n\nproject defaults\n\n"
+            "## Managed\n\nold public\n"
+        )
+    else:
+        old_agents = (
+            "<!-- PUBLIC -->\nold public\n<!-- /PUBLIC -->\n\n"
+            "<!-- PROJECT -->\n## Project Zone\n\nproject defaults\n\n"
+            "<!-- /PROJECT -->\n"
+        )
     old_asset = {
         "id": "root.agents",
         "target": "AGENTS.md",
         "strategy": "whole",
         "current_sha256": VERSION_RELEASE._sha256_bytes(old_agents.encode("utf-8")),
     }
+    if not legacy_unzoned_agents:
+        old_asset["agents_zones"] = {
+            "format": "bridgeforge-agents-zones",
+            "public": {
+                "begin": "<!-- PUBLIC -->",
+                "end": "<!-- /PUBLIC -->",
+                "current_sha256": VERSION_RELEASE._sha256_bytes(
+                    b"<!-- PUBLIC -->\nold public\n<!-- /PUBLIC -->\n"
+                ),
+            },
+            "project": {
+                "begin": "<!-- PROJECT -->",
+                "end": "<!-- /PROJECT -->",
+            },
+        }
     old_assets = [old_asset]
+    old_region = (
+        b"# >>> BRIDGEFORGE_MANAGED_BEGIN\n"
+        b"old managed\n"
+        b"# <<< BRIDGEFORGE_MANAGED_END"
+    )
+    if old_region_mode == "missing-end":
+        old_region = b"# >>> BRIDGEFORGE_MANAGED_BEGIN\nold managed"
+    elif old_region_mode == "duplicate":
+        old_region += b"\n" + old_region
+    elif old_region_mode == "current-missing-end":
+        old_region = b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN\nold managed"
+    elif old_region_mode == "current-duplicate":
+        old_region = (
+            b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN\nold managed\n"
+            b"# <<< BRIDGEFORGE_CODEX_MANAGED_END"
+        )
+        old_region += b"\n" + old_region
+    elif old_region_mode == "current-reversed":
+        old_region = (
+            b"# <<< BRIDGEFORGE_CODEX_MANAGED_END\nold managed\n"
+            b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN"
+        )
+    elif old_region_mode == "current-drift":
+        old_region = (
+            b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN\ntampered managed\n"
+            b"# <<< BRIDGEFORGE_CODEX_MANAGED_END"
+        )
+    elif old_region_mode != "valid":
+        raise AssertionError(f"unsupported old region mode: {old_region_mode}")
+    new_region = (
+        b"# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN\n"
+        b"new managed\n"
+        b"# <<< BRIDGEFORGE_CODEX_MANAGED_END"
+    )
+    project_extension = b"\n\n# project extension\nexit 0\n"
+    if include_region_asset:
+        old_assets.append({
+            "id": "codex.precommit",
+            "target": ".githooks/pre-commit",
+            "strategy": "region",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(old_region),
+            "region": {
+                "begin": "# >>> BRIDGEFORGE_MANAGED_BEGIN",
+                "end": "# <<< BRIDGEFORGE_MANAGED_END",
+            },
+        })
     if include_renamed_asset:
         old_assets.append({
             "id": "codex.renamed",
@@ -72,29 +146,44 @@ def write_contract_transition_fixture(
             "strategy": "whole",
             "current_sha256": VERSION_RELEASE._sha256_bytes(b"old managed\n"),
         })
-    merge_handler = {
+    legacy_merge_handler = {
         "type": "command",
         "commandWindows": (
             "python .codex/hooks/hook_dispatcher.py pre-tool"
         ),
         "comment": "current managed dispatcher",
     }
+    legacy_merge_required = [{
+        "event": "PreToolUse",
+        "matcher": "Bash|Edit|Write",
+        "stage": "pre-tool",
+        "sha256": VERSION_RELEASE._canonical_json_sha256(legacy_merge_handler),
+    }]
+    merge_handler = dict(legacy_merge_handler)
+    merge_handler["bridgeforgeCodexId"] = (
+        "bridgeforge-codex.project-hook.v1:pre-tool"
+    )
     merge_required = [{
+        "id": merge_handler["bridgeforgeCodexId"],
         "event": "PreToolUse",
         "matcher": "Bash|Edit|Write",
         "stage": "pre-tool",
         "sha256": VERSION_RELEASE._canonical_json_sha256(merge_handler),
     }]
     merge_projection = VERSION_RELEASE._canonical_json_sha256(merge_required)
-    target_merge_handler = dict(merge_handler)
+    legacy_merge_projection = VERSION_RELEASE._canonical_json_sha256(
+        legacy_merge_required
+    )
+    target_merge_handler = dict(legacy_merge_handler)
     if drift_merge_target_before_baseline:
         target_merge_handler["comment"] = "drifted managed dispatcher"
     target_handlers = [] if omit_merge_handler_before_baseline else [target_merge_handler]
     if duplicate_merge_handler_before_baseline:
         target_handlers.append(dict(target_merge_handler))
-    target_handlers.append(
-        {"type": "command", "commandWindows": "python project_hook.py"}
-    )
+    if include_project_merge_handler:
+        target_handlers.append(
+            {"type": "command", "commandWindows": "python project_hook.py"}
+        )
     merge_target = {
         "description": "project-owned description",
         "hooks": {
@@ -106,14 +195,48 @@ def write_contract_transition_fixture(
             ]
         },
     }
+    legacy_whole_merge_target = {
+        "description": "project-owned description",
+        "hooks": {
+            "PreToolUse": [{
+                "matcher": "Bash|Edit|Write",
+                "hooks": (
+                    [legacy_merge_handler]
+                    + (
+                        [{"type": "command", "commandWindows": "python project_hook.py"}]
+                        if include_project_merge_handler
+                        else []
+                    )
+                ),
+            }]
+        },
+    }
     if include_merge_noop_asset:
-        old_assets.append({
+        old_merge_asset = {
             "id": "codex.hooks-config",
             "target": ".codex/hooks.json",
             "strategy": "merge",
-            "current_sha256": VERSION_RELEASE._sha256_bytes(b"old canonical source\n"),
+            "current_sha256": VERSION_RELEASE._sha256_bytes(
+                (
+                    json.dumps(
+                        legacy_whole_merge_target,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n"
+                ).encode("utf-8")
+                if legacy_merge_without_projection
+                else b"old canonical source\n"
+            ),
             "merge_policy": "codex-hooks",
-        })
+        }
+        if not legacy_merge_without_projection:
+            old_merge_asset["merge_validation"] = {
+                "format": "codex-hooks-dispatchers-v1",
+                "required_handlers": legacy_merge_required,
+                "current_projection_sha256": legacy_merge_projection,
+            }
+        old_assets.append(old_merge_asset)
     old_contract = {
         "schema_version": 2,
         "stamp": ".codex/.bridgeforge_version",
@@ -136,6 +259,10 @@ def write_contract_transition_fixture(
             json.dumps(merge_target, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+    if include_region_asset:
+        precommit = repo / ".githooks" / "pre-commit"
+        precommit.parent.mkdir(parents=True)
+        precommit.write_bytes(old_region + project_extension)
     (host / ".bridgeforge_version").write_text("0.94.2\n", encoding="utf-8")
     (repo / "VERSION").write_text("3.0.0\n", encoding="utf-8")
     git(repo, "add", ".")
@@ -159,10 +286,6 @@ def write_contract_transition_fixture(
         "project": {
             "begin": "<!-- PROJECT -->",
             "end": "<!-- /PROJECT -->",
-            "legacy_section_migrations": [{
-                "legacy_heading": "## Project",
-                "project_heading": "## Project Zone",
-            }],
         },
     }
     current_assets = [{
@@ -170,30 +293,6 @@ def write_contract_transition_fixture(
         "target": "AGENTS.md",
         "strategy": "whole",
         "agents_zones": zones,
-        "section_layout": {
-            "format": "markdown-section-layout",
-            "groups": [
-                {
-                    "heading": "## Project",
-                    "ownership": "project",
-                    "required": True,
-                },
-                {
-                    "heading": "## Managed",
-                    "ownership": "managed",
-                    "trusted_legacy_sha256": {
-                        "## Managed": {
-                            "0.94.2": [VERSION_RELEASE._sha256_bytes(
-                                b"## Managed\n\nold public\n"
-                            )]
-                        }
-                    },
-                },
-            ],
-            "trusted_residual_sha256": {
-                "0.94.2": [VERSION_RELEASE._sha256_bytes(b"# Project\n\n")]
-            },
-        },
         "current_sha256": VERSION_RELEASE._sha256_bytes(
             current_agents.encode("utf-8")
         ),
@@ -220,14 +319,28 @@ def write_contract_transition_fixture(
             "current_sha256": VERSION_RELEASE._sha256_bytes(b"new canonical source\n"),
             "merge_policy": "codex-hooks",
             "merge_validation": {
-                "format": "codex-hooks-dispatchers-v1",
+                "format": "codex-hooks-zones-v2",
                 "required_handlers": merge_required,
                 "current_projection_sha256": merge_projection,
-                "historical_projection_sha256": {
-                    "0.94.2": [merge_projection],
+                "managed_top_level": {
+                    "description": "managed description",
                 },
             },
         })
+    if include_region_asset:
+        current_assets.append({
+            "id": "codex.precommit",
+            "target": ".githooks/pre-commit",
+            "strategy": "region",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(
+                new_region + project_extension
+            ),
+                "region": {
+                    "begin": "# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
+                    "end": "# <<< BRIDGEFORGE_CODEX_MANAGED_END",
+                    "current_sha256": VERSION_RELEASE._sha256_bytes(new_region),
+                },
+            })
     current_contract = {
         "schema_version": 2,
         "release_version": "1.4.3",
@@ -242,6 +355,28 @@ def write_contract_transition_fixture(
         json.dumps(current_contract, indent=2) + "\n", encoding="utf-8"
     )
     (repo / "AGENTS.md").write_text(current_agents, encoding="utf-8")
+    if include_merge_noop_asset:
+        current_merge_target = {
+            "description": "managed description",
+            "hooks": {
+                "PreToolUse": (
+                    ([{
+                        "matcher": "Bash|Edit|Write",
+                        "hooks": [
+                            {"type": "command", "commandWindows": "python project_hook.py"}
+                        ],
+                    }] if include_project_merge_handler else [])
+                    + [{
+                        "matcher": "Bash|Edit|Write",
+                        "hooks": [merge_handler],
+                    }]
+                )
+            },
+        }
+        (host / "hooks.json").write_text(
+            json.dumps(current_merge_target, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     (host / ".bridgeforge_version").unlink()
     (host / ".bridgeforge_codex_version").write_text("1.4.3\n", encoding="utf-8")
     changed = {
@@ -254,10 +389,353 @@ def write_contract_transition_fixture(
         (host / "old.py").unlink()
         (host / "new.py").write_text("new managed\n", encoding="utf-8")
         changed.update({".codex/old.py", ".codex/new.py"})
+    if include_region_asset:
+        (repo / ".githooks/pre-commit").write_bytes(
+            new_region + project_extension
+        )
+        changed.add(".githooks/pre-commit")
+    if include_merge_noop_asset:
+        changed.add(".codex/hooks.json")
     return changed
 
 
+def write_schema_v1_transition_fixture(
+    repo: Path,
+    *,
+    minimum_supported_version: str = "0.86.0",
+    claim_unowned_existing: bool = False,
+    omit_legacy_region: bool = False,
+) -> tuple[set[str], Path, Path]:
+    host = repo / ".codex"
+    hooks = host / "hooks"
+    hook = repo / ".githooks" / "pre-commit"
+    hooks.mkdir(parents=True)
+    hook.parent.mkdir(parents=True)
+    old_version = "0.90.0"
+    old_managed = b"old managed\n"
+    new_managed = b"new managed\n"
+    old_region = b"# LEGACY BEGIN\nold managed\n# LEGACY END"
+    new_region = b"# BEGIN\nnew managed\n# END"
+    legacy_regions = [] if omit_legacy_region else [{
+        "path": ".githooks/pre-commit",
+        "begin": "# LEGACY BEGIN",
+        "end": "# LEGACY END",
+    }]
+    legacy_contract = {
+        "schema_version": 1,
+        "stamp": ".codex/.bridgeforge_version",
+        "whole_files": [
+            ".codex/.bridgeforge_version",
+            ".codex/managed-skeleton.json",
+            ".codex/hooks/*.py",
+        ],
+        "managed_regions": legacy_regions,
+    }
+    legacy_payload = (json.dumps(legacy_contract, indent=2) + "\n").encode("utf-8")
+    (host / "managed-skeleton.json").write_bytes(legacy_payload)
+    (host / ".bridgeforge_version").write_text(old_version + "\n", encoding="utf-8")
+    (hooks / "managed.py").write_bytes(old_managed)
+    (hooks / "project_extra.py").write_text("project extra\n", encoding="utf-8")
+    hook.write_bytes(old_region + b"\nproject tail\n")
+    if claim_unowned_existing:
+        (host / "unowned.py").write_text("old unowned\n", encoding="utf-8")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "schema v1 baseline")
+
+    assets = [
+        {
+            "id": "codex.hook.managed",
+            "target": ".codex/hooks/managed.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(new_managed),
+            "historical_sha256": {
+                old_version: [VERSION_RELEASE._sha256_bytes(old_managed)],
+            },
+        },
+        {
+            "id": "codex.precommit",
+            "target": ".githooks/pre-commit",
+            "strategy": "region",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(
+                new_region + b"\nproject tail\n"
+            ),
+            "region": {
+                "begin": "# BEGIN",
+                "end": "# END",
+                "current_sha256": VERSION_RELEASE._sha256_bytes(new_region),
+            },
+        },
+    ]
+    if claim_unowned_existing:
+        assets.append({
+            "id": "codex.unowned",
+            "target": ".codex/unowned.py",
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(b"new unowned\n"),
+            "historical_sha256": {},
+        })
+    current_contract = {
+        "schema_version": 2,
+        "release_version": "1.4.16",
+        "minimum_supported_version": minimum_supported_version,
+        "stamp": ".codex/.bridgeforge_codex_version",
+        "contract_target": ".codex/managed-skeleton.json",
+        "contract_historical_sha256": {
+            old_version: [VERSION_RELEASE._sha256_bytes(legacy_payload)],
+        },
+        "assets": assets,
+    }
+    contract_path = host / "managed-skeleton.json"
+    contract_path.write_text(
+        json.dumps(current_contract, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (host / ".bridgeforge_version").unlink()
+    (host / ".bridgeforge_codex_version").write_text(
+        "1.4.16\n",
+        encoding="utf-8",
+    )
+    (hooks / "managed.py").write_bytes(new_managed)
+    hook.write_bytes(new_region + b"\nproject tail\n")
+    changed = {
+        ".codex/managed-skeleton.json",
+        ".codex/.bridgeforge_version",
+        ".codex/.bridgeforge_codex_version",
+        ".codex/hooks/managed.py",
+        ".githooks/pre-commit",
+    }
+    if claim_unowned_existing:
+        (host / "unowned.py").write_text("new unowned\n", encoding="utf-8")
+        changed.add(".codex/unowned.py")
+    return changed, contract_path, hooks / "project_extra.py"
+
+
+def write_schema_v1_nested_history_fixture(
+    repo: Path,
+    strategy: str,
+) -> set[str]:
+    host = repo / ".codex"
+    host.mkdir(parents=True)
+    old_version = "0.90.0"
+    later_version = "0.91.0"
+
+    if strategy == "merge":
+        target = ".codex/hooks.json"
+        handler = {
+            "type": "command",
+            "commandWindows": "python .codex/hooks/hook_dispatcher.py pre-tool",
+            "comment": "managed dispatcher",
+        }
+        required = [{
+            "event": "PreToolUse",
+            "matcher": "Bash|Edit|Write",
+            "stage": "pre-tool",
+            "sha256": VERSION_RELEASE._canonical_json_sha256(handler),
+        }]
+        payload = (json.dumps({
+            "hooks": {
+                "PreToolUse": [{
+                    "matcher": "Bash|Edit|Write",
+                    "hooks": [handler],
+                }],
+            },
+        }, indent=2) + "\n").encode("utf-8")
+        projection = VERSION_RELEASE._canonical_json_sha256(required)
+        asset = {
+            "id": "codex.hooks-config",
+            "target": target,
+            "strategy": "merge",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(payload),
+            "historical_sha256": {},
+            "merge_policy": "codex-hooks",
+            "merge_validation": {
+                "format": "codex-hooks-dispatchers-v1",
+                "required_handlers": required,
+                "current_projection_sha256": projection,
+                "historical_projection_sha256": {
+                    later_version: [projection],
+                },
+            },
+        }
+        legacy_whole = [target]
+        legacy_regions: list[dict[str, str]] = []
+    elif strategy == "managed-markdown":
+        target = "doc/README.md"
+        payload = b"# Doc\n\n## Managed\n\nmanaged\n\n## Project\n\nlocal\n"
+        managed, _project = VERSION_RELEASE._managed_markdown_parts(
+            payload,
+            ["## Managed"],
+            [],
+            [],
+        )
+        projection = VERSION_RELEASE._sha256_bytes(managed or b"")
+        asset = {
+            "id": "codex.doc.readme",
+            "target": target,
+            "strategy": "whole",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(payload),
+            "historical_sha256": {},
+            "managed_blocks": {
+                "format": "markdown-headings",
+                "headings": ["## Managed"],
+                "additive_headings": [],
+                "keyed_tables": [],
+                "current_projection_sha256": projection,
+                "historical_projection_sha256": {
+                    later_version: [projection],
+                },
+            },
+        }
+        legacy_whole = [target]
+        legacy_regions = []
+    elif strategy == "region":
+        target = ".githooks/pre-commit"
+        payload = b"# BEGIN\nmanaged\n# END\nproject\n"
+        region_payload = b"# BEGIN\nmanaged\n# END"
+        projection = VERSION_RELEASE._sha256_bytes(region_payload)
+        asset = {
+            "id": "codex.precommit",
+            "target": target,
+            "strategy": "region",
+            "current_sha256": VERSION_RELEASE._sha256_bytes(payload),
+            "historical_sha256": {},
+            "region": {
+                "begin": "# BEGIN",
+                "end": "# END",
+                "current_sha256": projection,
+                "historical_sha256": {
+                    later_version: [projection],
+                },
+            },
+        }
+        legacy_whole = []
+        legacy_regions = [{
+            "path": target,
+            "begin": "# BEGIN",
+            "end": "# END",
+        }]
+    else:
+        raise AssertionError(f"unsupported nested history strategy: {strategy}")
+
+    legacy_contract = {
+        "schema_version": 1,
+        "stamp": ".codex/.bridgeforge_version",
+        "whole_files": [
+            ".codex/.bridgeforge_version",
+            ".codex/managed-skeleton.json",
+            *legacy_whole,
+        ],
+        "managed_regions": legacy_regions,
+    }
+    legacy_payload = (json.dumps(legacy_contract, indent=2) + "\n").encode("utf-8")
+    contract_path = host / "managed-skeleton.json"
+    contract_path.write_bytes(legacy_payload)
+    (host / ".bridgeforge_version").write_text(old_version + "\n", encoding="utf-8")
+    target_path = repo / target
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_bytes(payload)
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "schema v1 nested history baseline")
+
+    current_contract = {
+        "schema_version": 2,
+        "release_version": "1.4.16",
+        "minimum_supported_version": "0.86.0",
+        "stamp": ".codex/.bridgeforge_codex_version",
+        "contract_target": ".codex/managed-skeleton.json",
+        "contract_historical_sha256": {
+            old_version: [VERSION_RELEASE._sha256_bytes(legacy_payload)],
+        },
+        "assets": [asset],
+    }
+    contract_path.write_text(
+        json.dumps(current_contract, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (host / ".bridgeforge_version").unlink()
+    (host / ".bridgeforge_codex_version").write_text(
+        "1.4.16\n",
+        encoding="utf-8",
+    )
+    return {
+        ".codex/managed-skeleton.json",
+        ".codex/.bridgeforge_version",
+        ".codex/.bridgeforge_codex_version",
+        target,
+    }
+
+
 class VersionReleaseTests(unittest.TestCase):
+    def test_compatibility_entrypoints_delegate_to_single_evaluator(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            with mock.patch.object(
+                VERSION_RELEASE,
+                "evaluate_release_transition",
+                return_value=("mixed", {"AGENTS.md"}),
+            ) as evaluator:
+                self.assertEqual(
+                    VERSION_RELEASE.classify_changes(repo, {"AGENTS.md"}),
+                    "mixed",
+                )
+                self.assertEqual(
+                    VERSION_RELEASE.preflight_contract_transition(repo),
+                    ("mixed", {"AGENTS.md"}),
+                )
+
+        self.assertEqual(evaluator.call_count, 2)
+
+    def test_prospective_snapshot_matches_real_transition_without_writes(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            snapshot: dict[str, bytes | None] = {}
+            for relative in changed:
+                path = repo / relative
+                snapshot[relative] = path.read_bytes() if path.is_file() else None
+            expected = VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                changed_paths=changed,
+            )
+
+            for relative in changed:
+                result = subprocess.run(
+                    ["git", "show", f"HEAD:{relative}"],
+                    cwd=repo,
+                    capture_output=True,
+                    check=False,
+                )
+                path = repo / relative
+                if result.returncode == 0:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(result.stdout)
+                else:
+                    path.unlink(missing_ok=True)
+            baseline_status = subprocess.run(
+                ["git", "status", "--porcelain=v1"],
+                cwd=repo,
+                capture_output=True,
+                check=True,
+            ).stdout
+
+            actual = VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                snapshot,
+                changed_paths=changed,
+            )
+
+            self.assertEqual(actual, expected)
+            self.assertEqual(
+                subprocess.run(
+                    ["git", "status", "--porcelain=v1"],
+                    cwd=repo,
+                    capture_output=True,
+                    check=True,
+                ).stdout,
+                baseline_status,
+            )
+
     def test_bump_levels(self) -> None:
         cases = {
             "fix: 修复": "1.2.4",
@@ -687,6 +1165,40 @@ class VersionReleaseTests(unittest.TestCase):
                 VERSION_RELEASE.build_release_plan(repo, "chore: 更新骨架", changed)
             )
 
+    def test_agents_contract_metadata_can_change_without_rewriting_zoned_target(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(repo)
+            head_agents = subprocess.run(
+                ["git", "show", "HEAD:AGENTS.md"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            ).stdout
+            contract_path = repo / ".codex/managed-skeleton.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            asset = next(
+                item for item in contract["assets"] if item["id"] == "root.agents"
+            )
+            public, _project = VERSION_RELEASE._agents_zone_release_parts(
+                head_agents,
+                asset["agents_zones"],
+            )
+            assert public is not None
+            asset["agents_zones"]["public"]["current_sha256"] = (
+                VERSION_RELEASE._agents_public_hash(public)
+            )
+            asset["current_sha256"] = VERSION_RELEASE._sha256_bytes(head_agents)
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            (repo / "AGENTS.md").write_bytes(head_agents)
+            changed.discard("AGENTS.md")
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+
     def test_contract_transition_with_project_change_is_mixed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)
@@ -738,12 +1250,14 @@ class VersionReleaseTests(unittest.TestCase):
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 
-    def test_contract_transition_maps_legacy_project_content_and_rejects_loss(self) -> None:
+    def test_contract_transition_treats_unzoned_legacy_agents_as_mixed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)
             init_repo(repo)
             changed = write_contract_transition_fixture(
-                repo, customize_old_agents=True
+                repo,
+                customize_old_agents=True,
+                legacy_unzoned_agents=True,
             )
             self.assertEqual(
                 VERSION_RELEASE.classify_changes(repo, changed), "mixed"
@@ -755,11 +1269,9 @@ class VersionReleaseTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with self.assertRaisesRegex(
-                VERSION_RELEASE.ReleaseError,
-                "legacy AGENTS project content changed during migration",
-            ):
-                VERSION_RELEASE.classify_changes(repo, changed)
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed), "mixed"
+            )
 
     def test_contract_transition_rejects_mismatched_whole_asset(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -817,7 +1329,6 @@ class VersionReleaseTests(unittest.TestCase):
                     "begin": "# BEGIN",
                     "end": "# END",
                     "current_sha256": "sha256:" + "0" * 64,
-                    "historical_sha256": {},
                 },
             })
             contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
@@ -830,6 +1341,264 @@ class VersionReleaseTests(unittest.TestCase):
                 "current managed region does not match its declared hash",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_contract_transition_accepts_explicit_current_region_adaptation(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_region_asset=True,
+            )
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+            snapshot = {
+                relative: (repo / relative).read_bytes()
+                if (repo / relative).is_file()
+                else None
+                for relative in changed
+            }
+            for relative in changed:
+                path = repo / relative
+                head_payload = VERSION_RELEASE._head_bytes(repo, relative)
+                if head_payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(head_payload)
+            prospective, _paths = VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                snapshot=snapshot,
+                prospective_version="1.4.3",
+                changed_paths=set(),
+            )
+            self.assertEqual(prospective, "mixed")
+            for relative, payload in snapshot.items():
+                path = repo / relative
+                if payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(payload)
+            precommit = repo / ".githooks/pre-commit"
+            precommit.write_bytes(
+                precommit.read_bytes().replace(b"exit 0", b"exit 2")
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+
+        for old_region_mode in ("missing-end", "duplicate"):
+            with self.subTest(old_region_mode=old_region_mode), \
+                    tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                changed = write_contract_transition_fixture(
+                    repo,
+                    include_region_asset=True,
+                    old_region_mode=old_region_mode,
+                )
+                self.assertEqual(
+                    VERSION_RELEASE.classify_changes(repo, changed),
+                    "mixed",
+                )
+
+        for old_region_mode in (
+            "current-missing-end",
+            "current-duplicate",
+            "current-reversed",
+            "current-drift",
+        ):
+            with self.subTest(old_region_mode=old_region_mode), \
+                    tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                changed = write_contract_transition_fixture(
+                    repo,
+                    include_region_asset=True,
+                    old_region_mode=old_region_mode,
+                )
+                with self.assertRaises(VERSION_RELEASE.TransitionBlocked) as captured:
+                    VERSION_RELEASE.classify_changes(repo, changed)
+                self.assertIn("managed region", captured.exception.issues[0]["reason"])
+
+    def test_current_region_drift_is_blocked_without_contract_transition(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_region_asset=True,
+            )
+            git(repo, "add", *sorted(changed))
+            git(repo, "commit", "-m", "current region baseline")
+            precommit = repo / ".githooks/pre-commit"
+            precommit.write_bytes(
+                precommit.read_bytes().replace(b"new managed", b"tampered managed")
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "current managed region does not match its declared hash",
+            ):
+                VERSION_RELEASE.classify_changes(repo, {".githooks/pre-commit"})
+
+    def test_current_region_contract_rejects_historical_rules(self) -> None:
+        for location in ("asset", "region"):
+            with self.subTest(location=location), tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                changed = write_contract_transition_fixture(
+                    repo,
+                    include_region_asset=True,
+                )
+                contract_path = repo / ".codex/managed-skeleton.json"
+                contract = json.loads(contract_path.read_text(encoding="utf-8"))
+                precommit_asset = next(
+                    asset
+                    for asset in contract["assets"]
+                    if asset["id"] == "codex.precommit"
+                )
+                owner = precommit_asset if location == "asset" else precommit_asset["region"]
+                owner["historical_sha256"] = {"0.94.2": ["sha256:" + "0" * 64]}
+                contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+                with self.assertRaisesRegex(
+                    VERSION_RELEASE.ReleaseError,
+                    "invalid schema v2 managed region",
+                ):
+                    VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_schema_v1_transition_accepts_current_region_adaptation(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, _contract, project_extra = write_schema_v1_transition_fixture(repo)
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+            project_extra.write_text("project changed\n", encoding="utf-8")
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(
+                    repo,
+                    changed | {".codex/hooks/project_extra.py"},
+                ),
+                "mixed",
+            )
+
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, _contract, _project_extra = write_schema_v1_transition_fixture(
+                repo,
+                omit_legacy_region=True,
+            )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "mixed",
+            )
+
+    def test_schema_v1_transition_rejects_untrusted_or_unsupported_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, contract_path, _project_extra = write_schema_v1_transition_fixture(
+                repo
+            )
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["contract_historical_sha256"]["0.90.0"] = ["sha256:" + "0" * 64]
+            contract_path.write_text(json.dumps(contract) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "is not trusted for skeleton 0.90.0",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, _contract, _project_extra = write_schema_v1_transition_fixture(
+                repo,
+                minimum_supported_version="0.91.0",
+            )
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "below minimum supported 0.91.0",
+            ):
+                VERSION_RELEASE.classify_changes(repo, changed)
+
+    def test_schema_v1_transition_rejects_unowned_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, _contract, _project_extra = write_schema_v1_transition_fixture(
+                repo,
+                claim_unowned_existing=True,
+            )
+            with self.assertRaises(VERSION_RELEASE.TransitionBlocked) as captured:
+                VERSION_RELEASE.classify_changes(repo, changed)
+            self.assertEqual(captured.exception.issues[0]["asset_id"], "codex.unowned")
+            self.assertIn("not trusted for schema v1 baseline", captured.exception.issues[0]["reason"])
+
+    def test_schema_v1_transition_rejects_nested_hash_from_other_version(self) -> None:
+        for strategy in ("managed-markdown",):
+            with self.subTest(strategy=strategy), tempfile.TemporaryDirectory() as raw:
+                repo = Path(raw)
+                init_repo(repo)
+                changed = write_schema_v1_nested_history_fixture(repo, strategy)
+
+                with self.assertRaises(VERSION_RELEASE.TransitionBlocked) as captured:
+                    VERSION_RELEASE.classify_changes(repo, changed)
+
+                self.assertIn(
+                    "does not match trusted",
+                    captured.exception.issues[0]["reason"],
+                )
+
+    def test_schema_v1_prospective_and_real_evaluators_are_equivalent(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed, _contract, _project_extra = write_schema_v1_transition_fixture(repo)
+            snapshot = {
+                relative: (repo / relative).read_bytes()
+                if (repo / relative).is_file()
+                else None
+                for relative in changed
+            }
+
+            for relative in changed:
+                path = repo / relative
+                head_payload = VERSION_RELEASE._head_bytes(repo, relative)
+                if head_payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(head_payload)
+            prospective = VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                snapshot=snapshot,
+                prospective_version="1.4.16",
+                changed_paths=set(),
+            )
+
+            for relative, payload in snapshot.items():
+                path = repo / relative
+                if payload is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(payload)
+            real = VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                changed_paths=changed,
+            )
+
+            self.assertEqual(prospective, real)
 
     def test_contract_transition_aligns_target_rename_by_asset_id(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -861,7 +1630,7 @@ class VersionReleaseTests(unittest.TestCase):
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 
-    def test_contract_transition_accepts_verified_unchanged_merge_target(self) -> None:
+    def test_contract_transition_accepts_verified_hooks_zones_adaptation(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)
             init_repo(repo)
@@ -870,7 +1639,7 @@ class VersionReleaseTests(unittest.TestCase):
                 include_merge_noop_asset=True,
             )
 
-            self.assertNotIn(".codex/hooks.json", changed)
+            self.assertIn(".codex/hooks.json", changed)
             self.assertEqual(
                 VERSION_RELEASE.classify_changes(repo, changed),
                 "skeleton-only",
@@ -878,8 +1647,34 @@ class VersionReleaseTests(unittest.TestCase):
             hooks = json.loads(
                 (repo / ".codex/hooks.json").read_text(encoding="utf-8")
             )
-            commands = hooks["hooks"]["PreToolUse"][0]["hooks"]
+            commands = [
+                handler
+                for group in hooks["hooks"]["PreToolUse"]
+                for handler in group["hooks"]
+            ]
             self.assertTrue(any("project_hook.py" in item["commandWindows"] for item in commands))
+            managed = [
+                item for item in commands if item.get("bridgeforgeCodexId")
+            ]
+            self.assertEqual(len(managed), 1)
+
+    def test_current_hooks_contract_uses_canonical_handler_order(self) -> None:
+        contract = json.loads(
+            (ROOT / "templates/managed-skeleton.json").read_text(encoding="utf-8")
+        )
+        asset = next(
+            item for item in contract["assets"] if item["id"] == "codex.hooks-config"
+        )
+        payload = (ROOT / "templates/hooks.json").read_bytes()
+
+        actual, _external = VERSION_RELEASE._current_codex_hooks_zones_parts(
+            payload,
+            asset,
+            ".codex/hooks.json",
+        )
+
+        self.assertGreater(len(actual), 1)
+        self.assertEqual(actual, asset["merge_validation"]["required_handlers"])
 
     def test_contract_transition_rejects_drifted_unchanged_merge_target(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -893,7 +1688,7 @@ class VersionReleaseTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 VERSION_RELEASE.ReleaseError,
-                "managed dispatcher drifted",
+                "no trusted ownership",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 
@@ -908,11 +1703,11 @@ class VersionReleaseTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(
                 VERSION_RELEASE.ReleaseError,
-                "missing managed dispatcher",
+                "missing a trusted managed handler",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 
-    def test_contract_transition_rejects_duplicate_unchanged_merge_handler(self) -> None:
+    def test_contract_transition_accepts_trusted_duplicate_head_merge_handler(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)
             init_repo(repo)
@@ -921,9 +1716,42 @@ class VersionReleaseTests(unittest.TestCase):
                 include_merge_noop_asset=True,
                 duplicate_merge_handler_before_baseline=True,
             )
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+
+    def test_contract_transition_accepts_exact_legacy_whole_hooks_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+                legacy_merge_without_projection=True,
+                include_project_merge_handler=False,
+            )
+
+            self.assertEqual(
+                VERSION_RELEASE.classify_changes(repo, changed),
+                "skeleton-only",
+            )
+
+    def test_contract_transition_rejects_drifted_legacy_whole_hooks_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            repo = Path(raw)
+            init_repo(repo)
+            changed = write_contract_transition_fixture(
+                repo,
+                include_merge_noop_asset=True,
+                legacy_merge_without_projection=True,
+                include_project_merge_handler=False,
+                drift_merge_target_before_baseline=True,
+            )
+
             with self.assertRaisesRegex(
                 VERSION_RELEASE.ReleaseError,
-                "managed dispatcher drifted",
+                "no trusted managed projection",
             ):
                 VERSION_RELEASE.classify_changes(repo, changed)
 
@@ -937,7 +1765,11 @@ class VersionReleaseTests(unittest.TestCase):
             )
             hooks_path = repo / ".codex/hooks.json"
             hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
-            handlers = hooks["hooks"]["PreToolUse"][0]["hooks"]
+            handlers = [
+                handler
+                for group in hooks["hooks"]["PreToolUse"]
+                for handler in group["hooks"]
+            ]
             managed_handler = next(
                 item for item in handlers if "hook_dispatcher.py" in item["commandWindows"]
             )
@@ -953,6 +1785,7 @@ class VersionReleaseTests(unittest.TestCase):
                 if item["id"] == "codex.hooks-config"
             )
             required = [{
+                "id": managed_handler["bridgeforgeCodexId"],
                 "event": "PreToolUse",
                 "matcher": "Bash|Edit|Write",
                 "stage": "pre-tool",
@@ -1286,7 +2119,7 @@ class VersionReleaseTests(unittest.TestCase):
                 plan = VERSION_RELEASE.build_release_plan(repo, "fix: 更新项目规则", changed)
                 self.assertEqual(plan.classification, "project")
 
-    def test_managed_region_tracks_inside_and_outside_changes_independently(self) -> None:
+    def test_legacy_managed_region_without_current_hash_is_rejected(self) -> None:
         begin = "# >>> BRIDGEFORGE_MANAGED_BEGIN"
         end = "# <<< BRIDGEFORGE_MANAGED_END"
         baseline = f"project old\n{begin}\nmanaged old\n{end}\nproject tail\n"
@@ -1321,40 +2154,15 @@ class VersionReleaseTests(unittest.TestCase):
             repo = Path(raw)
             _host, hook = prepare(repo)
             hook.write_text(baseline.replace("project old", "project new"), encoding="utf-8")
-            plan = VERSION_RELEASE.build_release_plan(
-                repo, "fix: 更新项目 hook", {".githooks/pre-commit"}
-            )
-            self.assertEqual(plan.classification, "project")
-
-        for change in ("managed only", "managed and project"):
-            with self.subTest(change=change), tempfile.TemporaryDirectory() as raw:
-                repo = Path(raw)
-                _host, hook = prepare(repo)
-                updated = baseline.replace("managed old", "managed new")
-                if change == "managed and project":
-                    updated = updated.replace("project old", "project new")
-                hook.write_text(updated, encoding="utf-8")
-                with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, r"outside \$bridgeforge-codex"):
-                    VERSION_RELEASE.build_release_plan(
-                        repo, "fix: 不允许受管旁路", {".githooks/pre-commit"}
-                    )
-
-        with tempfile.TemporaryDirectory() as raw:
-            repo = Path(raw)
-            host, hook = prepare(repo)
-            hook.write_text(
-                baseline.replace("managed old", "managed new").replace(
-                    "project old", "project new"
-                ),
-                encoding="utf-8",
-            )
-            (host / ".bridgeforge_version").write_text("0.84.1\n", encoding="utf-8")
-            plan = VERSION_RELEASE.build_release_plan(
-                repo,
-                "fix: 同步更新骨架与项目 hook",
-                {".githooks/pre-commit", ".codex/.bridgeforge_version"},
-            )
-            self.assertEqual(plan.classification, "mixed")
+            with self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "invalid managed region",
+            ):
+                VERSION_RELEASE.build_release_plan(
+                    repo,
+                    "fix: 旧 region contract 必须显式适配",
+                    {".githooks/pre-commit"},
+                )
 
 
 if __name__ == "__main__":

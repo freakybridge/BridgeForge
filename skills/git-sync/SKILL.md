@@ -30,7 +30,7 @@ argument: 无
 Codex 项目使用 `.codex/scripts/codex_git_sync.py`。脚本存在时，主 agent 完成只读范围审查和提交消息决策后，必须直接且只运行该脚本：
 
 ```text
-python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
+.venv/Scripts/python.exe .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
 ```
 
 需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、自动版本升级与原生版本同步、CHANGELOG 和衍生产物刷新、add、commit、push 和最终检查。它只在创建新提交时升级版本；纯 `$bridgeforge-codex` 骨架更新不升级项目版本。
@@ -39,7 +39,8 @@ python .codex/scripts/codex_git_sync.py --message "<类型>: <描述>"
 
 除上述确定性的权限恢复外，任何分叉、冲突或失败必须返回主对话处理。
 
-脚本不存在或 Python 不可用时必须停止并报告；即使用户要求逐条执行，也不得退化为手工 fetch、add、commit 或 push。
+脚本不存在、项目 `.venv` 不可用或当前解释器不属于该项目 `.venv` 时必须停止并报告；禁止回退
+PATH Python。即使用户要求逐条执行，也不得退化为手工 fetch、add、commit 或 push。
 
 ## 输出与收据
 

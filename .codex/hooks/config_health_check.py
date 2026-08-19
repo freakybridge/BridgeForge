@@ -45,6 +45,13 @@ except Exception as exc:  # strict mode must fail closed when shared policy is u
     TomlHeaderError = ValueError  # type: ignore[assignment,misc]
     has_hooks_table = None  # type: ignore[assignment]
     POLICY_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
+try:
+    from project_runtime import ProjectRuntimeError, validate_project_runtime
+    PROJECT_RUNTIME_IMPORT_ERROR = ""
+except Exception as exc:  # strict mode must fail closed when runtime proof is unavailable
+    ProjectRuntimeError = RuntimeError  # type: ignore[assignment,misc]
+    validate_project_runtime = None  # type: ignore[assignment]
+    PROJECT_RUNTIME_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
 
 
 # --- 各体检项：返回 None=通过，返回字符串=不达标（一行纯 ASCII，含修复提示） ---
@@ -59,6 +66,28 @@ def _check_python_version(version_info: object = sys.version_info) -> "str | Non
         f"PYTHON_VERSION: {major}.{minor} is unsupported. "
         "FIX: create or upgrade the project .venv with Python 3.11+, then rerun $bridgeforge-codex."
     )
+
+
+def _check_project_runtime() -> "str | None":
+    """The running hook must belong to this project's proven CPython .venv."""
+    if PROJECT_RUNTIME_IMPORT_ERROR or validate_project_runtime is None:
+        return (
+            "PROJECT_RUNTIME: shared runtime validator is unavailable "
+            f"({PROJECT_RUNTIME_IMPORT_ERROR}). FIX: rerun $bridgeforge-codex."
+        )
+    try:
+        validate_project_runtime(Path.cwd(), executable=sys.executable)
+    except ProjectRuntimeError as exc:
+        return (
+            f"PROJECT_RUNTIME: {exc}. FIX: create or repair the project .venv "
+            "with CPython 3.11+, then rerun $bridgeforge-codex."
+        )
+    except Exception as exc:
+        return (
+            "PROJECT_RUNTIME: validation failed closed "
+            f"({type(exc).__name__}). FIX: rerun $bridgeforge-codex."
+        )
+    return None
 
 def _check_pythonutf8() -> "str | None":
     """承重柱：UTF-8 Mode 真生效没。查 sys.flags.utf8_mode（事实，不被 stdout.reconfigure 掩盖）。
@@ -170,6 +199,7 @@ def _check_memory_schema() -> "str | None":
 
 # 本 hook 亲测 + 报告的项（单一事实源之一）。
 ACTIVE_CHECKS = (
+    ("project-runtime", _check_project_runtime),
     ("python-version", _check_python_version),
     ("pythonutf8", _check_pythonutf8),
     ("settings-json-valid", _check_settings_json_valid),
@@ -209,6 +239,7 @@ def main(
     for _name, msg in failures:
         print("  - %s" % msg)
     strict_failures = {
+        "project-runtime",
         "python-version",
         "settings-json-valid",
         "single-hook-source",

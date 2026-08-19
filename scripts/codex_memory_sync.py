@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """bridgeforge-codex single-writer sync for opaque Codex native memories.
 
-The runtime is distributed inside the user-level bridgeforge-codex command bundle.
-Setup may be launched by a project virtual environment, but installed user
-hooks always use that environment's stable base interpreter and never import
-project code.
+The managed script is distributed with bridgeforge-codex. Every invocation is
+authorized by the current project's CPython 3.11+ ``.venv``; user hooks store a
+dynamic Git-root command and never persist a project's interpreter path.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
+import ctypes
 import hashlib
+import importlib.util
 import json
 import os
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -22,7 +25,8 @@ import time
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from dataclasses import dataclass
+from typing import Callable, Iterator
 
 MIN_PYTHON = (3, 11)
 EXTERNAL_COMMAND_TIMEOUT = 45
@@ -39,10 +43,61 @@ EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.js
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
 Run = Callable[..., subprocess.CompletedProcess[str]]
 CONSENT_VALUES = {"approved", "declined"}
+HOOK_RUNTIME_CONTRACT = "git-root/.venv/Scripts/python.exe; CPython>=3.11"
+DYNAMIC_HOOK_RUNTIME = "<git-root>/.venv/Scripts/python.exe"
+HOOK_LOCK_TIMEOUT_SECONDS = 10.0
+
+
+def _load_hooks_ownership_module() -> object:
+    path = Path(__file__).resolve().parent.parent / "templates" / "scripts" / "hooks_ownership.py"
+    spec = importlib.util.spec_from_file_location("_bridgeforge_user_hooks_ownership", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load hooks ownership parser: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+HOOKS_OWNERSHIP = _load_hooks_ownership_module()
+
+
+def _load_project_runtime_module() -> object:
+    path = Path(__file__).resolve().parent.parent / "templates" / "scripts" / "project_runtime.py"
+    spec = importlib.util.spec_from_file_location("_bridgeforge_project_runtime", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load project runtime contract: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class SyncError(RuntimeError):
     pass
+
+
+class HookLockConflict(SyncError):
+    pass
+
+
+@dataclass(frozen=True)
+class HookRepairReceipt:
+    hook_repair: str
+    configured_runtime: str
+    actual_runtime: str
+    runtime_drift_reason: str | None = None
+
+
+def _validated_project_runtime(project_root: Path) -> tuple[Path, Path]:
+    try:
+        module = _load_project_runtime_module()
+        root = project_root.resolve(strict=True)
+        expected = module.expected_project_python(root)
+        module.validate_project_runtime(root, executable=Path(sys.executable))
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise SyncError(f"project runtime is invalid: {exc}") from exc
+    return root, Path(expected).resolve()
 
 
 def _is_link_or_reparse(path: Path) -> bool:
@@ -115,6 +170,69 @@ def _atomic_bytes(path: Path, payload: bytes) -> None:
 
 def _atomic_json(path: Path, value: object) -> None:
     _atomic_text(path, json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
+
+def _hooks_lock_name(codex: Path) -> str:
+    digest = hashlib.sha256(str(codex.resolve()).casefold().encode("utf-8")).hexdigest()
+    return f"bridgeforge-codex-native-hooks-{digest}"
+
+
+@contextlib.contextmanager
+def user_hooks_lock(
+    codex: Path,
+    *,
+    timeout: float = HOOK_LOCK_TIMEOUT_SECONDS,
+) -> Iterator[None]:
+    """Serialize BridgeForge writers without touching the user's hooks files."""
+    deadline = time.monotonic() + timeout
+    if os.name == "nt":
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p]
+        kernel32.CreateMutexW.restype = ctypes.c_void_p
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        kernel32.ReleaseMutex.argtypes = [ctypes.c_void_p]
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = kernel32.CreateMutexW(None, False, "Local\\" + _hooks_lock_name(codex))
+        if not handle:
+            raise SyncError("failed to create the user hooks mutex")
+        wait_ms = max(0, int(timeout * 1000))
+        result = kernel32.WaitForSingleObject(handle, wait_ms)
+        if result == 0x00000080:  # WAIT_ABANDONED grants ownership with untrusted state.
+            kernel32.ReleaseMutex(handle)
+            kernel32.CloseHandle(handle)
+            raise HookLockConflict("user hooks mutex was abandoned; shared state is untrusted")
+        if result != 0x00000000:
+            kernel32.CloseHandle(handle)
+            if result == 0x00000102:
+                raise HookLockConflict("user hooks lock is busy")
+            raise SyncError(f"failed to acquire the user hooks mutex: {result}")
+        try:
+            yield
+        finally:
+            kernel32.ReleaseMutex(handle)
+            kernel32.CloseHandle(handle)
+        return
+
+    import fcntl  # POSIX-only fallback used by non-Windows test hosts.
+
+    lock_path = Path(tempfile.gettempdir()) / (_hooks_lock_name(codex) + ".lock")
+    descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise HookLockConflict("user hooks lock is busy")
+                time.sleep(0.02)
+        try:
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+    finally:
+        os.close(descriptor)
 
 
 def codex_paths(home: Path | None = None) -> tuple[Path, Path, Path]:
@@ -219,8 +337,8 @@ def managed_ledger(path: Path) -> dict[str, object]:
     if not path.is_file() or _is_link_or_reparse(path):
         raise SyncError(f"managed ledger is missing or unsafe: {path}")
     try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as exc:
+        data = HOOKS_OWNERSHIP.load_json_object(path.read_bytes(), str(path))
+    except (OSError, RuntimeError) as exc:
         raise SyncError(f"invalid managed ledger: {exc}") from exc
     if not isinstance(data, dict) or data.get("schema_version") != 1:
         raise SyncError("managed ledger must use schema_version 1")
@@ -323,10 +441,11 @@ def require_runtime_authorization(
     return value
 
 
-def memory_switches(config_path: Path) -> tuple[bool, dict[str, object]]:
-    if not config_path.exists():
+def _memory_switches_from_bytes(
+    raw: bytes | None,
+) -> tuple[bool, dict[str, object]]:
+    if raw is None:
         return False, {}
-    raw = config_path.read_bytes()
     try:
         data = tomllib.loads(raw.decode("utf-8-sig"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
@@ -339,6 +458,10 @@ def memory_switches(config_path: Path) -> tuple[bool, dict[str, object]]:
         and memories.get("use_memories") is True
     )
     return enabled, data
+
+
+def memory_switches(config_path: Path) -> tuple[bool, dict[str, object]]:
+    return _memory_switches_from_bytes(_read_optional_bytes(config_path))
 
 
 def _merge_toml_bool(text: str, section: str, key: str) -> str:
@@ -378,45 +501,29 @@ def enable_memories(config_path: Path, *, confirmed: bool) -> bool:
     return False
 
 
-def stable_hook_python() -> Path:
-    """Return a user-stable interpreter instead of a project venv executable."""
-    current = Path(sys.executable).resolve()
-    base_value = getattr(sys, "_base_executable", None)
-    candidate = (
-        Path(base_value).resolve()
-        if base_value
-        else (Path(sys.base_prefix) / current.name).resolve()
-    )
-    if not candidate.is_file():
-        raise SyncError(
-            "the project Python has no stable base interpreter; "
-            "native memories hooks were not installed"
-        )
-    prefix = Path(sys.prefix).resolve()
-    base_prefix = Path(sys.base_prefix).resolve()
-    if prefix != base_prefix and candidate.is_relative_to(prefix):
-        raise SyncError(
-            "the project Python resolves its base interpreter inside the venv; "
-            "native memories hooks were not installed"
-        )
-    return candidate
-
-
-def _hook_handler(
-    event: str,
-    script: Path,
-    *,
-    hook_python: Path | None = None,
-) -> dict[str, object]:
+def _hook_arguments(event: str) -> str:
     if event == "SessionEnd":
-        args = "kick --trigger session-end"
-    else:
-        args = f"reconcile --trigger {event.lower()}"
-    runtime = (hook_python or stable_hook_python()).resolve()
-    command = f'"{runtime}" "{script}" {args}'
+        return "kick --trigger session-end"
+    return f"reconcile --trigger {event.lower()}"
+
+
+def _hook_handler(event: str, script: Path) -> dict[str, object]:
+    args = _hook_arguments(event)
+    managed_script = script.resolve()
+    posix_script = shlex.quote(str(managed_script))
+    powershell_script = "'" + str(managed_script).replace("'", "''") + "'"
     handler: dict[str, object] = {
         "type": "command",
-        "command": command,
+        "command": (
+            'root="$(git rev-parse --show-toplevel)" && '
+            f'"$root/.venv/Scripts/python.exe" {posix_script} {args} '
+            '--project-root "$root"'
+        ),
+        "commandWindows": (
+            'powershell -NoProfile -Command "$root = (git rev-parse --show-toplevel); '
+            f"& (Join-Path $root '.venv/Scripts/python.exe') {powershell_script} {args} "
+            '--project-root $root"'
+        ),
         HOOK_MARKER_KEY: f"{HOOK_ID}:{event}",
     }
     if event == "Stop":
@@ -429,90 +536,162 @@ def _hook_handler(
     return handler
 
 
+def _trusted_legacy_handler(handler: dict[str, object], event: str, script: Path) -> bool:
+    current_id = f"{HOOK_ID}:{event}"
+    legacy_id = f"{LEGACY_HOOK_ID}:{event}"
+    marker_key: str | None = None
+    if handler.get(HOOK_MARKER_KEY) == current_id:
+        marker_key = HOOK_MARKER_KEY
+    elif handler.get(LEGACY_HOOK_MARKER_KEY) == legacy_id:
+        marker_key = LEGACY_HOOK_MARKER_KEY
+    if marker_key is None or handler.get("type") != "command":
+        return False
+    expected_keys = {"type", "command", marker_key}
+    expected_values: dict[str, object] = {}
+    if event == "Stop":
+        expected_keys.update({"async", "timeout"})
+        expected_values = {"async": True, "timeout": 120}
+    elif event == "SessionStart":
+        expected_keys.add("timeout")
+        expected_values = {"timeout": 120}
+    elif event == "SessionEnd":
+        expected_keys.add("timeout")
+        expected_values = {"timeout": 3}
+    if set(handler) != expected_keys or any(handler.get(key) != value for key, value in expected_values.items()):
+        return False
+    command = handler.get("command")
+    if not isinstance(command, str):
+        return False
+    suffix = f' "{script.resolve()}" {_hook_arguments(event)}'
+    return command.endswith(suffix) and command.startswith('"') and command.count('"') == 4
+
+
+def _read_optional_bytes(path: Path) -> bytes | None:
+    return path.read_bytes() if path.is_file() else None
+
+
+def _restore_optional_bytes(path: Path, payload: bytes | None) -> None:
+    if payload is None:
+        path.unlink(missing_ok=True)
+    else:
+        _atomic_bytes(path, payload)
+
+
+def _render_user_hooks(
+    payload: bytes | None,
+    hooks_path: Path,
+    script: Path,
+) -> bytes:
+    if payload is not None:
+        try:
+            document = HOOKS_OWNERSHIP.load_document(payload, str(hooks_path))
+        except RuntimeError as exc:
+            raise SyncError(f"invalid user hooks.json: {exc}") from exc
+    else:
+        document = {"hooks": {}}
+    expected_document = {
+        "hooks": {
+            event: [{"hooks": [_hook_handler(event, script)]}]
+            for event in ("SessionStart", "Stop", "SessionEnd")
+        }
+    }
+    try:
+        expected = HOOKS_OWNERSHIP.expected_groups(
+            expected_document,
+            managed_prefix=HOOK_ID + ":",
+        )
+        legacy_handlers: list[dict[str, str]] = []
+        hooks = document.get("hooks")
+        if isinstance(hooks, dict):
+            for event, entries in hooks.items():
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                        continue
+                    matcher = entry.get("matcher", "")
+                    if not isinstance(matcher, str):
+                        continue
+                    for handler in entry["hooks"]:
+                        if isinstance(handler, dict) and _trusted_legacy_handler(handler, event, script):
+                            legacy_handlers.append({
+                                "id": f"{HOOK_ID}:{event}",
+                                "event": event,
+                                "matcher": matcher,
+                                "handler_sha256": HOOKS_OWNERSHIP.canonical_json_sha256(handler),
+                            })
+        document, _external, _receipts = HOOKS_OWNERSHIP.canonicalize(
+            document,
+            expected,
+            managed_prefixes=(HOOK_ID + ":",),
+            label=str(hooks_path),
+            managed_looking=lambda handler: (
+                isinstance(handler.get(HOOK_MARKER_KEY), str)
+                and handler[HOOK_MARKER_KEY].startswith(HOOK_ID + ":")
+            ) or (
+                isinstance(handler.get(LEGACY_HOOK_MARKER_KEY), str)
+                and handler[LEGACY_HOOK_MARKER_KEY].startswith(LEGACY_HOOK_ID + ":")
+            ),
+            legacy_handlers=legacy_handlers,
+            replace_marked_drift=False,
+        )
+    except RuntimeError as exc:
+        raise SyncError(f"user hooks ownership is invalid: {exc}") from exc
+    return HOOKS_OWNERSHIP.render_document(document)
+
+
 def merge_user_hooks(
     hooks_path: Path,
     script: Path,
     *,
-    hook_python: Path | None = None,
+    expected_before: bytes | None | object = ...,
 ) -> bool:
-    if hooks_path.exists():
-        try:
-            document = json.loads(hooks_path.read_text(encoding="utf-8-sig"))
-        except json.JSONDecodeError as exc:
-            raise SyncError(f"invalid user hooks.json: {exc}") from exc
-        if not isinstance(document, dict):
-            raise SyncError("user hooks.json root must be an object")
-    else:
-        document = {}
-    hooks = document.setdefault("hooks", {})
-    if not isinstance(hooks, dict):
-        raise SyncError("user hooks.json hooks must be an object")
-    before = json.dumps(document, ensure_ascii=False, sort_keys=True)
-    for event in ("SessionStart", "Stop", "SessionEnd"):
-        entries = hooks.setdefault(event, [])
-        if not isinstance(entries, list):
-            raise SyncError(f"user hook event must be a list: {event}")
-        expected = _hook_handler(event, script, hook_python=hook_python)
-        found = False
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            handlers = entry.get("hooks")
-            if not isinstance(handlers, list):
-                continue
-            rebuilt_handlers: list[object] = []
-            for handler in handlers:
-                marker = handler.get(HOOK_MARKER_KEY) if isinstance(handler, dict) else None
-                legacy_marker = (
-                    handler.get(LEGACY_HOOK_MARKER_KEY)
-                    if isinstance(handler, dict)
-                    else None
-                )
-                if (
-                    marker == expected[HOOK_MARKER_KEY]
-                    or legacy_marker == f"{LEGACY_HOOK_ID}:{event}"
-                ):
-                    if not found:
-                        rebuilt_handlers.append(expected)
-                        found = True
-                    continue
-                rebuilt_handlers.append(handler)
-            if rebuilt_handlers != handlers:
-                entry["hooks"] = rebuilt_handlers
-        if not found:
-            entries.append({"hooks": [expected]})
-    after = json.dumps(document, ensure_ascii=False, sort_keys=True)
-    if after != before:
-        _atomic_json(hooks_path, document)
-        return True
-    return False
+    initial = _read_optional_bytes(hooks_path)
+    if expected_before is not ... and initial != expected_before:
+        raise HookLockConflict("user hooks changed before the locked CAS")
+    desired = _render_user_hooks(initial, hooks_path, script)
+    if initial == desired:
+        return False
+    if _read_optional_bytes(hooks_path) != initial:
+        raise HookLockConflict("user hooks changed during the locked CAS")
+    _atomic_bytes(hooks_path, desired)
+    return True
 
 
 def user_hooks_healthy(
     hooks_path: Path,
     script: Path,
-    *,
-    hook_python: Path | None = None,
 ) -> bool:
     try:
-        document = json.loads(hooks_path.read_text(encoding="utf-8-sig"))
-        hooks = document["hooks"]
-        if not isinstance(hooks, dict):
-            return False
-        for event in ("SessionStart", "Stop", "SessionEnd"):
-            expected = _hook_handler(event, script, hook_python=hook_python)
-            matches = [
-                handler
-                for entry in hooks.get(event, [])
-                if isinstance(entry, dict) and isinstance(entry.get("hooks"), list)
-                for handler in entry["hooks"]
-                if isinstance(handler, dict)
-                and handler.get(HOOK_MARKER_KEY) == expected[HOOK_MARKER_KEY]
-            ]
-            if matches != [expected]:
-                return False
+        document = HOOKS_OWNERSHIP.load_document(
+            hooks_path.read_bytes(),
+            str(hooks_path),
+        )
+        expected_document = {
+            "hooks": {
+                event: [{"hooks": [_hook_handler(event, script)]}]
+                for event in ("SessionStart", "Stop", "SessionEnd")
+            }
+        }
+        expected = HOOKS_OWNERSHIP.expected_groups(
+            expected_document,
+            managed_prefix=HOOK_ID + ":",
+        )
+        HOOKS_OWNERSHIP.validate_current(
+            document,
+            expected,
+            managed_prefixes=(HOOK_ID + ":",),
+            label=str(hooks_path),
+            managed_looking=lambda handler: (
+                isinstance(handler.get(HOOK_MARKER_KEY), str)
+                and handler[HOOK_MARKER_KEY].startswith(HOOK_ID + ":")
+            ) or (
+                isinstance(handler.get(LEGACY_HOOK_MARKER_KEY), str)
+                and handler[LEGACY_HOOK_MARKER_KEY].startswith(LEGACY_HOOK_ID + ":")
+            ),
+        )
         return True
-    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+    except (OSError, KeyError, TypeError, json.JSONDecodeError, RuntimeError):
         return False
 
 
@@ -630,9 +809,19 @@ def choose_action(
     return "push" if local_changed else "restore"
 
 
-def launch_background_reconcile(trigger: str) -> None:
-    command = [str(stable_hook_python()), str(Path(__file__).resolve()), "reconcile", "--trigger", trigger]
+def launch_background_reconcile(trigger: str, project_root: Path) -> None:
+    root = project_root.resolve()
+    command = [
+        str(Path(sys.executable).resolve()),
+        str(Path(__file__).resolve()),
+        "reconcile",
+        "--trigger",
+        trigger,
+        "--project-root",
+        str(root),
+    ]
     kwargs: dict[str, object] = {
+        "cwd": root,
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
         "stderr": subprocess.DEVNULL,
@@ -1036,50 +1225,112 @@ def repair_user_hooks(
     codex: Path,
     current_state_dir: Path,
     ledger_path: Path,
+    config_path: Path,
     script: Path,
-) -> tuple[bool, Path]:
-    original_state_dir = _read_state_dir(codex, current_state_dir)
-    require_runtime_authorization(
-        ledger_path,
-        original_state_dir,
-        migrate_legacy=False,
-    )
+    project_root: Path,
+) -> HookRepairReceipt:
+    actual_runtime = str(Path(sys.executable).resolve())
     hooks_path = codex / "hooks.json"
-    if hooks_path.exists() and _is_link_or_reparse(hooks_path):
-        raise SyncError("native memories hooks target is a link or reparse point")
-    hooks_before = hooks_path.read_bytes() if hooks_path.is_file() else None
-    ledger_before = ledger_path.read_bytes()
-    migrated_state = original_state_dir != current_state_dir
     try:
-        state_dir = _migrate_state_dir(codex, current_state_dir)
-        require_runtime_authorization(
-            ledger_path,
-            state_dir,
-            migrate_legacy=True,
+        with user_hooks_lock(codex):
+            hooks_before: bytes | None = None
+            ledger_before: bytes | None = None
+            config_before: bytes | None = None
+            original_state_dir = current_state_dir
+            migrated_state = False
+            mutated = False
+            hook_written = False
+            try:
+                original_state_dir = _read_state_dir(codex, current_state_dir)
+                if hooks_path.exists() and _is_link_or_reparse(hooks_path):
+                    raise SyncError("native memories hooks target is a link or reparse point")
+                hooks_before = _read_optional_bytes(hooks_path)
+                ledger_before = ledger_path.read_bytes()
+                config_before = _read_optional_bytes(config_path)
+                enabled, _config = _memory_switches_from_bytes(config_before)
+                if native_memories_consent(ledger_path) != "approved":
+                    raise SyncError("native memories maintenance requires approved consent")
+                if not enabled:
+                    raise SyncError("native memories were disabled by the user")
+
+                # Strictly parse and calculate the desired hooks before any mutation.
+                desired_hooks = _render_user_hooks(hooks_before, hooks_path, script)
+                require_runtime_authorization(
+                    ledger_path,
+                    original_state_dir,
+                    migrate_legacy=False,
+                )
+
+                migrated_state = original_state_dir != current_state_dir
+                state_dir = _migrate_state_dir(codex, current_state_dir)
+                mutated = migrated_state
+                ledger_pre_migration = ledger_path.read_bytes()
+                require_runtime_authorization(
+                    ledger_path,
+                    state_dir,
+                    migrate_legacy=True,
+                )
+                mutated = mutated or ledger_path.read_bytes() != ledger_pre_migration
+
+                current_hooks = _read_optional_bytes(hooks_path)
+                if current_hooks != hooks_before:
+                    raise HookLockConflict("user hooks changed after the locked read")
+                if _read_optional_bytes(config_path) != config_before:
+                    raise HookLockConflict("user config changed after the locked read")
+                hook_changed = False
+                if desired_hooks != current_hooks:
+                    if _read_optional_bytes(hooks_path) != hooks_before:
+                        raise HookLockConflict("user hooks changed during the locked CAS")
+                    _atomic_bytes(hooks_path, desired_hooks)
+                    hook_changed = True
+                    hook_written = True
+                    mutated = True
+                if not user_hooks_healthy(hooks_path, script):
+                    raise SyncError("native memories hooks failed post-repair validation")
+                return HookRepairReceipt(
+                    "applied" if mutated or hook_changed else "unchanged",
+                    DYNAMIC_HOOK_RUNTIME,
+                    actual_runtime,
+                )
+            except Exception as exc:
+                external_after_write = (
+                    hook_written and _read_optional_bytes(hooks_path) != desired_hooks
+                )
+                if mutated and ledger_before is not None:
+                    if hook_written and not external_after_write:
+                        _restore_optional_bytes(hooks_path, hooks_before)
+                    _atomic_bytes(ledger_path, ledger_before)
+                    if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
+                        original_state_dir.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(current_state_dir, original_state_dir)
+                return HookRepairReceipt(
+                    (
+                        "rolled_back"
+                        if (
+                            mutated
+                            and not isinstance(exc, HookLockConflict)
+                            and not external_after_write
+                        )
+                        else "conflicted"
+                    ),
+                    DYNAMIC_HOOK_RUNTIME,
+                    actual_runtime,
+                    str(exc),
+                )
+    except HookLockConflict as exc:
+        return HookRepairReceipt(
+            "conflicted",
+            DYNAMIC_HOOK_RUNTIME,
+            actual_runtime,
+            str(exc),
         )
-        hook_python = stable_hook_python()
-        changed = merge_user_hooks(
-            hooks_path,
-            script,
-            hook_python=hook_python,
+    except Exception as exc:
+        return HookRepairReceipt(
+            "conflicted",
+            DYNAMIC_HOOK_RUNTIME,
+            actual_runtime,
+            str(exc),
         )
-        if not user_hooks_healthy(
-            hooks_path,
-            script,
-            hook_python=hook_python,
-        ):
-            raise SyncError("native memories hooks failed post-repair validation")
-        return changed, hook_python
-    except Exception:
-        if hooks_before is None:
-            hooks_path.unlink(missing_ok=True)
-        else:
-            _atomic_bytes(hooks_path, hooks_before)
-        _atomic_bytes(ledger_path, ledger_before)
-        if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
-            original_state_dir.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(current_state_dir, original_state_dir)
-        raise
 
 
 def validated_runtime_state(
@@ -1105,45 +1356,61 @@ def validated_runtime_state(
 def main(argv: list[str] | None = None) -> int:
     if sys.version_info < MIN_PYTHON:
         print("[memory-sync] WARNING: Python 3.11+ is required", file=sys.stderr)
-        return 0
+        return 2
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    setup = sub.add_parser("setup")
+
+    def project_command(name: str) -> argparse.ArgumentParser:
+        command = sub.add_parser(name)
+        command.add_argument("--project-root", type=Path, required=True)
+        return command
+
+    setup = project_command("setup")
     setup.add_argument("--confirmed-enable", action="store_true")
     setup.add_argument("--confirmed-public-to-private", action="store_true")
-    decline = sub.add_parser("decline")
+    decline = project_command("decline")
     decline.add_argument("--confirmed", action="store_true")
-    sub.add_parser("maintain")
-    sub.add_parser("repair-hook")
-    reconcile_cmd = sub.add_parser("reconcile")
+    project_command("maintain")
+    project_command("repair-hook")
+    reconcile_cmd = project_command("reconcile")
     reconcile_cmd.add_argument("--trigger", default="bridgeforge-codex")
-    mark = sub.add_parser("mark")
+    mark = project_command("mark")
     mark.add_argument("--trigger", required=True)
-    kick = sub.add_parser("kick")
+    kick = project_command("kick")
     kick.add_argument("--trigger", required=True)
-    sub.add_parser("status")
+    project_command("status")
     args = parser.parse_args(argv)
     codex, memories, current_state_dir = codex_paths()
     state_dir = _read_state_dir(codex, current_state_dir)
     ledger_path = codex / "bridgeforge-codex-managed.json"
+    runtime_ready = False
     try:
         if args.command == "status":
             if not codex.is_dir() or _is_link_or_reparse(codex):
                 raise SyncError(f"Codex home is missing or unsafe: {codex}")
-            enabled, _ = memory_switches(codex / "config.toml")
-            hook_python = stable_hook_python()
-            remote_configured = (state_dir / "remote.txt").is_file()
-            authorization = native_memories_authorization(ledger_path)
-            print(json.dumps({
-                "enabled": enabled,
-                "hookInstalled": user_hooks_healthy(
+            runtime_drift_reason: str | None = None
+            try:
+                project_root, _expected_python = _validated_project_runtime(args.project_root)
+            except SyncError as exc:
+                project_root = args.project_root.resolve()
+                runtime_drift_reason = str(exc)
+            with user_hooks_lock(codex):
+                enabled, _ = memory_switches(codex / "config.toml")
+                remote_configured = (state_dir / "remote.txt").is_file()
+                authorization = native_memories_authorization(ledger_path)
+                hook_installed = user_hooks_healthy(
                     codex / "hooks.json",
                     Path(__file__).resolve(),
-                    hook_python=hook_python,
-                ),
+                )
+            print(json.dumps({
+                "enabled": enabled,
+                "hookInstalled": hook_installed,
                 "pending": (state_dir / "pending.json").exists(),
-                "setupPython": str(Path(sys.executable).resolve()),
-                "hookPython": str(hook_python),
+                "projectRoot": str(project_root),
+                "runtimeContract": HOOK_RUNTIME_CONTRACT,
+                "configuredRuntime": DYNAMIC_HOOK_RUNTIME,
+                "actualRuntime": str(Path(sys.executable).resolve()),
+                "runtimeDriftReason": runtime_drift_reason,
                 "remoteConfigured": remote_configured,
                 "consent": (
                     _validate_authorization(authorization)
@@ -1161,36 +1428,41 @@ def main(argv: list[str] | None = None) -> int:
                     else CONSENT_SYNC_MODE if authorization == "approved" else None
                 ),
             }, ensure_ascii=False))
-            return 0
+            return 2 if runtime_drift_reason else 0
+
+        project_root, _expected_python = _validated_project_runtime(args.project_root)
+        runtime_ready = True
         if args.command == "decline":
-            changed = record_native_memories_consent(
-                ledger_path,
-                "declined",
-                confirmed=args.confirmed,
-                remote=None,
-            )
+            with user_hooks_lock(codex):
+                changed = record_native_memories_consent(
+                    ledger_path,
+                    "declined",
+                    confirmed=args.confirmed,
+                    remote=None,
+                )
             print(f"[memory-sync] native memories declined; changed={str(changed).lower()}")
             return 0
         _real_directory(codex, create=True)
-        enabled, _ = memory_switches(codex / "config.toml")
         if args.command in {"maintain", "repair-hook"}:
-            if native_memories_consent(ledger_path) != "approved":
-                raise SyncError("native memories maintenance requires approved consent")
-            if not enabled:
-                raise SyncError("native memories were disabled by the user")
-            changed, hook_python = repair_user_hooks(
+            receipt = repair_user_hooks(
                 codex,
                 current_state_dir,
                 ledger_path,
+                codex / "config.toml",
                 Path(__file__).resolve(),
+                project_root,
             )
             print(
                 "[memory-sync] hooks repaired; "
-                f"changed={str(changed).lower()}; hook_python={hook_python}; "
+                f"hook_repair={receipt.hook_repair}; "
+                f"configured_runtime={receipt.configured_runtime}; "
+                f"actual_runtime={receipt.actual_runtime}; "
+                f"runtime_drift_reason={receipt.runtime_drift_reason or 'none'}; "
                 "remote_reconcile=not_requested"
             )
-            return 0
+            return 0 if receipt.hook_repair in {"applied", "unchanged"} else 2
         if args.command in {"mark", "kick"}:
+            enabled, _ = memory_switches(codex / "config.toml")
             if enabled:
                 state_dir, _authorization = validated_runtime_state(
                     codex,
@@ -1199,39 +1471,84 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 mark_pending(state_dir, args.trigger)
                 if args.command == "kick":
-                    launch_background_reconcile(args.trigger)
+                    launch_background_reconcile(args.trigger, project_root)
             return 0
         if args.command == "setup":
-            state_dir = _migrate_state_dir(codex, current_state_dir)
-            hook_python = stable_hook_python()
-            if not enabled:
-                if not args.confirmed_enable:
-                    raise SyncError("native memories remain unchanged without --confirmed-enable")
+            hooks_path = codex / "hooks.json"
+            config_path = codex / "config.toml"
+            with user_hooks_lock(codex):
+                ledger_snapshot = ledger_path.read_bytes()
+                managed_ledger(ledger_path)
+                hooks_snapshot = _read_optional_bytes(hooks_path)
+                _render_user_hooks(hooks_snapshot, hooks_path, Path(__file__).resolve())
+                config_snapshot = _read_optional_bytes(config_path)
+                enabled, _config = _memory_switches_from_bytes(config_snapshot)
+                if not enabled and not args.confirmed_enable:
+                    raise SyncError(
+                        "native memories remain unchanged without --confirmed-enable"
+                    )
+
             remote, remote_action = ensure_github_repository(
                 confirmed_public_to_private=args.confirmed_public_to_private
             )
-            if not enabled:
-                enable_memories(codex / "config.toml", confirmed=True)
-            merge_user_hooks(
-                codex / "hooks.json",
-                Path(__file__).resolve(),
-                hook_python=hook_python,
-            )
-            _atomic_text(state_dir / "remote.txt", remote + "\n")
-            record_native_memories_consent(
-                ledger_path,
-                "approved",
-                confirmed=True,
-                remote=remote,
-            )
+
+            with user_hooks_lock(codex):
+                migrated_state = False
+                local_mutated = False
+                original_state_dir = _read_state_dir(codex, current_state_dir)
+                try:
+                    if (
+                        ledger_path.read_bytes() != ledger_snapshot
+                        or _read_optional_bytes(hooks_path) != hooks_snapshot
+                        or _read_optional_bytes(config_path) != config_snapshot
+                    ):
+                        raise HookLockConflict("user configuration changed during setup preflight")
+                    original_state_dir = _read_state_dir(codex, current_state_dir)
+                    migrated_state = original_state_dir != current_state_dir
+                    state_dir = _migrate_state_dir(codex, current_state_dir)
+                    local_mutated = migrated_state
+                    remote_path = state_dir / "remote.txt"
+                    remote_snapshot = _read_optional_bytes(remote_path)
+                    if not enabled:
+                        local_mutated = enable_memories(config_path, confirmed=True) or local_mutated
+                    hook_changed = merge_user_hooks(
+                        hooks_path,
+                        Path(__file__).resolve(),
+                        expected_before=hooks_snapshot,
+                    )
+                    local_mutated = hook_changed or local_mutated
+                    _atomic_text(remote_path, remote + "\n")
+                    local_mutated = True
+                    record_native_memories_consent(
+                        ledger_path,
+                        "approved",
+                        confirmed=True,
+                        remote=remote,
+                    )
+                    if not user_hooks_healthy(hooks_path, Path(__file__).resolve()):
+                        raise SyncError("native memories hooks failed post-setup validation")
+                except Exception:
+                    if local_mutated:
+                        _restore_optional_bytes(hooks_path, hooks_snapshot)
+                        _restore_optional_bytes(config_path, config_snapshot)
+                        _atomic_bytes(ledger_path, ledger_snapshot)
+                        if "remote_path" in locals():
+                            _restore_optional_bytes(remote_path, remote_snapshot)
+                        if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
+                            original_state_dir.parent.mkdir(parents=True, exist_ok=True)
+                            os.replace(current_state_dir, original_state_dir)
+                    raise
             print(
                 "[memory-sync] configured; "
-                f"setup_python={Path(sys.executable).resolve()}; "
-                f"hook_python={hook_python}; hook_installed=true; "
+                f"hook_repair={'applied' if hook_changed else 'unchanged'}; "
+                f"configured_runtime={DYNAMIC_HOOK_RUNTIME}; "
+                f"actual_runtime={Path(sys.executable).resolve()}; "
+                "runtime_drift_reason=none; hook_installed=true; "
                 f"remote_configured=true; remote_action={remote_action}; remote={remote}; "
                 "review/trust the user hooks in /hooks"
             )
             return 0
+        enabled, _ = memory_switches(codex / "config.toml")
         if not enabled:
             return 0
         state_dir, authorization = validated_runtime_state(
@@ -1248,13 +1565,16 @@ def main(argv: list[str] | None = None) -> int:
             print("{}")
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError, SyncError) as exc:
-        if args.command not in {"status", "decline", "maintain", "repair-hook"}:
+        if runtime_ready and args.command not in {"status", "decline", "setup", "maintain", "repair-hook"}:
             try:
                 mark_pending(state_dir, getattr(args, "trigger", args.command))
             except Exception:
                 pass
         print(f"[memory-sync] WARNING: {exc}", file=sys.stderr)
-        return 2 if args.command in {"status", "decline", "setup", "maintain", "repair-hook"} else 0
+        return 2 if (
+            not runtime_ready
+            or args.command in {"status", "decline", "setup", "maintain", "repair-hook"}
+        ) else 0
 
 
 if __name__ == "__main__":

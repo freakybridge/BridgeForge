@@ -241,6 +241,18 @@ class InstructionSourceCheckTests(unittest.TestCase):
         for precommit in (ROOT / "templates" / ".githooks" / "pre-commit", ROOT / ".githooks" / "pre-commit"):
             self.assertIn("instruction_source_check.py", precommit.read_text(encoding="utf-8"))
 
+    def test_precommit_region_uses_only_the_current_ownership_rule(self) -> None:
+        sync_source = SYNC_PATH.read_text(encoding="utf-8")
+        builder_source = (
+            ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
+        ).read_text(encoding="utf-8")
+        release_source = (
+            ROOT / "templates" / "scripts" / "version_release.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("BRIDGEFORGE_MANAGED_BEGIN", sync_source)
+        self.assertNotIn("_merge_region_history", builder_source)
+        self.assertNotIn("schema v1 managed region", release_source)
+
     def test_legacy_rule_hooks_delegate_to_native_gate(self) -> None:
         for host in (ROOT / "templates" / "hooks", ROOT / ".codex" / "hooks"):
             for name in ("rule_index_check.py", "rule_size_check.py"):
@@ -290,30 +302,16 @@ class InstructionSourceCheckTests(unittest.TestCase):
             self.assertIn("AGENTS.md project zone", gaps[0].reason)
             self.assertEqual(target.read_text(encoding="utf-8"), "project-custom rule\n")
 
-    def test_official_legacy_index_migrates_but_custom_index_is_preserved(self) -> None:
+    def test_agents_contract_has_no_legacy_title_migration_path(self) -> None:
         sync = load_sync()
         contract = json.loads((ROOT / "templates" / "managed-skeleton.json").read_text(encoding="utf-8"))
         asset = next(item for item in contract["assets"] if item["id"] == "root.agents")
-        desired = (ROOT / "templates" / "AGENTS.md").read_bytes().replace(b"{{PROJECT_NAME}}", b"fixture")
-        legacy_desired = sync._legacy_agents_source(asset, desired)
-        spans = sync._markdown_heading_sections(legacy_desired, ("### 2.1 原生指令承载索引",))
-        start, end = spans["### 2.1 原生指令承载索引"]
-        official = legacy_desired[:start] + OLD_RULE_INDEX.encode("utf-8") + b"\n\n" + legacy_desired[end:]
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            migrated, gaps = sync._plan_section_layout(asset, legacy_desired, official, root)
-            self.assertEqual(gaps, [])
-            self.assertIn(b"### 2.1 \xe5\x8e\x9f\xe7\x94\x9f", migrated)
-            self.assertNotIn(b"### 2.1 \xe8\xa7\x84\xe5\x88\x99", migrated)
-            custom_index = OLD_RULE_INDEX.replace(
-                "<!-- ",
-                "| `rules/local_only.md` | project only | always |\n\n<!-- ",
-                1,
-            ).encode("utf-8")
-            customized = legacy_desired[:start] + custom_index + b"\n\n" + legacy_desired[end:]
-            preserved, custom_gaps = sync._plan_section_layout(asset, legacy_desired, customized, root)
-            self.assertEqual(preserved, customized)
-            self.assertTrue(any("retired legacy section drifted" in item.reason for item in custom_gaps))
+        self.assertEqual(set(asset).intersection({"managed_blocks", "section_layout"}), set())
+        self.assertNotIn(
+            "legacy_section_migrations",
+            asset["agents_zones"]["project"],
+        )
+        self.assertFalse(hasattr(sync, "_legacy_agents_source"))
 
 
 if __name__ == "__main__":

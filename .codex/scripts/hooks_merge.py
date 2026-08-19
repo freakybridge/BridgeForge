@@ -12,7 +12,6 @@ import copy
 import difflib
 import json
 import os
-import re
 import sys
 import tempfile
 from pathlib import Path
@@ -21,31 +20,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from hook_config_policy import TomlHeaderError, has_hooks_table
-
-MANAGED_HOOK_NAMES = (
-    # memory_junction_check.py remains an ownership marker only so migrations
-    # remove legacy direct registrations after the Codex runtime is retired.
-    "hook_dispatcher.py", "memory_junction_check.py", "find_doc_reminder.py",
-    "git_add_all_guard.py", "non_ascii_shell_guard.py", "cross_project_write_guard.py",
-    "user_config_write_guard.py", "allow_memory_write.py", "memory_dup_check.py",
-    "memory_lint.py", "rule_index_check.py", "rule_size_check.py",
-    "requirements_check.py", "cargo_default_run_check.py", "fallback_smell_check.py",
-    "encoding_check.py", "test_receipt.py", "session_snapshot.py", "show_state.py",
-    "clarify_reminder.py", "focus_reminder.py",
-    "config_health_check.py", "skill_sync_check.py",
-    "enforce_no_effortlevel.py", "githooks_path_check.py",
-)
-RETIRED_MANAGED_HOOK_NAMES = ("context_warning.py", "target_cleanup.py")
-MANAGED_PATHS = tuple(
-    f"hooks/{name}" for name in MANAGED_HOOK_NAMES + RETIRED_MANAGED_HOOK_NAMES
-) + (
-    "scripts/memory_rebuild_index.py",
-    # Historical bridgeforge-codex wrapper retired by the single dispatcher.  Keep
-    # both former managed locations narrow so same-named project tools survive.
-    "hooks/memory_rebuild_then_lint.py",
-    "scripts/memory_rebuild_then_lint.py",
+from hooks_ownership import (
+    HooksOwnershipError,
+    canonicalize,
+    expected_groups,
+    load_json_object,
 )
 MIN_PYTHON = (3, 11)
+PROJECT_MANAGED_PREFIX = "bridgeforge-codex.project-hook.v1:"
 
 
 class MergeBlocked(RuntimeError):
@@ -67,65 +49,10 @@ def _load_json(path: Path, default: dict | None = None) -> dict:
     if not path.is_file() and default is not None:
         return copy.deepcopy(default)
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
+        value = load_json_object(path.read_bytes(), str(path))
+    except (OSError, HooksOwnershipError) as exc:
         raise MergeBlocked(f"invalid JSON: {path}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise MergeBlocked(f"JSON root must be an object: {path}")
     return value
-
-
-def _is_managed_hook(hook: object, project_root: Path) -> bool:
-    if not isinstance(hook, dict):
-        return False
-    command = str(hook.get("command") or "").replace("\\", "/").lower()
-    root = project_root.as_posix().rstrip("/").lower()
-    boundary = r"(?=$|[\s'\"),;])"
-    for relative in MANAGED_PATHS:
-        managed = f".codex/{relative.lower()}"
-        patterns = (
-            rf"(?:^|[\s'\"(]){re.escape(managed)}{boundary}",
-            rf"\)/{re.escape(managed)}{boundary}",
-            rf"(?:^|[\s'\"]){re.escape(root + '/' + managed)}{boundary}",
-        )
-        if any(re.search(pattern, command) for pattern in patterns):
-            return True
-    return False
-
-
-def _strip_managed(data: dict, project_root: Path) -> tuple[dict, list[dict]]:
-    clean = copy.deepcopy(data)
-    removed: list[dict] = []
-    events = clean.setdefault("hooks", {})
-    if not isinstance(events, dict):
-        raise MergeBlocked("hooks.json 'hooks' must be an object")
-    for event, blocks in list(events.items()):
-        if not isinstance(blocks, list):
-            raise MergeBlocked(f"hooks.json event must be an array: {event}")
-        kept_blocks = []
-        for block in blocks:
-            if not isinstance(block, dict):
-                kept_blocks.append(block)
-                continue
-            hooks = block.get("hooks")
-            if not isinstance(hooks, list):
-                kept_blocks.append(block)
-                continue
-            kept_hooks = []
-            for hook in hooks:
-                if _is_managed_hook(hook, project_root):
-                    removed.append(copy.deepcopy(hook))
-                else:
-                    kept_hooks.append(hook)
-            if kept_hooks:
-                new_block = copy.deepcopy(block)
-                new_block["hooks"] = kept_hooks
-                kept_blocks.append(new_block)
-        if kept_blocks:
-            events[event] = kept_blocks
-        else:
-            events.pop(event, None)
-    return clean, removed
 
 
 def _append_unique_events(target: dict, source_events: object) -> None:
@@ -168,8 +95,28 @@ def build_plan(project_root: Path, template_hooks: Path) -> tuple[dict, dict, li
 
     combined = copy.deepcopy(existing_hooks)
     _append_unique_events(combined, settings.get("hooks"))
-    clean, removed = _strip_managed(combined, project_root)
-    _append_unique_events(clean, template.get("hooks"))
+    clean = combined
+    removed: list[dict] = []
+    try:
+        expected = expected_groups(
+            template,
+            managed_prefix=PROJECT_MANAGED_PREFIX,
+        )
+        clean, _external, receipts = canonicalize(
+            clean,
+            expected,
+            managed_prefixes=(PROJECT_MANAGED_PREFIX,),
+            label=str(hooks_path),
+            managed_looking=lambda _handler: False,
+            managed_top_level={"description": template.get("description")},
+        )
+    except HooksOwnershipError as exc:
+        raise MergeBlocked(str(exc)) from exc
+    removed.extend(
+        {"bridgeforgeCodexId": item["id"], "action": item["action"]}
+        for item in receipts
+        if item["action"] != "add-missing"
+    )
     new_settings = copy.deepcopy(settings)
     new_settings.pop("hooks", None)
     return clean, new_settings, removed

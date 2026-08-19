@@ -15,6 +15,56 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.22] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 统一骨架迁移证明与项目运行时
+
+## [1.4.21] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 所有骨架脚本与 Hook 统一使用当前项目 CPython 3.11+ `.venv`；只有 init/adopt 且 `.venv` 完全缺失时允许一次 PATH bootstrap，创建后立即切换，update 与稳态操作禁止回退。用户级 Native Memory handler 改为按当前 Git 根动态定位项目 `.venv`，不再持久化调用项目的 Python 绝对路径；共享 Hooks repair/setup 增加用户级互斥、锁内重读、CAS、冲突与回滚收据。
+- [product][repo][meta] 独立审计后封闭所有 runtime 旁路：lifecycle 无效 runtime 返回失败，abandoned mutex fail-closed，`$git-sync`、`$find-memory`、dispatcher 与 pre-commit 均只接受目标项目 `.venv`；repair/setup/decline 在共享锁内重读 config 与 ledger，并补齐多版本、错误 prefix、PATH fallback 和锁边界回归。
+- [product][repo][meta] 独立审计后封闭所有 runtime 旁路：lifecycle 无效 runtime 返回失败，abandoned mutex fail-closed，`$git-sync`、`$find-memory`、dispatcher 与 pre-commit 均只接受目标项目 `.venv`；repair/setup/decline 在共享锁内重读 config 与 ledger，并补齐多版本、错误 prefix、PATH fallback 和锁边界回归。
+
+## [1.4.20] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 用户级与项目级 `hooks.json` 收敛为统一 managed/external zones：BridgeForge handler 使用稳定 ID、独占 group 且每个 event/matcher/stage 唯一；可信重复或混组可确定性拆分，未知或漂移 handler 零写 fail-closed。Planner、hooks merger、release evaluator 与 Native Memory health 共用同一 ownership parser，外部 handler 保持不变。
+
+## [1.4.19] - 2026-08-19
+
+### Changed
+
+- [product][repo][meta] `codex.precommit` region ownership 收敛为唯一当前 marker 与当前 hash：当前 contract 不再保存 asset/region 历史 hash，重建器不再读取历史 region contract，同步器不再识别旧 marker。项目显式适配为当前 canonical region 后，release evaluator 严格验证当前区块并将无当前 marker 的 HEAD 保守归类为 `mixed`；项目扩展继续逐字保留。
+
+## [1.4.18] - 2026-08-19
+
+### Changed
+
+- [product][repo][meta] 根 `AGENTS.md` ownership contract 收敛为唯一 `agents_zones` 规则；当前同步器不再按旧标题、旧 section layout 或 trusted legacy hash 自动迁移无分区文件，而是零写列为显式适配项。已分区项目继续只替换可信公共区并逐字保留项目区，release evaluator 对无分区 HEAD 保守归类为 `mixed`。
+
+## [1.4.17] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 受管 region 的历史凭证改为按稳定 asset id 读取每个历史版本自己的 contract、source 与 markers，并为每个受支持版本登记精确 hash；marker 演进不再让合法旧区域失去 lineage，项目专区继续排除在受管 hash 之外并原样保留。
+
+## [1.4.16] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] release evaluator 先验证可信 schema v1 HEAD contract 的历史 hash 与最低支持旧戳，再将旧 whole-file / region ownership 确定性映射到 schema v2 稳定 asset；缺失、歧义或未授权整文件接管继续在 Planner 阶段零写 fail-closed。
+
+## [1.4.15] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] Planner、Apply 与 `$git-sync` 的骨架 transition 改为直接调用同一个 `evaluate_release_transition()`；Planner 以零写 prospective snapshot 提前执行严格预检，失败在首次计划输出稳定 `G*` 清单，禁止再出现 plan `ready`、apply 才阻断的双标准。
+
 ## [1.4.14] - 2026-08-19
 
 ### Changed

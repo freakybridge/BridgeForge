@@ -12,7 +12,7 @@ delivery_layout: flat
 |---|---|---|
 | `0_architecture/` | 架构与设计依据 | `design/` |
 | `1_delivery/` | 需求确认、计划、验收、协作与专题讨论 | 见下方 topic 索引 |
-| `2_bugs/` | 已知故障及其修复记录 | 17 条故障记录 |
+| `2_bugs/` | 已知故障及其修复记录 | 18 条故障记录 |
 | `3_reference/` | 外部资料与可复用参考实现 | `examples/antifab-deny-hook.py` |
 | `4_archive/` | 已完成或已失效的历史材料 | 既有历史档案；后续按 `delivery/`、`bugs/` 分类归档 |
 
@@ -37,6 +37,12 @@ delivery_layout: flat
 | `target-cleanup-retirement` | 核心 Rust/Cargo `target_cleanup.py` 退役、官方旧副本受控删除与修改版项目所有权保留（2026-08-18） |
 | `native-memory-durable-consent` | Native Memory 首次长期授权、双向自动同步、本地 hook 自维护与远端 reconcile 职责解耦（2026-08-18） |
 | `project-sync-release-preflight` | 项目同步与 `$git-sync` 共用 transition proof，并在写骨架版本戳前完成只读 release preflight（2026-08-19） |
+| `project-sync-schema-v1-lineage` | 可信 schema v1 HEAD 先验证历史 hash 与旧戳，再确定性映射到 schema v2 稳定资产（2026-08-19） |
+| `project-sync-single-release-standard` | Planner、Apply 与 `$git-sync` 的骨架 transition 直接调用同一验收函数，消除 plan `ready` / apply `blocked` 双标准（2026-08-19） |
+| `project-sync-versioned-region-lineage` | pre-commit region 退役历史 marker/hash，只保留当前规则并要求旧项目显式适配（2026-08-19） |
+| `project-sync-agents-zones-single-rule` | 根 AGENTS 退役旧标题 projection，只保留 agents_zones 并要求旧项目显式适配（2026-08-19） |
+| `project-sync-hooks-zones-single-rule` | 用户级与项目级 hooks 统一为 managed/external 逻辑分区，受管 handler 唯一、canonical、独占 group（2026-08-19） |
+| `project-venv-hook-runtime-single-rule` | 所有骨架与用户级 Native Memory Hook 统一使用当前项目 CPython 3.11+ `.venv`，并为用户级 Hooks repair 增加锁与 CAS（2026-08-19） |
 | `user-skill-compatibility-retirement` | 彻底退役旧 `$bridgeforge` 用户级兼容 manifest、过渡入口与旧资产迁移链，只保留正式 active Skill 清单（2026-08-19） |
 | `bridgeforge-single-confirmation` | `init`、`adopt`、`update`、`switch` 的零确认安全路径、单次风险确认与 Codex 窄权限规则需求（2026-08-15） |
 | `bridgeforge-repository-structure-governance` | 文档五层结构机器检查、BridgeForge 测试迁入 `scripts/tests/**`，以及下游旧测试目录只报告不自动迁移（2026-08-16） |
@@ -67,6 +73,7 @@ delivery_layout: flat
 
 ## Bug records
 
+- [`BUG-project-sync-schema-v1-baseline-and-native-memory-hook-race.md`](2_bugs/BUG-project-sync-schema-v1-baseline-and-native-memory-hook-race.md)
 - [`BUG-native-memory-maintain-misclassified-safe-data-egress.md`](2_bugs/BUG-native-memory-maintain-misclassified-safe-data-egress.md)
 - [`BUG-target-cleanup-core-skeleton-ownership.md`](2_bugs/BUG-target-cleanup-core-skeleton-ownership.md)
 - [`BUG-aggressive-absorption-drops-downstream-rule-semantics.md`](2_bugs/BUG-aggressive-absorption-drops-downstream-rule-semantics.md)

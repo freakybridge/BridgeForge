@@ -13,28 +13,24 @@
 #   · exit 2 段必须在受管区块内立即退出；项目扩展位于受管区块之后，保留其原有退出码。
 #   · 规则闸豁免走 CHANGELOG.md 顶部 [skip-rule-size]; 镜像闸豁免走 [dogfood-exempt: <hook> <因>]。
 #     (pre-commit 在 commit message 生成前触发，读不到 message，故豁免走已 staged 的 CHANGELOG 顶部)。
-# Python 3.11+ hard gate: an existing project .venv is authoritative and never falls back to PATH.
+# Project CPython 3.11+ .venv is the only runtime; steady hooks never fall back to PATH.
 find_py() {
-  if [ -e .venv ]; then
-    for CANDIDATE in .venv/Scripts/python.exe .venv/bin/python; do
-      if [ -f "$CANDIDATE" ]; then
-        if "$CANDIDATE" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)' >/dev/null 2>&1; then
-          echo "$CANDIDATE"; return 0
-        fi
-        echo "[pre-commit] BLOCKED: project .venv must use Python 3.11+; PATH fallback is forbidden." >&2
-        return 2
-      fi
-    done
-    echo "[pre-commit] BLOCKED: project .venv exists but has no Python interpreter." >&2
+  if [ ! -e .venv ]; then
+    echo "[pre-commit] BLOCKED: project .venv is missing; PATH fallback is forbidden." >&2
     return 2
   fi
-  for CANDIDATE in python3 python; do
-    if command -v "$CANDIDATE" >/dev/null 2>&1 &&
-       "$CANDIDATE" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 2)' >/dev/null 2>&1; then
-      echo "$CANDIDATE"; return 0
+  for CANDIDATE in .venv/Scripts/python.exe .venv/bin/python; do
+    if [ -f "$CANDIDATE" ]; then
+      if [ -f .codex/scripts/project_runtime.py ] &&
+         "$CANDIDATE" .codex/scripts/project_runtime.py validate \
+           --project-root . --executable "$CANDIDATE" >/dev/null 2>&1; then
+        echo "$CANDIDATE"; return 0
+      fi
+      echo "[pre-commit] BLOCKED: project .venv must be CPython 3.11+ with a valid project prefix; PATH fallback is forbidden." >&2
+      return 2
     fi
   done
-  echo "[pre-commit] BLOCKED: Python 3.11+ is required." >&2
+  echo "[pre-commit] BLOCKED: project .venv exists but has no Python interpreter." >&2
   return 2
 }
 PY="$(find_py)"
