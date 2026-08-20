@@ -12,12 +12,12 @@
             {
               "source": "scripts/bridgeforge_codex_shared_update.ps1",
               "target": "scripts/bridgeforge_codex_shared_update.ps1",
-              "sha256": "sha256:f69ac39e0e4fbf4cc0269ba295878a5959e4ebb7bd1eea5b30998d16a06dd10b"
+              "sha256": "sha256:e06817676167f5da56a0a0761f0d79bc6746aae09600a9b4965fbc6b226535bc"
             },
             {
               "source": "skills/bridgeforge-codex/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:088422c4c1beab0bff57ca3a663d237405ae6ef9b91964766c4c6ca65261c877"
+              "sha256": "sha256:03f61ed068fed0f1bac331409cd1b7f80d8275460b48d6ea77fae5bcec0a55fc"
             },
             {
               "source": "skills/bridgeforge-codex/agents/openai.yaml",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge-codex/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:33610339dcd2f808be94b397067d1be70760c268b1dea583dd9e6af061fc8fc5"
+              "sha256": "sha256:36b53c9dcddd753599d5d00b95a2554491e43a61357bac54b59419aa862b3b01"
             },
             {
               "source": "skills/bridgeforge-codex/references/user-skill-maintenance.md",

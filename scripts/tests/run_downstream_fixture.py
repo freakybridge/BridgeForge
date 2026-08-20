@@ -48,6 +48,7 @@ def cli(
     *,
     apply_fingerprint: str | None = None,
     preserve: tuple[str, ...] = (),
+    delete: tuple[str, ...] = (),
 ) -> dict[str, object]:
     command = [
         str(python),
@@ -62,10 +63,15 @@ def cli(
     ]
     if apply_fingerprint is not None:
         command.extend(["--apply", "--plan-fingerprint", apply_fingerprint])
-        if preserve:
-            command.extend(["--confirmed-whitelist", "--confirmed-risk"])
+        if preserve or delete:
+            command.extend([
+                "--confirmed-preservation-manifest",
+                "--confirmed-risk",
+            ])
             for item in preserve:
                 command.extend(["--preserve-project-asset", item])
+            for item in delete:
+                command.extend(["--delete-project-asset", item])
     result = subprocess.run(
         command,
         cwd=project,
@@ -108,16 +114,33 @@ def init_check(base: Path) -> dict[str, object]:
 
 def rebuild_check(base: Path) -> dict[str, object]:
     project = base / "rebuild"
-    hook = project / ".codex" / "hooks" / "project_only.py"
+    hook = project / ".codex" / "hooks" / "project_only"
     skill = project / ".codex" / "skills" / "project" / "SKILL.md"
-    hook.parent.mkdir(parents=True)
+    hook.mkdir(parents=True)
     skill.parent.mkdir(parents=True)
     python = project_python(project)
     (project / ".codex" / ".bridgeforge_version").write_text(
         "1.4.27\n",
         encoding="utf-8",
     )
-    hook.write_text("print('project')\n", encoding="utf-8")
+    (hook / "entrypoint.py").write_text("print('project')\n", encoding="utf-8")
+    (hook / "config.json").write_text('{"project": true}\n', encoding="utf-8")
+    (project / ".codex" / "hooks.json").write_text(
+        json.dumps({
+            "hooks": {
+                "SessionStart": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": (
+                            ".venv/Scripts/python.exe "
+                            ".codex/hooks/project_only/entrypoint.py"
+                        ),
+                    }],
+                }],
+            },
+        }),
+        encoding="utf-8",
+    )
     skill.write_text(
         "---\nname: project\ndescription: project skill\n---\n\n# Project\n",
         encoding="utf-8",
@@ -126,8 +149,14 @@ def rebuild_check(base: Path) -> dict[str, object]:
     plan = cli(python, project, "auto")
     hook_id = next(
         item["id"]
-        for item in plan["project_asset_whitelist"]
-        if item.get("target") == ".codex/hooks/project_only.py"
+        for item in plan["preservation_manifest"]
+        if item.get("target") == ".codex/hooks/project_only"
+    )
+    delete = tuple(
+        str(item["id"])
+        for item in plan["preservation_manifest"]
+        if item.get("disposition") == "user-decision"
+        and item["id"] != hook_id
     )
     receipt = cli(
         python,
@@ -135,6 +164,7 @@ def rebuild_check(base: Path) -> dict[str, object]:
         "auto",
         apply_fingerprint=str(plan["aggregate_fingerprint"]),
         preserve=(str(hook_id),),
+        delete=delete,
     )
     BASELINE.verify_current_baseline(project)
     repeated = cli(python, project, "update")
@@ -143,7 +173,8 @@ def rebuild_check(base: Path) -> dict[str, object]:
         "ok": (
             plan["mode"] == "rebuild"
             and receipt["mode"] == "rebuild"
-            and hook.is_file()
+            and (hook / "entrypoint.py").is_file()
+            and (hook / "config.json").is_file()
             and skill.read_bytes() == skill_before
             and not (project / ".codex" / ".bridgeforge_version").exists()
             and not repeated["blockers"]

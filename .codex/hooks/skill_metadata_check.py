@@ -151,7 +151,29 @@ def validate_skill_tree(skills_dir: Path) -> tuple[list[str], list[str]]:
     if not skills_dir.is_dir():
         return issues, warnings
     report_root = skills_dir.parent
-    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+    for entry in sorted(skills_dir.iterdir()):
+        relative = entry.relative_to(report_root).as_posix()
+        is_reparse = entry.is_symlink() or bool(
+            getattr(entry, "is_junction", lambda: False)()
+        )
+        if is_reparse:
+            issues.append(f"{relative}: reparse entries are not allowed in the skill tree")
+            continue
+        if not entry.is_dir():
+            issues.append(f"{relative}: skill root may contain directories only")
+            continue
+        skill_file = entry / "SKILL.md"
+        if not skill_file.is_file():
+            issues.append(f"{relative}: missing SKILL.md")
+            continue
+        for child in entry.rglob("*"):
+            if child.is_symlink() or bool(
+                getattr(child, "is_junction", lambda: False)()
+            ):
+                issues.append(
+                    f"{child.relative_to(report_root).as_posix()}: "
+                    "reparse entries are not allowed in the skill tree"
+                )
         skill_issues, skill_warnings = _validate_skill(
             skill_file,
             report_root=report_root,
@@ -234,10 +256,9 @@ def main() -> int:
         issues: list[str] = []
         warnings: list[str] = []
         issues.extend(_validate_factory_routing())
-        for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
-            skill_issues, skill_warnings = _validate_skill(skill_file)
-            issues.extend(skill_issues)
-            warnings.extend(skill_warnings)
+        tree_issues, tree_warnings = validate_skill_tree(SKILLS_DIR)
+        issues.extend(tree_issues)
+        warnings.extend(tree_warnings)
 
         root_skill = REPO_ROOT / "SKILL.md"
         if root_skill.exists():

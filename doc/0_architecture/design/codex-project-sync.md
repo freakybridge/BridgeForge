@@ -1,6 +1,6 @@
 # bridgeforge-codex 项目同步事务
 
-> 状态：implemented（bridgeforge-codex 1.4.28）
+> 状态：implemented（bridgeforge-codex 1.4.30）
 > 入口：`scripts/bridgeforge_codex_project_sync.py`
 
 bridgeforge-codex 只维护 Codex 当前产品面。公共资产 ownership 的唯一产品来源是
@@ -16,9 +16,9 @@ adaptation proof 与 glob ownership。
 
 合法 .codex/.bridgeforge_version < 1.4.28
   -> 独立只读审计
-  -> 用户逐项确认项目 rules/hooks/AGENTS 项目区
+  -> 用户逐项确认项目 rules/hooks/AGENTS 项目区的保留或删除
   -> 一次破坏性重建风险确认
-  -> fresh canonical Template + 精确白名单 + memory/Skills
+  -> fresh canonical Template + PreservationManifest 确认项 + memory/Skills
 
 合法 .codex/.bridgeforge_codex_version >= 1.4.28
   -> current-baseline 常规 update
@@ -28,8 +28,10 @@ adaptation proof 与 glob ownership。
 ```
 
 破坏性重建不会复用常规 merge。它先生成 fresh canonical，再只放回确认的 AGENTS 项目区、
-项目 hook 注册与文件、pre-commit 项目扩展、项目 rules，以及自动保留并通过当前检查的
-`.codex/memory/**` 和 `.codex/skills/**`。未进入白名单的旧骨架内容删除；不生成持久 before 包。
+pre-commit 项目扩展、项目 rules 与 `.codex/hooks/project_XXXX/` 自包含 Python Hook 目录，
+以及自动保留并通过当前检查的 `.codex/memory/**` 和 `.codex/skills/**`。每个可选资产必须
+显式选择保留或删除；临时 `PreservationManifest` 只存在于本次事务内，在写最终戳前清空，
+不生成持久 before 包或迁移账本。
 
 ## Current-only 事务
 
@@ -48,14 +50,15 @@ verify real baseline + trusted Git HEAD anchor
 ```
 
 任一可捕获失败必须恢复本事务写入及 memory 派生产物。Planner、Apply、`$git-sync` 与
-pre-commit 直接复用 `current_baseline.py`；pre-commit 同时检查 worktree 与 Git index，防止
-暂存/未暂存视图不一致。公共资产漂移、合同损坏或同版本合同自证修改不能通过风险确认覆盖。
+pre-commit 直接复用 `current_baseline.py`。pre-commit 只读检查 worktree 与 Git index，
+不得生成文件或执行 `git add`；`$git-sync` 在写入前生成完整 `SyncWritePlan`，并在提交前失败时
+恢复自动写入和完整 index。公共资产漂移、合同损坏或同版本合同自证修改不能通过风险确认覆盖。
 
 ## 项目资产边界
 
-- 根 `AGENTS.md` 公共区由产品管理；项目区只有进入旧项目白名单才逐字保留。
-- `.codex/hooks.json` 只允许 canonical managed handler 与明确保留的第三方 handler；未知
-  managed ID 阻断。
+- 根 `AGENTS.md` 公共区由产品管理；项目区只有在 `PreservationManifest` 中明确保留才逐字回灌。
+- `.codex/hooks.json` 只允许 canonical managed handler 与已确认的项目 Hook 注册；项目注册
+  必须与一个 `.codex/hooks/project_XXXX/entrypoint.py` 目录成对，未知 managed ID 阻断。
 - schema 3 merge/Markdown/region/AGENTS 都携带当前可验证 projection；真实下游不存在
   `templates/**` 时也不得跳过。
 - 项目 memory/Skills 正文不得语义改写；只允许派生索引重建和 current metadata 校验。

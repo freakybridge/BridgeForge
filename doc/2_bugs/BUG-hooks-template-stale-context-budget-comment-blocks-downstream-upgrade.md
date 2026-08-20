@@ -1,5 +1,5 @@
 ---
-status: implemented-awaiting-downstream-acceptance
+status: superseded-current-only-awaiting-real-downstream-validation
 severity: high
 scope: BridgeForgeCodex hooks template, managed hook merge, and downstream update readiness
 reported_at: 2026-08-18
@@ -7,10 +7,21 @@ downstream: D:\Quant\causis_risk_suite
 factory_head: 352f227f477c234de18bef3e6f0ba2c73f1d450d
 factory_version: 1.4.9
 fixed_version: 1.4.10
+current_product_version: 1.4.30
 installed_product_version: 1.4.7
 ---
 
 # BUG：过期的 context budget hook 注释阻断下游完成升级
+
+## 2026-08-21：当前产品边界
+
+本文后续保留 1.4.9/1.4.10 的退休故障与修复证据，但 `retirement` strategy、历史 hash 和
+R1..R9 已不属于 1.4.30。当前合同中没有 `context_warning.py`；合法 `<1.4.28` 项目通过
+`PreservationManifest` 破坏性重建，`>=1.4.28` 项目只接受 schema 3 current baseline。
+
+因此当前产品不再要求“contract 继续 retirement”或恢复 legacy fixture。源码、Template、
+dogfood 与 current-only fixture 已验证；真实 `causis_risk_suite` 尚未获得写入授权，也未执行
+Hook 正规化、确认式重建和 no-op replan，故本 Bug 只保留真实下游验证缺口，不视为 resolved。
 
 ## 结论
 
@@ -111,7 +122,7 @@ Template 完全相等时才视为已满足。`comment` 与命令字段共同参�
 5. 当前 `causis_risk_suite` 已完成其他骨架迁移和硬闸验证，但必须保留 0.94.2 旧戳，不能宣称
    升级完成。
 
-## 推荐修复
+## 历史推荐修复（1.4.10，已被 current-only 取代）
 
 1. 将 `templates/hooks.json` 的 user-prompt 注释改为只列真实能力：repository state、
    clarification 与 focus。
@@ -128,7 +139,7 @@ Template 完全相等时才视为已满足。`comment` 与命令字段共同参�
 不建议放宽 `_merge_codex_hooks()` 对 handler dict 的一致性检查。修正 canonical source 比忽略
 comment 差异更简单，也不会削弱 dispatcher 重复、命令漂移或 stage 冲突的 fail-closed 保护。
 
-## 验收场景
+## 历史验收场景
 
 1. `rg` 检查 active `templates/hooks.json` 和工厂 `.codex/hooks.json`，user-prompt 注释不再包含
    `context budget`；`context_warning.py` 继续保持 retirement。
@@ -142,18 +153,19 @@ comment 差异更简单，也不会削弱 dispatcher 重复、命令漂移或 st
    VERSION。
 6. 下游 `.codex/hooks.json` 的注释、dispatcher 实际调用链和存在的 hook 文件三者一致。
 
-## 六类关闭证据
+## 历史六类关闭证据
 
 | 证据类别 | 当前状态 | 关闭要求 |
 |---|---|---|
-| 源码 | 已验证 | Template 与 dogfood 注释已删除 `context budget`；dispatcher 仍无旧路由，contract 继续 retirement |
+| 源码 | 已验证 | Template 与 dogfood 注释已删除 `context budget`；dispatcher 仍无旧路由；1.4.30 current contract 已完全移除该资产 |
 | 产品传播 | 本地发布树已完成 | VERSION 1.4.10、CHANGELOG、handler hash、两份 contract 与 manifests 已同步；产品 home 尚未刷新 |
 | dogfood | 已验证相关面 | 相关模块 63/63、mirror、instruction、metadata、structure、manifest 与 diff 硬闸通过；未运行全量 discovery |
 | fixture | 已验证 | 0.94.2 legacy AGENTS/ctx-budget 退休场景达到 ready；发布谱系 fixture 25/25 通过 |
 | 真实下游 | 未复验 | causis_risk_suite 尚未使用新产品执行 replan/apply/replan，保持原现场 |
 | runtime | 配置与模拟已验证 | active user-prompt 注释和 dispatcher 调用链一致；真实 Codex 新会话尚未 smoke |
 
-六类证据全部满足前，本报告不得标记 resolved。
+本表仅记录 1.4.10 时点。当前报告保持 active，只因上文真实下游确认式重建尚未执行；不得
+据此恢复 retirement contract 或历史迁移谱系。
 
 ## 当前恢复边界
 

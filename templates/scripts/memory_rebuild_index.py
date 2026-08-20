@@ -98,20 +98,18 @@ def get_description(memory_dir: Path, filename: str) -> str:
         return ""
 
 
-def main() -> None:
-    written = ""
-    if "--from-hook" in sys.argv:
-        written = hook_should_run()
-        if not written:
-            sys.exit(0)
+def render_memory_indexes(
+    memory_dir: Path,
+    *,
+    today: str | None = None,
+) -> dict[Path, bytes]:
+    """Render the complete derived memory surface without writing it."""
 
-    # 推导路径：.codex/scripts/ -> .codex/ -> memory/
-    memory_dir = Path(__file__).resolve().parent.parent / "memory"
     stats_file = memory_dir / "_stats.json"
     if not memory_dir.exists():
-        sys.exit(0)
+        return {}
 
-    today = date.today().isoformat()
+    current_day = today or date.today().isoformat()
 
     # 加载 stats（仅 created_at + config，无访问热度）
     stats: dict = {}
@@ -126,7 +124,6 @@ def main() -> None:
     pinned: list = [p for p in config.get("pinned", [])[:MAX_PINNED]]
 
     # 扫描所有 memory 文件，新文件登记 created_at（一次性，固定不变）
-    stats_dirty = False
     present = []
     for f in sorted(memory_dir.rglob("*.md")):
         if not is_memory_file(f.name):
@@ -134,18 +131,11 @@ def main() -> None:
         relative = f.relative_to(memory_dir).as_posix()
         present.append(relative)
         if relative not in files_stats:
-            files_stats[relative] = {"created_at": today}
-            stats_dirty = True
+            files_stats[relative] = {"created_at": current_day}
 
     # 清理 stats 里已不存在的文件记录（保持单一事实源）
     for gone in [n for n in files_stats if n not in present]:
         del files_stats[gone]
-        stats_dirty = True
-
-    if stats_dirty:
-        stats_file.write_text(
-            json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
 
     # 排序：非 pinned 按 created_at 降序（新增的在前），并列按文件名升序。
     # 利用 Python 稳定排序：先排次级键（文件名升序），再排主键（created_at 降序）。
@@ -157,7 +147,8 @@ def main() -> None:
     ]
     non_pinned.sort()  # 次级：文件名升序
     non_pinned.sort(
-        key=lambda n: files_stats.get(n, {}).get("created_at", today), reverse=True
+        key=lambda n: files_stats.get(n, {}).get("created_at", current_day),
+        reverse=True,
     )  # 主：created_at 降序
 
     pinned_present = [
@@ -180,7 +171,7 @@ def main() -> None:
         active_chars += len(line) + 1
     forced_cold_sorted = sorted(forced_cold)
     forced_cold_sorted.sort(
-        key=lambda n: files_stats.get(n, {}).get("created_at", today),
+        key=lambda n: files_stats.get(n, {}).get("created_at", current_day),
         reverse=True,
     )
     cold = forced_cold_sorted + non_pinned[len(active):]
@@ -213,14 +204,50 @@ def main() -> None:
         lines.append(f"## 🔍 Cold（{len(cold)} 条，用 $find-memory 搜索）")
         lines.append("详见 MEMORY_COLD.md")
 
-    (memory_dir / "MEMORY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    memory_payload = ("\n".join(lines) + "\n").encode("utf-8")
 
     # ── 生成 MEMORY_COLD.md（无日期戳，确定性）────────────────
     cold_lines = ["<!-- MEMORY_COLD.md — 冷区索引 | 用 $find-memory <关键词> 搜索 -->", ""]
     for n in cold:
         d = get_description(memory_dir, n)
         cold_lines.append(f"- [{n[:-3]}]({n}){f' — {d}' if d else ''}")
-    (memory_dir / "MEMORY_COLD.md").write_text("\n".join(cold_lines) + "\n", encoding="utf-8")
+    cold_payload = ("\n".join(cold_lines) + "\n").encode("utf-8")
+    stats_payload = (
+        json.dumps(stats, ensure_ascii=False, indent=2) + "\n"
+    ).encode("utf-8")
+    return {
+        stats_file: stats_payload,
+        memory_dir / "MEMORY.md": memory_payload,
+        memory_dir / "MEMORY_COLD.md": cold_payload,
+    }
+
+
+def main() -> None:
+    written = ""
+    if "--from-hook" in sys.argv:
+        written = hook_should_run()
+        if not written:
+            sys.exit(0)
+
+    memory_dir = Path(__file__).resolve().parent.parent / "memory"
+    outputs = render_memory_indexes(memory_dir)
+    if "--check" in sys.argv:
+        stale = [
+            path.relative_to(memory_dir).as_posix()
+            for path, payload in outputs.items()
+            if not path.is_file() or path.read_bytes() != payload
+        ]
+        if stale:
+            print(
+                "[memory-index] BLOCKED: derived files are stale: "
+                + ", ".join(stale),
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        return
+
+    for path, payload in outputs.items():
+        path.write_bytes(payload)
 
     # D5-M3「memory 当场报」：--from-hook 写入 memory 后，当轮可见地报一行提醒。
     # 只挂 PostToolUse --from-hook（写入后触发、LLM 恢复时注回本轮 context）——绝不接

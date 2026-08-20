@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pure ownership and canonicalization helpers for Codex hooks.json files."""
+"""Factory-only ownership and canonicalization helpers for Codex hooks.json files."""
 from __future__ import annotations
 
 import copy

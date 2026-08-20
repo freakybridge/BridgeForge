@@ -84,6 +84,16 @@ class SkillMetadataBudgetTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("invocation metadata requires argument", result.stderr)
 
+    def test_orphan_skill_directory_and_root_file_fail(self) -> None:
+        repo = self.make_repo()
+        orphan = repo / "skills" / "orphan"
+        orphan.mkdir(parents=True)
+        (repo / "skills" / "README.md").write_text("not a skill\n", encoding="utf-8")
+        result = self.run_hook(repo)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("skills/orphan: missing SKILL.md", result.stderr)
+        self.assertIn("skills/README.md: skill root may contain directories only", result.stderr)
+
     def test_all_hook_copies_share_the_current_contract(self) -> None:
         for host_dir, source_hook in ALL_METADATA_HOOKS:
             with self.subTest(source_hook=source_hook):

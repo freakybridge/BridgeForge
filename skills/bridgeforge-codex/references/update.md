@@ -4,8 +4,8 @@
 
 1. 只运行 `bridgeforge_codex_project_sync.py --mode update` 生成计划。
 2. 缺戳、双戳、废弃 `.bridgeforge_version` 或异常值必须零写阻断。
-3. current 版本戳 `<1.4.28` 时进入白名单 destructive rebuild；`>=1.4.28` 时先校验已安装 baseline。
-4. 重建前独立审计 AGENTS 项目区、rules、hooks、memory 与 Skills，逐项确认保留白名单。
+3. current 版本戳 `<1.4.28` 时进入 `PreservationManifest` destructive rebuild；`>=1.4.28` 时先校验已安装 baseline。
+4. 重建前独立审计 AGENTS 项目区、rules、hooks、memory 与 Skills，对所有用户决策项逐项确认 preserve 或 delete。
 5. apply 前重建 plan 并核对 fingerprint；失败回滚。
 6. 所有资产验证通过后最后写 current 版本戳。
 

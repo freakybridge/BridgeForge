@@ -13,15 +13,21 @@ upstream, stash-pop conflicts, and push races stop for user handling.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import subprocess
 import sys
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import Iterator
 
 from project_runtime import ProjectRuntimeError, validate_project_runtime
 from current_baseline import BaselineError, verify_current_baseline
-from version_release import ReleaseError, ReleasePlan, apply_release_plan, build_release_plan
+from memory_rebuild_index import render_memory_indexes
+from version_release import ReleaseError, ReleasePlan, build_release_plan
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -80,58 +86,185 @@ def _changed_paths() -> set[str]:
     return paths
 
 @dataclass(frozen=True)
-class _FileSnapshot:
-    worktree: bytes | None
-    index_entry: tuple[str, str] | None
+class SyncWritePlan:
+    writes: dict[Path, bytes]
+    release: ReleasePlan | None
 
-def _snapshot_release_files(plan: ReleasePlan) -> dict[Path, _FileSnapshot]:
-    snapshots: dict[Path, _FileSnapshot] = {}
-    for path in plan.writes:
-        relative = path.relative_to(REPO_ROOT).as_posix()
-        worktree = path.read_bytes() if path.is_file() else None
-        entry = _git(["ls-files", "--stage", "--", relative])
-        if entry.returncode != 0:
-            detail = (entry.stderr or entry.stdout).strip()
-            raise SyncStop(f"cannot snapshot index entry for {relative}: {detail}", 1)
-        parsed: tuple[str, str] | None = None
-        if entry.stdout.strip():
-            metadata = entry.stdout.split("\t", 1)[0].split()
-            if len(metadata) != 3 or metadata[2] != "0":
-                raise SyncStop(f"cannot snapshot conflicted index entry for {relative}", 2)
-            parsed = (metadata[0], metadata[1])
-        snapshots[path] = _FileSnapshot(worktree, parsed)
-    return snapshots
 
-def _restore_release_files(
-    plan: ReleasePlan, snapshots: dict[Path, _FileSnapshot]
+@dataclass(frozen=True)
+class _SyncSnapshot:
+    head: str
+    index_path: Path
+    index_bytes: bytes | None
+    targets: dict[Path, bytes | None]
+
+
+def _read_optional(path: Path) -> bytes | None:
+    return path.read_bytes() if path.is_file() else None
+
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, raw = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    temporary = Path(raw)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _git_path(name: str) -> Path:
+    value = _run_git(
+        ["rev-parse", "--path-format=absolute", "--git-path", name],
+        label=f"git path {name}",
+    ).stdout.strip()
+    if not value:
+        raise SyncStop(f"git returned no path for {name}", 1)
+    return Path(value).resolve()
+
+
+def _index_tree() -> str:
+    return _run_git(["write-tree"], label="git index tree").stdout.strip()
+
+
+def _reject_split_index() -> None:
+    shared = _git(["rev-parse", "--shared-index-path"])
+    if shared.returncode == 0 and shared.stdout.strip():
+        raise SyncStop(
+            "split index is not supported by the transactional git-sync; "
+            "convert it outside this tool and retry",
+            2,
+        )
+    configured = _git(["config", "--bool", "core.splitIndex"])
+    if configured.returncode == 0 and configured.stdout.strip().casefold() == "true":
+        raise SyncStop(
+            "split index is enabled; zero writes performed",
+            2,
+        )
+
+
+def _load_factory_manifest_module() -> ModuleType | None:
+    script = REPO_ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
+    if not script.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("bridgeforge_manifest_renderer", script)
+    if spec is None or spec.loader is None:
+        raise SyncStop("cannot load shared manifest renderer", 1)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _merge_planned_write(
+    writes: dict[Path, bytes],
+    path: Path,
+    payload: bytes,
 ) -> None:
-    conflicts: list[str] = []
-    for path, snapshot in snapshots.items():
-        relative = path.relative_to(REPO_ROOT).as_posix()
-        current = path.read_bytes() if path.is_file() else None
-        if current == plan.writes[path]:
-            if snapshot.worktree is None:
-                path.unlink(missing_ok=True)
-            else:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(snapshot.worktree)
-        elif current != snapshot.worktree:
-            conflicts.append(relative)
-            continue
-        if snapshot.index_entry is None:
-            result = _git(["rm", "--cached", "--ignore-unmatch", "--", relative])
-        else:
-            mode, object_id = snapshot.index_entry
-            result = _git(["update-index", "--cacheinfo", f"{mode},{object_id},{relative}"])
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout).strip()
-            raise SyncStop(f"failed to restore release index entry {relative}: {detail}", 1)
+    target = path.resolve()
+    previous = writes.get(target)
+    if previous is not None and previous != payload:
+        raise SyncStop(f"automatic producers disagree for {target}", 2)
+    writes[target] = payload
+
+
+def _build_sync_write_plan(
+    message: str,
+    changed_paths: set[str],
+) -> SyncWritePlan:
+    try:
+        release = build_release_plan(REPO_ROOT, message, changed_paths)
+    except ReleaseError as exc:
+        raise SyncStop(f"automatic version release blocked: {exc}", 2) from exc
+    writes: dict[Path, bytes] = {}
+    if release is not None:
+        for path, payload in release.writes.items():
+            _merge_planned_write(writes, path, payload)
+    for path, payload in render_memory_indexes(REPO_ROOT / ".codex" / "memory").items():
+        _merge_planned_write(writes, path, payload)
+    renderer = _load_factory_manifest_module()
+    if renderer is not None:
+        try:
+            outputs = renderer.render_all_outputs(
+                release_version=release.new_version if release is not None else None,
+            )
+        except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError) as exc:
+            raise SyncStop(f"shared manifest render blocked: {exc}", 2) from exc
+        for path, payload in outputs.items():
+            _merge_planned_write(writes, path, payload)
+    return SyncWritePlan(writes, release)
+
+
+def _snapshot_sync_plan(plan: SyncWritePlan) -> _SyncSnapshot:
+    _reject_split_index()
+    index_path = _git_path("index")
+    head = _run_git(["rev-parse", "HEAD"], label="git HEAD snapshot").stdout.strip()
+    return _SyncSnapshot(
+        head=head,
+        index_path=index_path,
+        index_bytes=_read_optional(index_path),
+        targets={path: _read_optional(path) for path in plan.writes},
+    )
+
+
+def _apply_sync_plan(plan: SyncWritePlan) -> None:
+    for path, payload in plan.writes.items():
+        _atomic_write(path, payload)
+
+
+def _restore_sync_plan(
+    plan: SyncWritePlan,
+    snapshot: _SyncSnapshot,
+    expected_index: bytes | None,
+    expected_index_tree: str | None = None,
+) -> None:
+    current_head = _run_git(["rev-parse", "HEAD"], label="git rollback HEAD").stdout.strip()
+    if current_head != snapshot.head:
+        raise SyncStop("rollback refused because HEAD changed", 2)
+    current_index = _read_optional(snapshot.index_path)
+    if current_index != expected_index:
+        current_tree = _index_tree() if expected_index_tree is not None else None
+        if current_tree != expected_index_tree:
+            raise SyncStop("rollback refused because the Git index changed concurrently", 2)
+    conflicts = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for path, before in snapshot.targets.items()
+        if _read_optional(path) not in {before, plan.writes[path]}
+    ]
     if conflicts:
         raise SyncStop(
-            "release rollback stopped because these auto-managed files changed concurrently: "
+            "rollback refused because automatic targets changed concurrently: "
             + ", ".join(conflicts),
             2,
         )
+    for path, before in snapshot.targets.items():
+        if _read_optional(path) == before:
+            continue
+        if before is None:
+            path.unlink(missing_ok=True)
+        else:
+            _atomic_write(path, before)
+    if snapshot.index_bytes is None:
+        snapshot.index_path.unlink(missing_ok=True)
+    else:
+        _atomic_write(snapshot.index_path, snapshot.index_bytes)
+
+
+@contextmanager
+def _sync_lock() -> Iterator[None]:
+    lock = _git_path("bridgeforge-git-sync.lock")
+    try:
+        descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as exc:
+        raise SyncStop("another bridgeforge git-sync is already running", 2) from exc
+    try:
+        os.close(descriptor)
+        yield
+    finally:
+        lock.unlink(missing_ok=True)
 
 def _has_staged_changes() -> bool:
     result = _git(["diff", "--cached", "--quiet"])
@@ -198,29 +331,6 @@ def _check_factory_version_worktree() -> None:
             result.returncode or 1,
         )
 
-def _rebuild_shared_skill_manifest() -> None:
-    script = REPO_ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
-    if not script.exists():
-        return
-    result = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-        env=_env(),
-    )
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip()
-        raise SyncStop(
-            f"rebuild_shared_skill_manifest.py failed: {detail}",
-            result.returncode or 1,
-        )
-    if result.stdout.strip():
-        print(result.stdout.strip())
-
 def _pull_ff_with_optional_stash(dirty: bool) -> None:
     stashed = False
     if dirty:
@@ -272,44 +382,51 @@ def sync(args: argparse.Namespace) -> int:
     if dirty:
         if not message:
             raise SyncStop("commit message is required when local changes are staged", 2)
-        try:
-            verify_current_baseline(REPO_ROOT)
-        except (BaselineError, OSError, UnicodeDecodeError) as exc:
-            raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
-        try:
-            plan = build_release_plan(
-                REPO_ROOT,
-                message,
-                _changed_paths(),
-            )
-        except ReleaseError as exc:
-            raise SyncStop(f"automatic version release blocked: {exc}", 2) from exc
-        snapshots = _snapshot_release_files(plan) if plan is not None else {}
-        committed = False
-        try:
-            if plan is not None:
-                apply_release_plan(plan)
-                print(
-                    f"[git-sync] version {plan.old_version} -> {plan.new_version} "
-                    f"({plan.classification})"
-                )
-            _rebuild_shared_skill_manifest()
-            _check_factory_version_worktree()
-            _run_git(["add", "."], label="git add")
-            if _has_staged_changes():
-                _run_git(["commit", "-m", message], timeout=180, label="git commit")
-                committed = True
-                ahead, behind = _ahead_behind()
-                if ahead and behind:
-                    _print_diverged()
-                    return 2
-        except Exception as exc:
-            if plan is not None and not committed:
-                _restore_release_files(plan, snapshots)
-                print("[git-sync] automatic version files rolled back; original project edits were kept")
-            if isinstance(exc, SyncStop):
-                raise
-            raise SyncStop(f"automatic version release failed: {exc}", 1) from exc
+        with _sync_lock():
+            try:
+                verify_current_baseline(REPO_ROOT)
+            except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
+                raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
+            plan = _build_sync_write_plan(message, _changed_paths())
+            snapshot = _snapshot_sync_plan(plan)
+            expected_index = snapshot.index_bytes
+            expected_index_tree: str | None = None
+            committed = False
+            try:
+                _apply_sync_plan(plan)
+                if plan.release is not None:
+                    print(
+                        f"[git-sync] version {plan.release.old_version} -> "
+                        f"{plan.release.new_version} ({plan.release.classification})"
+                    )
+                _check_factory_version_worktree()
+                add_result = _git(["add", "."])
+                expected_index = _read_optional(snapshot.index_path)
+                if add_result.returncode != 0:
+                    detail = (add_result.stderr or add_result.stdout).strip()
+                    raise SyncStop(f"git add failed: {detail}", add_result.returncode or 1)
+                expected_index_tree = _index_tree()
+                if _has_staged_changes():
+                    _run_git(["commit", "-m", message], timeout=180, label="git commit")
+                    committed = True
+                    ahead, behind = _ahead_behind()
+                    if ahead and behind:
+                        _print_diverged()
+                        return 2
+            except Exception as exc:
+                if not committed:
+                    _restore_sync_plan(
+                        plan,
+                        snapshot,
+                        expected_index,
+                        expected_index_tree,
+                    )
+                    print(
+                        "[git-sync] automatic writes and the original Git index were restored"
+                    )
+                if isinstance(exc, SyncStop):
+                    raise
+                raise SyncStop(f"automatic version release failed: {exc}", 1) from exc
 
     ahead, behind = _ahead_behind()
     if ahead and behind:

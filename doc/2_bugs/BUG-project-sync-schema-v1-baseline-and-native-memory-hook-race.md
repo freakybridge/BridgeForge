@@ -1,14 +1,31 @@
 ---
-status: product-partial-fix-awaiting-remaining-defects
+status: current-only-product-fix-awaiting-real-downstream-validation
 severity: high
 scope: bridgeforge-codex project release preflight and user-level native-memory hook ownership
 reported_at: 2026-08-19
 downstream: D:\Quant\StratusAgent; D:\Quant\causis_risk_suite
 factory_head: 639c55ee5320fc823620504bc6d4aa503100a7e8
-product_version: 1.4.26
+product_version: 1.4.30
 ---
 
 # BUG：可信 schema v1 基线阻断连续升级，native-memory hook 被跨项目解释器覆盖
+
+## 2026-08-21：1.4.30 current-only 边界取代历史 transition 修复路线
+
+本文后续保留 1.4.14～1.4.26 的真实故障、回滚与调查证据，但不再作为当前实现说明。
+1.4.30 已删除 schema v1/v2 transition、historical hash、adaptation 与版本谱系：合法
+`<1.4.28` 旧项目只通过 `PreservationManifest` 做一次破坏性重建；`>=1.4.28` 项目只接受
+schema 3 current baseline。缺戳、双戳、旧版本写在当前戳文件名或公共资产漂移都在写盘前阻断。
+
+因此本文故障 A 的当前关闭口径不再是补齐 schema v1 → v2 adapter，而是：临时旧项目重建、
+current update、stamp-last、回滚和 no-op replan 回归全部通过；真实 StratusAgent、Causis 与
+ClaudeBridgeAssist 必须另行完成项目 Hook 正规化和确认式重建。第二期只做了四个 checkout 的
+只读盘点，真实 apply 与 runtime smoke 仍未验证。
+
+故障 B 的当前实现使用动态 Git 根定位项目 `.venv`，共享 writer 受用户锁、CAS 与回滚保护；
+自动测试已覆盖，真实多项目顺序 lifecycle/status/repair 仍是本 Bug 唯一未闭合的 runtime 证据。
+下文所有要求 historical transition/adaptation 的“推荐修复”和“关闭要求”均为历史记录，禁止
+重新引入当前产品。
 
 ## 结论
 
@@ -751,7 +768,7 @@ runtime。用户已明确否决该方案，1.4.21 不再保留这套规则或其
 19. 不要求提交、stash、clean、reset 或手工修改下游工作区；
 20. factory unittest、manifest、dogfood、完整 fixture、真实下游和 runtime smoke 全部给出收据。
 
-## 六类关闭证据
+## 历史六类关闭证据（已被 1.4.30 边界取代）
 
 | 证据类别 | 当前状态 | 关闭要求 |
 |---|---|---|
@@ -762,7 +779,8 @@ runtime。用户已明确否决该方案，1.4.21 不再保留这套规则或其
 | 真实下游 | CBA #5 Planner ready/passed/skeleton-only且 vault projection 不变；其余三项目只读 replan，未知 ownership 保持 G 项 | 四个项目最终均须显式处理清单并完成 apply / no-op replan |
 | runtime | 临时 fixture 已验证动态项目 `.venv`、错误 runtime fail-closed、共享 writer 并发/冲突/回滚；真实用户 runtime 未执行 | 后续真实项目阶段顺序运行 lifecycle/status/repair，证明跨项目调用后仍 healthy |
 
-六类证据全部满足前，本报告不得标记 resolved。
+本表只记录 1.4.21 时点的证据，不再驱动当前实现。当前状态仅等待上文列出的真实下游确认式
+重建与 native-memory runtime 验证；未执行前本报告保持 active。
 
 ## 恢复与回滚边界
 

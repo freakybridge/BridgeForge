@@ -64,12 +64,26 @@ def prepare_project_runtime(project_root: Path) -> Path:
 
 def prepare_dispatcher_runtime(project_root: Path) -> Path:
     project_python = prepare_project_runtime(project_root)
-    scripts = project_root / ".codex" / "scripts"
+    host = project_root / ".codex"
+    scripts = host / "scripts"
     scripts.mkdir(parents=True, exist_ok=True)
     shutil.copy2(
         TEMPLATE / "scripts" / "project_runtime.py",
         scripts / "project_runtime.py",
     )
+    dispatcher = load_module(
+        TEMPLATE / "hooks" / "hook_dispatcher.py",
+        f"dispatcher_fixture_routes_{id(project_root)}",
+    )
+    for relative in {
+        item
+        for targets in dispatcher.RUNTIME_ROUTES.values()
+        for item in targets
+    }:
+        target = host / Path(relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists():
+            target.write_text("raise SystemExit(0)\n", encoding="utf-8")
     return project_python
 
 
@@ -140,20 +154,10 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertIn("project .venv is missing", result.stderr)
                 self.assertEqual(sentinel.read_text(encoding="utf-8"), "unchanged\n")
 
-    def test_handler_audit_maps_every_current_handler_to_behavior(self) -> None:
+    def test_dispatcher_routes_are_current_safe_runtime_files(self) -> None:
         dispatcher_path = TEMPLATE / "hooks" / "hook_dispatcher.py"
         dispatcher = load_module(dispatcher_path, "hook_dispatcher_audit")
-        audit = dispatcher.HANDLER_AUDIT
-        self.assertEqual(
-            [int(key.split(":", 1)[0]) for key in audit],
-            list(range(1, 14)) + list(range(16, 37)),
-        )
-        counts = {
-            decision: sum(value[0] == decision for value in audit.values())
-            for decision in ("retain", "adapt", "delete")
-        }
-        self.assertEqual(counts, {"retain": 16, "adapt": 16, "delete": 2})
-        self.assertEqual(dispatcher.handler_audit_errors(), [])
+        self.assertEqual(dispatcher.runtime_route_errors(), [])
         self.assertNotIn(
             "hooks/target_cleanup.py",
             {
@@ -162,35 +166,13 @@ class HookSingleSourceTest(unittest.TestCase):
                 for target in targets
             },
         )
-        for key, (decision, route, target) in audit.items():
-            if route in dispatcher.RUNTIME_ROUTES:
-                self.assertIn(target, dispatcher.RUNTIME_ROUTES[route], key)
-            elif route == "replacement":
-                self.assertEqual(decision, "adapt")
-                self.assertEqual(target, "skill-routing:$find-doc")
-            else:
-                self.assertEqual(decision, "delete")
-                self.assertEqual(route, "duplicate")
-                duplicate_key = next(
-                    item for item in audit if item.startswith(target + ":")
-                )
-                self.assertEqual(
-                    key.rsplit(":", 1)[-1],
-                    duplicate_key.rsplit(":", 1)[-1],
-                )
-                self.assertIn(":PowerShell:", key)
-                self.assertIn(":Bash:", duplicate_key)
-
         broken_routes = {
             route: tuple(targets)
             for route, targets in dispatcher.RUNTIME_ROUTES.items()
         }
-        broken_routes["pre-shell"] = tuple(
-            target for target in broken_routes["pre-shell"]
-            if target != "hooks/git_add_all_guard.py"
-        )
-        errors = dispatcher.handler_audit_errors(broken_routes)
-        self.assertTrue(any(error.startswith("02:") for error in errors), errors)
+        broken_routes["pre-shell"] += ("hooks/not-present.py",)
+        errors = dispatcher.runtime_route_errors(broken_routes)
+        self.assertIn("pre-shell runtime target is missing: hooks/not-present.py", errors)
 
     def test_dispatcher_blocks_invalid_project_runtime_before_any_route(self) -> None:
         dispatcher = load_module(
@@ -300,7 +282,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 "sys.exit(int(os.environ.get('STUB_EXIT', '0')) if os.path.basename(__file__) == 'memory_rebuild_index.py' else 0)\n"
             )
             hook_names = (
-                "encoding_check.py", "mirror_drift_check.py", "instruction_source_check.py",
+                "encoding_check.py", "instruction_source_check.py",
                 "rule_index_check.py", "rule_size_check.py",
                 "requirements_check.py", "cargo_default_run_check.py",
                 "fallback_smell_check.py", "memory_lint.py",
@@ -417,7 +399,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 f"open({str(observed)!r}, 'a', encoding='utf-8').write(json.load(sys.stdin)['tool_input']['file_path']+'\\n')\n"
             )
             for name in (
-                "encoding_check.py", "mirror_drift_check.py", "instruction_source_check.py",
+                "encoding_check.py", "instruction_source_check.py",
                 "rule_index_check.py", "rule_size_check.py",
                 "requirements_check.py", "cargo_default_run_check.py", "fallback_smell_check.py",
             ):
@@ -436,7 +418,7 @@ class HookSingleSourceTest(unittest.TestCase):
             shutil.copy2(TEMPLATE / "hooks" / "hook_dispatcher.py", hooks / "hook_dispatcher.py")
             project_python = prepare_dispatcher_runtime(root)
             for name in (
-                "encoding_check.py", "mirror_drift_check.py", "instruction_source_check.py",
+                "encoding_check.py", "instruction_source_check.py",
                 "rule_index_check.py", "rule_size_check.py",
                 "requirements_check.py", "cargo_default_run_check.py",
             ):

@@ -15,6 +15,19 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.31] - 2026-08-21
+
+### Changed
+
+- [product][repo][meta] 收敛 current-only 骨架与升级事务
+
+## [1.4.30] - 2026-08-20
+
+### Fixed
+
+- [product][repo][meta] 关闭 1.4.29 核心安全缺口：旧项目保留清单与项目 Hook bundle fail-closed，公共/项目 ownership 使用统一投影，factory manifest 严格识别，git-sync 完整事务回滚，pre-commit 改为只读验证。
+- [product][repo][meta] 完成第二期 current-only 清理：移除下游无调用的 factory 检查器与提示脚本，收紧 Skill 树、JSON 与受管路径校验，支持相邻 current 合同安全删除退役 whole 资产，并删除白名单旧接口与现行 Claude 设计残留。
+
 ## [1.4.29] - 2026-08-20
 
 ### Changed

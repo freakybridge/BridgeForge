@@ -57,7 +57,7 @@
 3. **dogfood 先伤自己**：bridgeforge 日常高频 touch-before-write、读未创建的 `templates/**` 占位，正命中 C1 的「读取意图明确 ∧ 路径可解析 ∧ 确证不存在」——active-by-default 会先在上游开发流误伤。
 4. **休眠代码也复印全下游**：「填俩配置就激活」是危险开关，邀请不理解误伤风险的下游打开 = 维护负担 + 误启用风险，两头不讨好（与 Stop hook 同标准）。
 
-→ **出厂态**：四-gate 判定逻辑做成宿主无关的参考脚本放 [`doc/3_reference/examples/antifab-deny-hook.py`](examples/antifab-deny-hook.py)，下游真有「幻觉读文件」痛点、又愿填 hint，再照着落地。常驻 rule 的口诀里挂指针导向它，避免「记得去上游翻」的发现性缺口。
+→ **出厂态**：四-gate 判定逻辑做成宿主无关的参考脚本放 [`doc/3_reference/examples/antifab-deny-hook.py`](../../3_reference/examples/antifab-deny-hook.py)，下游真有「幻觉读文件」痛点、又愿填 hint，再按项目 Hook bundle 规范落地。常驻指令只保留指针，避免重复正文。
 
 ---
 

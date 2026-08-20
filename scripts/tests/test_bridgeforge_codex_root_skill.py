@@ -145,7 +145,7 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             "destructive rebuild 必须先由独立 agent",
             "用户逐项确认可",
             "plan-fingerprint",
-            "--confirmed-whitelist",
+            "--confirmed-preservation-manifest",
             "--confirmed-risk",
             "current baseline",
             "`repair-hook` 只能修改用户 hooks",
@@ -159,6 +159,19 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             ".codex/.bridgeforge_version",
         ):
             self.assertIn(marker, text)
+
+    def test_preservation_manifest_is_the_only_old_project_decision_term(self) -> None:
+        skill = SKILL.read_text(encoding="utf-8")
+        sync = (
+            ROOT / "scripts" / "bridgeforge_codex_project_sync.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("PreservationManifest", skill)
+        self.assertIn("--confirmed-preservation-manifest", skill)
+        obsolete_term = "white" + "list"
+        self.assertNotIn(obsolete_term, skill.casefold())
+        self.assertNotIn(obsolete_term, sync.casefold())
+        self.assertNotIn("project_asset_" + obsolete_term, sync)
+        self.assertNotIn("--confirmed-" + obsolete_term, sync)
 
     def test_python_preflight_native_memory_and_project_sync_are_in_one_orchestration(self) -> None:
         text = SKILL.read_text(encoding="utf-8")

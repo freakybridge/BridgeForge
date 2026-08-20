@@ -42,6 +42,18 @@ class CurrentInstructionSourceTests(unittest.TestCase):
     def test_factory_current_instruction_sources_pass(self) -> None:
         self.assertEqual(CHECK.instruction_source_issues(ROOT), [])
 
+    def test_current_agents_keep_review_and_factory_redlines(self) -> None:
+        common = (ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+        factory = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        for marker in (
+            "按严重度排序",
+            "文件 / 行号 / 行为风险",
+            "取舍理由、主要风险与触发条件",
+            "禁止只罗列选项不拍板",
+        ):
+            self.assertIn(marker, common)
+        self.assertIn("受管资产必须使用显式 target", factory)
+
     def test_unzoned_or_publicly_drifted_agents_fail(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

@@ -214,7 +214,6 @@ DELEGATED = (
     ("project-memory-context", "memory_context.py after memory_rebuild_index.py"),
     ("no-project-effortlevel", "enforce_no_effortlevel.py (strips + reports on action)"),
     ("user-skill-sync", "skill_sync_check.py (reports drift)"),
-    ("hooks-mirror-intact", "mirror_drift_check.py (pre-commit; exit 2 on missing dogfood mirror)"),
 )
 
 

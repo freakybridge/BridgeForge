@@ -1,14 +1,12 @@
 #!/bin/sh
 # >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN
-# bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
-#   [D8] dogfood 镜像闸: templates/hooks/*.py 缺 .codex/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
-#   [skills] 通用 skill metadata 闸: skills/<name>/SKILL.md 缺可调用 frontmatter → exit 2
-#   [既有] memory 索引重建: 提交前重建衍生索引(_stats.json/MEMORY.md/MEMORY_COLD.md)并纳入本次提交
-#          —— 卫生段，永 exit 0 兜底。杜绝"花名册欠账"溜过任意提交路径(git-sync/手动/IDE 都拦得住)。
+# bridgeforge current-only pre-commit 闸（严格执行序）：
+#   [baseline] 工作树与 staged index 的公共骨架必须同时匹配当前合同；
+#   [skills] 项目 Skill 树和 metadata 必须满足当前规则；
+#   [memory] 派生索引只读验证，生成与暂存只允许由 git-sync 事务执行。
 #
 # 硬闸原则: 只有明确判出违规才 exit 2; 脚本自身异常一律放行(宁漏不误伤)。
 #   · exit 2 段必须在受管区块内立即退出；项目扩展位于受管区块之后，保留其原有退出码。
-#   · 镜像闸豁免走 CHANGELOG.md 顶部 [dogfood-exempt: <hook> <因>]。
 # Project CPython 3.11+ .venv is the only runtime; steady hooks never fall back to PATH.
 find_py() {
   if [ ! -e .venv ]; then
@@ -44,9 +42,6 @@ run_exit2_hook() {
   fi
 }
 
-# ── [D8] dogfood 镜像闸(缺文件硬拦 exit 2; 正文差异只 stderr 软提示不阻断) ──
-run_exit2_hook ".codex/hooks/mirror_drift_check.py"
-
 # ── [instructions] Codex 原生 AGENTS 指令源硬闸（含 staged 公共区，防 edit+restore 绕过） ──
 run_exit2_hook ".codex/hooks/instruction_source_check.py"
 
@@ -66,14 +61,8 @@ run_exit2_hook ".codex/hooks/project_structure_check.py" --pre-commit
 # ── [skills] 通用 skill metadata 闸(硬拦; 下游无 skills/ 则自门控 no-op) ──
 run_exit2_hook ".codex/hooks/skill_metadata_check.py" --pre-commit
 
-# ── [既有] memory 索引重建(卫生段, 永 exit 0 兜底) ──
-for CONFIG_DIR in .codex; do
-  SCRIPT="$CONFIG_DIR/scripts/memory_rebuild_index.py"
-  if [ -n "$PY" ] && [ -f "$SCRIPT" ]; then
-    "$PY" "$SCRIPT" || true
-    git add "$CONFIG_DIR/memory/_stats.json" "$CONFIG_DIR/memory/MEMORY.md" "$CONFIG_DIR/memory/MEMORY_COLD.md" 2>/dev/null || true
-  fi
-done
+# ── [memory] 派生索引只读闸 ──
+run_exit2_hook ".codex/scripts/memory_rebuild_index.py" --check
 # <<< BRIDGEFORGE_CODEX_MANAGED_END
 
 # >>> PROJECT_EXTENSION_BEGIN

@@ -26,8 +26,10 @@ PROJECT_NAME_CLONE_RE = re.compile(
     br"([A-Za-z0-9._-]+|\{\{PROJECT_NAME\}\})"
     br"( && cd )\2([ \t]*)$"
 )
-PROJECT_HOOK_PATH_RE = re.compile(
-    rb"\.codex/(?:hooks|scripts)/[A-Za-z0-9_./-]+\.py"
+PROJECT_HOOK_BUNDLE_RE = re.compile(r"project_[A-Za-z0-9][A-Za-z0-9_-]*")
+PROJECT_HOOK_COMMAND_RE = re.compile(
+    r"^\.venv/Scripts/python\.exe "
+    r"\.codex/hooks/(project_[A-Za-z0-9][A-Za-z0-9_-]*)/entrypoint\.py$"
 )
 
 
@@ -84,7 +86,7 @@ class Plan:
     actions: list[Action]
     gaps: list[Gap]
     blockers: list[str]
-    project_requirements: list[dict[str, Any]]
+    preservation_entries: list[dict[str, Any]]
     aggregate_fingerprint: str = ""
 
     @property
@@ -94,6 +96,23 @@ class Plan:
     @property
     def risk_actions(self) -> list[Action]:
         return [item for item in self.actions if item.classification == "risk"]
+
+
+@dataclass
+class PreservationManifest:
+    """One-transaction project-asset decisions; never serialized to disk."""
+
+    plan_fingerprint: str
+    dispositions: dict[str, str]
+    required_preserve: tuple[str, ...]
+    cleared: bool = False
+
+    def clear(self) -> None:
+        self.dispositions.clear()
+        self.required_preserve = ()
+        self.plan_fingerprint = ""
+        self.cleared = True
+
 
 @dataclass(frozen=True)
 class Receipt:
@@ -106,6 +125,7 @@ class Receipt:
     aggregate_fingerprint: str
     applied: tuple[str, ...]
     preserved_project_asset_ids: tuple[str, ...]
+    deleted_project_asset_ids: tuple[str, ...]
     stamp_written_last: bool
     rollback_performed: bool
     timings_ms: dict[str, float]
@@ -123,6 +143,30 @@ def _sha256_bytes(payload: bytes) -> str:
 
 def _sha256_path(path: Path) -> str:
     return _sha256_bytes(path.read_bytes())
+
+
+def _sha256_tree(path: Path) -> str:
+    if not path.is_dir() or _is_reparse(path):
+        raise SyncBlocked(f"project asset bundle is not a plain directory: {path}")
+    entries: list[tuple[str, str]] = []
+    for current, dirnames, filenames in os.walk(path, followlinks=False):
+        current_path = Path(current)
+        if _is_reparse(current_path):
+            raise SyncBlocked(f"project asset bundle contains a reparse directory: {current_path}")
+        for name in tuple(dirnames):
+            candidate = current_path / name
+            if _is_reparse(candidate):
+                raise SyncBlocked(
+                    f"project asset bundle contains a reparse directory: {candidate}"
+                )
+        for name in filenames:
+            candidate = current_path / name
+            if not candidate.is_file() or _is_reparse(candidate):
+                raise SyncBlocked(f"project asset bundle contains a non-plain file: {candidate}")
+            entries.append(
+                (candidate.relative_to(path).as_posix(), _sha256_path(candidate))
+            )
+    return _sha256_bytes(_canonical_json(sorted(entries)))
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -776,7 +820,7 @@ def _fingerprint(plan: Plan) -> str:
         ],
         "gaps": [asdict(item) for item in plan.gaps],
         "blockers": plan.blockers,
-        "project_requirements": plan.project_requirements,
+        "preservation_entries": plan.preservation_entries,
     }
     return _sha256_bytes(_canonical_json(payload))
 
@@ -868,10 +912,9 @@ def _deep_merge_current(current: Any, canonical: Any) -> Any:
     return copy.deepcopy(canonical)
 
 
-def _merge_hooks_current(source: bytes, current: bytes | None) -> bytes:
-    canonical = _loads_json(source.decode("utf-8-sig"))
-    if current is None:
-        return json.dumps(canonical, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+def _project_hook_projection(
+    current: bytes,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
     try:
         local = _loads_json(current.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -879,28 +922,88 @@ def _merge_hooks_current(source: bytes, current: bytes | None) -> bytes:
     if not isinstance(local, dict) or not isinstance(local.get("hooks"), dict):
         raise SyncBlocked("project hooks.json has no hooks object")
     external: dict[str, list[dict[str, Any]]] = {}
+    registrations: dict[str, int] = {}
     for event, entries in local["hooks"].items():
-        if not isinstance(entries, list):
+        if not isinstance(event, str) or not event or not isinstance(entries, list):
             raise SyncBlocked(f"project hooks event is invalid: {event}")
         kept: list[dict[str, Any]] = []
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
                 raise SyncBlocked(f"project hooks group is invalid: {event}")
-            handlers = [
-                handler
-                for handler in entry["hooks"]
-                if not (
-                    isinstance(handler, dict)
-                    and isinstance(handler.get("bridgeforgeCodexId"), str)
-                    and handler["bridgeforgeCodexId"].startswith(
-                        "bridgeforge-codex.project-hook.v1:"
+            handlers: list[dict[str, Any]] = []
+            for handler in entry["hooks"]:
+                if not isinstance(handler, dict):
+                    raise SyncBlocked(f"project hook handler is invalid: {event}")
+                managed_id = handler.get("bridgeforgeCodexId")
+                if isinstance(managed_id, str) and managed_id.startswith(
+                    "bridgeforge-codex.project-hook.v1:"
+                ):
+                    continue
+                if managed_id is not None:
+                    raise SyncBlocked(
+                        f"project hook registration has a non-canonical identity: {event}"
                     )
+                if handler.get("type") != "command" or "commandWindows" in handler:
+                    raise SyncBlocked(
+                        f"project hook registration is not a canonical Python command: {event}"
+                    )
+                command = handler.get("command")
+                match = (
+                    PROJECT_HOOK_COMMAND_RE.fullmatch(command)
+                    if isinstance(command, str)
+                    else None
                 )
-            ]
+                if match is None:
+                    raise SyncBlocked(
+                        f"project hook registration is not a canonical Python command: {event}"
+                    )
+                bundle = match.group(1)
+                registrations[bundle] = registrations.get(bundle, 0) + 1
+                handlers.append(copy.deepcopy(handler))
             if handlers:
                 kept.append({**entry, "hooks": handlers})
         if kept:
             external[str(event)] = kept
+    return external, registrations
+
+
+def _project_hook_bundle_name(handler: dict[str, Any]) -> str:
+    command = handler.get("command")
+    match = (
+        PROJECT_HOOK_COMMAND_RE.fullmatch(command)
+        if isinstance(command, str)
+        else None
+    )
+    if match is None:
+        raise SyncBlocked("project hook command lost its canonical bundle identity")
+    return match.group(1)
+
+
+def _merge_hooks_current(
+    source: bytes,
+    current: bytes | None,
+    *,
+    preserved_bundles: set[str] | None = None,
+) -> bytes:
+    canonical = _loads_json(source.decode("utf-8-sig"))
+    if current is None:
+        return json.dumps(canonical, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+    external, _registrations = _project_hook_projection(current)
+    if preserved_bundles is not None:
+        filtered: dict[str, list[dict[str, Any]]] = {}
+        for event, entries in external.items():
+            kept: list[dict[str, Any]] = []
+            for entry in entries:
+                handlers = [
+                    handler
+                    for handler in entry["hooks"]
+                    if _project_hook_bundle_name(handler) in preserved_bundles
+                ]
+                if handlers:
+                    kept.append({**entry, "hooks": handlers})
+            if kept:
+                filtered[event] = kept
+        external = filtered
     result = copy.deepcopy(canonical)
     for event, entries in external.items():
         result.setdefault("hooks", {}).setdefault(event, []).extend(entries)
@@ -987,9 +1090,9 @@ def _project_asset_candidates(
     root: Path,
     agents_asset: dict[str, Any],
     desired_targets: set[str],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     candidates: list[dict[str, Any]] = []
-    dependency_paths: set[str] = set()
+    blockers: list[str] = []
     agents = root / "AGENTS.md"
     if agents.is_file():
         try:
@@ -999,39 +1102,94 @@ def _project_asset_candidates(
                 str(agents_asset["agents_zones"]["project"]["end"]),
             )
             candidates.append({
-                "id": "W:agents-project-zone",
+                "id": "P:agents-project-zone",
                 "kind": "agents-project-zone",
                 "target": "AGENTS.md",
                 "sha256": _sha256_bytes(block),
                 "recommended": "preserve",
+                "disposition": "user-decision",
             })
-        except SyncBlocked:
-            candidates.append({
-                "id": "W:agents-project-zone",
-                "kind": "agents-project-zone",
-                "target": "AGENTS.md",
-                "recommended": "manual-review",
-                "affects_readiness": True,
-            })
+        except SyncBlocked as exc:
+            blockers.append(f"AGENTS project markers are invalid: {exc}")
+
+    external_hooks: dict[str, list[dict[str, Any]]] = {}
+    registrations: dict[str, int] = {}
     hooks_json = root / ".codex" / "hooks.json"
     if hooks_json.is_file():
-        canonical = _merge_hooks_current(b'{"hooks": {}}', hooks_json.read_bytes())
-        external = json.loads(canonical.decode("utf-8"))["hooks"]
-        if external:
-            external_payload = _canonical_json(external)
-            dependencies = sorted(
-                match.decode("utf-8")
-                for match in PROJECT_HOOK_PATH_RE.findall(external_payload)
+        try:
+            external_hooks, registrations = _project_hook_projection(
+                hooks_json.read_bytes()
             )
-            dependency_paths.update(dependencies)
-            candidates.append({
-                "id": "W:hook-registration:.codex/hooks.json",
-                "kind": "hook-registration",
-                "target": ".codex/hooks.json",
-                "sha256": _sha256_bytes(external_payload),
-                "dependencies": dependencies,
-                "recommended": "preserve",
-            })
+        except SyncBlocked as exc:
+            blockers.append(str(exc))
+
+    bundle_paths: dict[str, Path] = {}
+    hooks_root = root / ".codex" / "hooks"
+    if hooks_root.exists():
+        if not hooks_root.is_dir() or _is_reparse(hooks_root):
+            blockers.append("project hooks root is not a plain directory")
+        else:
+            for child in sorted(hooks_root.iterdir(), key=lambda item: item.name):
+                relative = child.relative_to(root).as_posix()
+                if child.is_file() and relative in desired_targets:
+                    continue
+                if not child.is_dir() or not PROJECT_HOOK_BUNDLE_RE.fullmatch(child.name):
+                    blockers.append(
+                        f"non-canonical project hook asset must be normalized first: {relative}"
+                    )
+                    continue
+                if _is_reparse(child):
+                    blockers.append(f"project hook bundle is a reparse directory: {relative}")
+                    continue
+                entrypoint = child / "entrypoint.py"
+                if not entrypoint.is_file() or _is_reparse(entrypoint):
+                    blockers.append(
+                        f"project hook bundle has no plain entrypoint.py: {relative}"
+                    )
+                    continue
+                try:
+                    bundle_hash = _sha256_tree(child)
+                except SyncBlocked as exc:
+                    blockers.append(str(exc))
+                    continue
+                bundle_paths[child.name] = child
+                registration_projection: dict[str, list[dict[str, Any]]] = {}
+                for event, entries in external_hooks.items():
+                    projected_entries: list[dict[str, Any]] = []
+                    for entry in entries:
+                        handlers = [
+                            handler
+                            for handler in entry["hooks"]
+                            if _project_hook_bundle_name(handler) == child.name
+                        ]
+                        if handlers:
+                            projected_entries.append({**entry, "hooks": handlers})
+                    if projected_entries:
+                        registration_projection[event] = projected_entries
+                candidates.append({
+                    "id": f"P:project-hook-bundle:{relative}",
+                    "kind": "project-hook-bundle",
+                    "target": relative,
+                    "sha256": bundle_hash,
+                    "registration_sha256": _sha256_bytes(
+                        _canonical_json(registration_projection)
+                    ),
+                    "recommended": "preserve",
+                    "disposition": "user-decision",
+                })
+    missing_bundles = sorted(set(registrations) - set(bundle_paths))
+    if missing_bundles:
+        blockers.append(
+            "project hook registration has no canonical bundle: "
+            + ", ".join(missing_bundles)
+        )
+    unregistered_bundles = sorted(set(bundle_paths) - set(registrations))
+    if unregistered_bundles:
+        blockers.append(
+            "project hook bundle has no hooks.json registration: "
+            + ", ".join(unregistered_bundles)
+        )
+
     precommit = root / ".githooks" / "pre-commit"
     if precommit.is_file():
         extension = {
@@ -1042,58 +1200,62 @@ def _project_asset_candidates(
             _start, _stop, block = _marker_block(
                 precommit.read_bytes(), extension["begin"], extension["end"]
             )
-        except SyncBlocked:
-            pass
+        except SyncBlocked as exc:
+            blockers.append(f"pre-commit project-extension markers are invalid: {exc}")
         else:
             if block not in {
                 b"# >>> PROJECT_EXTENSION_BEGIN\n# <<< PROJECT_EXTENSION_END\n",
                 b"# >>> PROJECT_EXTENSION_BEGIN\n# <<< PROJECT_EXTENSION_END",
             }:
-                dependencies = sorted(
-                    match.decode("utf-8")
-                    for match in PROJECT_HOOK_PATH_RE.findall(block)
-                )
-                dependency_paths.update(dependencies)
                 candidates.append({
-                    "id": "W:hook-extension:.githooks/pre-commit",
+                    "id": "P:hook-extension:.githooks/pre-commit",
                     "kind": "hook-extension",
                     "target": ".githooks/pre-commit",
                     "sha256": _sha256_bytes(block),
-                    "dependencies": dependencies,
                     "recommended": "preserve",
+                    "disposition": "user-decision",
                 })
-    for kind, folder in (("rule", root / ".codex" / "rules"), ("hook", root / ".codex" / "hooks")):
-        if not folder.is_dir() or _is_reparse(folder):
-            continue
-        for path in sorted(item for item in folder.rglob("*") if item.is_file()):
+
+    rules = root / ".codex" / "rules"
+    if rules.is_dir() and not _is_reparse(rules):
+        for path in sorted(item for item in rules.rglob("*") if item.is_file()):
             relative = path.relative_to(root).as_posix()
             if relative in desired_targets:
                 continue
             candidates.append({
-                "id": f"W:{kind}:{relative}",
-                "kind": kind,
+                "id": f"P:rule:{relative}",
+                "kind": "rule",
                 "target": relative,
                 "sha256": _sha256_path(path),
-                "recommended": "preserve" if kind == "hook" else "review",
+                "recommended": "review",
+                "disposition": "user-decision",
             })
-    existing_targets = {str(item["target"]) for item in candidates}
-    for relative in sorted(dependency_paths - desired_targets - existing_targets):
-        path = _inside(root, relative, "project hook dependency")
-        if path.is_file() and not _is_reparse(path):
+
+    for kind in ("memory", "skills"):
+        folder = root / ".codex" / kind
+        if folder.exists():
+            try:
+                tree_hash = _sha256_tree(folder)
+            except SyncBlocked as exc:
+                blockers.append(str(exc))
+                continue
             candidates.append({
-                "id": f"W:hook-dependency:{relative}",
-                "kind": "hook-dependency",
-                "target": relative,
-                "sha256": _sha256_path(path),
+                "id": f"R:{kind}",
+                "kind": kind,
+                "target": f".codex/{kind}",
+                "sha256": tree_hash,
                 "recommended": "preserve",
+                "disposition": "required-preserve",
             })
-    return candidates
+    return candidates, blockers
 
 
 def _validate_preserved_knowledge(root: Path, template_root: Path) -> None:
     memory = root / ".codex" / "memory"
-    lint = root / ".codex" / "hooks" / "memory_lint.py"
-    if memory.is_dir() and lint.is_file():
+    if memory.is_dir():
+        lint = template_root / "templates" / "hooks" / "memory_lint.py"
+        if not lint.is_file() or _is_reparse(lint):
+            raise SyncBlocked("trusted project memory validator is missing or unsafe")
         result = subprocess.run(
             [
                 sys.executable,
@@ -1109,7 +1271,7 @@ def _validate_preserved_knowledge(root: Path, template_root: Path) -> None:
             errors="replace",
             timeout=120,
         )
-        if result.returncode not in {0}:
+        if result.returncode != 0:
             raise SyncBlocked(
                 "project memory compatibility check failed: "
                 + (result.stderr or result.stdout).strip()
@@ -1123,12 +1285,15 @@ def _validate_preserved_knowledge(root: Path, template_root: Path) -> None:
             raise SyncBlocked("trusted project Skill validator cannot be loaded")
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
+        previous_dont_write_bytecode = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
         try:
             spec.loader.exec_module(module)
             issues, _warnings = module.validate_skill_tree(skills)
         except Exception as exc:
             raise SyncBlocked(f"project Skill compatibility check failed: {exc}") from exc
         finally:
+            sys.dont_write_bytecode = previous_dont_write_bytecode
             sys.modules.pop(module_name, None)
         if issues:
             raise SyncBlocked(
@@ -1160,6 +1325,84 @@ def _trusted_project_runtime_module(template_root: Path) -> Any:
     return module
 
 
+def _contract_targets(
+    root: Path,
+    contract: dict[str, Any],
+    label: str,
+) -> dict[str, dict[str, Any]]:
+    targets: dict[str, dict[str, Any]] = {}
+    for asset in contract.get("assets", []):
+        if not isinstance(asset, dict) or not isinstance(asset.get("target"), str):
+            raise SyncBlocked(f"{label} contains an invalid asset target")
+        relative = str(asset["target"])
+        target = _inside(root, relative, f"{label} asset target")
+        normalized = target.relative_to(root).as_posix().casefold()
+        if normalized in targets:
+            raise SyncBlocked(
+                f"{label} contains duplicate normalized target: {relative}"
+            )
+        targets[normalized] = asset
+    return targets
+
+
+def _current_contract_removals(
+    root: Path,
+    installed_contract: dict[str, Any],
+    incoming_contract: dict[str, Any],
+) -> tuple[list[Action], list[str], set[str]]:
+    try:
+        installed = _contract_targets(root, installed_contract, "installed contract")
+        incoming = _contract_targets(root, incoming_contract, "incoming contract")
+    except SyncBlocked as exc:
+        return [], [str(exc)], set()
+    actions: list[Action] = []
+    blockers: list[str] = []
+    removed_targets: set[str] = set()
+    for normalized in sorted(set(installed) - set(incoming)):
+        asset = installed[normalized]
+        asset_id = str(asset.get("id", "<unknown>"))
+        target = _inside(root, str(asset["target"]), f"removed asset {asset_id}")
+        relative = target.relative_to(root).as_posix()
+        removed_targets.add(relative)
+        has_partial_ownership = any(
+            asset.get(key) is not None
+            for key in (
+                "agents_zones",
+                "managed_blocks",
+                "merge_policy",
+                "merge_validation",
+                "region",
+            )
+        )
+        if asset.get("strategy") != "whole" or has_partial_ownership:
+            blockers.append(
+                f"removed current asset is not whole-owned: {asset_id}: {relative}"
+            )
+            continue
+        if not target.is_file() or _is_reparse(target):
+            blockers.append(
+                f"removed current whole asset is missing or unsafe: {asset_id}: {relative}"
+            )
+            continue
+        current = target.read_bytes()
+        if _target_hash(current, asset, root) != asset.get("current_sha256"):
+            blockers.append(
+                f"removed current whole asset drifted: {asset_id}: {relative}"
+            )
+            continue
+        actions.append(Action(
+            asset_id=f"current.remove.{asset_id}",
+            target=relative,
+            action="delete",
+            classification="safe",
+            reason="delete an unchanged whole asset absent from the incoming contract",
+            before_sha256=_sha256_bytes(current),
+            after_sha256=None,
+            payload=None,
+        ))
+    return actions, blockers, removed_targets
+
+
 def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> Plan:
     root = _plain_root(project_root, "project root")
     template = _plain_root(template_root, "template root")
@@ -1176,7 +1419,23 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     old_stamp = _inside(root, OBSOLETE_STAMP, "obsolete version stamp")
     blockers: list[str] = []
     previous_version: str | None = None
-    force_rebuild = False
+
+    def blocked_plan() -> Plan:
+        plan = Plan(
+            project_root=str(root),
+            template_root=str(template),
+            mode=selected_mode,
+            current_version=current_version,
+            previous_version=previous_version,
+            contract_sha256=_sha256_path(contract_path),
+            actions=[],
+            gaps=[],
+            blockers=blockers,
+            preservation_entries=[],
+        )
+        plan.aggregate_fingerprint = _fingerprint(plan)
+        return plan
+
     if selected_mode == "init" and (
         (root / ".codex").exists()
         or (root / "AGENTS.md").exists()
@@ -1191,9 +1450,10 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         )
     elif old_stamp.is_file():
         previous_version = old_stamp.read_text(encoding="utf-8-sig").strip()
-        force_rebuild = True
     elif stamp.is_file():
         previous_version = stamp.read_text(encoding="utf-8-sig").strip()
+    elif stamp.exists() or old_stamp.exists():
+        blockers.append("version stamp path is not a plain file; zero writes performed")
     elif selected_mode != "init":
         blockers.append(
             "existing project has no recognized version stamp; zero writes performed"
@@ -1207,16 +1467,23 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             )
         except SyncBlocked as exc:
             blockers.append(str(exc))
-    rebuild = force_rebuild or (
-        previous_semver is not None and previous_semver < CURRENT_BASELINE
-    )
-    if previous_semver is not None and previous_semver > _semver(
-        current_version,
-        "current bridgeforge-codex version",
-    ):
-        blockers.append(
-            f"project version {previous_version} is newer than {current_version}"
-        )
+    current_semver = _semver(current_version, "current bridgeforge-codex version")
+    if previous_semver is not None:
+        if old_stamp.is_file() and previous_semver >= CURRENT_BASELINE:
+            blockers.append(
+                "obsolete version stamp is only valid below 1.4.28; zero writes performed"
+            )
+        if stamp.is_file() and previous_semver < CURRENT_BASELINE:
+            blockers.append(
+                "current version stamp is only valid at 1.4.28 or newer; zero writes performed"
+            )
+        if previous_semver > current_semver:
+            blockers.append(
+                f"project version {previous_version} is newer than {current_version}"
+            )
+    rebuild = bool(old_stamp.is_file() and previous_semver is not None)
+    if blockers:
+        return blocked_plan()
     if previous_semver is not None and not rebuild and not blockers:
         checker = _trusted_current_baseline_module(template)
         try:
@@ -1225,7 +1492,14 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             blockers.append(
                 f"current baseline drifted; zero writes performed: {exc}"
             )
-    _validate_preserved_knowledge(root, template)
+    if blockers:
+        return blocked_plan()
+    try:
+        _validate_preserved_knowledge(root, template)
+    except SyncBlocked as exc:
+        blockers.append(str(exc))
+    if blockers:
+        return blocked_plan()
 
     actions: list[Action] = []
     gaps: list[Gap] = []
@@ -1266,7 +1540,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             payload=desired,
         ))
     contract_target = str(contract["contract_target"])
-    installed_contract = (
+    incoming_contract_bytes = (
         json.dumps(contract, ensure_ascii=False, indent=2).encode("utf-8")
         + b"\n"
     )
@@ -1280,7 +1554,22 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         if current_contract_path.is_file()
         else None
     )
-    if current_contract != installed_contract:
+    removed_current_targets: set[str] = set()
+    if current_contract is not None and not rebuild:
+        checker = _trusted_current_baseline_module(template)
+        try:
+            installed_contract = checker.load_contract(current_contract_path)
+        except Exception as exc:
+            blockers.append(
+                f"installed current contract is invalid; zero writes performed: {exc}"
+            )
+        else:
+            removal_actions, removal_blockers, removed_current_targets = (
+                _current_contract_removals(root, installed_contract, contract)
+            )
+            actions.extend(removal_actions)
+            blockers.extend(removal_blockers)
+    if current_contract != incoming_contract_bytes:
         actions.append(Action(
             asset_id="contract.current-baseline",
             target=contract_target,
@@ -1292,23 +1581,28 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 if current_contract is None
                 else _sha256_bytes(current_contract)
             ),
-            after_sha256=_sha256_bytes(installed_contract),
-            payload=installed_contract,
+            after_sha256=_sha256_bytes(incoming_contract_bytes),
+            payload=incoming_contract_bytes,
         ))
-    candidates: list[dict[str, Any]] = []
+    agents_asset = next(
+        asset
+        for asset in contract["assets"]
+        if asset["id"] == "root.agents"
+    )
+    inspected_candidates, candidate_blockers = _project_asset_candidates(
+        root,
+        agents_asset,
+        desired_targets | removed_current_targets,
+    )
+    blockers.extend(candidate_blockers)
+    candidates: list[dict[str, Any]] = inspected_candidates if rebuild else []
     if rebuild:
-        agents_asset = next(
-            asset
-            for asset in contract["assets"]
-            if asset["id"] == "root.agents"
-        )
-        candidates = _project_asset_candidates(root, agents_asset, desired_targets)
         codex_root = root / ".codex"
         if codex_root.is_dir() and not _is_reparse(codex_root):
             candidate_targets = {
                 str(item["target"])
                 for item in candidates
-                if item.get("kind") in {"rule", "hook", "hook-dependency"}
+                if item.get("disposition") == "user-decision"
             }
             for path in sorted(
                 item for item in codex_root.rglob("*") if item.is_file()
@@ -1320,9 +1614,10 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                     or relative.startswith(".codex/skills/")
                 ):
                     continue
-                classification = (
-                    "risk" if relative in candidate_targets else "safe"
-                )
+                classification = "risk" if any(
+                    relative == target or relative.startswith(target + "/")
+                    for target in candidate_targets
+                ) else "safe"
                 actions.append(Action(
                     asset_id=f"rebuild.remove.{relative.replace('/', '.')}",
                     target=relative,
@@ -1346,7 +1641,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         actions=actions,
         gaps=gaps,
         blockers=blockers,
-        project_requirements=candidates,
+        preservation_entries=candidates,
     )
     plan.aggregate_fingerprint = _fingerprint(plan)
     return plan
@@ -1403,6 +1698,31 @@ class _Transaction:
                     files[candidate.relative_to(tree)] = candidate.read_bytes()
         self.tree_before[tree] = (files, directories)
 
+    def delete_tree(self, tree: Path) -> None:
+        self.snapshot_tree(tree)
+        if not tree.exists():
+            return
+        for current, dirnames, filenames in os.walk(
+            tree,
+            topdown=False,
+            followlinks=False,
+        ):
+            current_path = Path(current)
+            if _is_reparse(current_path):
+                raise SyncBlocked(
+                    f"transaction tree contains a reparse directory: {current_path}"
+                )
+            for name in filenames:
+                candidate = current_path / name
+                if not candidate.is_file() or _is_reparse(candidate):
+                    raise SyncBlocked(
+                        f"transaction tree contains a non-plain file: {candidate}"
+                    )
+                candidate.unlink()
+            for name in dirnames:
+                (current_path / name).rmdir()
+            current_path.rmdir()
+
     def _rollback_tree(
         self,
         tree: Path,
@@ -1435,6 +1755,11 @@ class _Transaction:
 
     def rollback(self) -> None:
         failures: list[str] = []
+        for tree, (files, directories) in reversed(tuple(self.tree_before.items())):
+            try:
+                self._rollback_tree(tree, files, directories)
+            except OSError as exc:
+                failures.append(f"{tree}: {exc}")
         for path, payload in reversed(tuple(self.before.items())):
             try:
                 if payload is None:
@@ -1443,11 +1768,6 @@ class _Transaction:
                     _atomic_write(path, payload, self.root)
             except OSError as exc:
                 failures.append(f"{path}: {exc}")
-        for tree, (files, directories) in reversed(tuple(self.tree_before.items())):
-            try:
-                self._rollback_tree(tree, files, directories)
-            except OSError as exc:
-                failures.append(f"{tree}: {exc}")
         for directory in reversed(self.created_directories):
             try:
                 directory.rmdir()
@@ -1555,13 +1875,71 @@ def _verify_preserved_knowledge(snapshots: dict[Path, bytes]) -> None:
         )
 
 
+def _build_preservation_manifest(
+    plan: Plan,
+    preserved_project_asset_ids: tuple[str, ...],
+    deleted_project_asset_ids: tuple[str, ...],
+) -> PreservationManifest:
+    candidates = {
+        str(item["id"]): item
+        for item in plan.preservation_entries
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    user_decisions = {
+        item_id
+        for item_id, item in candidates.items()
+        if item.get("disposition") == "user-decision"
+    }
+    required_preserve = tuple(sorted(
+        item_id
+        for item_id, item in candidates.items()
+        if item.get("disposition") == "required-preserve"
+    ))
+    preserve = set(preserved_project_asset_ids)
+    delete = set(deleted_project_asset_ids)
+    overlap = sorted(preserve & delete)
+    if overlap:
+        raise SyncBlocked(
+            "project asset has both preserve and delete dispositions: "
+            + ", ".join(overlap)
+        )
+    unknown = sorted((preserve | delete) - user_decisions)
+    if unknown:
+        raise SyncBlocked(
+            "unknown or non-selectable project asset decision IDs: "
+            + ", ".join(unknown)
+        )
+    missing = sorted(user_decisions - preserve - delete)
+    if missing:
+        raise SyncBlocked(
+            "every project asset requires an explicit preserve/delete disposition: "
+            + ", ".join(missing)
+        )
+    dispositions = {
+        item_id: ("preserve" if item_id in preserve else "delete")
+        for item_id in sorted(user_decisions)
+    }
+    for item_id in required_preserve:
+        dispositions[item_id] = "required-preserve"
+    manifest_payload = {
+        "plan_fingerprint": plan.aggregate_fingerprint,
+        "dispositions": dispositions,
+    }
+    return PreservationManifest(
+        plan_fingerprint=_sha256_bytes(_canonical_json(manifest_payload)),
+        dispositions=dispositions,
+        required_preserve=required_preserve,
+    )
+
+
 def apply_plan(
     planned: Plan,
     *,
     plan_fingerprint: str,
     confirmed_risk: bool = False,
-    confirmed_whitelist: bool = False,
+    confirmed_preservation_manifest: bool = False,
     preserved_project_asset_ids: tuple[str, ...] = (),
+    deleted_project_asset_ids: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
 ) -> Receipt:
     started = time.perf_counter()
@@ -1577,8 +1955,9 @@ def apply_plan(
         rebuilt,
         plan_fingerprint=plan_fingerprint,
         confirmed_risk=confirmed_risk,
-        confirmed_whitelist=confirmed_whitelist,
+        confirmed_preservation_manifest=confirmed_preservation_manifest,
         preserved_project_asset_ids=preserved_project_asset_ids,
+        deleted_project_asset_ids=deleted_project_asset_ids,
         checkpoint=checkpoint,
         replan_ms=replan_ms,
         apply_started=started,
@@ -1591,8 +1970,9 @@ def _apply_rebuilt_plan(
     *,
     plan_fingerprint: str,
     confirmed_risk: bool = False,
-    confirmed_whitelist: bool = False,
+    confirmed_preservation_manifest: bool = False,
     preserved_project_asset_ids: tuple[str, ...] = (),
+    deleted_project_asset_ids: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
     replan_ms: float,
     apply_started: float,
@@ -1609,39 +1989,38 @@ def _apply_rebuilt_plan(
         raise SyncBlocked("plan contains unresolved gaps; zero writes performed")
     candidate_by_id = {
         str(item["id"]): item
-        for item in rebuilt.project_requirements
+        for item in rebuilt.preservation_entries
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
     preserve_ids = tuple(dict.fromkeys(preserved_project_asset_ids))
-    unknown = sorted(set(preserve_ids) - set(candidate_by_id))
-    if unknown:
-        raise SyncBlocked(
-            "unknown project asset whitelist IDs: " + ", ".join(unknown)
-        )
+    delete_ids = tuple(dict.fromkeys(deleted_project_asset_ids))
+    preservation_manifest: PreservationManifest | None = None
     if rebuilt.mode == "rebuild":
-        if not confirmed_whitelist:
+        if not confirmed_preservation_manifest:
             raise SyncBlocked(
-                "destructive rebuild requires --confirmed-whitelist after independent audit"
+                "destructive rebuild requires --confirmed-preservation-manifest "
+                "after independent audit"
             )
         if not confirmed_risk:
             raise SyncBlocked(
                 "destructive rebuild requires the single --confirmed-risk decision"
             )
-    elif confirmed_whitelist or preserve_ids:
-        raise SyncBlocked("project asset whitelist is only valid for old-project rebuild")
+    elif confirmed_preservation_manifest or preserve_ids or delete_ids:
+        raise SyncBlocked("project asset decisions are only valid for old-project rebuild")
     elif rebuilt.risk_actions:
         raise SyncBlocked("current-only update cannot contain risk actions")
+
+    if rebuilt.mode == "rebuild":
+        preservation_manifest = _build_preservation_manifest(
+            rebuilt,
+            preserve_ids,
+            delete_ids,
+        )
 
     selected_targets = {
         str(candidate_by_id[item_id]["target"])
         for item_id in preserve_ids
-        if candidate_by_id[item_id].get("kind")
-        in {"rule", "hook", "hook-dependency"}
-    }
-    required_targets = {
-        str(dependency)
-        for item_id in preserve_ids
-        for dependency in candidate_by_id[item_id].get("dependencies", [])
+        if item_id in candidate_by_id
     }
     actions = [
         action
@@ -1649,21 +2028,15 @@ def _apply_rebuilt_plan(
         if not (
             rebuilt.mode == "rebuild"
             and action.action == "delete"
-            and action.target in selected_targets
+            and any(
+                action.target == target or action.target.startswith(target + "/")
+                for target in selected_targets
+            )
         )
     ]
     root = Path(rebuilt.project_root)
     template = Path(rebuilt.template_root)
     contract, _contract_path = load_contract(template)
-    desired_targets = {str(asset["target"]) for asset in contract["assets"]}
-    missing_dependencies = sorted(
-        required_targets - desired_targets - selected_targets
-    )
-    if missing_dependencies:
-        raise SyncBlocked(
-            "selected project hook requires unselected dependencies: "
-            + ", ".join(missing_dependencies)
-        )
     asset_by_id = {str(asset["id"]): asset for asset in contract["assets"]}
 
     def preserve_action(asset_id: str, payload: bytes) -> None:
@@ -1690,13 +2063,25 @@ def _apply_rebuilt_plan(
                 "root.agents",
                 _merge_agents_current(source, current, asset, root),
             )
-        if "hook-registration" in special:
+        selected_bundles = {
+            Path(str(candidate_by_id[item_id]["target"])).name
+            for item_id in preserve_ids
+            if candidate_by_id[item_id].get("kind") == "project-hook-bundle"
+        }
+        if any(
+            item.get("kind") == "project-hook-bundle"
+            for item in candidate_by_id.values()
+        ):
             asset = asset_by_id["codex.hooks-config"]
             source = _inside(template, asset["source"], "hooks source").read_bytes()
             current = _inside(root, asset["target"], "hooks target").read_bytes()
             preserve_action(
                 "codex.hooks-config",
-                _merge_hooks_current(source, current),
+                _merge_hooks_current(
+                    source,
+                    current,
+                    preserved_bundles=selected_bundles,
+                ),
             )
         if "hook-extension" in special:
             asset = asset_by_id["codex.precommit"]
@@ -1722,6 +2107,17 @@ def _apply_rebuilt_plan(
     transaction = _Transaction(root)
     memory_root = root / ".codex" / "memory"
     transaction.snapshot_tree(memory_root)
+    deleted_bundle_paths = tuple(
+        _inside(
+            root,
+            str(candidate_by_id[item_id]["target"]),
+            "project hook bundle deletion",
+        )
+        for item_id in delete_ids
+        if candidate_by_id[item_id].get("kind") == "project-hook-bundle"
+    )
+    for bundle_path in deleted_bundle_paths:
+        transaction.snapshot_tree(bundle_path)
     stamp = _inside(root, CURRENT_STAMP, "version stamp")
     stamp_written = False
     rollback_performed = False
@@ -1730,6 +2126,15 @@ def _apply_rebuilt_plan(
             target = _inside(root, action.target, f"action {action.asset_id}")
             if checkpoint is not None:
                 checkpoint(f"before-action:{action.asset_id}")
+            if action.before_sha256 is None:
+                if target.exists():
+                    raise SyncBlocked(
+                        f"action target appeared after planning: {action.target}"
+                    )
+            elif not target.is_file() or _sha256_path(target) != action.before_sha256:
+                raise SyncBlocked(
+                    f"action target drifted after planning: {action.target}"
+                )
             if action.action == "delete":
                 transaction.delete(target)
             elif action.payload is not None:
@@ -1740,6 +2145,10 @@ def _apply_rebuilt_plan(
                 )
             if checkpoint is not None:
                 checkpoint(f"after-action:{action.asset_id}")
+        for bundle_path in deleted_bundle_paths:
+            transaction.delete_tree(bundle_path)
+        if checkpoint is not None:
+            checkpoint("after-project-hook-bundle-deletions")
         rebuild_index = root / ".codex" / "scripts" / "memory_rebuild_index.py"
         if memory_root.is_dir() and rebuild_index.is_file():
             result = subprocess.run(
@@ -1759,6 +2168,16 @@ def _apply_rebuilt_plan(
         if checkpoint is not None:
             checkpoint("after-memory-index")
         _verify_actions(root, actions, mutable_targets=seed_targets)
+        remaining_bundles = [
+            str(path.relative_to(root))
+            for path in deleted_bundle_paths
+            if path.exists()
+        ]
+        if remaining_bundles:
+            raise SyncBlocked(
+                "deleted project hook bundle still exists: "
+                + ", ".join(remaining_bundles)
+            )
         _verify_preserved_knowledge(knowledge_before)
         _run_current_validators(root, actions)
         checker = _trusted_current_baseline_module(template)
@@ -1767,6 +2186,17 @@ def _apply_rebuilt_plan(
             expected_version=rebuilt.current_version,
             prospective_version=rebuilt.current_version,
         )
+        if preservation_manifest is not None:
+            preservation_manifest.clear()
+            if (
+                not preservation_manifest.cleared
+                or preservation_manifest.dispositions
+                or preservation_manifest.required_preserve
+                or preservation_manifest.plan_fingerprint
+            ):
+                raise SyncBlocked("temporary preservation manifest cleanup failed")
+        if checkpoint is not None:
+            checkpoint("after-preservation-manifest-clear")
         transaction.write(
             stamp,
             (rebuilt.current_version + "\n").encode("utf-8"),
@@ -1795,6 +2225,7 @@ def _apply_rebuilt_plan(
         aggregate_fingerprint=rebuilt.aggregate_fingerprint,
         applied=applied,
         preserved_project_asset_ids=preserve_ids,
+        deleted_project_asset_ids=delete_ids,
         stamp_written_last=stamp_written,
         rollback_performed=rollback_performed,
         timings_ms=timings,
@@ -1831,7 +2262,7 @@ def _plan_payload(
         ],
         "gaps": [asdict(item) for item in plan.gaps],
         "blockers": plan.blockers,
-        "project_asset_whitelist": plan.project_requirements,
+        "preservation_manifest": plan.preservation_entries,
         "confirmation_required": plan.mode == "rebuild",
         "aggregate_fingerprint": plan.aggregate_fingerprint,
     }
@@ -1848,16 +2279,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--plan-fingerprint")
     parser.add_argument(
-        "--confirmed-whitelist",
+        "--confirmed-preservation-manifest",
         action="store_true",
-        help="confirm the independently audited old-project asset decisions",
+        help="confirm the independently audited one-time PreservationManifest",
     )
     parser.add_argument(
         "--preserve-project-asset",
         action="append",
         default=[],
         metavar="WID",
-        help="repeat an exact W ID from the old-project whitelist",
+        help="repeat an exact P ID approved for preservation",
+    )
+    parser.add_argument(
+        "--delete-project-asset",
+        action="append",
+        default=[],
+        metavar="WID",
+        help="repeat an exact user-decision ID approved for deletion",
     )
     parser.add_argument("--confirmed-risk", action="store_true")
     args = parser.parse_args(argv)
@@ -1896,8 +2334,9 @@ def main(argv: list[str] | None = None) -> int:
             plan,
             plan_fingerprint=args.plan_fingerprint,
             confirmed_risk=args.confirmed_risk,
-            confirmed_whitelist=args.confirmed_whitelist,
+            confirmed_preservation_manifest=args.confirmed_preservation_manifest,
             preserved_project_asset_ids=tuple(args.preserve_project_asset),
+            deleted_project_asset_ids=tuple(args.delete_project_asset),
         )
         print(json.dumps(asdict(receipt), ensure_ascii=False, indent=2))
         return 0

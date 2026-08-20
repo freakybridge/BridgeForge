@@ -21,6 +21,13 @@ from typing import Any
 SCHEMA_VERSION = 3
 MINIMUM_CURRENT_BASELINE = (1, 4, 28)
 MANAGED_HOOK_PREFIX = "bridgeforge-codex.project-hook.v1:"
+FACTORY_MANIFEST = "bridgeforge-codex-manifest.json"
+FACTORY_MANIFEST_REMOTE = "https://github.com/freakybridge/BridgeForgeCodex.git"
+FACTORY_WITNESSES = (
+    "templates/managed-skeleton.json",
+    "skills/bridgeforge-codex/SKILL.md",
+    "scripts/bridgeforge_codex_project_sync.py",
+)
 HASH_RE = re.compile(r"sha256:[0-9a-f]{64}")
 PROJECT_NAME_CLONE_RE = re.compile(
     r"(?m)^(git clone <repo_url> )"
@@ -52,6 +59,18 @@ class BaselineReport:
     fingerprint: str
     checked_assets: tuple[str, ...]
     skipped_project_assets: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RepositoryRole:
+    kind: str
+    reason: str = ""
+
+
+@dataclass(frozen=True)
+class OwnershipProjection:
+    public_sha256: str
+    project_sha256: str
 
 
 def _git_bytes(payload: bytes) -> bytes:
@@ -92,6 +111,155 @@ def _inside(root: Path, relative: object, label: str) -> Path:
     return candidate
 
 
+def _factory_relative(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise BaselineError(f"{label} must use one explicit POSIX relative path")
+    path = PurePosixPath(value)
+    if (
+        path.is_absolute()
+        or ".." in path.parts
+        or path.as_posix() != value
+        or any(char in value for char in "*?[")
+    ):
+        raise BaselineError(f"{label} is unsafe: {value!r}")
+    return path.as_posix()
+
+
+def _managed_target_key(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise BaselineError(f"{label} must use one explicit POSIX relative path")
+    path = PurePosixPath(value)
+    if (
+        path.is_absolute()
+        or ".." in path.parts
+        or path.as_posix() != value
+        or any(char in value for char in "*?[")
+    ):
+        raise BaselineError(f"{label} is unsafe: {value!r}")
+    return path.as_posix().casefold()
+
+
+def validate_factory_manifest_path(
+    manifest_path: Path,
+    *,
+    repository_root: Path | None = None,
+    validate_sources: bool = False,
+) -> dict[str, Any]:
+    try:
+        path = manifest_path.resolve()
+        root = (repository_root or path.parent).resolve()
+        manifest = _loads_json(path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise BaselineError(f"factory manifest is invalid: {exc}") from exc
+    if not isinstance(manifest, dict) or set(manifest) != {
+        "schema_version", "canonical_remote", "branch", "platforms"
+    }:
+        raise BaselineError("factory manifest top-level fields are not exact")
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("canonical_remote") != FACTORY_MANIFEST_REMOTE
+        or manifest.get("branch") != "main"
+    ):
+        raise BaselineError("factory manifest identity is invalid")
+    platforms = manifest.get("platforms")
+    if not isinstance(platforms, dict) or set(platforms) != {"codex"}:
+        raise BaselineError("factory manifest must expose only codex")
+    codex = platforms["codex"]
+    if (
+        not isinstance(codex, dict)
+        or set(codex) != {"target", "skills"}
+        or codex.get("target") != "~/.codex/skills"
+        or not isinstance(codex.get("skills"), list)
+    ):
+        raise BaselineError("factory manifest codex platform is invalid")
+    names: set[str] = set()
+    for skill in codex["skills"]:
+        if not isinstance(skill, dict) or set(skill) != {"name", "files"}:
+            raise BaselineError("factory manifest skill fields are not exact")
+        name = skill.get("name")
+        if (
+            not isinstance(name, str)
+            or re.fullmatch(r"[a-z0-9][a-z0-9-]*", name) is None
+            or name.casefold() in names
+            or not isinstance(skill.get("files"), list)
+            or not skill["files"]
+        ):
+            raise BaselineError(f"factory manifest skill is invalid: {name!r}")
+        names.add(name.casefold())
+        targets: set[str] = set()
+        for item in skill["files"]:
+            if not isinstance(item, dict) or set(item) != {"source", "target", "sha256"}:
+                raise BaselineError(f"factory manifest file fields are not exact: {name}")
+            source_relative = _factory_relative(item.get("source"), f"{name} source")
+            target = _factory_relative(item.get("target"), f"{name} target")
+            if target.casefold() in targets:
+                raise BaselineError(f"duplicate target path in factory manifest: {name}/{target}")
+            targets.add(target.casefold())
+            expected = item.get("sha256")
+            if not isinstance(expected, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", expected) is None:
+                raise BaselineError(f"factory manifest hash is invalid: {name}/{target}")
+            if validate_sources:
+                source = (root / source_relative).resolve()
+                try:
+                    source.relative_to(root)
+                except ValueError as exc:
+                    raise BaselineError(
+                        f"factory manifest source escapes root: {source_relative}"
+                    ) from exc
+                if not source.is_file():
+                    raise BaselineError(f"factory manifest source is missing: {source_relative}")
+                if _sha(source.read_bytes()) != expected:
+                    raise BaselineError(f"factory manifest source hash drifted: {source_relative}")
+    if "bridgeforge-codex" not in names:
+        raise BaselineError("factory manifest must include bridgeforge-codex")
+    return manifest
+
+
+def _factory_manifest_identity(path: Path) -> None:
+    validate_factory_manifest_path(
+        path,
+        repository_root=path.parent,
+        validate_sources=True,
+    )
+
+
+def detect_repository_role(project_root: Path) -> RepositoryRole:
+    """Return the single current repository role without version heuristics."""
+
+    root = project_root.resolve()
+    manifest = root / FACTORY_MANIFEST
+    witness_state = tuple((root / relative).is_file() for relative in FACTORY_WITNESSES)
+    if manifest.is_file():
+        try:
+            _factory_manifest_identity(manifest)
+        except BaselineError as exc:
+            return RepositoryRole("ambiguous", str(exc))
+        if all(witness_state):
+            return RepositoryRole("factory")
+        missing = [
+            relative
+            for relative, present in zip(FACTORY_WITNESSES, witness_state)
+            if not present
+        ]
+        return RepositoryRole(
+            "ambiguous",
+            "factory manifest exists but integrity witnesses are missing: "
+            + ", ".join(missing),
+        )
+    if any(witness_state):
+        present = [
+            relative
+            for relative, exists in zip(FACTORY_WITNESSES, witness_state)
+            if exists
+        ]
+        return RepositoryRole(
+            "ambiguous",
+            "factory support files exist without the factory manifest: "
+            + ", ".join(present),
+        )
+    return RepositoryRole("downstream")
+
+
 def _reject_noncurrent(value: Any, path: str = "contract") -> None:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -108,7 +276,7 @@ def _reject_noncurrent(value: Any, path: str = "contract") -> None:
 def load_contract(path: Path) -> dict[str, Any]:
     try:
         contract = _loads_json(path.read_text(encoding="utf-8-sig"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise BaselineError(f"current baseline is missing or invalid: {path}: {exc}") from exc
     if not isinstance(contract, dict):
         raise BaselineError("current baseline root must be an object")
@@ -155,7 +323,8 @@ def load_contract(path: Path) -> dict[str, Any]:
             or asset_id in ids
         ):
             raise BaselineError(f"invalid or duplicate asset id: {asset_id!r}")
-        if not isinstance(target, str) or target.casefold() in targets:
+        target_key = _managed_target_key(target, f"asset {asset_id} target")
+        if target_key in targets:
             raise BaselineError(f"invalid or duplicate asset target: {target!r}")
         if not isinstance(source_name, str) or not source_name:
             raise BaselineError(f"asset {asset_id} has no explicit source")
@@ -219,7 +388,7 @@ def load_contract(path: Path) -> dict[str, Any]:
             ):
                 raise BaselineError(f"asset {asset_id} has no current merge projection")
         ids.add(asset_id)
-        targets.add(target.casefold())
+        targets.add(target_key)
     return contract
 
 
@@ -233,6 +402,35 @@ def _marker_block(payload: bytes, begin: str, end: str) -> bytes:
     if len(starts) != 1 or len(stops) != 1 or starts[0] >= stops[0]:
         raise BaselineError(f"managed markers are missing or duplicated: {begin} / {end}")
     return b"".join(lines[starts[0] : stops[0] + 1])
+
+
+def _without_marker_blocks(
+    payload: bytes,
+    markers: list[tuple[str, str]],
+) -> bytes:
+    normalized = _git_bytes(payload)
+    lines = normalized.splitlines(keepends=True)
+    owned: set[int] = set()
+    for begin, end in markers:
+        begin_line = begin.encode("utf-8")
+        end_line = end.encode("utf-8")
+        starts = [
+            index for index, line in enumerate(lines)
+            if line.rstrip(b"\n") == begin_line
+        ]
+        stops = [
+            index for index, line in enumerate(lines)
+            if line.rstrip(b"\n") == end_line
+        ]
+        if len(starts) != 1 or len(stops) != 1 or starts[0] >= stops[0]:
+            raise BaselineError(
+                f"managed markers are missing or duplicated: {begin} / {end}"
+            )
+        span = set(range(starts[0], stops[0] + 1))
+        if owned.intersection(span):
+            raise BaselineError("managed marker regions overlap")
+        owned.update(span)
+    return b"".join(line for index, line in enumerate(lines) if index not in owned)
 
 
 def _json_object(path: Path) -> dict[str, Any]:
@@ -263,7 +461,7 @@ def _hook_handlers(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
     hooks = document.get("hooks")
     if not isinstance(hooks, dict):
         raise BaselineError("hooks.json has no hooks object")
-    for entries in hooks.values():
+    for event, entries in hooks.items():
         if not isinstance(entries, list):
             continue
         for entry in entries:
@@ -276,7 +474,11 @@ def _hook_handlers(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 if isinstance(handler_id, str):
                     if handler_id in result:
                         raise BaselineError(f"managed hook handler is duplicated: {handler_id}")
-                    result[handler_id] = handler
+                    result[handler_id] = {
+                        "event": str(event),
+                        "matcher": str(entry.get("matcher", "")),
+                        "handler": handler,
+                    }
     return result
 
 
@@ -298,8 +500,8 @@ def _verify_hooks(
         }
         if actual_managed != expected_managed:
             raise BaselineError("managed hook handler identity set drifted")
-        for handler_id, expected in expected_handlers.items():
-            if actual_handlers.get(handler_id) != expected:
+        for handler_id in expected_managed:
+            if actual_handlers.get(handler_id) != expected_handlers.get(handler_id):
                 raise BaselineError(f"managed hook handler drifted: {handler_id}")
         if "description" in expected_document:
             _deep_subset(
@@ -323,10 +525,14 @@ def _verify_hooks(
         if not isinstance(record, dict) or not isinstance(record.get("id"), str):
             raise BaselineError("hooks current ownership contains an invalid handler")
         handler_id = str(record["id"])
-        handler = handlers.get(handler_id)
-        if handler is None:
+        handler_record = handlers.get(handler_id)
+        if handler_record is None:
             raise BaselineError(f"managed hook handler is missing: {handler_id}")
-        if _canonical_sha(handler) != record.get("sha256"):
+        if handler_record["event"] != record.get("event"):
+            raise BaselineError(f"managed hook event drifted: {handler_id}")
+        if handler_record["matcher"] != record.get("matcher"):
+            raise BaselineError(f"managed hook matcher drifted: {handler_id}")
+        if _canonical_sha(handler_record["handler"]) != record.get("sha256"):
             raise BaselineError(f"managed hook handler drifted: {handler_id}")
     top = validation.get("managed_top_level")
     if isinstance(top, dict):
@@ -391,6 +597,173 @@ def _markdown_projection(payload: bytes, managed: dict[str, Any]) -> dict[str, A
             projected[key] = _sha(rows[key])
         tables[heading] = projected
     return {"headings": headings, "keyed_tables": tables}
+
+
+def _json_payload(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value = _loads_json(_git_bytes(payload).decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise BaselineError(f"{label} is invalid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise BaselineError(f"{label} JSON root must be an object")
+    return value
+
+
+def _hooks_ownership_views(document: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    hooks = document.get("hooks")
+    if not isinstance(hooks, dict):
+        raise BaselineError("hooks.json has no hooks object")
+    managed: list[dict[str, Any]] = []
+    project: list[dict[str, Any]] = []
+    seen_managed: set[str] = set()
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            raise BaselineError(f"hooks.json event is invalid: {event}")
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                raise BaselineError(f"hooks.json group is invalid: {event}")
+            matcher = str(entry.get("matcher", ""))
+            for handler in entry["hooks"]:
+                if not isinstance(handler, dict):
+                    raise BaselineError(f"hooks.json handler is invalid: {event}")
+                record = {
+                    "event": str(event),
+                    "matcher": matcher,
+                    "handler": handler,
+                }
+                handler_id = handler.get("bridgeforgeCodexId")
+                if isinstance(handler_id, str) and handler_id.startswith(
+                    MANAGED_HOOK_PREFIX
+                ):
+                    if handler_id in seen_managed:
+                        raise BaselineError(
+                            f"managed hook handler is duplicated: {handler_id}"
+                        )
+                    seen_managed.add(handler_id)
+                    managed.append(record)
+                else:
+                    project.append(record)
+    public_view = {
+        "description": document.get("description"),
+        "handlers": managed,
+    }
+    project_view = {
+        "top_level": {
+            key: value
+            for key, value in document.items()
+            if key not in {"description", "hooks"}
+        },
+        "handlers": project,
+    }
+    return public_view, project_view
+
+
+def _split_json_ownership(
+    required: Any,
+    actual: Any,
+    path: str,
+) -> tuple[Any, Any]:
+    if not isinstance(required, dict):
+        if required != actual:
+            raise BaselineError(f"managed JSON value drifted: {path}")
+        return actual, None
+    if not isinstance(actual, dict):
+        raise BaselineError(f"managed JSON value drifted: {path}")
+    public: dict[str, Any] = {}
+    project: dict[str, Any] = {
+        key: value for key, value in actual.items() if key not in required
+    }
+    for key, expected in required.items():
+        if key not in actual:
+            raise BaselineError(f"managed JSON key is missing: {path}.{key}")
+        public_value, project_value = _split_json_ownership(
+            expected,
+            actual[key],
+            f"{path}.{key}",
+        )
+        public[key] = public_value
+        if project_value not in (None, {}, []):
+            project[key] = project_value
+    return public, project
+
+
+def _markdown_project_payload(payload: bytes, managed: dict[str, Any]) -> bytes:
+    project = _git_bytes(payload)
+    for heading in managed.get("headings", []):
+        section = _heading_section(project, str(heading))
+        project = project.replace(section, b"", 1)
+    for table in managed.get("keyed_tables", []):
+        heading = str(table["heading"])
+        section = _heading_section(project, heading)
+        rows = _table_rows(section)
+        project_section = section
+        for raw_key in table["managed_keys"]:
+            key = str(raw_key).strip().strip("`").casefold()
+            if key not in rows:
+                raise BaselineError(
+                    f"managed Markdown row is missing: {heading} :: {raw_key}"
+                )
+            project_section = project_section.replace(rows[key], b"", 1)
+        project = project.replace(section, project_section, 1)
+    return project
+
+
+def ownership_projection(
+    asset: dict[str, Any],
+    payload: bytes,
+    project_root: Path,
+) -> OwnershipProjection:
+    """Project one managed target into stable public and project views."""
+
+    del project_root
+    empty = _canonical_sha({})
+    zones = asset.get("agents_zones")
+    if isinstance(zones, dict):
+        public = zones["public"]
+        project = zones["project"]
+        public_block = _marker_block(payload, public["begin"], public["end"])
+        project_block = _marker_block(payload, project["begin"], project["end"])
+        outside = _without_marker_blocks(
+            payload,
+            [
+                (public["begin"], public["end"]),
+                (project["begin"], project["end"]),
+            ],
+        )
+        return OwnershipProjection(
+            _sha(public_block),
+            _canonical_sha({"project": _sha(project_block), "outside": _sha(outside)}),
+        )
+    managed_blocks = asset.get("managed_blocks")
+    if isinstance(managed_blocks, dict):
+        return OwnershipProjection(
+            _canonical_sha(_markdown_projection(payload, managed_blocks)),
+            _sha(_markdown_project_payload(payload, managed_blocks)),
+        )
+    strategy = str(asset.get("strategy"))
+    if strategy == "region":
+        region = asset.get("region")
+        if not isinstance(region, dict):
+            raise BaselineError("managed region ownership is missing")
+        block = _marker_block(payload, region["begin"], region["end"])
+        outside = _without_marker_blocks(payload, [(region["begin"], region["end"])])
+        return OwnershipProjection(_sha(block), _sha(outside))
+    if strategy == "merge":
+        document = _json_payload(payload, str(asset.get("target", "managed JSON")))
+        if asset.get("merge_policy") == "codex-hooks":
+            public, project = _hooks_ownership_views(document)
+        else:
+            validation = asset.get("merge_validation")
+            required = validation.get("required") if isinstance(validation, dict) else None
+            if not isinstance(required, dict):
+                raise BaselineError("managed JSON ownership is missing")
+            public, project = _split_json_ownership(required, document, "managed JSON")
+        return OwnershipProjection(_canonical_sha(public), _canonical_sha(project))
+    if strategy == "seed":
+        return OwnershipProjection(empty, _sha(payload))
+    if strategy == "whole":
+        return OwnershipProjection(_sha(payload), empty)
+    raise BaselineError(f"unsupported ownership strategy: {strategy}")
 
 
 def _verify_markdown(
@@ -529,7 +902,10 @@ def verify_current_baseline(
     )
     version = str(contract["release_version"])
     stamp = _inside(root, contract.get("stamp"), "current baseline stamp")
-    factory = (root / "templates" / "managed-skeleton.json").is_file()
+    repository_role = detect_repository_role(root)
+    if repository_role.kind == "ambiguous":
+        raise BaselineError(f"repository role is ambiguous: {repository_role.reason}")
+    factory = repository_role.kind == "factory"
     if prospective_version is not None:
         stamp_version = prospective_version
     elif stamp.is_file():

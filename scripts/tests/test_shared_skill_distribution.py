@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import hashlib
 import os
@@ -15,6 +16,22 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "bridgeforge-codex-manifest.json"
 UPDATER = ROOT / "scripts/bridgeforge_codex_shared_update.ps1"
 CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForgeCodex.git"
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+MANIFEST_BUILDER = load_module(
+    "bridgeforge_strict_manifest_builder",
+    ROOT / "scripts" / "rebuild_shared_skill_manifest.py",
+)
 
 
 def sha256(path: Path) -> str:
@@ -51,6 +68,18 @@ def run(
 
 
 class SharedSkillDistributionTests(unittest.TestCase):
+    def test_contract_builder_rejects_noncanonical_windows_target(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "managed-skeleton.json"
+            contract = json.loads(
+                (ROOT / "templates" / "managed-skeleton.json").read_text(encoding="utf-8")
+            )
+            asset = next(item for item in contract["assets"] if "/" in item["target"])
+            asset["target"] = str(asset["target"]).replace("/", "\\")
+            path.write_text(json.dumps(contract), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "POSIX relative path"):
+                MANIFEST_BUILDER.rebuild_managed_contract(path, write=False)
+
     def test_manifest_exposes_one_active_codex_product(self) -> None:
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
         self.assertEqual(
@@ -128,6 +157,88 @@ class SharedSkillDistributionTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_manifest_builder_rejects_non_exact_or_duplicate_schema(self) -> None:
+        original = MANIFEST.read_text(encoding="utf-8-sig")
+        mutations = {
+            "duplicate-key": original.replace(
+                '"schema_version": 1,',
+                '"schema_version": 1,\n  "schema_version": 1,',
+                1,
+            ),
+            "unknown-field": json.dumps(
+                {**json.loads(original), "legacy_history": []},
+                ensure_ascii=False,
+            ),
+            "wrong-schema": json.dumps(
+                {**json.loads(original), "schema_version": 99},
+                ensure_ascii=False,
+            ),
+            "wrong-platform": json.dumps(
+                {
+                    **json.loads(original),
+                    "platforms": {
+                        **json.loads(original)["platforms"],
+                        "claude": {},
+                    },
+                },
+                ensure_ascii=False,
+            ),
+        }
+        for label, payload in mutations.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as raw:
+                path = Path(raw) / MANIFEST.name
+                path.write_text(payload, encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    MANIFEST_BUILDER.rebuild_manifest(path, write=False)
+
+    def test_manifest_builder_rejects_normalized_duplicate_target(self) -> None:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
+        files = manifest["platforms"]["codex"]["skills"][0]["files"]
+        duplicate = dict(files[0])
+        duplicate["source"] = files[1]["source"]
+        duplicate["target"] = files[0]["target"].upper()
+        files.append(duplicate)
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / MANIFEST.name
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate target"):
+                MANIFEST_BUILDER.rebuild_manifest(path, write=False)
+
+    def test_manifest_builder_requires_bridgeforge_command_bundle(self) -> None:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
+        manifest["platforms"]["codex"]["skills"] = []
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / MANIFEST.name
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "must include bridgeforge-codex"):
+                MANIFEST_BUILDER.validate_manifest_path(path)
+
+    def test_manifest_check_does_not_write_validator_bytecode(self) -> None:
+        cache_root = ROOT / "templates" / "scripts" / "__pycache__"
+
+        def snapshot() -> dict[str, tuple[bytes, int]]:
+            if not cache_root.is_dir():
+                return {}
+            return {
+                path.name: (path.read_bytes(), path.stat().st_mtime_ns)
+                for path in cache_root.iterdir()
+                if path.is_file()
+            }
+
+        before = snapshot()
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/rebuild_shared_skill_manifest.py"), "--check"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(snapshot(), before)
 
     @unittest.skipUnless(sys.platform == "win32", "PowerShell parser is Windows-only")
     def test_powershell_entrypoints_parse(self) -> None:
@@ -315,6 +426,84 @@ class SharedSkillUpdaterIntegrationTests(unittest.TestCase):
         self.assertFalse((entry / "templates").exists())
         self.assertEqual((third_party / "SKILL.md").read_text(), "keep")
         self.assertEqual(set(self.ledger()["records"]), {"bridgeforge-codex", "common"})
+
+    def test_updater_rejects_duplicate_manifest_keys(self) -> None:
+        self.write_source()
+        manifest = self.source / "bridgeforge-codex-manifest.json"
+        text = manifest.read_text(encoding="utf-8")
+        manifest.write_text(
+            text.replace(
+                '"schema_version": 1,',
+                '"schema_version": 1,\n  "schema_version": 1,',
+                1,
+            ),
+            encoding="utf-8",
+        )
+        self.initialize_repository()
+
+        result = self.invoke()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate JSON key", result.stderr + result.stdout)
+        self.assertFalse((self.profile / ".codex/bridgeforge-codex-managed.json").exists())
+
+    def test_updater_rejects_extra_manifest_platform(self) -> None:
+        self.write_source()
+        manifest_path = self.source / "bridgeforge-codex-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["platforms"]["claude"] = {
+            "target": "~/.claude/skills",
+            "skills": [],
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        self.initialize_repository()
+
+        result = self.invoke()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fields are not exact", result.stderr + result.stdout)
+        self.assertFalse((self.profile / ".codex/bridgeforge-codex-managed.json").exists())
+
+    def test_updater_rejects_unknown_manifest_file_field(self) -> None:
+        self.write_source()
+        manifest_path = self.source / "bridgeforge-codex-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["platforms"]["codex"]["skills"][0]["files"][0]["legacy"] = True
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        self.initialize_repository()
+
+        result = self.invoke()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fields are not exact", result.stderr + result.stdout)
+        self.assertFalse((self.profile / ".codex/bridgeforge-codex-managed.json").exists())
+
+    def test_updater_requires_prefixed_lowercase_manifest_hash(self) -> None:
+        self.write_source()
+        manifest_path = self.source / "bridgeforge-codex-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        item = manifest["platforms"]["codex"]["skills"][0]["files"][0]
+        item["sha256"] = item["sha256"].removeprefix("sha256:")
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        self.initialize_repository()
+
+        result = self.invoke()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Invalid SHA-256", result.stderr + result.stdout)
+
+    def test_updater_requires_lowercase_skill_name(self) -> None:
+        self.write_source()
+        manifest_path = self.source / "bridgeforge-codex-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["platforms"]["codex"]["skills"][0]["name"] = "Common"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        self.initialize_repository()
+
+        result = self.invoke()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unsafe skill name", result.stderr + result.stdout)
 
     def test_identical_rerun_is_noop(self) -> None:
         self.write_source()

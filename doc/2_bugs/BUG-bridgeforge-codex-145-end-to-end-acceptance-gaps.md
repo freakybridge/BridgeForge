@@ -1,5 +1,5 @@
 ---
-status: product-fixed-awaiting-downstream-validation
+status: superseded-current-product-awaiting-real-downstream-validation
 severity: high
 scope: BridgeForgeCodex 1.4.5 end-to-end update, git-sync handoff, and user-skill migration
 reported_at: 2026-08-17
@@ -8,13 +8,27 @@ downstream: D:\Quant\ClaudeBridgeAssist
 additional_downstream: D:\Quant\causis_risk_suite
 factory_head: 304e6189a6724078351deea2c055b0bca52d80c1
 product_version: 1.4.5
-additional_product_version: 1.4.11
+additional_product_version: 1.4.30
 related_bug: BUG-git-sync-contract-transition-classification.md
 transition_fix_version: 1.4.12
 compatibility_retirement_version: 1.4.13
 ---
 
 # BUG：BridgeForgeCodex 1.4.5 真实下游仍有一个提交阻断和一项迁移记账缺口
+
+## 2026-08-21：当前产品处理方式
+
+本文后续保留 1.4.5 现场与人工补救证据，但两条原推荐路线均已退出当前产品：
+
+- 项目 contract transition 自 1.4.28 起由 current-only 边界取代；合法旧项目走一次
+  `PreservationManifest` 破坏性重建，当前项目只接受 schema 3，不再维护 lineage adapter；
+- 用户级 compatibility manifest、旧 ledger 接管与 retire-tree 已在 1.4.13 物理删除。当前 updater
+  不读取旧账本；目标冲突时阻断，旧用户重新安装当前产品。
+
+因此本 Bug 不再要求实现 transition proof、退休特例或 ledger 收口事务。当前剩余验收只包括：
+在用户授权的真实 ClaudeBridgeAssist 副本中按 1.4.30 规则正规化项目 Hook、完成确认式重建与
+no-op replan，再运行 `$git-sync` 和 runtime smoke。第二期没有真实写入该项目，以上仍未验证；
+不得用本文历史方案重新扩张当前产品。
 
 ## 2026-08-19 用户级兼容链退役
 
@@ -478,7 +492,7 @@ ledger SHA256 为 9960F979472C9F22090BD95383BD7B5E41D8BD6696BE3DE43EF83DF30C57BE
 - apply 后缺少“每条 current ledger record 的目标必须存在且哈希匹配”的终态不变量。
 - 当前 ledger 的重写与 retire-tree 不在同一必需事务内，导致成功收据也能留下 ghost record。
 
-## 推荐修复
+## 历史推荐修复（已被 current-only 边界取代）
 
 ### A. 统一 project_sync 与 git-sync 的 transition 事实源
 
@@ -507,7 +521,7 @@ ledger SHA256 为 9960F979472C9F22090BD95383BD7B5E41D8BD6696BE3DE43EF83DF30C57BE
 6. 本次 5 个 skill 不需要恢复；上游只需提供受支持的 ledger 收口事务，并保留 14 个有人工修改的
    legacy skill。
 
-## 回归与验收场景
+## 历史回归与验收场景（不再是当前产品合同）
 
 1. 使用 D:\Quant\ClaudeBridgeAssist 当前 HEAD 和更新前快照执行完整
    updater -> user migration -> project plan/apply -> release preflight；最后 classification 必须为
@@ -529,7 +543,7 @@ ledger SHA256 为 9960F979472C9F22090BD95383BD7B5E41D8BD6696BE3DE43EF83DF30C57BE
     downstream fixture 与 git diff --check 全部通过。
 11. 独立审计必须覆盖“同名 active / transition”与“project_sync ready 但 release blocked”两个反例。
 
-## 六类关闭证据
+## 历史六类关闭证据
 
 | 证据类别 | 当前状态 | 关闭要求 |
 |---|---|---|
@@ -540,7 +554,8 @@ ledger SHA256 为 9960F979472C9F22090BD95383BD7B5E41D8BD6696BE3DE43EF83DF30C57BE
 | 真实下游 | A 仍失败；B 已用授权补救收口 | ClaudeBridgeAssist preflight 通过；官方事务可让 5 skill 保持删除且 ledger 收口 |
 | runtime | 未验证 | 新会话不再暴露 5 个入口；$git-sync 只读 preflight 通过 |
 
-六类证据全部满足前，本报告不得标记 resolved。
+本表仅记录 1.4.5～1.4.13 的旧边界，不能用于要求恢复已删除的 migration/ledger 机制。当前
+报告保持 active，只因为上文列出的真实下游重建与 runtime 尚未执行。
 
 ## 当前恢复边界
 

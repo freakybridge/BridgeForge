@@ -47,7 +47,7 @@ HOOK_LOCK_TIMEOUT_SECONDS = 10.0
 
 
 def _load_hooks_ownership_module() -> object:
-    path = Path(__file__).resolve().parent.parent / "templates" / "scripts" / "hooks_ownership.py"
+    path = Path(__file__).resolve().with_name("hooks_ownership.py")
     spec = importlib.util.spec_from_file_location("_bridgeforge_user_hooks_ownership", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load hooks ownership parser: {path}")

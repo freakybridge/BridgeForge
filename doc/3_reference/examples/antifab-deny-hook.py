@@ -8,8 +8,9 @@ agent 真去读「能解析出路径、且确证不存在」的资源那一刻�
 
 ⚠️ 这是 doc/3_reference/examples 下的**参考实现，不被骨架 settings.json 注册、不会自动运行**。
    经两轮 debate 裁决：C1 不进 templates/hooks/（理由见框架文档 §3——空 hint 近零价值 +
-   误伤是硬停 + dogfood 先伤自己）。下游真有「幻觉读文件」痛点时，自行 copy 进
-   .claude/hooks/、填好下面 3 个配置、再在 settings.json 注册 PreToolUse matcher 才生效。
+   误伤是硬停 + dogfood 先伤自己）。下游真有「幻觉读文件」痛点时，应把它正规化为独立
+   项目 Hook bundle，例如 `.codex/hooks/project_antifab/entrypoint.py`，填好下面 3 个配置，
+   再在 `.codex/hooks.json` 注册 PreToolUse handler 才生效。
 
 四 gate 漏斗（全过才 deny，缺一即放行——刻意窄交集「宁漏勿误」）：
   G0 工具匹配  : tool_name ∈ READ_TOOLS
@@ -40,7 +41,7 @@ except Exception:
 # 项目要填的 3 个配置（全是数据，不是代码分支）。空配置也能跑、不报错、不误伤。
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 读取类工具名集合。默认即 Claude Code 的 Read；有自定义读取工具再扩展。
+# 读取类工具名集合。默认使用当前 hook payload 的 Read；有自定义读取工具再扩展。
 READ_TOOLS = {"Read"}
 
 # 豁免前缀（绝对路径前缀列表）。给「故意读不存在文件是合法行为」留逃生口
@@ -102,7 +103,7 @@ def evaluate(tool_name: str, tool_input: dict) -> str | None:
 
 
 def main() -> int:
-    # 输入双兜底：官方 PreToolUse 走 stdin JSON；老 hook 走环境变量（对齐 allow_memory_write.py）
+    # 输入双兜底：当前 PreToolUse 走 stdin JSON；旧项目环境变量仅供参考脚本兼容。
     data: dict = {}
     try:
         raw = sys.stdin.read()
@@ -111,11 +112,11 @@ def main() -> int:
     except Exception:
         data = {}
 
-    tool_name = data.get("tool_name") or os.environ.get("CLAUDE_TOOL_NAME", "")
+    tool_name = data.get("tool_name") or os.environ.get("CODEX_TOOL_NAME", "")
     tool_input = data.get("tool_input")
     if not tool_input:
         try:
-            tool_input = json.loads(os.environ.get("CLAUDE_TOOL_INPUT", "{}"))
+            tool_input = json.loads(os.environ.get("CODEX_TOOL_INPUT", "{}"))
         except Exception:
             tool_input = {}
 

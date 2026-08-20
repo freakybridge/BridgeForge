@@ -1,192 +1,104 @@
 # 设计原则
 
-> **bridgeforge-codex 1.0.0 现行边界**：产品只支持 Codex，活跃资产只有
-> `templates/`、`skills/` 与 `$bridgeforge-codex`。本文下方出现的 Claude、switch、
-> parity 和旧 `$bridgeforge` 正常产品流程均为 1.0.0 前历史依据，不再构成实现契约；现行
-> 项目事务以 [codex-project-sync.md](codex-project-sync.md) 为准。
+> 本文只描述 bridgeforge-codex 1.4.30+ 的现行设计。历史迁移、Claude 双骨架、
+> switch、junction 与版本谱系不属于当前运行时契约。
 
----
+## 1. 产品边界
 
-## 1. 双层 CLAUDE.md：全局 vs 项目
+bridgeforge-codex 只维护 Codex 协作骨架：
 
-| 层 | 路径 | 内容 |
-|----|------|------|
-| 全局 | `~/.claude/CLAUDE.md` | **跨项目稳定的我**：沟通语言、安全确认协议、环境隔离习惯、执行节奏（"先列计划再动手" 等） |
-| 项目 | `<repo>/CLAUDE.md` | **项目特定的事**：架构红线、rules 索引、快速命令、项目结构、跨机 checklist |
+- `templates/` 是下游公共骨架的唯一来源；
+- `skills/` 是用户级通用 Skill 的唯一来源；
+- `scripts/` 只放工厂发布、同步和校验工具；
+- `.codex/` 是工厂自身的 dogfood 投影，不是第二份产品源。
 
-**判断标准**：换一个项目还成立的内容 → 全局；只对这个项目成立 → 项目。
+工厂专属检查不得下沉到普通项目。下游也不得反向把业务约束吸收到 Template。
 
-bridgeforge **不动全局**——全局是个人偏好，应一次性配好；bridgeforge 只铺项目这一层。
+## 2. 指令分层
 
----
+- 根 `AGENTS.md` 承载全项目常驻红线；
+- 嵌套 `AGENTS.md` 承载目录专属红线；
+- hook 与 pre-commit 承载可机器判断的约束；
+- Skill 承载用户主动调用的流程；
+- `doc/` 承载原理、方案、案例和长 SOP。
 
-## 2. Codex 原生指令分层
+Markdown `paths:` 不是 Codex 的自动指令路由机制。项目不得建立第二套隐式规则索引。
 
-- 全项目常驻红线写入根 `AGENTS.md`。
-- 目录专属约束写入该目录的嵌套 `AGENTS.md`。
-- 可机器判断的约束交 hook / pre-commit，操作流程交 skill，长说明交 doc。
-- Markdown frontmatter `paths:` 不是 Codex 指令加载机制；禁止建立或宣称隐式 path-rule 加载。
+## 3. 公共资产与项目资产
 
-完整迁移映射见 [codex-native-instruction-architecture.md](codex-native-instruction-architecture.md)。
+同一个文件可以同时包含公共区和项目区，但 ownership 必须可解析：
 
----
+- `AGENTS.md`：公共区由 Template 管理，项目专区逐字保留；
+- `.githooks/pre-commit`：受管区由 Template 管理，项目扩展区逐字保留；
+- `.codex/hooks.json`：BridgeForge handler 与项目 handler 分开校验；
+- 项目 Rule：`.codex/rules/**` 中不属于公共合同的文件逐项进入 `PreservationManifest`；
+  新增项目 Rule 推荐集中放在 `.codex/rules/project/**`，但同步器不靠目录名猜 ownership；
+- 项目 Hook：每个 Hook 独占 `.codex/hooks/project_XXXX/`，入口为 `entrypoint.py`，
+  私有代码、配置和数据都放在同一目录内；
+- 项目 Memory 与 Skill：整棵项目资产保留，但必须通过当前版本兼容性检查。
 
-## 3. Memory junction：让 memory 跟项目走
+版本分类比较 ownership projection，而不是只看文件路径。项目区发生变化就属于业务变化；
+公共区发生变化才属于骨架变化。
 
-Claude Code 默认把 memory 存在 `~/.claude/projects/<project-hash>/memory/`——这是**用户级**路径，跨机不同步。
+## 4. 两条更新路径
 
-但 memory 的内容（踩坑经验、用户偏好、决策记录）是**项目特有**的，理应跟项目 git 走。
+### 4.1 旧项目重装
 
-解决方案：**junction**（Windows）/ **symlink**（Unix）把系统路径透明指向 `<project>/.claude/memory/`。
+只有合法的 `<1.4.28` 旧戳可以进入破坏性重装。Planner 先只读盘点项目资产，生成临时
+`PreservationManifest`；所有需要用户决策的项目必须明确选择 preserve 或 delete，未选择
+不得默认为删除。
 
-- Claude Code 仍用系统路径读写（不需要改 Claude Code）
-- 实际存储在项目内（git 管理）
-- 换机 clone 后跑一次 setup-junction 脚本即可恢复
+清单只服务本次升级：Apply 重新核对指纹、安装当前骨架、回灌确认资产、完成全部校验并
+写入最终版本戳后，清单即失效，不作为长期迁移状态保存。
 
----
+### 4.2 当前版本更新
 
-## 4. doc/ 分层归档
+`1.4.28+` 项目只接受 current-only 合同。公共资产漂移、合同损坏、身份不一致或未知结构
+必须在写盘前阻断。
 
-```
-doc/
-├── 0_architecture/  ← 架构红线（PRD / 约束 / Roadmap）+ acceptance.md（正在做的验收）+ TODO-INDEX.md（暂时没空 + 远期 backlog 索引）
-├── 1_plan/          ← 活跃推进（按 topic 子目录）+ sprints/（Sprint / Task 级日程）
-├── 2_pending/       ← 未决问题展开备忘 + 辩论
-├── 3_design/        ← 模块实现设计
-├── 4_archive/       ← 已完成归档
-└── 9_reference/     ← 外部参考资料
-```
+若新合同移除了资产，同步器只允许删除满足以下全部条件的旧资产：旧合同确实拥有、策略为
+`whole`、路径安全、目标内容仍精确匹配旧合同。部分 ownership、项目改动或无法证明的目标
+一律阻断，不靠历史 retirement 表猜测。
 
-**核心二分：正在做 vs 暂时没空**：
+## 5. 事务与失败边界
 
-| 状态 | 落位 | 性质 |
-|------|------|------|
-| **正在做** | `0_architecture/acceptance.md`（验收勾选）+ `1_plan/sprints/`（Sprint Task 日程）| 当前周期 commit 的工作 |
-| **暂时没空（短期）** | `0_architecture/TODO-INDEX.md` §完整清单（短条目）+ `2_pending/<日期>_<topic>.md`（有上下文的展开备忘）| 已识别但排不进当前 Sprint |
-| **远期 backlog** | `0_architecture/TODO-INDEX.md` §远期 Backlog 索引 → 跳转 `1_plan/<模块>/<主题>.md`（不带日期前缀）| 功能尚未排到 Milestone |
-| **已完成** | `4_archive/` | 留作历史参考 |
+- Planner、`--check` 与 pre-commit 必须零写；
+- Apply 在任何写入前重算输入指纹；
+- 自动写入、删除、派生索引和 Git index 都纳入同一事务；
+- 可捕获失败恢复本轮写入，并保留用户原有 staged/unstaged 边界；
+- 版本戳最后写；失败不得留下“已升级”假象；
+- hook、JSON、路径和合同解析均 fail-closed，禁止用宽松 fallback 吸收损坏状态。
 
-差别在于"行动状态"——TODO-INDEX 主表是**冷冻待解冻**，acceptance + sprints 是**进行中**，archive 是**已落幕**。
+pre-commit 只验证当前工作树和 index。需要重建 Memory 索引、manifest 或版本文件时，用户
+先运行 repo-local `$git-sync`，由单一写事务生成并暂存，pre-commit 不在 `git commit` 内暗写。
 
-文档随时间流动：`远期 backlog → TODO-INDEX 主表 → 排进 acceptance + sprints → 完成后 archive`。`/archive-scan` skill 周期性扫 `2_pending/` 看哪些可以归档。
+## 6. 工厂与 dogfood
 
-**为什么 TODO-INDEX 在 `0_architecture/` 而不是 `2_pending/`**：因为它是项目级的**单点真相**（汇总短期 + 远期），跟 PRD / Roadmap / 约束属于同一层级 — 不会因为时间推进而过期，只会增量更新。`2_pending/` 是单个具体问题的展开备忘，归档后会消失，TODO-INDEX 不会。
+工厂身份由严格校验的根 `bridgeforge-codex-manifest.json` 主张，并要求 Template 合同、
+入口 Skill 与项目同步器三项 factory witness 同时存在。单独复制任一 witness 或提供畸形
+manifest 都只能得到身份不一致，不能绕过普通下游必须具备的当前版本戳。
 
----
+Template 与 `.codex/` 的公共运行时必须保持当前投影一致。校验通过合同和当前文件直接比较，
+不保留逐版本 hash 谱系，也不向下游复制工厂专属检查器。
 
-## 5. 工作流红线为什么写进 AGENTS.md
+## 7. 文档与项目知识
 
-鬼打墙、证据边界等任何任务都必须遵守的约束直接写进根 `AGENTS.md`。只对某个目录成立的约束写入嵌套 `AGENTS.md`，不再写 Markdown rule 索引。
+项目文档固定使用 `0_architecture / 1_delivery / 2_bugs / 3_reference / 4_archive` 五层结构，
+`doc/README.md` 是唯一索引。活跃架构文档只描述当前行为；历史决策留在交付记录、Bug、
+archive 与 Git 历史中。
 
----
+项目 Memory 保存在 `.codex/memory/` 并纳入 Git，与 Codex 原生用户级 memories 分离；禁止
+junction。项目 Skill 保存在 `.codex/skills/<name>/SKILL.md`，必须满足当前 metadata、结构、
+引用和体积规则。
 
-## 6. 模板 vs 占位
+## 8. 有意不做
 
-bridgeforge 的模板分两类：
+- 不自动迁移 Claude、旧 ledger、旧用户目录或任意未知项目结构；
+- 不维护每个历史版本的 adapter、hash 表或 retirement 表；
+- 不执行目标项目自带的旧校验脚本来证明兼容性；
+- 不解析任意 shell 命令猜测项目 Hook 的动态依赖；
+- 不自动 Git commit 或 push；
+- 不用工厂扫描器监管全部下游项目。
 
-**深模板（直接搬全文）**：
-- 鬼打墙红线 / UI 主动问范式 / 修 bug 前确认根因 / 性能先量化 / 经验总结流程
-- 这些是"任何项目都该有"的通用工作流，搬就完了
-
-**骨架（占位让用户填）**：
-- 架构红线 / 数据流方向 / 项目结构 / 快速命令
-- 这些是项目特定的，AI 不该替用户瞎编
-
-**判断标准**：内容是否依赖具体业务领域？依赖 → 骨架；不依赖 → 深模板。
-
----
-
-## 7. 不做什么
-
-bridgeforge 故意**不做**这些事，留给项目自己决定：
-
-| 不做 | 原因 |
-|------|------|
-| 不动 `~/.claude/CLAUDE.md` | 全局规范是个人偏好，不该被 skill 覆盖 |
-| 不预装具体 skill（plan / debate / escalate 等） | 那些 skill 应该独立维护，bridgeforge 只在 CLAUDE.md §4 给个 TODO 让用户自己决定要装哪些 |
-| 不自动 git commit | 让用户先填占位再 commit，避免污染历史 |
-| 不替用户编架构红线 | 架构是用户自己想清楚的，AI 编的内容反而误导 |
-| 不强制目录结构 | 只给"推荐范式"，用户可以删掉用不上的目录 |
-| **不监督下游是否守红线**（不做 doctor / 合规仪表盘）| bridgeforge 是**出版方非监管方**：产出好默认 + 推改进，不盯下游照没照做。下游自治、合理例外正常。详见表后说明 |
-
-> **关于"不监督下游"（2026-05-29 探讨后否决 doctor / fleet 设计）**
->
-> 曾设想 `/doctor`（单项目 8 项体检）+ fleet 报表（N 项目合规盘）。**否决理由**：
-> 1. **关系模型错**——你管的全是自己的项目，监管者 = 被监管者，给自己建监督自己的仪表盘是空转。
-> 2. **远程强制执行必死于"合理例外"噪音**——某些项目因特性无法守某条红线是正常的，仪表盘塞满"预期内的红"后没人看。
-> 3. **要可信就得 PULL 现场测**（PUSH 自报会重蹈 CLAUDE.md §8 的"自证陷阱"：项目自己开化验单自己寄）；而你的项目同机，唯一隐形隐患"junction 静默断"已由 CLAUDE.md §5 开机自检覆盖。
->
-> **结论**：框架的杠杆在"**发布**好默认 + 把改进**推**出去"，不在"**监管**谁照没照做"。这与本节其余各条（不强制、留给项目自决）一脉相承。
->
-> 注：`doc/0_architecture/design/design-rationale.md §9.3` 的"镜像漂移检查 hook"是**工厂自查样板间**（bridgeforge 自己的 `.claude/hooks` vs `templates/hooks` 一致性），与"监督下游"是两回事，不受本决定影响。
-
-> **关于 focus 对"点击背书的 scope 升级"结构性盲区（2026-06-26 跑偏调查后否决重武装 focus）**
->
-> 一次"评估仓库能否公开 → 被做成全量脱敏执行"的会话跑偏暴露：`focus_reminder.py` 拦不住"agent 把评估包装成 `AskUserQuestion` 执行菜单、用户顺手点选"这类 scope 升级。**按设计不修**，原因：
-> 1. **机制接不住**——focus 是 `UserPromptSubmit` hook、只吃 stdin 的 `prompt`；而决定性那一跳是用户**点击选项**而非打字，关键回合 hook 拿不到可判的 prompt。
-> 2. **锚判不准**——真实锚"现在仓库可以公开了吗"里"公开"本身是动作动词，纯字符串 `anchor_kind` gate 会误判。
-> 3. **重武装重蹈覆辙**——v0.28.2 刚把 focus 文案中性化（旧"审问+催办"语气诱导把正当新任务误判为漂移→答非所问）；再加"评估→执行"检测 = 旧病复发 + 高频误报。
->
-> **改由三层兜底**：① 病根（答完不收口 / 思考空转）由用户级 `effort=medium` baseline 压（见 `CHANGELOG [0.31.0]`）；② 真正的门由 `templates/CLAUDE.md §9.5`「评估问答完即停、禁止主动开执行菜单」红线收（v0.32.0 已落）；③ `/focus` 被动入口供用户手动核锚。代价：这层防护靠纪律 / 被动触发而非 hook 自动拦截，是经多 agent 辩论权衡后的取舍（产品层 hook 加固性价比为负）。
-
----
-
-## 8. 模板素材的来源
-
-模板出自 [StratusAgent](https://github.com/freakybridge/StratusAgent) 项目长期沉淀。这个项目是一个量化交易终端，多 Gateway / 双语言（Rust + Python）/ UI 强交互，在以下方面踩了足够多的坑形成稳定经验：
-
-- 鬼打墙红线（来自 2026-04-14 CTP vtable mismatch / 2026-04-27 BTC-PERP pnl 4 连撞墙事故）
-- UI 主动问范式（来自反复出现的"用户截图 + 描述前 N 步" 信息缺口）
-- 可移植性约束（来自换机时反复踩的 pip 绝对路径 / vnpy_ctp 包内 DLL 版本不一致）
-- 文档分层（来自从单一 TODO 文件混乱演进到三层归档）
-
-剥离项目特定内容后留下的就是这套模板。
-
----
-
-## 9. bridgeforge 的双重身份：工厂 + 自产自用
-
-这是理解整个 repo 的总钥匙。bridgeforge **同时是两个东西**：
-
-1. **手册工厂**：`templates/` + `skills/` 是会被复印进每个未来项目的"产品"。改进产品 → 所有下游同步收益（这是它存在的意义）。
-2. **自己的样板间**：bridgeforge 这个 repo 自己也按自己的手册活（自产自用，dogfood）——模板 hook 与自身副本保持一致；下游版本闸退役后，同名兼容 shim 仍逐字镜像。
-
-**为什么两个身份都重要**：
-
-| 身份 | 要保证的 | 失败长什么样 |
-|------|---------|------------|
-| 工厂 | 通用改进必须落到 `templates/`/`skills/`，下游 sync 时拿得到 | 改动只写进自身配置 / 元文档，下游永远拿不到 |
-| 样板间 | 自己必须按宣传的那套活，否则示范是假的 | repo 自己违反自己定的红线，别人来参观不信服 |
-
-### 9.1 前门闸：传播四问
-
-工厂最常见的事故是**"把通用改进只写进了自身配置层或元文档，忘了镜像进产品层"** → 下游永远拿不到。**对称的事故**是 hook 类改进只发给下游（`templates/`），bridgeforge 自己却没装——样板间不住人，示范成假的。
-
-两条 playbook（reverse-sync / sync-from-upstream）能在季度盘点时补救这类漂移，但它们靠人脑判断、手动触发，是**事后**机制。所以在 `CLAUDE.md §1` 立一道**前门闸**——每个改动进门时强制过「传播四问」：(1) 属于哪一层？(2) 通用的话镜像进 `templates/` 了吗？(3) 要不要 bump 版本 + 记 CHANGELOG？(4) 产品层 hook/settings 改动，当场镜像进自身 `.claude/` 吃狗粮了吗？
-
-判断"哪些该进 `templates/`"沿用 §6「模板 vs 占位」：不依赖具体业务领域 → 进产品层；依赖 → 留给项目自己 / 占位。
-
-### 9.2 CHANGELOG 层标签：让下游同步有抓手
-
-光"传播出去"还不够——下游得知道**这次该拉什么**。否则它要么从头 diff 整个 `templates/`，要么干脆不升级。
-
-所以 CHANGELOG 每条 entry 打层标签 `[product]` / `[repo]` / `[meta]`（语义见 `CLAUDE.md §3`）。下游跑 sync-from-upstream 时 `grep "\[product\]"` 即得增量清单。这是"内容传播"成本最低、最可执行的一招。
-
-### 9.3 演进节奏：软规则先跑顺，再升级为机制
-
-本项目的一贯做法是：先让规则在真实场景中验证边界，再决定是否机制化；下游版本闸曾是反例——它误把业务发布与骨架同步绑在一起，已于 2026-07-30 退役。
-
-- **现在（软）**：`CLAUDE.md §1` 四问 + §3 标签约定 + 本节 framing，靠自觉过一遍。
-- **跑顺 2-3 次后（硬）**：加「镜像漂移检查 hook」——commit 时自动比对 `.claude/hooks/*.py` 与 `templates/hooks/*.py`，只改一边就告警/阻断。等四问判断稳定、误报场景摸清再上，避免一开始就把判断错误自动化（理由同 reverse-sync-playbook §6「什么时候考虑工具化」）。
-
-### 9.4 工厂自身不带版本戳——靠 `templates/` 存在性识别
-
-bridgeforge 源头仓库**故意不放** `.claude/.bridgeforge_version`。理由：
-
-- 版本戳的语义是"我这个下游上次同步到上游哪一版"——源头仓库**没有上游**，戳对它无意义。
-- 若给源头也放个戳，`/bridgeforge` 在它自己身上跑会落进"有戳 → 更新模式"，试图"从上游拉增量到自己"，逻辑自指、实际空转。
-- 更糟：早期无戳时，源头会落进"无戳 + 有 CLAUDE.md → 可能 fresh-init"分支，等于**装修队把自己样板间推了重装**（v0.14.0 留下的潜在自伤，2026-05-29 实测在源头自身可复现）。
-
-**正解**（v0.15.0）：`/bridgeforge` 前置第一闸用"`templates/CLAUDE.md` 存在 + 根 `SKILL.md` 是自己"判定"我在源头里"，命中即硬拒。这比"靠戳的有无"更本质——源头的身份由它**含有产品层** `templates/` 决定，不是由一个可丢失的标记文件决定。
-
-> **推论（可复用判别原则）**：识别"是不是某类项目"优先用**结构性事实**（有没有 `templates/`），而非**约定标记**（有没有某个戳文件）。标记会漂移、会忘写、会被 clone 丢掉；结构性事实跟着内容走。同理，v0.15.0 的「收编模式」用"内容指纹"（鬼打墙红线 / OPTIONAL 标记等结构性签名）而非"有没有戳"来判断一个无戳项目是不是 bridgeforge 铺过的。
+这些边界减少活动部件和派生状态：无法由当前合同与明确 ownership 证明的情况，停下来让用户
+处理，比继续堆兼容分支更安全、更容易删除。

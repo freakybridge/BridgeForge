@@ -15,7 +15,7 @@ Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文�
 
 1. 在目标项目运行 `$bridgeforge-codex`。
 2. 入口在 `.venv` bootstrap 前验证版本戳：缺戳、双戳、非法戳立即零写停止。
-3. `<1.4.28` 旧戳进入独立审计；用户逐项确认 rules、hooks、AGENTS 项目区后，再做一次破坏性重建风险确认。
+3. `<1.4.28` 旧戳进入独立审计；用户逐项确认 rules、AGENTS 项目区、pre-commit 项目扩展与 `.codex/hooks/project_XXXX/` Hook 目录的保留或删除后，再做一次破坏性重建风险确认。
 4. `>=1.4.28` 先由 schema 3 current baseline 验证真实公共资产；任一漂移或合同损坏阻断，禁止吸收或强制覆盖。
 5. apply 前重算聚合 fingerprint。任何漂移、验证失败或运行错误都必须零写入或事务回滚。
 6. validators 与真实磁盘 current baseline 全部通过后，最后写新版本戳；旧项目成功时同事务删除旧戳。
@@ -23,7 +23,8 @@ Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文�
 ## 3. 所有权边界
 
 - `whole`、`merge`、`managed_blocks`、`region` 均只接受 schema 3 当前 hash/projection。
-- 旧项目不复用常规 merge；只把独立审计后选中的项目资产注入 fresh canonical。
+- 旧项目不复用常规 merge；每个可选项目资产必须明确保留或删除，只把已确认保留项注入 fresh canonical。
+- 项目 Hook 以 `.codex/hooks/project_XXXX/` 自包含 Python 目录为原子所有权单位，目录与 `.codex/hooks.json` 注册必须成对。
 - `seed` 只在缺失时创建，既有内容归项目。
 - `.codex/memory/` 与 `.codex/skills/` 自动保留正文并执行当前兼容检查；其他未登记旧内容不继承。
 
@@ -32,7 +33,7 @@ Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文�
 完成更新至少核对：
 
 - `status` 与 `readiness` 分开报告；
-- actions/白名单/blocker 清单与实际执行逐项对账；
+- actions/`PreservationManifest`/blocker 清单与实际执行逐项对账；
 - `stamp_written_last=true` 只在完整验证后出现；
 - 再次 plan 为 no-op；
 - `git diff --check`、manifest/schema、memory 与 hook 验证通过；

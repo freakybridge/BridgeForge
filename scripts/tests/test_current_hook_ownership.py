@@ -22,7 +22,7 @@ def load(name: str, path: Path):
 
 OWNERSHIP = load(
     "bridgeforge_current_hook_ownership",
-    ROOT / "templates" / "scripts" / "hooks_ownership.py",
+    ROOT / "scripts" / "hooks_ownership.py",
 )
 DISPATCHER = load(
     "bridgeforge_current_hook_dispatcher",
@@ -96,7 +96,7 @@ class CurrentHookOwnershipTests(unittest.TestCase):
             )
 
     def test_dispatcher_routes_only_current_concrete_scripts(self) -> None:
-        self.assertEqual(DISPATCHER.handler_audit_errors(), [])
+        self.assertEqual(DISPATCHER.runtime_route_errors(), [])
         routed = {
             item
             for values in DISPATCHER.RUNTIME_ROUTES.values()

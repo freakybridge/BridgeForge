@@ -118,7 +118,8 @@ hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久�
   --project-root . --template-root $BRIDGEFORGE_CODEX_HOME --mode $MODE
 ```
 
-plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与旧项目白名单候选。
+plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与一次性
+`PreservationManifest`。
 空项目进入 init；旧 `.codex/.bridgeforge_version` 或 current 版本戳 `<1.4.28` 的已识别项目
 进入 destructive rebuild；`>=1.4.28` 只允许
 通过已安装 current baseline 检查后常规更新。current-only 项目缺戳、双戳、非法戳、合同损坏或公共
@@ -127,9 +128,10 @@ plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与�
 ## 5. 整轮最多一次确认
 
 常规 current baseline 更新无 risk 时零确认。旧项目 destructive rebuild 必须先由独立 agent
-逐项审计 rules、hooks、AGENTS 项目区、memory 与 Skills，再展示完整白名单；用户逐项确认可
+逐项审计 rules、hooks、AGENTS 项目区、memory 与 Skills，再展示完整
+`PreservationManifest`；所有用户决策项必须显式选择 preserve 或 delete。用户逐项确认可
 作为整轮最多一次确认的特例，但最终破坏性重装必须同时传
-`--confirmed-whitelist`，并且仍只接受一次 `--confirmed-risk`。
+`--confirmed-preservation-manifest`，并且仍只接受一次 `--confirmed-risk`。
 
 apply 前必须重建 plan 并核对 fingerprint；漂移则零写入并重新展示。
 
@@ -140,7 +142,8 @@ copy、merge、删除或写戳。
 同步器必须：
 
 - 只修改 schema v3 current-only 合同逐资产登记的 Codex 目标；
-- 常规更新保留 project-owned、未知文件和人工定制；破坏性重建只保留用户确认的白名单资产；
+- 常规更新保留 project-owned、未知文件和人工定制；破坏性重建严格执行用户确认的
+  `PreservationManifest`；
 - Planner、Apply、`$git-sync` 与 pre-commit 必须调用同一 `current_baseline.py` 检查器；
 - memory 只允许只读兼容检查和派生索引重建，禁止 organize 或移动正文；
 - Skill 只允许确定性修复 frontmatter；缺少 description 或 routing 语义时必须阻断；

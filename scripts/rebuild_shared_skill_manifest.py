@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -17,6 +18,63 @@ DEFAULT_MANIFEST = ACTIVE_MANIFEST
 MANAGED_CONTRACT = REPOSITORY_ROOT / "templates" / "managed-skeleton.json"
 DOGFOOD_MANAGED_CONTRACT = REPOSITORY_ROOT / ".codex" / "managed-skeleton.json"
 MANAGED_HOOK_PREFIX = "bridgeforge-codex.project-hook.v1:"
+CANONICAL_REMOTE = "https://github.com/freakybridge/BridgeForgeCodex.git"
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _loads_json(text: str) -> Any:
+    return json.loads(text, object_pairs_hook=_unique_object)
+
+
+def _managed_target_key(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise ValueError(f"{label} must use one explicit POSIX relative path")
+    path = PurePosixPath(value)
+    if (
+        path.is_absolute()
+        or ".." in path.parts
+        or path.as_posix() != value
+        or any(char in value for char in "*?[")
+    ):
+        raise ValueError(f"{label} is unsafe: {value!r}")
+    return path.as_posix().casefold()
+
+
+def validate_manifest_path(
+    manifest_path: Path,
+    *,
+    repository_root: Path | None = None,
+    validate_sources: bool = False,
+) -> dict[str, Any]:
+    contract_path = REPOSITORY_ROOT / "templates" / "scripts" / "current_baseline.py"
+    module_name = "_bridgeforge_factory_manifest_contract"
+    spec = importlib.util.spec_from_file_location(module_name, contract_path)
+    if spec is None or spec.loader is None:
+        raise ValueError("factory manifest contract cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+        return module.validate_factory_manifest_path(
+            manifest_path,
+            repository_root=repository_root,
+            validate_sources=validate_sources,
+        )
+    except Exception as exc:
+        raise ValueError(str(exc)) from exc
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
+        sys.modules.pop(module_name, None)
 
 
 def git_blob_bytes(path: Path) -> bytes:
@@ -28,6 +86,13 @@ def git_blob_bytes(path: Path) -> bytes:
 
 def manifest_sha256(path: Path) -> str:
     return "sha256:" + hashlib.sha256(git_blob_bytes(path)).hexdigest()
+
+
+def _payload_sha256(payload: bytes) -> str:
+    normalized = payload if b"\0" in payload else payload.replace(
+        b"\r\n", b"\n"
+    ).replace(b"\r", b"\n")
+    return "sha256:" + hashlib.sha256(normalized).hexdigest()
 
 
 def _canonical_sha256(value: Any) -> str:
@@ -135,7 +200,7 @@ def _hook_stage(handler: dict[str, Any]) -> str:
 
 def _hooks_validation(payload: bytes) -> dict[str, Any]:
     try:
-        document = json.loads(payload.decode("utf-8-sig"))
+        document = _loads_json(payload.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"templates/hooks.json is invalid: {exc}") from exc
     if not isinstance(document, dict) or not isinstance(document.get("hooks"), dict):
@@ -175,13 +240,13 @@ def _hooks_validation(payload: bytes) -> dict[str, Any]:
     }
 
 
-def rebuild_managed_contract(
+def render_managed_contract(
     contract_path: Path = MANAGED_CONTRACT,
     *,
-    write: bool = True,
-) -> bool:
+    release_version: str | None = None,
+) -> bytes:
     try:
-        contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+        contract = _loads_json(contract_path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"cannot read current-only managed contract: {exc}") from exc
     if (
@@ -197,12 +262,12 @@ def rebuild_managed_contract(
     }
     if set(contract) != allowed_top:
         raise ValueError("managed-skeleton.json top-level fields are not schema 3 exact")
-    release_version = (REPOSITORY_ROOT / "VERSION").read_text(
+    current_release = release_version or (REPOSITORY_ROOT / "VERSION").read_text(
         encoding="utf-8-sig"
     ).strip()
-    if re.fullmatch(r"\d+\.\d+\.\d+", release_version) is None:
+    if re.fullmatch(r"\d+\.\d+\.\d+", current_release) is None:
         raise ValueError("root VERSION must be MAJOR.MINOR.PATCH")
-    contract["release_version"] = release_version
+    contract["release_version"] = current_release
     seen_ids: set[str] = set()
     seen_targets: set[str] = set()
     for asset in contract["assets"]:
@@ -223,7 +288,8 @@ def rebuild_managed_contract(
         target = asset.get("target")
         if not isinstance(asset_id, str) or asset_id in seen_ids:
             raise ValueError(f"managed contract asset id is invalid: {asset_id!r}")
-        if not isinstance(target, str) or target.casefold() in seen_targets:
+        target_key = _managed_target_key(target, f"asset {asset_id} target")
+        if target_key in seen_targets:
             raise ValueError(f"managed contract asset target is invalid: {target!r}")
         if asset.get("strategy") not in {"whole", "merge", "region", "seed"}:
             raise ValueError(f"managed contract asset strategy is invalid: {asset_id}")
@@ -237,7 +303,7 @@ def rebuild_managed_contract(
             asset["merge_validation"] = _hooks_validation(source.read_bytes())
         elif asset.get("strategy") == "merge":
             try:
-                required = json.loads(source.read_text(encoding="utf-8-sig"))
+                required = _loads_json(source.read_text(encoding="utf-8-sig"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ValueError(f"managed merge source must be JSON: {asset_id}: {exc}") from exc
             if not isinstance(required, dict):
@@ -272,9 +338,17 @@ def rebuild_managed_contract(
                 "sha256:" + hashlib.sha256(block).hexdigest()
             )
         seen_ids.add(asset_id)
-        seen_targets.add(target.casefold())
+        seen_targets.add(target_key)
     serialized = json.dumps(contract, ensure_ascii=False, indent=2) + "\n"
-    encoded = serialized.encode("utf-8")
+    return serialized.encode("utf-8")
+
+
+def rebuild_managed_contract(
+    contract_path: Path = MANAGED_CONTRACT,
+    *,
+    write: bool = True,
+) -> bool:
+    encoded = render_managed_contract(contract_path)
     current = contract_path.read_bytes()
     mirror_changed = (
         contract_path.resolve() == MANAGED_CONTRACT.resolve()
@@ -285,7 +359,7 @@ def rebuild_managed_contract(
     )
     changed = current != encoded
     if write and (changed or mirror_changed):
-        contract_path.write_text(serialized, encoding="utf-8", newline="\n")
+        contract_path.write_bytes(encoded)
         if (
             contract_path.resolve() == MANAGED_CONTRACT.resolve()
             and (
@@ -293,43 +367,60 @@ def rebuild_managed_contract(
                 or DOGFOOD_MANAGED_CONTRACT.read_bytes() != encoded
             )
         ):
-            DOGFOOD_MANAGED_CONTRACT.write_text(
-                serialized,
-                encoding="utf-8",
-                newline="\n",
-            )
+            DOGFOOD_MANAGED_CONTRACT.write_bytes(encoded)
     return changed or mirror_changed
+
+
+def render_manifest(
+    manifest_path: Path,
+    *,
+    overlays: dict[Path, bytes] | None = None,
+) -> bytes:
+    path = manifest_path.resolve()
+    root = path.parent
+    manifest = validate_manifest_path(path, repository_root=root)
+    for platform in manifest["platforms"].values():
+        for skill in platform["skills"]:
+            for item in skill["files"]:
+                source = _source_path(root, item["source"])
+                overlay = (overlays or {}).get(source.resolve())
+                expected = (
+                    _payload_sha256(overlay)
+                    if overlay is not None
+                    else manifest_sha256(source)
+                )
+                item["sha256"] = expected
+    return (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
 def rebuild_manifest(manifest_path: Path, *, write: bool = True) -> bool:
     path = manifest_path.resolve()
-    root = path.parent
-    manifest = json.loads(path.read_text(encoding="utf-8-sig"))
-    changed = False
-    if path == ACTIVE_MANIFEST.resolve():
-        expected_remote = "https://github.com/freakybridge/BridgeForgeCodex.git"
-        if manifest.get("canonical_remote") != expected_remote:
-            manifest["canonical_remote"] = expected_remote
-            changed = True
-        manifest.pop("product_remote", None)
-        codex = manifest["platforms"]["codex"]
-        if set(manifest["platforms"]) != {"codex"}:
-            manifest["platforms"] = {"codex": codex}
-            changed = True
-    for platform in manifest["platforms"].values():
-        for skill in platform["skills"]:
-            for item in skill["files"]:
-                expected = manifest_sha256(_source_path(root, item["source"]))
-                if item.get("sha256") != expected:
-                    item["sha256"] = expected
-                    changed = True
+    encoded = render_manifest(path)
+    changed = path.read_bytes() != encoded
     if changed and write:
-        path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        path.write_bytes(encoded)
     return changed
+
+
+def render_all_outputs(
+    manifest_path: Path = DEFAULT_MANIFEST,
+    *,
+    release_version: str | None = None,
+) -> dict[Path, bytes]:
+    path = manifest_path.resolve()
+    outputs: dict[Path, bytes] = {}
+    overlays: dict[Path, bytes] = {}
+    if path == DEFAULT_MANIFEST.resolve():
+        contract = render_managed_contract(
+            MANAGED_CONTRACT,
+            release_version=release_version,
+        )
+        outputs[MANAGED_CONTRACT.resolve()] = contract
+        outputs[DOGFOOD_MANAGED_CONTRACT.resolve()] = contract
+        overlays[MANAGED_CONTRACT.resolve()] = contract
+        overlays[DOGFOOD_MANAGED_CONTRACT.resolve()] = contract
+    outputs[path] = render_manifest(path, overlays=overlays)
+    return outputs
 
 
 def main() -> int:
@@ -338,19 +429,21 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     try:
-        contract_changed = (
-            rebuild_managed_contract(write=not args.check)
-            if args.manifest.resolve() == DEFAULT_MANIFEST.resolve()
-            else False
-        )
-        manifest_changed = rebuild_manifest(args.manifest, write=not args.check)
+        outputs = render_all_outputs(args.manifest)
     except (FileNotFoundError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         print(f"[manifest] {exc}", file=sys.stderr)
         return 2
-    if args.check and (contract_changed or manifest_changed):
+    changed = {
+        path: payload
+        for path, payload in outputs.items()
+        if not path.is_file() or path.read_bytes() != payload
+    }
+    if args.check and changed:
         print(f"[manifest] stale: {args.manifest}", file=sys.stderr)
-        return 1
-    if contract_changed or manifest_changed:
+        return 2
+    if changed:
+        for path, payload in changed.items():
+            path.write_bytes(payload)
         print(f"[manifest] updated: {args.manifest}")
     else:
         print(f"[manifest] unchanged: {args.manifest}")

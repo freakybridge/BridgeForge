@@ -234,10 +234,95 @@ function Enter-UpdateMutex {
 function Read-JsonFile {
     param([Parameter(Mandatory = $true)][string]$Path)
     try {
-        return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+        Assert-JsonUniqueObjectKeys -Json $raw -Path $Path
+        return $raw | ConvertFrom-Json
     }
     catch {
         throw "Invalid JSON file '$Path': $($_.Exception.Message)"
+    }
+}
+
+function Assert-JsonUniqueObjectKeys {
+    param(
+        [Parameter(Mandatory = $true)][string]$Json,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+    $frames = New-Object System.Collections.ArrayList
+    $index = 0
+    while ($index -lt $Json.Length) {
+        $character = $Json[$index]
+        if ($character -eq '{') {
+            [void]$frames.Add(@{ kind = "object"; keys = @{} })
+            $index += 1
+            continue
+        }
+        if ($character -eq '[') {
+            [void]$frames.Add(@{ kind = "array" })
+            $index += 1
+            continue
+        }
+        if ($character -eq '}' -or $character -eq ']') {
+            if ($frames.Count -gt 0) {
+                $frames.RemoveAt($frames.Count - 1)
+            }
+            $index += 1
+            continue
+        }
+        if ($character -ne '"') {
+            $index += 1
+            continue
+        }
+
+        $start = $index
+        $index += 1
+        $closed = $false
+        while ($index -lt $Json.Length) {
+            if ($Json[$index] -eq '\') {
+                $index += 2
+                continue
+            }
+            if ($Json[$index] -eq '"') {
+                $closed = $true
+                $index += 1
+                break
+            }
+            $index += 1
+        }
+        if (-not $closed) {
+            throw "Invalid JSON file '$Path': unterminated string."
+        }
+        $probe = $index
+        while ($probe -lt $Json.Length -and [char]::IsWhiteSpace($Json[$probe])) {
+            $probe += 1
+        }
+        if ($probe -ge $Json.Length -or $Json[$probe] -ne ':') {
+            continue
+        }
+        if ($frames.Count -eq 0 -or $frames[$frames.Count - 1].kind -ne "object") {
+            throw "Invalid JSON file '$Path': property key outside an object."
+        }
+        $token = $Json.Substring($start, $index - $start)
+        $key = [string]($token | ConvertFrom-Json)
+        $keys = $frames[$frames.Count - 1].keys
+        if ($keys.ContainsKey($key)) {
+            throw "Invalid JSON file '$Path': duplicate JSON key '$key'."
+        }
+        $keys[$key] = $true
+    }
+}
+
+function Assert-ExactJsonProperties {
+    param(
+        [Parameter(Mandatory = $true)]$Value,
+        [Parameter(Mandatory = $true)][string[]]$Expected,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+    $actual = @($Value.PSObject.Properties | ForEach-Object { [string]$_.Name })
+    $missing = @($Expected | Where-Object { $actual -cnotcontains $_ })
+    $extra = @($actual | Where-Object { $Expected -cnotcontains $_ })
+    if ($missing.Count -gt 0 -or $extra.Count -gt 0 -or $actual.Count -ne $Expected.Count) {
+        throw "$Label fields are not exact."
     }
 }
 
@@ -362,6 +447,10 @@ function Assert-Manifest {
         throw "Missing root distribution manifest: $ManifestName"
     }
     $manifest = Read-JsonFile -Path $manifestPath
+    Assert-ExactJsonProperties `
+        -Value $manifest `
+        -Expected @("schema_version", "canonical_remote", "branch", "platforms") `
+        -Label "Manifest top-level"
     if ([int]$manifest.schema_version -ne 1) {
         throw "Unsupported bridgeforge-codex manifest schema."
     }
@@ -371,17 +460,26 @@ function Assert-Manifest {
     if ([string]$manifest.branch -ne $CanonicalBranch) {
         throw "Manifest branch does not match main."
     }
+    Assert-ExactJsonProperties -Value $manifest.platforms -Expected @("codex") -Label "Manifest platforms"
 
     foreach ($platform in @("codex")) {
         $platformManifest = Get-PlatformManifest -Manifest $manifest -Platform $platform
+        Assert-ExactJsonProperties `
+            -Value $platformManifest `
+            -Expected @("target", "skills") `
+            -Label "Manifest platform '$platform'"
         $config = Get-PlatformConfig -Platform $platform -UserProfile $UserProfile
         if ([string]$platformManifest.target -ne $config.manifest_target) {
             throw "Manifest target for $platform is not the fixed user skill directory."
         }
         $names = @{}
         foreach ($skill in @($platformManifest.skills)) {
+            Assert-ExactJsonProperties `
+                -Value $skill `
+                -Expected @("name", "files") `
+                -Label "Manifest skill"
             $name = [string]$skill.name
-            if ($name -notmatch "^[A-Za-z0-9][A-Za-z0-9._-]*$" -or $name -eq "." -or $name -eq "..") {
+            if ($name -cnotmatch "^[a-z0-9][a-z0-9-]*$") {
                 throw "Unsafe skill name in manifest: $name"
             }
             $nameKey = $name.ToLowerInvariant()
@@ -395,9 +493,19 @@ function Assert-Manifest {
                 throw "Skill '$name' has no files in the manifest."
             }
             foreach ($file in $files) {
+                Assert-ExactJsonProperties `
+                    -Value $file `
+                    -Expected @("source", "target", "sha256") `
+                    -Label "Manifest file for '$name'"
                 $source = [string]$file.source
                 $target = [string]$file.target
-                if (-not (Test-SafeRelativePath $source) -or -not (Test-SafeRelativePath $target)) {
+                if (
+                    $source.Contains("\") -or $target.Contains("\") -or
+                    $source.IndexOfAny([char[]]@('*', '?', '[')) -ge 0 -or
+                    $target.IndexOfAny([char[]]@('*', '?', '[')) -ge 0 -or
+                    -not (Test-SafeRelativePath $source) -or
+                    -not (Test-SafeRelativePath $target)
+                ) {
                     throw "Unsafe file path in manifest skill '$name'."
                 }
                 $targetKey = $target.Replace("\", "/").ToLowerInvariant()
@@ -406,13 +514,11 @@ function Assert-Manifest {
                 }
                 $targets[$targetKey] = $true
                 $sourcePath = Get-PathUnderRoot -Root $RepositoryRoot -RelativePath $source
-                $expected = ([string]$file.sha256).ToLowerInvariant()
-                if ($expected.StartsWith("sha256:")) {
-                    $expected = $expected.Substring(7)
-                }
-                if ($expected -notmatch "^[0-9a-f]{64}$") {
+                $declaredHash = [string]$file.sha256
+                if ($declaredHash -cnotmatch "^sha256:[0-9a-f]{64}$") {
                     throw "Invalid SHA-256 in manifest for '$source'."
                 }
+                $expected = $declaredHash.Substring(7)
                 if ($ValidateSources) {
                     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
                         throw "Manifest source file is missing: $source"

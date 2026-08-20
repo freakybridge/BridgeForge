@@ -18,6 +18,9 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from current_baseline import (  # noqa: E402
     BaselineError,
+    detect_repository_role,
+    load_contract,
+    ownership_projection,
     verify_current_baseline,
 )
 
@@ -100,12 +103,6 @@ def parse_commit_message(message: str) -> CommitInfo:
     level = "major" if breaking else TYPE_LEVEL[kind]
     return CommitInfo(kind, description, level, TYPE_SECTION[kind], breaking)
 
-def is_bridgeforge_factory(repo: Path) -> bool:
-    return (
-        (repo / "templates" / "managed-skeleton.json").is_file()
-        and (repo / "skills" / "bridgeforge-codex" / "SKILL.md").is_file()
-    )
-
 def collect_changed_paths(repo: Path) -> set[str]:
     """Return the same unstaged, staged, and untracked path union used by git-sync."""
 
@@ -144,6 +141,26 @@ def collect_changed_paths(repo: Path) -> set[str]:
         )
     return paths
 
+
+def _head_payload(repo: Path, relative: str) -> bytes | None:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={repo.resolve().as_posix()}",
+                "show",
+                f"HEAD:{relative}",
+            ],
+            cwd=repo,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ReleaseError(f"cannot read HEAD ownership payload: {relative}: {exc}") from exc
+    return result.stdout if result.returncode == 0 else None
+
 def evaluate_release_transition(
     repo: Path,
     *,
@@ -155,6 +172,13 @@ def evaluate_release_transition(
         if changed_paths is None
         else {item.replace("\\", "/") for item in changed_paths}
     )
+    role = detect_repository_role(repo)
+    if role.kind == "ambiguous":
+        raise TransitionBlocked([{
+            "asset_id": "repository.role",
+            "target": "bridgeforge-codex-manifest.json",
+            "reason": role.reason,
+        }])
     contract_path = repo / ".codex" / "managed-skeleton.json"
     if contract_path.is_file():
         try:
@@ -165,31 +189,61 @@ def evaluate_release_transition(
                 "target": ".codex/managed-skeleton.json",
                 "reason": str(exc),
             }]) from exc
-    elif not is_bridgeforge_factory(repo):
+    elif role.kind != "factory":
         raise TransitionBlocked([{
             "asset_id": "contract.current-baseline",
             "target": ".codex/managed-skeleton.json",
             "reason": "current-only baseline is missing",
         }])
-    if is_bridgeforge_factory(repo):
+    if role.kind == "factory":
         return "factory", paths
     try:
-        contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        contract = load_contract(contract_path)
+    except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
         raise ReleaseError(f"cannot read current-only baseline: {exc}") from exc
-    managed = {
-        str(asset[key]).replace("\\", "/")
-        for asset in contract.get("assets", [])
-        if isinstance(asset, dict)
-        for key in ("target",)
-        if isinstance(asset.get(key), str)
+    assets = {
+        str(asset["target"]).replace("\\", "/"): asset
+        for asset in contract["assets"]
+        if isinstance(asset, dict) and isinstance(asset.get("target"), str)
     }
     relevant = paths - AUTO_EXCLUDED_PATHS
-    skeleton = relevant.intersection(managed)
+    public_changed = False
+    project_changed = False
+    for relative in sorted(relevant):
+        asset = assets.get(relative)
+        if asset is None:
+            project_changed = True
+            continue
+        target = repo / Path(relative)
+        current = target.read_bytes() if target.is_file() else b""
+        before = _head_payload(repo, relative)
+        if before is None:
+            if asset.get("strategy") == "whole" and not asset.get("agents_zones") and not asset.get("managed_blocks"):
+                public_changed = True
+            elif asset.get("strategy") == "seed":
+                project_changed = True
+            else:
+                project_changed = True
+            continue
+        try:
+            old_projection = ownership_projection(asset, before, repo)
+            new_projection = ownership_projection(asset, current, repo)
+        except BaselineError as exc:
+            raise TransitionBlocked([{
+                "asset_id": str(asset.get("id", relative)),
+                "target": relative,
+                "reason": str(exc),
+            }]) from exc
+        public_changed = public_changed or (
+            old_projection.public_sha256 != new_projection.public_sha256
+        )
+        project_changed = project_changed or (
+            old_projection.project_sha256 != new_projection.project_sha256
+        )
     classification = (
-        "skeleton-only"
-        if relevant and skeleton == relevant
-        else "mixed" if skeleton else "project-only"
+        "mixed"
+        if public_changed and project_changed
+        else "project-only" if project_changed or not public_changed else "skeleton-only"
     )
     return classification, paths
 
@@ -224,11 +278,8 @@ def _toml_version(path: Path) -> tuple[str, tuple[str, ...], str] | None:
     return value, keys, "toml"
 
 def _json_version(path: Path) -> tuple[str, tuple[str, ...], str] | None:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=_reject_duplicate_keys)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ReleaseError(f"invalid JSON {path}: {exc}") from exc
-    version = data.get("version") if isinstance(data, dict) else None
+    data = _load_json_object(path, "JSON manifest")
+    version = data.get("version")
     if not isinstance(version, str):
         return None
     parse_semver(version)
@@ -242,17 +293,24 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
         result[key] = value
     return result
 
+
+def _load_json_object(path: Path, label: str) -> dict[str, object]:
+    try:
+        data = json.loads(
+            path.read_text(encoding="utf-8-sig"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseError(f"invalid {label} {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ReleaseError(f"invalid {label} {path}: top level must be an object")
+    return data
+
 def _candidate_manifests(repo: Path) -> list[Path]:
     config_path = repo / ".bridgeforge-version.json"
     if config_path.is_file():
-        try:
-            config = json.loads(
-                config_path.read_text(encoding="utf-8-sig"),
-                object_pairs_hook=_reject_duplicate_keys,
-            )
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ReleaseError(f"invalid version sync config {config_path}: {exc}") from exc
-        manifests = config.get("manifests") if isinstance(config, dict) else None
+        config = _load_json_object(config_path, "version sync config")
+        manifests = config.get("manifests")
         if config.get("schema_version") != 1 or not isinstance(manifests, list) or not manifests:
             raise ReleaseError(
                 ".bridgeforge-version.json must contain schema_version=1 and non-empty manifests"
@@ -320,15 +378,15 @@ def _replace_toml_value(payload: str, keys: tuple[str, ...], old: str, new: str)
     return payload[:match.end()] + replaced + payload[end:]
 
 def _render_json_version(path: Path, new: str) -> bytes:
-    data = json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=_reject_duplicate_keys)
-    if not isinstance(data, dict) or not isinstance(data.get("version"), str):
+    data = _load_json_object(path, "JSON manifest")
+    if not isinstance(data.get("version"), str):
         raise ReleaseError(f"missing top-level version in {path}")
     data["version"] = new
     return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 def _render_package_lock(path: Path, old: str, new: str) -> bytes:
-    data = json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=_reject_duplicate_keys)
-    if not isinstance(data, dict) or data.get("lockfileVersion") not in (2, 3):
+    data = _load_json_object(path, "package-lock")
+    if data.get("lockfileVersion") not in (2, 3):
         raise ReleaseError(f"unsupported package-lock schema: {path}")
     packages = data.get("packages")
     root_package = packages.get("") if isinstance(packages, dict) else None

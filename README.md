@@ -3,7 +3,7 @@
 > 面向长期 Codex 项目的协作骨架工厂。
 
 bridgeforge-codex 将原生 AGENTS 指令、memory、hooks、文档生命周期和通用 skills 打包为
-一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.28`，最低支持 Python 3.11 和
+一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.30`，最低支持 Python 3.11 和
 Windows。
 
 ## 快速开始
@@ -23,7 +23,7 @@ $bridgeforge-codex
 该入口会先把完整、可信的产品仓库安装到 `~/.bridgeforge-codex`，并只在
 `~/.codex/skills/bridgeforge-codex` 保留 Codex 可发现的薄入口；随后维护用户级受管
 skills，再根据项目状态选择 init、旧项目破坏性重建或 current-only update。`<1.4.28`
-项目只凭合法旧戳进入独立审计与白名单重建；`>=1.4.28` 项目按 schema 3 单份当前基线
+项目只凭合法旧戳进入独立审计与 `PreservationManifest` 确认式重建；`>=1.4.28` 项目按 schema 3 单份当前基线
 更新。公共漂移、缺戳、双戳或损坏基线整轮零写阻断。
 
 旧 `$bridgeforge`、旧用户级 ledger、旧 `.bridgeforge` home 和 Claude 用户级资产不再受
@@ -34,7 +34,7 @@ skills，再根据项目状态选择 init、旧项目破坏性重建或 current-
 ## 下游项目内容
 
 - 根 `AGENTS.md`：BridgeForge 公共区只读更新，项目级专区逐字保留；嵌套 `AGENTS.md` 全部属于项目。
-- `.codex/hooks/` 与 pre-commit：可机器判定的硬闸；会话快照及文档、AGENTS、memory 健康检查。
+- `.codex/hooks/` 与 pre-commit：可机器判定的硬闸；项目 Hook 以 `.codex/hooks/project_XXXX/` 自包含目录保存。
 - skills：按用户调用执行的流程；长 SOP、原理和案例进入 `doc/`。
 - 以 `doc/README.md` 为索引的五层文档体系。
 - `confirm`、`develop`、`summary`、`find-doc`、`find-memory`、`git-sync` 等通用 skills。

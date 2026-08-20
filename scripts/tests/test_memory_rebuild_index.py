@@ -63,6 +63,55 @@ class MemoryRebuildIndexTests(unittest.TestCase):
             self.assertTrue(all(len(line.split(" — ", 1)[-1]) <= 180 for line in active_lines))
             self.assertIn("## 🔍 Cold（", index_text)
 
+    def test_check_mode_is_read_only_and_blocks_stale_indexes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp)
+            scripts = repo / ".codex" / "scripts"
+            memory = repo / ".codex" / "memory"
+            scripts.mkdir(parents=True)
+            memory.mkdir(parents=True)
+            shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+            (memory / "note.md").write_text(
+                "---\ndescription: note\n---\nbody\n",
+                encoding="utf-8",
+            )
+
+            stale = subprocess.run(
+                [sys.executable, "-B", str(scripts / SCRIPT.name), "--check"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(stale.returncode, 2)
+            self.assertFalse((memory / "MEMORY.md").exists())
+            self.assertFalse((memory / "MEMORY_COLD.md").exists())
+
+            rebuilt = subprocess.run(
+                [sys.executable, "-B", str(scripts / SCRIPT.name)],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(rebuilt.returncode, 0, rebuilt.stderr)
+            before = {path.name: path.read_bytes() for path in memory.iterdir()}
+            current = subprocess.run(
+                [sys.executable, "-B", str(scripts / SCRIPT.name), "--check"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(current.returncode, 0, current.stderr)
+            self.assertEqual(
+                {path.name: path.read_bytes() for path in memory.iterdir()},
+                before,
+            )
+
     def test_nested_memory_and_completed_topic_are_indexed_as_cold(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)

@@ -13,7 +13,7 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
@@ -42,9 +42,8 @@ RUNTIME_ROUTES = {
     "post-encoding": ("hooks/encoding_check.py",),
     "post-memory": ("scripts/memory_rebuild_index.py", "hooks/memory_lint.py"),
     "post-edit": (
-        "hooks/instruction_source_check.py", "hooks/mirror_drift_check.py",
-        "hooks/requirements_check.py", "hooks/cargo_default_run_check.py",
-        "hooks/fallback_smell_check.py",
+        "hooks/instruction_source_check.py", "hooks/requirements_check.py",
+        "hooks/cargo_default_run_check.py", "hooks/fallback_smell_check.py",
     ),
     "post-shell": ("hooks/test_receipt.py",),
     "post-read": ("scripts/memory_router.py",),
@@ -64,63 +63,26 @@ RUNTIME_ROUTES = {
     ),
 }
 
-# (decision, runtime route, concrete script/replacement/duplicate id)
-HANDLER_AUDIT = {
-    "01:PreTool:Grep|Glob|Read:find_doc_reminder.py": ("adapt", "replacement", "skill-routing:$find-doc"),
-    "02:PreTool:Bash:git_add_all_guard.py": ("retain", "pre-shell", "hooks/git_add_all_guard.py"),
-    "03:PreTool:Bash:non_ascii_shell_guard.py": ("retain", "pre-shell", "hooks/non_ascii_shell_guard.py"),
-    "04:PreTool:Bash:cross_project_write_guard.py": ("retain", "pre-shell", "hooks/cross_project_write_guard.py"),
-    "05:PreTool:Bash:user_config_write_guard.py": ("retain", "pre-shell", "hooks/user_config_write_guard.py"),
-    "06:PreTool:PowerShell:cross_project_write_guard.py": ("delete", "duplicate", "04"),
-    "07:PreTool:PowerShell:user_config_write_guard.py": ("delete", "duplicate", "05"),
-    "08:PreTool:Edit|Write:cross_project_write_guard.py": ("adapt", "pre-edit", "hooks/cross_project_write_guard.py"),
-    "09:PreTool:Edit|Write:user_config_write_guard.py": ("adapt", "pre-edit", "hooks/user_config_write_guard.py"),
-    "10:PreTool:Edit|Write:allow_memory_write.py": ("adapt", "pre-allow", "hooks/allow_memory_write.py"),
-    "11:PreTool:Edit|Write:memory_dup_check.py": ("adapt", "pre-edit", "hooks/memory_dup_check.py"),
-    "12:PostTool:Edit|Write:memory_rebuild_index.py": ("adapt", "post-memory", "scripts/memory_rebuild_index.py"),
-    "13:PostTool:Edit|Write:memory_lint.py": ("adapt", "post-memory", "hooks/memory_lint.py"),
-    "16:PostTool:Edit|Write:requirements_check.py": ("adapt", "post-edit", "hooks/requirements_check.py"),
-    "17:PostTool:Edit|Write:cargo_default_run_check.py": ("retain", "post-edit", "hooks/cargo_default_run_check.py"),
-    "18:PostTool:Edit|Write:fallback_smell_check.py": ("retain", "post-edit", "hooks/fallback_smell_check.py"),
-    "19:PostTool:Edit|Write:encoding_check.py": ("adapt", "post-encoding", "hooks/encoding_check.py"),
-    "20:PostTool:Bash:test_receipt.py": ("retain", "post-shell", "hooks/test_receipt.py"),
-    "21:PostCompact:session_snapshot.py": ("retain", "post-compact", "hooks/session_snapshot.py"),
-    "22:Stop:session_snapshot.py": ("retain", "stop", "hooks/session_snapshot.py"),
-    "23:UserPrompt:show_state.py": ("retain", "user-prompt", "hooks/show_state.py"),
-    "24:UserPrompt:clarify_reminder.py": ("retain", "user-prompt", "hooks/clarify_reminder.py"),
-    "25:UserPrompt:focus_reminder.py": ("retain", "user-prompt", "hooks/focus_reminder.py"),
-    "26:SessionStart:config_health_check.py": ("retain", "session-before", "hooks/config_health_check.py"),
-    "27:SessionStart:show_state.py": ("adapt", "session-after", "hooks/show_state.py"),
-    "28:SessionStart:skill_sync_check.py": ("retain", "session-after", "hooks/skill_sync_check.py"),
-    "29:SessionStart:enforce_no_effortlevel.py": ("retain", "session-before", "hooks/enforce_no_effortlevel.py"),
-    "30:SessionStart:githooks_path_check.py": ("retain", "session-before", "hooks/githooks_path_check.py"),
-    "31:SessionStart:memory_rebuild_index.py": ("adapt", "session-before", "scripts/memory_rebuild_index.py"),
-    "32:SessionStart:memory_context.py": ("adapt", "session-before", "scripts/memory_context.py"),
-    "33:UserPrompt:memory_router.py": ("adapt", "user-prompt", "scripts/memory_router.py"),
-    "34:PostTool:Read:memory_router.py": ("adapt", "post-read", "scripts/memory_router.py"),
-    "35:PostTool:Edit|Write:mirror_drift_check.py": ("adapt", "post-edit", "hooks/mirror_drift_check.py"),
-    "36:PostTool:Edit|Write:instruction_source_check.py": ("adapt", "post-edit", "hooks/instruction_source_check.py"),
-}
-
-
-def handler_audit_errors(routes: dict[str, tuple[str, ...]] | None = None) -> list[str]:
+def runtime_route_errors(routes: dict[str, tuple[str, ...]] | None = None) -> list[str]:
     active_routes = routes if routes is not None else RUNTIME_ROUTES
     errors: list[str] = []
-    for key, (decision, route, target) in HANDLER_AUDIT.items():
-        if decision in {"retain", "adapt"} and route != "replacement":
-            if target not in active_routes.get(route, ()):
-                errors.append(f"{key} is not bound to {route}:{target}")
-        elif route == "replacement":
-            if decision != "adapt" or target != "skill-routing:$find-doc":
-                errors.append(f"{key} has an invalid replacement contract")
-        elif decision == "delete" and route == "duplicate":
-            duplicate = next((item for item in HANDLER_AUDIT if item.startswith(target + ":")), "")
-            if not duplicate or HANDLER_AUDIT[duplicate][0] not in {"retain", "adapt"}:
-                errors.append(f"{key} has no active duplicate {target}")
-            elif key.rsplit(":", 1)[-1] != duplicate.rsplit(":", 1)[-1]:
-                errors.append(f"{key} duplicate script does not match {duplicate}")
-        else:
-            errors.append(f"{key} has an invalid audit decision")
+    for route, targets in active_routes.items():
+        if not route or not targets:
+            errors.append(f"runtime route is empty: {route!r}")
+            continue
+        for target in targets:
+            relative = PurePosixPath(target)
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or len(relative.parts) != 2
+                or relative.parts[0] not in {"hooks", "scripts"}
+                or relative.suffix != ".py"
+            ):
+                errors.append(f"{route} has unsafe runtime target: {target!r}")
+                continue
+            if not (HOST_DIR / Path(*relative.parts)).is_file():
+                errors.append(f"{route} runtime target is missing: {target}")
     return errors
 
 
@@ -344,9 +306,7 @@ def _post_edit(payload: dict) -> int:
             return _finish("PostToolUse", output, lint.returncode)
     for _name, _virtual, encoded in edits:
         for relative in RUNTIME_ROUTES["post-edit"]:
-            extra = ("--post-edit",) if relative in {
-                "hooks/instruction_source_check.py", "hooks/mirror_drift_check.py"
-            } else ()
+            extra = ("--post-edit",) if relative == "hooks/instruction_source_check.py" else ()
             result = _run(relative, encoded, *extra)
             _emit(result, output)
             if result.returncode:
@@ -396,9 +356,9 @@ def main(version_info: object = sys.version_info) -> int:
     if len(sys.argv) != 2:
         print("usage: hook_dispatcher.py EVENT", file=sys.stderr)
         return 2
-    audit_errors = handler_audit_errors()
-    if audit_errors:
-        for error in audit_errors:
+    route_errors = runtime_route_errors()
+    if route_errors:
+        for error in route_errors:
             print(f"[hook-dispatch] route audit failed: {error}", file=sys.stderr)
         return 2
     event = sys.argv[1]
