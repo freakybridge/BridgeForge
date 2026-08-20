@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,16 @@ assert SPEC is not None and SPEC.loader is not None
 VERSION_RELEASE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = VERSION_RELEASE
 SPEC.loader.exec_module(VERSION_RELEASE)
+SCRIPTS_DIR = ROOT / "templates" / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+GIT_SYNC_SPEC = importlib.util.spec_from_file_location(
+    "codex_git_sync_under_test",
+    SCRIPTS_DIR / "codex_git_sync.py",
+)
+assert GIT_SYNC_SPEC is not None and GIT_SYNC_SPEC.loader is not None
+GIT_SYNC = importlib.util.module_from_spec(GIT_SYNC_SPEC)
+sys.modules[GIT_SYNC_SPEC.name] = GIT_SYNC
+GIT_SYNC_SPEC.loader.exec_module(GIT_SYNC)
 
 
 def git(repo: Path, *args: str) -> None:
@@ -184,8 +195,9 @@ def write_contract_transition_fixture(
         target_handlers.append(
             {"type": "command", "commandWindows": "python project_hook.py"}
         )
+    historical_managed_description = "historical managed description"
     merge_target = {
-        "description": "project-owned description",
+        "description": historical_managed_description,
         "hooks": {
             "PreToolUse": [
                 {
@@ -196,7 +208,7 @@ def write_contract_transition_fixture(
         },
     }
     legacy_whole_merge_target = {
-        "description": "project-owned description",
+        "description": historical_managed_description,
         "hooks": {
             "PreToolUse": [{
                 "matcher": "Bash|Edit|Write",
@@ -324,6 +336,9 @@ def write_contract_transition_fixture(
                 "current_projection_sha256": merge_projection,
                 "managed_top_level": {
                     "description": "managed description",
+                },
+                "managed_top_level_historical": {
+                    "description": [historical_managed_description],
                 },
             },
         })
@@ -666,6 +681,896 @@ def write_schema_v1_nested_history_fixture(
 
 
 class VersionReleaseTests(unittest.TestCase):
+    def test_git_sync_removes_matching_adaptation_receipt_only_after_commit(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        receipt = repo / ".runtime" / "bridgeforge-codex" / "explicit-adaptation.json"
+        receipt.parent.mkdir(parents=True)
+        proof = {"schema_version": 1, "items": [{"id": "G1"}]}
+        receipt.write_text(json.dumps(proof) + "\n", encoding="utf-8")
+        args = mock.Mock(
+            message="fix: explicit adaptation",
+            message_file=None,
+            remote="origin",
+            skip_fetch=True,
+            skip_push=True,
+        )
+        completed = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
+        with mock.patch.object(GIT_SYNC, "REPO_ROOT", repo), \
+                mock.patch.object(GIT_SYNC, "ADAPTATION_RECEIPT", receipt), \
+                mock.patch.object(GIT_SYNC, "_upstream", return_value="origin/main"), \
+                mock.patch.object(GIT_SYNC, "_push_target", return_value="origin/main"), \
+                mock.patch.object(GIT_SYNC, "_status", side_effect=[" M owned.py", ""]), \
+                mock.patch.object(GIT_SYNC, "_ahead_behind", return_value=(0, 0)), \
+                mock.patch.object(GIT_SYNC, "_changed_paths", return_value={"owned.py"}), \
+                mock.patch.object(GIT_SYNC, "_read_adaptation_proof", return_value=proof), \
+                mock.patch.object(GIT_SYNC, "build_release_plan", return_value=None) as build, \
+                mock.patch.object(GIT_SYNC, "_rebuild_shared_skill_manifest"), \
+                mock.patch.object(GIT_SYNC, "_check_factory_version_worktree"), \
+                mock.patch.object(GIT_SYNC, "_has_staged_changes", return_value=True), \
+                mock.patch.object(GIT_SYNC, "_run_git", return_value=completed):
+            result = GIT_SYNC.sync(args)
+        self.assertEqual(result, 0)
+        self.assertFalse(receipt.exists())
+        self.assertIs(build.call_args.kwargs["adaptation_proof"], proof)
+
+    def test_git_sync_keeps_adaptation_receipt_when_commit_fails(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        receipt = repo / ".runtime" / "bridgeforge-codex" / "explicit-adaptation.json"
+        receipt.parent.mkdir(parents=True)
+        proof = {"schema_version": 1, "items": [{"id": "G1"}]}
+        receipt.write_text(json.dumps(proof) + "\n", encoding="utf-8")
+        args = mock.Mock(
+            message="fix: explicit adaptation",
+            message_file=None,
+            remote="origin",
+            skip_fetch=True,
+            skip_push=True,
+        )
+        completed = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
+
+        def run_git(arguments: list[str], **_kwargs: object) -> object:
+            if arguments and arguments[0] == "commit":
+                raise GIT_SYNC.SyncStop("git commit failed: fixture", 1)
+            return completed
+
+        with mock.patch.object(GIT_SYNC, "REPO_ROOT", repo), \
+                mock.patch.object(GIT_SYNC, "ADAPTATION_RECEIPT", receipt), \
+                mock.patch.object(GIT_SYNC, "_upstream", return_value="origin/main"), \
+                mock.patch.object(GIT_SYNC, "_push_target", return_value="origin/main"), \
+                mock.patch.object(GIT_SYNC, "_status", return_value=" M owned.py"), \
+                mock.patch.object(GIT_SYNC, "_ahead_behind", return_value=(0, 0)), \
+                mock.patch.object(GIT_SYNC, "_changed_paths", return_value={"owned.py"}), \
+                mock.patch.object(GIT_SYNC, "_read_adaptation_proof", return_value=proof), \
+                mock.patch.object(GIT_SYNC, "build_release_plan", return_value=None), \
+                mock.patch.object(GIT_SYNC, "_rebuild_shared_skill_manifest"), \
+                mock.patch.object(GIT_SYNC, "_check_factory_version_worktree"), \
+                mock.patch.object(GIT_SYNC, "_has_staged_changes", return_value=True), \
+                mock.patch.object(GIT_SYNC, "_run_git", side_effect=run_git):
+            with self.assertRaisesRegex(GIT_SYNC.SyncStop, "git commit failed"):
+                GIT_SYNC.sync(args)
+        self.assertTrue(receipt.is_file())
+
+    def test_explicit_adaptation_before_snapshot_rejects_path_aliases(self) -> None:
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "path is duplicated",
+        ):
+            VERSION_RELEASE.decode_explicit_adaptation_before_snapshot({
+                "a\\b": "QQ==",
+                "a/b": "Qg==",
+            })
+
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "path is duplicated",
+        ):
+            VERSION_RELEASE.encode_explicit_adaptation_before_snapshot({
+                "a\\b": b"A",
+                "a/b": b"B",
+            })
+
+    def test_explicit_adaptation_before_snapshot_rejects_noncanonical_base64(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "payload is not canonical",
+        ):
+            VERSION_RELEASE.decode_explicit_adaptation_before_snapshot({
+                "a/b": "QR==",
+            })
+
+    def test_explicit_adaptation_consumes_only_exact_blocked_region(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        changed = write_contract_transition_fixture(
+            repo,
+            include_region_asset=True,
+            old_region_mode="current-drift",
+        )
+        with self.assertRaises(VERSION_RELEASE.TransitionBlocked):
+            VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                changed_paths=changed,
+            )
+
+        target = ".githooks/pre-commit"
+        before = subprocess.run(
+            ["git", "show", f"HEAD:{target}"],
+            cwd=repo,
+            capture_output=True,
+            check=True,
+        ).stdout
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+        ).stdout.strip()
+        item = {
+            "id": "G1",
+            "asset_id": "codex.precommit",
+            "target": target,
+            "category": "release_transition_review",
+            "before_sha256": VERSION_RELEASE._sha256_bytes(before),
+            "after_sha256": VERSION_RELEASE._sha256_bytes(
+                (repo / target).read_bytes()
+            ),
+        }
+        before_snapshot = (
+            VERSION_RELEASE.freeze_explicit_adaptation_before_snapshot(
+                repo,
+                None,
+                [item],
+            )
+        )
+        evidence = VERSION_RELEASE.build_explicit_adaptation_evidence(
+            repo,
+            None,
+            [item],
+            before_snapshot,
+        )
+        item = evidence["items"][0]
+        transition_fingerprint = evidence["transition_fingerprint"]
+        encoded_before = (
+            VERSION_RELEASE.encode_explicit_adaptation_before_snapshot(
+                before_snapshot
+            )
+        )
+        before_fingerprint = (
+            VERSION_RELEASE.explicit_adaptation_before_snapshot_fingerprint(
+                encoded_before
+            )
+        )
+        aggregate = "sha256:" + "a" * 64
+        selection = VERSION_RELEASE._sha256_bytes(
+            VERSION_RELEASE._canonical_json({
+                "aggregate_fingerprint": aggregate,
+                "transition_fingerprint": transition_fingerprint,
+                "before_snapshot_fingerprint": before_fingerprint,
+                "selected_adaptation_ids": ["G1"],
+                "items": [item],
+            })
+        )
+        contract = repo / ".codex" / "managed-skeleton.json"
+        proof = {
+            "schema_version": 2,
+            "project_root": str(repo.resolve()),
+            "head": head,
+            "contract_target": ".codex/managed-skeleton.json",
+            "contract_sha256": VERSION_RELEASE._sha256_bytes(
+                contract.read_bytes()
+            ),
+            "aggregate_fingerprint": aggregate,
+            "transition_fingerprint": transition_fingerprint,
+            "before_snapshot": encoded_before,
+            "before_snapshot_fingerprint": before_fingerprint,
+            "selection_fingerprint": selection,
+            "items": [item],
+        }
+
+        classification, _paths = VERSION_RELEASE.evaluate_release_transition(
+            repo,
+            changed_paths=changed,
+            adaptation_proof=proof,
+        )
+        self.assertIn(classification, {"skeleton-only", "mixed"})
+
+        drifted = json.loads(json.dumps(proof))
+        drifted["items"][0]["after_sha256"] = "sha256:" + "0" * 64
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "current target drifted",
+        ):
+            VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                changed_paths=changed,
+                adaptation_proof=drifted,
+            )
+
+        anchor_drifted = json.loads(json.dumps(proof))
+        anchor_drifted["transition_fingerprint"] = "sha256:" + "1" * 64
+        anchor_drifted["selection_fingerprint"] = VERSION_RELEASE._sha256_bytes(
+            VERSION_RELEASE._canonical_json({
+                "aggregate_fingerprint": anchor_drifted["aggregate_fingerprint"],
+                "transition_fingerprint": anchor_drifted["transition_fingerprint"],
+                "selected_adaptation_ids": ["G1"],
+                "items": anchor_drifted["items"],
+            })
+        )
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "ownership evidence drifted",
+        ):
+            VERSION_RELEASE.evaluate_release_transition(
+                repo,
+                changed_paths=changed,
+                adaptation_proof=anchor_drifted,
+            )
+
+        for field, value, message in (
+            ("project_root", str(repo.parent.resolve()), "another project"),
+            ("head", "0" * 40, "HEAD drifted"),
+            ("contract_sha256", "sha256:" + "2" * 64, "contract hash drifted"),
+        ):
+            with self.subTest(field=field):
+                invalid = json.loads(json.dumps(proof))
+                invalid[field] = value
+                with self.assertRaisesRegex(VERSION_RELEASE.ReleaseError, message):
+                    VERSION_RELEASE.evaluate_release_transition(
+                        repo,
+                        changed_paths=changed,
+                        adaptation_proof=invalid,
+                    )
+
+    def test_explicit_region_adaptation_rejects_project_extension_change(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        write_contract_transition_fixture(
+            repo,
+            include_region_asset=True,
+            old_region_mode="current-drift",
+        )
+        target = ".githooks/pre-commit"
+        path = repo / target
+        path.write_bytes(path.read_bytes().replace(b"exit 0", b"exit 99"))
+        before = subprocess.run(
+            ["git", "show", f"HEAD:{target}"],
+            cwd=repo,
+            capture_output=True,
+            check=True,
+        ).stdout
+        item = {
+            "id": "G1",
+            "asset_id": "codex.precommit",
+            "target": target,
+            "category": "release_transition_review",
+            "before_sha256": VERSION_RELEASE._sha256_bytes(before),
+            "after_sha256": VERSION_RELEASE._sha256_bytes(path.read_bytes()),
+        }
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "project extension",
+        ):
+            VERSION_RELEASE.build_explicit_adaptation_evidence(repo, None, [item])
+
+    def test_explicit_hooks_adaptation_preserves_external_handlers(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        write_contract_transition_fixture(
+            repo,
+            include_merge_noop_asset=True,
+            legacy_merge_without_projection=True,
+        )
+        target = ".codex/hooks.json"
+        before = subprocess.run(
+            ["git", "show", f"HEAD:{target}"],
+            cwd=repo,
+            capture_output=True,
+            check=True,
+        ).stdout
+        path = repo / target
+        prospective_document = json.loads(path.read_text(encoding="utf-8"))
+        user_prompt = {
+            "type": "command",
+            "commandWindows": (
+                "python .codex/hooks/hook_dispatcher.py user-prompt"
+            ),
+            "bridgeforgeCodexId": (
+                "bridgeforge-codex.project-hook.v1:user-prompt"
+            ),
+        }
+        prospective_document["hooks"]["UserPromptSubmit"] = [{
+            "matcher": "",
+            "hooks": [user_prompt],
+        }]
+        external_handler = {
+            "type": "command",
+            "commandWindows": "python .codex/hooks/root_hygiene_check.py",
+        }
+        prospective_document["hooks"]["SessionStart"] = [{
+            "matcher": "startup",
+            "hooks": [external_handler],
+        }]
+        prospective = (
+            json.dumps(prospective_document, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+
+        historical_description = (
+            "BridgeForge project lifecycle hooks. This is the only managed "
+            "Codex hook registration source."
+        )
+        current_before_document = json.loads(before.decode("utf-8"))
+        current_before_document["description"] = historical_description
+        legacy_user_prompt = dict(user_prompt)
+        legacy_user_prompt.pop("bridgeforgeCodexId")
+        current_before_document["hooks"]["UserPromptSubmit"] = [{
+            "matcher": "",
+            "hooks": [legacy_user_prompt],
+        }]
+        current_before_document["hooks"]["SessionStart"] = [{
+            "matcher": "startup",
+            "hooks": [external_handler],
+        }]
+        current_before = (
+            json.dumps(current_before_document, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        path.write_bytes(current_before)
+
+        contract_path = repo / ".codex/managed-skeleton.json"
+        prospective_contract = json.loads(
+            contract_path.read_text(encoding="utf-8")
+        )
+        prospective_asset = next(
+            asset
+            for asset in prospective_contract["assets"]
+            if asset["id"] == "codex.hooks-config"
+        )
+        prospective_required = list(
+            prospective_asset["merge_validation"]["required_handlers"]
+        )
+        prospective_required.append({
+            "id": user_prompt["bridgeforgeCodexId"],
+            "event": "UserPromptSubmit",
+            "matcher": "",
+            "stage": "user-prompt",
+            "sha256": VERSION_RELEASE._canonical_json_sha256(user_prompt),
+        })
+        prospective_required.sort(
+            key=lambda entry: (
+                entry["event"],
+                entry["matcher"],
+                entry["stage"],
+                entry["id"],
+            )
+        )
+        prospective_asset["merge_validation"][
+            "required_handlers"
+        ] = prospective_required
+        prospective_asset["merge_validation"][
+            "current_projection_sha256"
+        ] = VERSION_RELEASE._canonical_json_sha256(prospective_required)
+        prospective_asset["merge_validation"][
+            "managed_top_level_historical"
+        ] = {
+            "description": [
+                historical_description,
+                json.loads(before.decode("utf-8"))["description"],
+            ]
+        }
+
+        current_before_contract = json.loads(json.dumps(prospective_contract))
+        current_before_contract["release_version"] = "1.4.2"
+        current_before_contract["contract_historical_sha256"] = {}
+        current_before_contract["assets"].append({
+            "id": "codex.precommit",
+            "target": ".githooks/pre-commit",
+            "strategy": "region",
+            "region": {
+                "begin": "# OLD MANAGED BEGIN",
+                "end": "# OLD MANAGED END",
+                "current_sha256": "sha256:" + "2" * 64,
+                "historical_sha256": {
+                    "1.4.1": ["sha256:" + "1" * 64],
+                },
+            },
+        })
+        current_before_asset = next(
+            asset
+            for asset in current_before_contract["assets"]
+            if asset["id"] == "codex.hooks-config"
+        )
+        current_before_required = []
+        for event, groups in current_before_document["hooks"].items():
+            for group in groups:
+                for handler in group["hooks"]:
+                    stage = VERSION_RELEASE._dispatcher_stage(handler)
+                    if stage is None:
+                        continue
+                    current_before_required.append({
+                        "event": event,
+                        "matcher": group.get("matcher", ""),
+                        "stage": stage,
+                        "sha256": VERSION_RELEASE._canonical_json_sha256(handler),
+                    })
+        current_before_required.sort(
+            key=lambda entry: (
+                entry["event"],
+                entry["matcher"],
+                entry["stage"],
+            )
+        )
+        current_before_asset["merge_validation"] = {
+            "format": "codex-hooks-dispatchers-v1",
+            "required_handlers": current_before_required,
+        }
+        current_before_payload = (
+            json.dumps(current_before_contract, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        prospective_contract["contract_historical_sha256"]["1.4.2"] = [
+            VERSION_RELEASE._sha256_bytes(current_before_payload)
+        ]
+        prospective_contract_payload = (
+            json.dumps(prospective_contract, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        contract_path.write_bytes(current_before_payload)
+        stamp_path = repo / ".codex/.bridgeforge_codex_version"
+        stamp_path.write_text("1.4.2\n", encoding="utf-8")
+        prospective_snapshot = {
+            target: prospective,
+            ".codex/managed-skeleton.json": prospective_contract_payload,
+            ".codex/.bridgeforge_codex_version": b"1.4.3\n",
+        }
+        item = {
+            "id": "G1",
+            "asset_id": "codex.hooks-config",
+            "target": target,
+            "category": "release_transition_review",
+            "before_sha256": VERSION_RELEASE._sha256_bytes(before),
+            "after_sha256": VERSION_RELEASE._sha256_bytes(prospective),
+        }
+        before_snapshot = (
+            VERSION_RELEASE.freeze_explicit_adaptation_before_snapshot(
+                repo,
+                prospective_snapshot,
+                [item],
+            )
+        )
+        evidence = VERSION_RELEASE.build_explicit_adaptation_evidence(
+            repo,
+            prospective_snapshot,
+            [item],
+            before_snapshot,
+        )
+        self.assertEqual(
+            evidence["items"][0]["project_before_sha256"],
+            evidence["items"][0]["project_after_sha256"],
+        )
+
+        unknown_description = json.loads(current_before.decode("utf-8"))
+        unknown_description["description"] = (
+            "user-only description not present in product history"
+        )
+        path.write_text(
+            json.dumps(unknown_description, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "managed top-level field",
+        ):
+            VERSION_RELEASE.build_explicit_adaptation_evidence(
+                repo,
+                prospective_snapshot,
+                [item],
+            )
+        path.write_bytes(current_before)
+
+        drifted_contract = json.loads(current_before_payload.decode("utf-8"))
+        drifted_asset = next(
+            asset
+            for asset in drifted_contract["assets"]
+            if asset["id"] == "codex.hooks-config"
+        )
+        drifted_required = drifted_asset["merge_validation"]["required_handlers"]
+        next(
+            entry
+            for entry in drifted_required
+            if entry["stage"] == "user-prompt"
+        )["sha256"] = "sha256:" + "0" * 64
+        drifted_asset["merge_validation"][
+            "current_projection_sha256"
+        ] = VERSION_RELEASE._canonical_json_sha256(drifted_required)
+        drifted_contract_payload = (
+            json.dumps(drifted_contract, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        prospective_contract["contract_historical_sha256"]["1.4.2"] = [
+            VERSION_RELEASE._sha256_bytes(drifted_contract_payload)
+        ]
+        drifted_prospective_contract = (
+            json.dumps(prospective_contract, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        drifted_snapshot = dict(prospective_snapshot)
+        drifted_snapshot[
+            ".codex/managed-skeleton.json"
+        ] = drifted_prospective_contract
+        contract_path.write_bytes(drifted_contract_payload)
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "managed-looking handler has no trusted ownership",
+        ):
+            VERSION_RELEASE.build_explicit_adaptation_evidence(
+                repo,
+                drifted_snapshot,
+                [item],
+            )
+        self.assertEqual(path.read_bytes(), current_before)
+        contract_path.write_bytes(current_before_payload)
+
+        drifted_document = json.loads(current_before.decode("utf-8"))
+        drifted_document["hooks"]["SessionStart"][0]["hooks"][0][
+            "commandWindows"
+        ] = "python changed_project_hook.py"
+        path.write_text(
+            json.dumps(drifted_document, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "external handlers",
+        ):
+            VERSION_RELEASE.build_explicit_adaptation_evidence(
+                repo,
+                prospective_snapshot,
+                [item],
+            )
+
+        path.write_bytes(prospective)
+        contract_path.write_bytes(prospective_contract_payload)
+        stamp_path.write_text("1.4.3\n", encoding="utf-8")
+        canonical_item = evidence["items"][0]
+        aggregate = "sha256:" + "a" * 64
+        transition_fingerprint = evidence["transition_fingerprint"]
+        encoded_before = (
+            VERSION_RELEASE.encode_explicit_adaptation_before_snapshot(
+                before_snapshot
+            )
+        )
+        before_fingerprint = (
+            VERSION_RELEASE.explicit_adaptation_before_snapshot_fingerprint(
+                encoded_before
+            )
+        )
+        selection = VERSION_RELEASE._sha256_bytes(
+            VERSION_RELEASE._canonical_json({
+                "aggregate_fingerprint": aggregate,
+                "transition_fingerprint": transition_fingerprint,
+                "before_snapshot_fingerprint": before_fingerprint,
+                "selected_adaptation_ids": ["G1"],
+                "items": [canonical_item],
+            })
+        )
+        proof = {
+            "schema_version": 2,
+            "project_root": str(repo.resolve()),
+            "head": VERSION_RELEASE._head_commit(repo),
+            "contract_target": ".codex/managed-skeleton.json",
+            "contract_sha256": VERSION_RELEASE._sha256_bytes(
+                prospective_contract_payload
+            ),
+            "aggregate_fingerprint": aggregate,
+            "transition_fingerprint": transition_fingerprint,
+            "before_snapshot": encoded_before,
+            "before_snapshot_fingerprint": before_fingerprint,
+            "selection_fingerprint": selection,
+            "items": [canonical_item],
+        }
+        validated = VERSION_RELEASE._validated_explicit_adaptations(
+            repo,
+            {},
+            proof,
+            before_snapshot,
+        )
+        self.assertEqual(
+            set(validated),
+            {("codex.hooks-config", target)},
+        )
+
+    def test_schema_v1_hooks_require_published_handler_history(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        host = repo / ".codex"
+        host.mkdir(parents=True)
+        target = ".codex/hooks.json"
+        managed_id = "bridgeforge-codex.project-hook.v1:pre-tool"
+        published = {
+            "type": "command",
+            "commandWindows": (
+                "python .codex/hooks/hook_dispatcher.py pre-tool"
+            ),
+        }
+        canonical = dict(published)
+        canonical["bridgeforgeCodexId"] = managed_id
+        attack = dict(canonical)
+        attack["commandWindows"] += " --unknown-payload"
+
+        def document(handler: dict[str, object]) -> bytes:
+            return (json.dumps({
+                "hooks": {
+                    "PreToolUse": [{
+                        "matcher": "Bash|Edit|Write",
+                        "hooks": [handler],
+                    }],
+                },
+            }, indent=2) + "\n").encode("utf-8")
+
+        legacy_contract = {
+            "schema_version": 1,
+            "stamp": ".codex/.bridgeforge_version",
+            "whole_files": [
+                ".codex/.bridgeforge_version",
+                ".codex/managed-skeleton.json",
+                target,
+            ],
+            "managed_regions": [],
+        }
+        legacy_payload = (
+            json.dumps(legacy_contract, indent=2) + "\n"
+        ).encode("utf-8")
+        required = [{
+            "id": managed_id,
+            "event": "PreToolUse",
+            "matcher": "Bash|Edit|Write",
+            "stage": "pre-tool",
+            "sha256": VERSION_RELEASE._canonical_json_sha256(canonical),
+        }]
+        current_asset = {
+            "id": "codex.hooks-config",
+            "target": target,
+            "strategy": "merge",
+            "merge_policy": "codex-hooks",
+            "merge_validation": {
+                "format": "codex-hooks-zones-v2",
+                "required_handlers": required,
+                "current_projection_sha256": (
+                    VERSION_RELEASE._canonical_json_sha256(required)
+                ),
+                "historical_handler_sha256": {
+                    managed_id: {
+                        "0.90.0": [
+                            VERSION_RELEASE._handler_without_managed_id_hash(
+                                published
+                            )
+                        ],
+                    },
+                },
+                "managed_top_level": {},
+            },
+        }
+        prospective_contract = {
+            "schema_version": 2,
+            "release_version": "1.4.24",
+            "stamp": ".codex/.bridgeforge_codex_version",
+            "contract_target": ".codex/managed-skeleton.json",
+            "contract_historical_sha256": {
+                "0.90.0": [VERSION_RELEASE._sha256_bytes(legacy_payload)],
+            },
+            "assets": [current_asset],
+        }
+        prospective_payload = (
+            json.dumps(prospective_contract, indent=2) + "\n"
+        ).encode("utf-8")
+        contract_path = host / "managed-skeleton.json"
+        contract_path.write_bytes(legacy_payload)
+        (host / ".bridgeforge_version").write_text(
+            "0.90.0\n", encoding="utf-8"
+        )
+        hooks_path = repo / target
+        hooks_path.write_bytes(document(attack))
+        snapshot = {
+            target: document(canonical),
+            ".codex/managed-skeleton.json": prospective_payload,
+        }
+        before_snapshot = {
+            target: hooks_path.read_bytes(),
+            ".codex/managed-skeleton.json": legacy_payload,
+            ".codex/.bridgeforge_version": b"0.90.0\n",
+            ".codex/.bridgeforge_codex_version": None,
+        }
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "trusted published or current canonical handler",
+        ):
+            VERSION_RELEASE._trusted_current_before_contract_asset(
+                repo,
+                contract_path,
+                prospective_contract,
+                prospective_payload,
+                "codex.hooks-config",
+                target,
+                snapshot,
+                before_snapshot,
+            )
+
+        hooks_path.write_bytes(document(canonical))
+        before_snapshot[target] = hooks_path.read_bytes()
+        current_before_asset = (
+            VERSION_RELEASE._trusted_current_before_contract_asset(
+                repo,
+                contract_path,
+                prospective_contract,
+                prospective_payload,
+                "codex.hooks-config",
+                target,
+                snapshot,
+                before_snapshot,
+            )
+        )
+
+        current_handler = dict(canonical)
+        current_handler["commandWindows"] += " --current"
+        current_asset_v2 = json.loads(json.dumps(current_asset))
+        current_asset_v2["merge_validation"]["required_handlers"][0][
+            "sha256"
+        ] = VERSION_RELEASE._canonical_json_sha256(current_handler)
+        current_asset_v2["merge_validation"][
+            "current_projection_sha256"
+        ] = VERSION_RELEASE._canonical_json_sha256(
+            current_asset_v2["merge_validation"]["required_handlers"]
+        )
+        current_before_asset_v2 = json.loads(json.dumps(current_asset_v2))
+        current_before_asset_v2["_trusted_release_version"] = "1.4.2"
+        head_project, current_project = (
+            VERSION_RELEASE._adaptation_hooks_project_parts(
+                document(published),
+                document(current_handler),
+                document(current_handler),
+                {
+                    "id": "codex.hooks-config",
+                    "target": target,
+                    "strategy": "merge",
+                    "merge_validation": {
+                        "format": "codex-hooks-dispatchers-v1",
+                        "required_handlers": [],
+                    },
+                },
+                current_before_asset_v2,
+                current_asset_v2,
+                "0.90.0",
+                target,
+                target,
+            )
+        )
+        self.assertEqual(head_project, current_project)
+
+        contract_path.write_bytes(prospective_payload)
+        (host / ".bridgeforge_version").unlink()
+        post_apply_snapshot = dict(snapshot)
+        post_apply_snapshot[".codex/.bridgeforge_codex_version"] = (
+            b"1.4.24\n"
+        )
+        self.assertEqual(
+            VERSION_RELEASE._trusted_current_before_contract_asset(
+                repo,
+                contract_path,
+                prospective_contract,
+                prospective_payload,
+                "codex.hooks-config",
+                target,
+                post_apply_snapshot,
+                before_snapshot,
+            )["_trusted_release_version"],
+            "0.90.0",
+        )
+        contract_path.write_bytes(legacy_payload)
+        (host / ".bridgeforge_version").write_text(
+            "0.90.0\n", encoding="utf-8"
+        )
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "HEAD dispatcher does not match",
+        ):
+            VERSION_RELEASE._adaptation_hooks_project_parts(
+                document({
+                    key: value
+                    for key, value in attack.items()
+                    if key != "bridgeforgeCodexId"
+                }),
+                document(canonical),
+                document(canonical),
+                {
+                    "id": "codex.hooks-config",
+                    "target": target,
+                    "strategy": "merge",
+                    "merge_validation": {
+                        "format": "codex-hooks-dispatchers-v1",
+                        "required_handlers": [],
+                    },
+                },
+                current_before_asset,
+                current_asset,
+                "0.90.0",
+                target,
+                target,
+            )
+
+    def test_no_target_retirement_rechecks_lexical_absence(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        with (
+            mock.patch.object(
+                VERSION_RELEASE,
+                "_explicit_adaptation_context",
+                return_value=(
+                    ".codex/retired.py",
+                    None,
+                    {"strategy": "whole"},
+                    None,
+                    "0.90.0",
+                    None,
+                ),
+            ),
+            mock.patch.object(
+                VERSION_RELEASE,
+                "_lexical_entry_exists",
+                return_value=True,
+            ),
+            self.assertRaisesRegex(
+                VERSION_RELEASE.ReleaseError,
+                "lexical directory entry",
+            ),
+        ):
+            VERSION_RELEASE._explicit_adaptation_ownership_evidence(
+                repo,
+                {},
+                "codex.retired.fixture",
+                ".codex/retired.py",
+                "release_transition_review",
+                {("codex.retired.fixture", ".codex/retired.py")},
+                True,
+            )
+
+    def test_explicit_hooks_adaptation_rejects_ambiguous_legacy_dispatcher(self) -> None:
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        init_repo(repo)
+        write_contract_transition_fixture(
+            repo,
+            include_merge_noop_asset=True,
+            legacy_merge_without_projection=True,
+            duplicate_merge_handler_before_baseline=True,
+        )
+        target = ".codex/hooks.json"
+        before = subprocess.run(
+            ["git", "show", f"HEAD:{target}"],
+            cwd=repo,
+            capture_output=True,
+            check=True,
+        ).stdout
+        path = repo / target
+        item = {
+            "id": "G1",
+            "asset_id": "codex.hooks-config",
+            "target": target,
+            "category": "release_transition_review",
+            "before_sha256": VERSION_RELEASE._sha256_bytes(before),
+            "after_sha256": VERSION_RELEASE._sha256_bytes(path.read_bytes()),
+        }
+        with self.assertRaisesRegex(
+            VERSION_RELEASE.ReleaseError,
+            "ambiguous legacy dispatcher",
+        ):
+            VERSION_RELEASE.build_explicit_adaptation_evidence(repo, None, [item])
+
     def test_compatibility_entrypoints_delegate_to_single_evaluator(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)

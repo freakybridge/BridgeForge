@@ -131,6 +131,9 @@ class Receipt:
     selected_absorption_ids: tuple[str, ...]
     selected_action_ids: tuple[str, ...]
     selection_fingerprint: str | None
+    selected_adaptation_ids: tuple[str, ...]
+    adaptation_selection_fingerprint: str | None
+    adaptation_receipt_path: str | None
     custom_absorption_directives: tuple[str, ...]
     conflict_file_items: tuple[dict[str, Any], ...]
     managed_block_effects: tuple[dict[str, Any], ...]
@@ -224,6 +227,39 @@ def _absorption_catalog(plan: Plan) -> list[CatalogEntry]:
 
 def _executable_catalog(plan: Plan) -> list[CatalogEntry]:
     return _risk_catalog(plan) + _absorption_catalog(plan)
+
+
+def _recommended_plan_actions(plan: Plan) -> list[Action]:
+    """Materialize the complete action set recommended by the displayed plan."""
+    safe_actions = list(plan.safe_actions)
+    base_payloads = {
+        (action.asset_id, action.target): action.payload
+        for action in safe_actions
+        if action.payload is not None
+    }
+    materialized = _materialize_selected_actions(
+        Path(plan.project_root),
+        _executable_catalog(plan),
+        base_payloads=base_payloads,
+    )
+    materialized_keys = {
+        (action.asset_id, action.target) for action in materialized
+    }
+    return [
+        action
+        for action in safe_actions
+        if (action.asset_id, action.target) not in materialized_keys
+    ] + materialized
+
+
+def _replace_action(actions: list[Action], replacement: Action) -> None:
+    key = (replacement.asset_id, replacement.target)
+    actions[:] = [
+        action
+        for action in actions
+        if (action.asset_id, action.target) != key
+    ]
+    actions.append(replacement)
 
 
 def _action_item(
@@ -390,6 +426,57 @@ def _action_required_items(gaps: list[Gap]) -> list[dict[str, Any]]:
         }
         for index, (asset_id, target, item) in enumerate(ordered, 1)
     ]
+
+
+def _combined_action_required_items(plan: Plan) -> list[dict[str, Any]]:
+    raw = _action_required_items(plan.gaps)
+    raw.extend(dict(item) for item in plan.release_preflight_items)
+    result = [
+        {**raw_item, "id": f"G{index}"}
+        for index, raw_item in enumerate(raw, 1)
+    ]
+    release_items = [
+        item
+        for item in result
+        if item.get("category") == "release_transition_review"
+    ]
+    executable_release_ids: set[str] = set()
+    if release_items:
+        try:
+            actions = _recommended_plan_actions(plan)
+            for item in release_items:
+                action, added = _explicit_release_action(plan, item)
+                if added:
+                    _replace_action(actions, action)
+            snapshot = _prospective_snapshot(actions)
+            proof = _build_adaptation_proof(plan, release_items, snapshot)
+            if proof is None:
+                raise SyncBlocked("release adaptation proof is missing")
+            _run_release_preflight(
+                Path(plan.project_root),
+                Path(plan.template_root),
+                plan.current_version,
+                snapshot,
+                proof,
+            )
+            executable_release_ids = {
+                str(item["id"])
+                for item in release_items
+            }
+        except (OSError, SyncBlocked, KeyError, TypeError, ValueError):
+            executable_release_ids = set()
+    for item in result:
+        eligible = False
+        if item.get("category") == "release_transition_review":
+            eligible = str(item["id"]) in executable_release_ids
+        elif item.get("category") == "agents_ownership_review":
+            try:
+                _explicit_agents_action(plan, item)
+                eligible = True
+            except (OSError, SyncBlocked, KeyError, TypeError, ValueError):
+                eligible = False
+        item["adaptation_eligible"] = eligible
+    return result
 
 
 RETIRED_RULE_MIGRATION_TARGETS = {
@@ -610,6 +697,17 @@ def _is_reparse(path: Path) -> bool:
     except OSError:
         return True
     return path.is_symlink() or bool(attributes & FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def _lexical_entry_exists(path: Path) -> bool:
+    """Detect a directory entry without following its link/reparse target."""
+    try:
+        os.lstat(path)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    return True
 
 
 def _assert_plain_ancestors(root: Path, target: Path) -> None:
@@ -2645,6 +2743,7 @@ def _merge_codex_hooks(
     conflicts: list[str],
     ownership: Any,
     legacy_validation: Any,
+    current_validation: Any,
 ) -> Any:
     if not isinstance(current, dict) or not isinstance(canonical, dict):
         conflicts.append("<root>")
@@ -2695,6 +2794,11 @@ def _merge_codex_hooks(
             managed_looking=lambda handler: _dispatcher_stage(handler) is not None,
             legacy_handlers=legacy_handlers,
             managed_top_level={"description": canonical.get("description")},
+            managed_top_level_historical=(
+                current_validation.get("managed_top_level_historical")
+                if isinstance(current_validation, dict)
+                else None
+            ),
         )
         return merged
     except ownership.HooksOwnershipError as exc:
@@ -2741,6 +2845,7 @@ def _plan_merge(
             conflicts,
             hooks_ownership,
             legacy_validation,
+            asset.get("merge_validation"),
         )
     else:
         try:
@@ -2994,6 +3099,7 @@ def _prospective_snapshot(actions: list[Action]) -> dict[str, bytes | None]:
     snapshot: dict[str, bytes | None] = {}
     for action in actions:
         if action.action in {
+            "attest-release-transition",
             "memory-organize",
             "migrate-stamp",
         }:
@@ -3005,6 +3111,607 @@ def _prospective_snapshot(actions: list[Action]) -> dict[str, bytes | None]:
             raise SyncBlocked(f"action {action.asset_id} has no prospective payload")
         snapshot[action.target] = action.payload
     return snapshot
+
+
+ADAPTATION_RECEIPT = ".runtime/bridgeforge-codex/explicit-adaptation.json"
+
+
+def _git_head(project_root: Path) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={project_root.resolve().as_posix()}",
+            "rev-parse",
+            "--verify",
+            "HEAD",
+        ],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise SyncBlocked(f"explicit adaptation cannot inspect Git HEAD: {detail}")
+    return result.stdout.strip()
+
+
+def _git_head_bytes(project_root: Path, target: str) -> bytes | None:
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={project_root.resolve().as_posix()}",
+            "show",
+            f"HEAD:{target}",
+        ],
+        cwd=project_root,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode == 0:
+        return result.stdout
+    missing = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={project_root.resolve().as_posix()}",
+            "cat-file",
+            "-e",
+            f"HEAD:{target}",
+        ],
+        cwd=project_root,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if missing.returncode != 0:
+        return None
+    raise SyncBlocked(f"explicit adaptation could not read HEAD target: {target}")
+
+
+def _optional_hash(payload: bytes | None) -> str | None:
+    return None if payload is None else _sha256_bytes(payload)
+
+
+def _assert_adaptation_receipt_ignored(project_root: Path) -> None:
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={project_root.resolve().as_posix()}",
+            "check-ignore",
+            "--quiet",
+            "--",
+            ADAPTATION_RECEIPT,
+        ],
+        cwd=project_root,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SyncBlocked(
+            f"explicit adaptation receipt is not ignored by Git: {ADAPTATION_RECEIPT}"
+        )
+
+
+def _explicit_agents_action(plan: Plan, item: dict[str, Any]) -> Action:
+    root = Path(plan.project_root)
+    template = Path(plan.template_root)
+    contract, _contract_path = load_contract(template)
+    asset = next(
+        (
+            entry
+            for entry in contract["assets"]
+            if isinstance(entry, dict) and entry.get("id") == item.get("asset_id")
+        ),
+        None,
+    )
+    if not isinstance(asset, dict) or not isinstance(asset.get("agents_zones"), dict):
+        raise SyncBlocked(
+            f"selected adaptation is not a deterministic AGENTS ownership item: {item['id']}"
+        )
+    target = _inside(root, str(asset["target"]), "explicit AGENTS adaptation target")
+    if not target.is_file() or _is_reparse(target):
+        raise SyncBlocked("explicit AGENTS adaptation target is not a plain file")
+    before = target.read_bytes()
+    if item.get("content_sha256") != _sha256_bytes(_git_blob_bytes(before)):
+        raise SyncBlocked("explicit AGENTS adaptation content drifted")
+    zones = asset["agents_zones"]
+    markers = tuple(
+        str(value).encode("utf-8")
+        for value in (
+            zones["public"]["begin"],
+            zones["public"]["end"],
+            zones["project"]["begin"],
+            zones["project"]["end"],
+        )
+    )
+    if any(marker in before for marker in markers):
+        raise SyncBlocked(
+            "explicit AGENTS adaptation only accepts a completely unzoned source"
+        )
+    source = _inside(template, str(asset["source"]), "explicit AGENTS adaptation source")
+    desired = _render_source(source.read_bytes(), asset, root)
+    desired_parts = _agents_zone_parts(desired, zones)
+    project_block = desired_parts[3]
+    project_end = str(zones["project"]["end"]).encode("utf-8")
+    end_at = project_block.rfind(project_end)
+    if end_at < 0:
+        raise SyncBlocked("canonical AGENTS project end marker is missing")
+    separator = b"" if project_block[:end_at].endswith(b"\n\n") else b"\n"
+    legacy = before
+    legacy_tail = b"" if legacy.endswith(b"\n") else b"\n"
+    adapted_project = (
+        project_block[:end_at]
+        + separator
+        + legacy
+        + legacy_tail
+        + project_block[end_at:]
+    )
+    after = b"".join(
+        (
+            desired_parts[0],
+            desired_parts[1],
+            desired_parts[2],
+            adapted_project,
+            desired_parts[4],
+        )
+    )
+    _prefix, public, _between, project, _suffix = _agents_zone_parts(after, zones)
+    _agents_project_sections(project, zones)
+    if _agents_public_zone_hash(public, asset, root) != str(
+        zones["public"]["current_sha256"]
+    ):
+        raise SyncBlocked("explicit AGENTS adaptation public zone is not current")
+    if project.count(legacy) != 1:
+        raise SyncBlocked("explicit AGENTS adaptation did not preserve legacy bytes exactly once")
+    return _action(
+        asset,
+        target,
+        "adapt-agents-zones",
+        "safe",
+        "the selected unzoned AGENTS content is wrapped once in the current project zone",
+        before,
+        after,
+        root,
+        local_impact="the selected legacy AGENTS bytes remain exact inside the project zone",
+    )
+
+
+def _explicit_release_action(
+    plan: Plan,
+    item: dict[str, Any],
+) -> tuple[Action, bool]:
+    """Resolve one selected release G item to an executable prospective action."""
+    key = (str(item["asset_id"]), str(item["target"]))
+    matching = [
+        action
+        for action in plan.actions
+        if (action.asset_id, action.target) == key
+    ]
+    if len(matching) > 1:
+        raise SyncBlocked(
+            f"selected release adaptation has ambiguous actions: {key[0]}:{key[1]}"
+        )
+    if matching:
+        action = matching[0]
+        if action.classification == "safe":
+            return action, False
+        if action.classification != "risk" or action.action != "retire":
+            raise SyncBlocked(
+                "selected release adaptation is not a deterministic safe action"
+            )
+        root = Path(plan.project_root)
+        target = _inside(root, key[1], "explicit retirement adaptation target")
+        if not target.is_file() or _is_reparse(target):
+            raise SyncBlocked("explicit retirement adaptation target is not a plain file")
+        head = _git_head_bytes(root, key[1])
+        if head is None or _git_blob_bytes(target.read_bytes()) != _git_blob_bytes(head):
+            raise SyncBlocked(
+                "explicit retirement adaptation target does not match Git HEAD"
+            )
+        return (
+            replace(
+                action,
+                classification="safe",
+                reason=(
+                    "the selected retirement target exactly matches Git HEAD and is "
+                    "removed by this explicit adaptation"
+                ),
+                local_impact=(
+                    "only the explicitly selected HEAD-matched retired file is removed"
+                ),
+            ),
+            True,
+        )
+
+    root = Path(plan.project_root)
+    contract, _contract_path = load_contract(Path(plan.template_root))
+    assets = [
+        asset
+        for asset in contract["assets"]
+        if isinstance(asset, dict)
+        and str(asset.get("id")) == key[0]
+        and str(asset.get("target")) == key[1]
+    ]
+    if len(assets) != 1:
+        raise SyncBlocked(
+            "selected release adaptation has no deterministic prospective action"
+        )
+    asset = assets[0]
+    target = _inside(root, key[1], "explicit retirement adaptation target")
+    if asset.get("strategy") != "retirement":
+        if not target.is_file() or _is_reparse(target):
+            raise SyncBlocked(
+                "selected release adaptation current target is not a plain file"
+            )
+        current = target.read_bytes()
+        return (
+            _action(
+                asset,
+                target,
+                "attest-release-transition",
+                "safe",
+                (
+                    "the selected current target is included in the prospective "
+                    "transition without changing its bytes"
+                ),
+                current,
+                current,
+                root,
+                local_impact="the selected current target remains byte-for-byte unchanged",
+            ),
+            True,
+        )
+    head = _git_head_bytes(root, key[1])
+    if head is None:
+        lexical_target = root / Path(key[1])
+        if _lexical_entry_exists(lexical_target):
+            raise SyncBlocked(
+                "explicit retirement adaptation target exists outside Git HEAD"
+            )
+        return (
+            _action(
+                asset,
+                target,
+                "attest-release-transition",
+                "safe",
+                (
+                    "the selected retired target is absent from both Git HEAD and "
+                    "the worktree; the no-op retirement is bound by this adaptation"
+                ),
+                None,
+                None,
+                root,
+                local_impact="the absent retired target remains absent",
+            ),
+            True,
+        )
+    current: bytes | None = None
+    if target.exists():
+        if not target.is_file() or _is_reparse(target):
+            raise SyncBlocked("explicit retirement adaptation target is not a plain file")
+        current = target.read_bytes()
+    if current is not None and _git_blob_bytes(current) != _git_blob_bytes(head):
+        raise SyncBlocked(
+            "explicit retirement adaptation target does not match Git HEAD"
+        )
+    reason = (
+        "the selected retirement target is already absent from the worktree and "
+        "its Git HEAD bytes are bound by this explicit adaptation"
+        if current is None
+        else (
+            "the selected retirement target exactly matches Git HEAD and is "
+            "removed by this explicit adaptation"
+        )
+    )
+    return (
+        _action(
+            asset,
+            target,
+            "retire",
+            "safe",
+            reason,
+            current,
+            None,
+            root,
+            local_impact=(
+                "only the explicitly selected HEAD-matched retired file is removed"
+            ),
+        ),
+        True,
+    )
+
+
+def _explicit_release_evidence(
+    plan: Plan,
+    items: list[dict[str, Any]],
+    snapshot: dict[str, bytes | None],
+    before_snapshot: dict[str, bytes | None] | None = None,
+) -> dict[str, Any]:
+    raw_items: list[dict[str, Any]] = []
+    for item in items:
+        target = str(item["target"])
+        after = snapshot.get(target)
+        if target not in snapshot:
+            path = _inside(
+                Path(plan.project_root),
+                target,
+                "explicit adaptation current target",
+            )
+            after = path.read_bytes() if path.is_file() else None
+        raw_items.append({
+            "id": str(item["id"]),
+            "asset_id": str(item["asset_id"]),
+            "target": target,
+            "category": str(item["category"]),
+            "before_sha256": _optional_hash(
+                _git_head_bytes(Path(plan.project_root), target)
+            ),
+            "after_sha256": _optional_hash(after),
+        })
+    release = _trusted_release_module(Path(plan.template_root))
+    try:
+        return release.build_explicit_adaptation_evidence(
+            Path(plan.project_root),
+            snapshot,
+            raw_items,
+            before_snapshot,
+        )
+    except Exception as exc:
+        release_error = getattr(release, "ReleaseError", ())
+        if not isinstance(release_error, type) or not isinstance(exc, release_error):
+            raise
+        raise SyncBlocked(
+            f"explicit adaptation ownership evidence failed: {exc}"
+        ) from exc
+
+
+def _select_explicit_adaptations(
+    plan: Plan,
+    selected_ids: tuple[str, ...] | None,
+) -> tuple[list[dict[str, Any]], list[Action], list[Gap]]:
+    catalog = _combined_action_required_items(plan)
+    if not catalog:
+        if selected_ids is not None:
+            raise SyncBlocked(
+                "--selected-adaptation was supplied but the current plan has no G items"
+            )
+        return [], [], list(plan.gaps)
+    if selected_ids is None:
+        raise SyncBlocked(
+            "action-required G items require exact --selected-adaptation IDs; zero writes performed"
+        )
+    if not selected_ids or len(set(selected_ids)) != len(selected_ids):
+        raise SyncBlocked("explicit adaptation selection is empty or contains duplicate IDs")
+    by_id = {str(item["id"]): item for item in catalog}
+    unknown = sorted(set(selected_ids) - set(by_id))
+    if unknown:
+        raise SyncBlocked("unknown selected adaptation IDs: " + ", ".join(unknown))
+    unselected = [item_id for item_id in by_id if item_id not in set(selected_ids)]
+    if unselected:
+        raise SyncBlocked(
+            "every current G item must be explicitly selected in this transaction; missing: "
+            + ", ".join(unselected)
+        )
+    expected_ids = tuple(by_id)
+    if selected_ids != expected_ids:
+        raise SyncBlocked(
+            "selected adaptation IDs were reordered; zero writes performed"
+        )
+    selected = [by_id[item_id] for item_id in selected_ids]
+    ineligible = [
+        str(item["id"])
+        for item in selected
+        if item.get("adaptation_eligible") is not True
+    ]
+    if ineligible:
+        raise SyncBlocked(
+            "selected G items are not executable adaptations: " + ", ".join(ineligible)
+        )
+    adaptation_actions: list[Action] = []
+    selected_agent_keys: set[tuple[str, str]] = set()
+    for item in selected:
+        category = item.get("category")
+        if category == "agents_ownership_review":
+            adaptation_actions.append(_explicit_agents_action(plan, item))
+            selected_agent_keys.add((str(item["asset_id"]), str(item["target"])))
+        elif category == "release_transition_review":
+            action, added = _explicit_release_action(plan, item)
+            if added:
+                adaptation_actions.append(action)
+    remaining_gaps = [
+        gap
+        for gap in plan.gaps
+        if (gap.asset_id, gap.target) not in selected_agent_keys
+    ]
+    return selected, adaptation_actions, remaining_gaps
+
+
+def _build_adaptation_proof(
+    plan: Plan,
+    selected_items: list[dict[str, Any]],
+    snapshot: dict[str, bytes | None],
+) -> dict[str, Any] | None:
+    if not selected_items:
+        return None
+    root = Path(plan.project_root)
+    contract, _contract_path = load_contract(Path(plan.template_root))
+    contract_target = str(contract["contract_target"])
+    canonical_items: list[dict[str, Any]] = []
+    for item in selected_items:
+        target = str(item["target"])
+        after = snapshot.get(target)
+        if target not in snapshot:
+            path = _inside(root, target, "explicit adaptation current target")
+            after = path.read_bytes() if path.is_file() else None
+        canonical_items.append({
+            "id": str(item["id"]),
+            "asset_id": str(item["asset_id"]),
+            "target": target,
+            "category": str(item["category"]),
+            "before_sha256": _optional_hash(_git_head_bytes(root, target)),
+            "after_sha256": _optional_hash(after),
+        })
+    selected_ids = [str(item["id"]) for item in selected_items]
+    release = _trusted_release_module(Path(plan.template_root))
+    try:
+        before_snapshot = release.freeze_explicit_adaptation_before_snapshot(
+            root,
+            snapshot,
+            canonical_items,
+        )
+        evidence = release.build_explicit_adaptation_evidence(
+            root,
+            snapshot,
+            canonical_items,
+            before_snapshot,
+        )
+    except Exception as exc:
+        release_error = getattr(release, "ReleaseError", ())
+        if not isinstance(release_error, type) or not isinstance(exc, release_error):
+            raise
+        raise SyncBlocked(
+            f"explicit adaptation ownership evidence failed: {exc}"
+        ) from exc
+    canonical_items = list(evidence["items"])
+    transition_fingerprint = str(evidence["transition_fingerprint"])
+    encoded_before = release.encode_explicit_adaptation_before_snapshot(
+        before_snapshot
+    )
+    before_fingerprint = (
+        release.explicit_adaptation_before_snapshot_fingerprint(encoded_before)
+    )
+    selection_fingerprint = _sha256_bytes(_canonical_json({
+        "aggregate_fingerprint": plan.aggregate_fingerprint,
+        "transition_fingerprint": transition_fingerprint,
+        "before_snapshot_fingerprint": before_fingerprint,
+        "selected_adaptation_ids": selected_ids,
+        "items": canonical_items,
+    }))
+    contract_payload = snapshot.get(contract_target)
+    if contract_target not in snapshot:
+        contract_path = _inside(root, contract_target, "explicit adaptation contract")
+        contract_payload = contract_path.read_bytes() if contract_path.is_file() else None
+    if contract_payload is None:
+        raise SyncBlocked("explicit adaptation prospective contract is missing")
+    return {
+        "schema_version": 2,
+        "project_root": str(root.resolve()),
+        "head": _git_head(root),
+        "contract_target": contract_target,
+        "contract_sha256": _sha256_bytes(contract_payload),
+        "aggregate_fingerprint": plan.aggregate_fingerprint,
+        "transition_fingerprint": transition_fingerprint,
+        "before_snapshot": encoded_before,
+        "before_snapshot_fingerprint": before_fingerprint,
+        "selection_fingerprint": selection_fingerprint,
+        "items": canonical_items,
+    }
+
+
+def _verify_adaptation_proof_binding(
+    plan: Plan,
+    proof: dict[str, Any],
+    snapshot: dict[str, bytes | None],
+) -> None:
+    """Rebind current project-owned content immediately before any write."""
+    raw_items = proof.get("items")
+    if not isinstance(raw_items, list):
+        raise SyncBlocked("explicit adaptation proof items are missing")
+    release = _trusted_release_module(Path(plan.template_root))
+    frozen_before = release.decode_explicit_adaptation_before_snapshot(
+        proof.get("before_snapshot")
+    )
+    fresh_before = release.freeze_explicit_adaptation_before_snapshot(
+        Path(plan.project_root),
+        snapshot,
+        raw_items,
+    )
+    if fresh_before != frozen_before:
+        raise SyncBlocked(
+            "explicit adaptation current-before snapshot drifted before apply; "
+            "zero writes performed"
+        )
+    evidence = _explicit_release_evidence(
+        plan,
+        raw_items,
+        snapshot,
+        frozen_before,
+    )
+    if (
+        evidence.get("items") != raw_items
+        or evidence.get("transition_fingerprint")
+        != proof.get("transition_fingerprint")
+    ):
+        raise SyncBlocked(
+            "explicit adaptation project-owned content drifted before apply; "
+            "zero writes performed"
+        )
+
+
+def _renumber_release_items(
+    items: Iterable[dict[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        {**item, "id": f"G{index}"}
+        for index, item in enumerate(items, 1)
+    )
+
+
+def _release_item_key(item: dict[str, Any]) -> tuple[str, str]:
+    return str(item.get("asset_id", "")), str(item.get("target", ""))
+
+
+def _expanded_release_preflight_items(plan: Plan) -> tuple[dict[str, Any], ...]:
+    """Expose every deterministic release issue before Apply can be selected."""
+    items = list(_renumber_release_items(plan.release_preflight_items))
+    if not items:
+        return ()
+    contract, _contract_path = load_contract(Path(plan.template_root))
+    maximum_rounds = len(contract["assets"]) + 1
+    seen = {_release_item_key(item) for item in items}
+    for _round in range(maximum_rounds):
+        try:
+            actions = _recommended_plan_actions(plan)
+            for item in items:
+                action, added = _explicit_release_action(plan, item)
+                if added:
+                    _replace_action(actions, action)
+            snapshot = _prospective_snapshot(actions)
+            proof = _build_adaptation_proof(plan, items, snapshot)
+            if proof is None:
+                return _renumber_release_items(items)
+            _run_release_preflight(
+                Path(plan.project_root),
+                Path(plan.template_root),
+                plan.current_version,
+                snapshot,
+                proof,
+            )
+            return _renumber_release_items(items)
+        except ReleasePreflightBlocked as exc:
+            additions = [
+                item
+                for item in _zero_write_preflight_items(exc.items)
+                if _release_item_key(item) not in seen
+            ]
+            if not additions:
+                return _renumber_release_items(items)
+            for item in additions:
+                seen.add(_release_item_key(item))
+                items.append(item)
+            items = list(_renumber_release_items(items))
+        except (OSError, SyncBlocked, KeyError, TypeError, ValueError):
+            return _renumber_release_items(items)
+    return _renumber_release_items(items)
 
 
 LEGACY_STAMP = ".codex/.bridgeforge_version"
@@ -3272,17 +3979,17 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         blockers=blockers,
         project_requirements=project_requirements,
     )
-    prospective_snapshot = _prospective_snapshot(plan.safe_actions)
-    has_unconfirmed_actions = any(
-        item.classification in {"risk", "absorb"} for item in actions
+    prospective_snapshot = _prospective_snapshot(_recommended_plan_actions(plan))
+    has_blocking_project_requirements = any(
+        bool(item.get("affects_readiness", True))
+        for item in project_requirements
     )
     expected_stamp = (current_version + "\n").encode("utf-8")
     needs_stamp = not stamp.is_file() or stamp.read_bytes() != expected_stamp
     if (
         not blockers
         and not gaps
-        and not project_requirements
-        and not has_unconfirmed_actions
+        and not has_blocking_project_requirements
         and (prospective_snapshot or needs_stamp)
     ):
         preflight_started = time.perf_counter()
@@ -3304,6 +4011,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 (time.perf_counter() - preflight_started) * 1000,
                 1,
             )
+            plan.release_preflight_items = _expanded_release_preflight_items(plan)
     plan.aggregate_fingerprint = _fingerprint(plan)
     return plan
 
@@ -3333,7 +4041,7 @@ class _Transaction:
 
     def delete(self, path: Path) -> None:
         self._record(path)
-        path.unlink()
+        path.unlink(missing_ok=True)
 
     def snapshot_tree(self, tree: Path) -> None:
         if tree in self.tree_before:
@@ -3500,6 +4208,8 @@ def _run_release_preflight(
     template_root: Path,
     prospective_version: str | None,
     snapshot: dict[str, bytes | None] | None = None,
+    adaptation_proof: dict[str, Any] | None = None,
+    before_snapshot: dict[str, bytes | None] | None = None,
 ) -> tuple[str, str | None, float]:
     started = time.perf_counter()
     if not (project_root / ".git").exists():
@@ -3531,11 +4241,17 @@ def _run_release_preflight(
         return "not_applicable", None, round((time.perf_counter() - started) * 1000, 1)
 
     release = _trusted_release_module(template_root)
+    if adaptation_proof is not None and before_snapshot is None:
+        before_snapshot = release.decode_explicit_adaptation_before_snapshot(
+            adaptation_proof.get("before_snapshot")
+        )
     try:
         classification, _changed_paths = release.evaluate_release_transition(
             project_root,
             snapshot,
             prospective_version,
+            adaptation_proof=adaptation_proof,
+            before_snapshot=before_snapshot,
         )
     except Exception as exc:
         release_error = getattr(release, "ReleaseError", ())
@@ -3650,7 +4366,7 @@ def _run_validation(
 
 def _verify_actions(project_root: Path, actions: Iterable[Action]) -> None:
     for action in actions:
-        if action.action == "memory-organize":
+        if action.action in {"attest-release-transition", "memory-organize"}:
             continue
         target = _inside(project_root, action.target, f"receipt target {action.asset_id}")
         if action.action == "retire":
@@ -3893,6 +4609,7 @@ def apply_plan(
     confirmed_risk: bool = False,
     decline_risk: bool = False,
     selected_risk_ids: tuple[str, ...] | None = None,
+    selected_adaptation_ids: tuple[str, ...] | None = None,
     custom_absorption_directives: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
 ) -> Receipt:
@@ -3907,6 +4624,7 @@ def apply_plan(
         confirmed_risk=confirmed_risk,
         decline_risk=decline_risk,
         selected_risk_ids=selected_risk_ids,
+        selected_adaptation_ids=selected_adaptation_ids,
         custom_absorption_directives=custom_absorption_directives,
         checkpoint=checkpoint,
         replan_ms=replan_ms,
@@ -3922,6 +4640,7 @@ def _apply_rebuilt_plan(
     confirmed_risk: bool = False,
     decline_risk: bool = False,
     selected_risk_ids: tuple[str, ...] | None = None,
+    selected_adaptation_ids: tuple[str, ...] | None = None,
     custom_absorption_directives: tuple[str, ...] = (),
     checkpoint: Callable[[str], None] | None = None,
     replan_ms: float,
@@ -3935,17 +4654,39 @@ def _apply_rebuilt_plan(
     timings["replan"] = round(replan_ms, 1)
     if rebuilt.aggregate_fingerprint != plan_fingerprint:
         raise SyncBlocked("aggregate fingerprint drifted; zero writes performed")
-    if rebuilt.release_preflight_status == "blocked":
+    if rebuilt.release_preflight_status == "blocked" and selected_adaptation_ids is None:
         raise ReleasePreflightBlocked(
             "planned release preflight rejected the prospective update; zero writes performed",
             rebuilt.release_preflight_items,
+        )
+    selected_adaptations, adaptation_actions, remaining_gaps = (
+        _select_explicit_adaptations(rebuilt, selected_adaptation_ids)
+    )
+    if selected_adaptations and remaining_gaps:
+        raise SyncBlocked(
+            "explicit adaptations cannot run while ordinary gaps remain; zero writes performed"
         )
     if custom_absorption_directives and selected_risk_ids is None:
         raise SyncBlocked(
             "custom absorption directives require the single partial selection decision"
         )
-    selected_executable, declined_executable = _select_risk_actions(
+    adapted_action_keys = {
+        (action.asset_id, action.target)
+        for action in adaptation_actions
+    }
+    risk_plan = replace(
         rebuilt,
+        actions=[
+            action
+            for action in rebuilt.actions
+            if not (
+                action.classification == "risk"
+                and (action.asset_id, action.target) in adapted_action_keys
+            )
+        ],
+    )
+    selected_executable, declined_executable = _select_risk_actions(
+        risk_plan,
         confirmed_risk=confirmed_risk,
         decline_risk=decline_risk,
         selected_risk_ids=selected_risk_ids,
@@ -3990,6 +4731,7 @@ def _apply_rebuilt_plan(
         if (action.asset_id, action.target) not in materialized_targets
     ]
     selected.extend(materialized)
+    selected.extend(adaptation_actions)
     selected_action_ids = tuple(item_id for item_id, _action, _block in selected_executable)
     selected_absorption_ids = tuple(
         item_id for item_id, _action, _block in selected_absorptions
@@ -4005,13 +4747,20 @@ def _apply_rebuilt_plan(
     stamp = _inside(root, str(contract["stamp"]), "version stamp")
     expected_stamp = (rebuilt.current_version + "\n").encode("utf-8")
     should_write_stamp = (
-        not rebuilt.gaps
+        not remaining_gaps
         and not declined_executable
         and (not stamp.is_file() or stamp.read_bytes() != expected_stamp)
     )
     selected_snapshot = _prospective_snapshot(selected)
+    adaptation_proof = _build_adaptation_proof(
+        rebuilt,
+        selected_adaptations,
+        selected_snapshot,
+    )
+    if adaptation_proof is not None:
+        _assert_adaptation_receipt_ignored(root)
     should_run_release_preflight = (
-        not rebuilt.gaps
+        not remaining_gaps
         and not declined_executable
         and (should_write_stamp or bool(selected_snapshot))
     )
@@ -4028,6 +4777,7 @@ def _apply_rebuilt_plan(
                 Path(rebuilt.template_root),
                 rebuilt.current_version if should_write_stamp else None,
                 selected_snapshot,
+                adaptation_proof,
             )
             timings["prospective_release_preflight"] = selected_preflight_ms
         except ReleasePreflightBlocked as exc:
@@ -4057,6 +4807,12 @@ def _apply_rebuilt_plan(
         action_started = time.perf_counter()
         if checkpoint:
             checkpoint("before-apply")
+        if adaptation_proof is not None:
+            _verify_adaptation_proof_binding(
+                rebuilt,
+                adaptation_proof,
+                selected_snapshot,
+            )
         memory_actions = [item for item in selected if item.action == "memory-organize"]
         if memory_actions:
             transaction.snapshot_tree(root / ".codex" / "memory")
@@ -4064,9 +4820,11 @@ def _apply_rebuilt_plan(
             item for item in selected if item.action == "migrate-stamp"
         ]
         for action in selected:
-            if action.action == "migrate-stamp":
-                continue
-            if action.action == "memory-organize":
+            if action.action in {
+                "attest-release-transition",
+                "memory-organize",
+                "migrate-stamp",
+            }:
                 continue
             target = _inside(root, action.target, f"asset {action.asset_id} target")
             _assert_plain_ancestors(root, target)
@@ -4141,6 +4899,7 @@ def _apply_rebuilt_plan(
                 root,
                 Path(rebuilt.template_root),
                 rebuilt.current_version if should_write_stamp else None,
+                adaptation_proof=adaptation_proof,
             )
             timings["release_preflight"] = release_preflight_ms
             if (
@@ -4166,6 +4925,16 @@ def _apply_rebuilt_plan(
             stamp_written = True
             if checkpoint:
                 checkpoint("after-stamp")
+        if adaptation_proof is not None:
+            receipt_path = _inside(root, ADAPTATION_RECEIPT, "adaptation receipt")
+            transaction.write(
+                receipt_path,
+                json.dumps(
+                    adaptation_proof,
+                    ensure_ascii=False,
+                    indent=2,
+                ).encode("utf-8") + b"\n",
+            )
     except Exception as exc:
         try:
             transaction.rollback()
@@ -4178,7 +4947,7 @@ def _apply_rebuilt_plan(
             ) from exc
         raise SyncBlocked(f"transaction failed and was rolled back: {exc}") from exc
 
-    receipt_gaps = [asdict(item) for item in rebuilt.gaps]
+    receipt_gaps = [asdict(item) for item in remaining_gaps]
     receipt_gaps.extend(
         {
             "asset_id": item.asset_id,
@@ -4204,8 +4973,8 @@ def _apply_rebuilt_plan(
         _action_item(item_id, action, block)
         for item_id, action, block in declined_executable
     ])
-    manual_steps = _manual_items(rebuilt.gaps)
-    action_required_items = _action_required_items(rebuilt.gaps)
+    manual_steps = _manual_items(remaining_gaps)
+    action_required_items = _action_required_items(remaining_gaps)
     blockers: list[dict[str, Any]] = []
     optional_actions: list[dict[str, Any]] = []
     target_readiness = _target_readiness(
@@ -4257,6 +5026,17 @@ def _apply_rebuilt_plan(
         selected_absorption_ids=selected_absorption_ids,
         selected_action_ids=selected_action_ids,
         selection_fingerprint=selection_fingerprint,
+        selected_adaptation_ids=tuple(
+            str(item["id"]) for item in selected_adaptations
+        ),
+        adaptation_selection_fingerprint=(
+            str(adaptation_proof["selection_fingerprint"])
+            if adaptation_proof is not None
+            else None
+        ),
+        adaptation_receipt_path=(
+            ADAPTATION_RECEIPT if adaptation_proof is not None else None
+        ),
         custom_absorption_directives=custom_absorption_directives,
         conflict_file_items=conflict_file_items,
         managed_block_effects=managed_block_effects,
@@ -4288,7 +5068,7 @@ def _plan_payload(
         _action_item(item_id, action, block)
         for item_id, action, block in catalog
     ])
-    required_actions.extend(plan.release_preflight_items)
+    required_actions.extend(_combined_action_required_items(plan))
     upstream_absorption_actions = [
         _action_item(item_id, action, block)
         for item_id, action, block in _absorption_catalog(plan)
@@ -4312,8 +5092,7 @@ def _plan_payload(
     selected_ids = [item_id for item_id, _action, _block in catalog]
     optional_actions: list[dict[str, Any]] = []
     manual_steps = _manual_items(plan.gaps)
-    action_required_items = _action_required_items(plan.gaps)
-    action_required_items.extend(plan.release_preflight_items)
+    action_required_items = _combined_action_required_items(plan)
     blockers = _blocker_items(plan.blockers)
     payload = {
         "status": "blocked" if plan.blockers else (
@@ -4460,6 +5239,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=("auto", "init", "adopt", "update"), default="auto")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--plan-fingerprint")
+    parser.add_argument(
+        "--selected-adaptation",
+        action="append",
+        dest="selected_adaptation_ids",
+        metavar="GID",
+        help="repeat an exact displayed G ID to authorize only that adaptation",
+    )
     risk = parser.add_mutually_exclusive_group()
     risk.add_argument("--confirmed-risk", action="store_true")
     risk.add_argument(
@@ -4518,6 +5304,11 @@ def main(argv: list[str] | None = None) -> int:
             selected_risk_ids=(
                 tuple(args.selected_risk_ids)
                 if args.selected_risk_ids is not None
+                else None
+            ),
+            selected_adaptation_ids=(
+                tuple(args.selected_adaptation_ids)
+                if args.selected_adaptation_ids is not None
                 else None
             ),
             custom_absorption_directives=tuple(args.custom_absorption_directive),

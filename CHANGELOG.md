@@ -15,6 +15,36 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.27] - 2026-08-20
+
+### Fixed
+
+- [product][repo][meta] 完善骨架同步适配事务与三态版本验证
+
+## [1.4.26] - 2026-08-20
+
+### Fixed
+
+- [product][repo][meta] 修复三态 hooks 证明混用版本轴：HEAD 中的 legacy dispatcher 现在只按 HEAD 合同/旧戳版本查询可信发布历史，current-before 仍按冻结工作区合同版本验证；避免已在工作区升级到 1.4.11、但 Git HEAD 仍保留更早受管 dispatcher 的 Causis 现场被误判为未知内容。
+
+## [1.4.25] - 2026-08-20
+
+### Fixed
+
+- [product][repo][meta] 修复显式适配写后复核把新磁盘状态误当作 current-before 的时态别名：proof 现在冻结并绑定受管合同、版本戳和目标的事务前快照，统一 evaluator 明确接收 HEAD provenance、不可变 before snapshot 与 prospective/applied after snapshot；写前漂移、写后重放和 `$git-sync` 收据消费均复用同一证据，禁止再用 prospective stamp 推断旧版本。
+
+## [1.4.24] - 2026-08-20
+
+### Fixed
+
+- [product][repo][meta] 修复 M2 真实更新暴露的 Planner/Apply 风险项预检不一致：Planner 现在先物化完整推荐动作集，非阻断 N 通知不再跳过预检，并与 Apply、显式适配固定点共用 release evaluator；发布历史生成器按每个版本保存 whole、AGENTS public、Markdown section 与 residual 凭证，即使相邻版本内容相同也不再漏记。可信 schema-v1 current-before 可按稳定 Hook ID/明确 Markdown ownership 生成项目基线，HEAD/worktree 均不存在的退休目标使用 no-write attest；未知内容与任一存在/漂移状态继续 fail-closed。
+
+## [1.4.23] - 2026-08-19
+
+### Fixed
+
+- [product][repo][meta] 为精确点名的 G 项增加显式适配事务：Planner 递归展开累计 proof 至统一 evaluator 固定点，Apply/release evaluator 与 `$git-sync` 共用绑定 HEAD、contract、目标前后 hash 和双 fingerprint 的一次性证明；补齐 Stratus retirement 与 proof-only attest、Causis 当前 external handlers 保留和 hooks 骨架描述历史凭证，未选、漂移、跨项目、ordinary gap、未登记描述或未消费证明继续零写阻断。
+
 ## [1.4.22] - 2026-08-19
 
 ### Fixed

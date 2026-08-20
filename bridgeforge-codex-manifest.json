@@ -17,7 +17,7 @@
             {
               "source": "skills/bridgeforge-codex/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:026ae695d6f3c67d9662cb7803fc29ab314553ceccd4f10fe608f0a6de7bfc18"
+              "sha256": "sha256:14fce83e671d4f4aa91deec908d88d8be9271d9bfc2469f99c63492eb1290234"
             },
             {
               "source": "skills/bridgeforge-codex/agents/openai.yaml",
@@ -182,7 +182,7 @@
             {
               "source": "skills/git-sync/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:7b4a7977e32587e001f55282b9f7ba7c73aae94857151678e002058766d6fea1"
+              "sha256": "sha256:3a093921a5b88f4fdf32dff69ca091624d504da6f1af2638dd8692d9b064dcf1"
             }
           ]
         },

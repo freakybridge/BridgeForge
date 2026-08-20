@@ -137,6 +137,7 @@ def canonicalize(
     legacy_handlers: Iterable[dict[str, str]] = (),
     replace_marked_drift: bool = False,
     managed_top_level: dict[str, Any] | None = None,
+    managed_top_level_historical: dict[str, list[Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, str]]]:
     """Return canonical document, external projection, and migration receipts.
 
@@ -224,6 +225,23 @@ def canonicalize(
         bucket.append(copy.deepcopy(spec["group"]))
     if managed_top_level:
         for key, value in managed_top_level.items():
+            historical = (
+                managed_top_level_historical.get(key, [])
+                if isinstance(managed_top_level_historical, dict)
+                else []
+            )
+            if not isinstance(historical, list):
+                raise HooksOwnershipError(
+                    f"managed top-level history is invalid: {key}: {label}"
+                )
+            if (
+                key in document
+                and document[key] != value
+                and document[key] not in historical
+            ):
+                raise HooksOwnershipError(
+                    f"managed top-level field has no trusted ownership: {key}: {label}"
+                )
             canonical[key] = copy.deepcopy(value)
             external.pop(key, None)
     for managed_id in expected_by_id:
@@ -245,6 +263,7 @@ def validate_current(
     label: str,
     managed_looking: Callable[[dict[str, Any]], bool] | None = None,
     managed_top_level: dict[str, Any] | None = None,
+    managed_top_level_historical: dict[str, list[Any]] | None = None,
 ) -> dict[str, Any]:
     canonical, external, _receipts = canonicalize(
         document,
@@ -253,6 +272,7 @@ def validate_current(
         label=label,
         managed_looking=managed_looking,
         managed_top_level=managed_top_level,
+        managed_top_level_historical=managed_top_level_historical,
     )
     if document != canonical:
         raise HooksOwnershipError(f"managed hooks zones are not canonical: {label}")

@@ -216,6 +216,120 @@ def _baseline_revisions(root: Path) -> dict[str, str]:
     )
 
 
+def _codex_hooks_top_level_history(
+    root: Path,
+    source: str,
+    baselines: dict[str, str],
+    current: dict[str, Any],
+) -> dict[str, list[Any]]:
+    history: dict[str, list[Any]] = {key: [] for key in current}
+    for revision in baselines.values():
+        payload = _git_blob_at(root, revision, source)
+        if payload is None:
+            continue
+        try:
+            document = json.loads(payload.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"Historical Codex hooks source is invalid JSON: {revision}: {exc}"
+            ) from exc
+        if not isinstance(document, dict):
+            raise ValueError(
+                f"Historical Codex hooks source is not an object: {revision}"
+            )
+        for key, current_value in current.items():
+            if key in document and document[key] != current_value:
+                candidate = document[key]
+                if candidate not in history[key]:
+                    history[key].append(candidate)
+    return {
+        key: sorted(values, key=lambda item: json.dumps(item, ensure_ascii=False))
+        for key, values in history.items()
+        if values
+    }
+
+
+def _codex_hooks_handler_history(
+    root: Path,
+    source: str,
+    baselines: dict[str, str],
+    current_required: list[dict[str, str]],
+) -> dict[str, dict[str, list[str]]]:
+    """Bind each legacy dispatcher to the release that published it."""
+    module = _version_release_module(root)
+    current_by_key = {
+        (item["event"], item["matcher"], item["stage"]): item["id"]
+        for item in current_required
+    }
+    history: dict[str, dict[str, list[str]]] = {
+        item["id"]: {} for item in current_required
+    }
+    for version, revision in baselines.items():
+        payload = _git_blob_at(root, revision, source)
+        if payload is None:
+            continue
+        try:
+            document = module._load_hooks_document(
+                payload,
+                f"{source}@{version}",
+            )
+        except Exception as exc:
+            raise ValueError(
+                f"Historical Codex hooks source is invalid: {version}: {exc}"
+            ) from exc
+        hooks = document.get("hooks")
+        if not isinstance(hooks, dict):
+            raise ValueError(
+                f"Historical Codex hooks source has no hooks object: {version}"
+            )
+        seen: set[tuple[str, str, str]] = set()
+        for event, groups in hooks.items():
+            if not isinstance(event, str) or not isinstance(groups, list):
+                raise ValueError(
+                    f"Historical Codex hooks groups are invalid: {version}"
+                )
+            for group in groups:
+                if not isinstance(group, dict):
+                    raise ValueError(
+                        f"Historical Codex hooks group is invalid: {version}"
+                    )
+                matcher = str(group.get("matcher", ""))
+                handlers = group.get("hooks")
+                if not isinstance(handlers, list):
+                    raise ValueError(
+                        f"Historical Codex hooks handlers are invalid: {version}"
+                    )
+                for handler in handlers:
+                    stage = _dispatcher_stage(handler)
+                    if stage is None:
+                        continue
+                    key = (event, matcher, stage)
+                    managed_id = current_by_key.get(key)
+                    if managed_id is None:
+                        continue
+                    if key in seen:
+                        raise ValueError(
+                            "Historical Codex hooks source contains duplicate "
+                            f"dispatcher stages: {version}:{key}"
+                        )
+                    seen.add(key)
+                    digest = module._handler_without_managed_id_hash(handler)
+                    values = history[managed_id].setdefault(version, [])
+                    if digest not in values:
+                        values.append(digest)
+                        values.sort()
+    return {
+        managed_id: dict(
+            sorted(
+                versions.items(),
+                key=lambda item: _stable_semver(item[0]) or (0, 0, 0),
+            )
+        )
+        for managed_id, versions in history.items()
+        if versions
+    }
+
+
 def _merge_history(
     existing: Any,
     root: Path,
@@ -237,17 +351,15 @@ def _merge_history(
             )
             if valid:
                 history[str(version)] = valid
-    known_hashes = {value for values in history.values() for value in values}
     for version, revision in baselines.items():
         payload = _git_blob_at(root, revision, source)
         if payload is None:
             continue
         digest = f"sha256:{hashlib.sha256(git_blob_bytes_from_bytes(payload)).hexdigest()}"
-        if digest not in known_hashes:
-            history.setdefault(version, [])
+        history.setdefault(version, [])
+        if digest not in history[version]:
             history[version].append(digest)
             history[version].sort()
-            known_hashes.add(digest)
     return dict(
         sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
     )
@@ -423,7 +535,6 @@ def _merge_agents_public_history(
     end: str,
 ) -> dict[str, list[str]]:
     history = _merge_history(existing, root, "__no_whole_file_history__", {})
-    known = {value for values in history.values() for value in values}
     for version, revision in baselines.items():
         payload = _git_blob_at(root, revision, source)
         if payload is None:
@@ -432,10 +543,10 @@ def _merge_agents_public_history(
         if public is None:
             continue
         digest = f"sha256:{hashlib.sha256(public).hexdigest()}"
-        if digest not in known:
-            history.setdefault(version, []).append(digest)
+        history.setdefault(version, [])
+        if digest not in history[version]:
+            history[version].append(digest)
             history[version].sort()
-            known.add(digest)
     return dict(
         sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
     )
@@ -521,7 +632,6 @@ def _merge_layout_history(
                 history[heading] = cleaned
     for heading in headings:
         by_version = history.setdefault(heading, {})
-        known = {digest for values in by_version.values() for digest in values}
         for version, revision in baselines.items():
             payload = _git_blob_at(root, revision, source)
             if payload is None:
@@ -539,11 +649,10 @@ def _merge_layout_history(
                     normalized,
                 )
             digest = f"sha256:{hashlib.sha256(normalized).hexdigest()}"
-            if digest in known:
-                continue
-            by_version.setdefault(version, []).append(digest)
-            by_version[version].sort()
-            known.add(digest)
+            by_version.setdefault(version, [])
+            if digest not in by_version[version]:
+                by_version[version].append(digest)
+                by_version[version].sort()
         history[heading] = dict(sorted(
             by_version.items(),
             key=lambda item: _stable_semver(item[0]) or (0, 0, 0),
@@ -611,7 +720,6 @@ def _merge_layout_residual_history(
     layout: dict[str, Any],
 ) -> dict[str, list[str]]:
     history = _merge_history(existing, root, "__no_residual_history__", {})
-    known = {digest for values in history.values() for digest in values}
     for version, revision in baselines.items():
         payload = _git_blob_at(root, revision, source)
         if payload is None:
@@ -621,11 +729,10 @@ def _merge_layout_residual_history(
             _layout_residual_bytes(payload, layout),
         )
         digest = f"sha256:{hashlib.sha256(residual).hexdigest()}"
-        if digest in known:
-            continue
-        history.setdefault(version, []).append(digest)
-        history[version].sort()
-        known.add(digest)
+        history.setdefault(version, [])
+        if digest not in history[version]:
+            history[version].append(digest)
+            history[version].sort()
     return dict(
         sorted(history.items(), key=lambda item: _stable_semver(item[0]) or (0, 0, 0))
     )
@@ -754,8 +861,27 @@ def rebuild_managed_contract(
                 validation = _codex_hooks_merge_validation(
                     _source_path(root, source).read_bytes()
                 )
-                validation["current_projection_sha256"] = _canonical_json_sha256(
+                current_projection_sha256 = _canonical_json_sha256(
                     validation["required_handlers"]
+                )
+                handler_history = _codex_hooks_handler_history(
+                    root,
+                    source,
+                    baselines,
+                    validation["required_handlers"],
+                )
+                if handler_history:
+                    validation["historical_handler_sha256"] = handler_history
+                validation["managed_top_level_historical"] = (
+                    _codex_hooks_top_level_history(
+                        root,
+                        source,
+                        baselines,
+                        validation["managed_top_level"],
+                    )
+                )
+                validation["current_projection_sha256"] = (
+                    current_projection_sha256
                 )
                 if asset.get("merge_validation") != validation:
                     asset["merge_validation"] = validation

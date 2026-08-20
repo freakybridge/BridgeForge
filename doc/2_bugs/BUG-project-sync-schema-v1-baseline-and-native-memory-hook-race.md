@@ -5,7 +5,7 @@ scope: bridgeforge-codex project release preflight and user-level native-memory 
 reported_at: 2026-08-19
 downstream: D:\Quant\StratusAgent; D:\Quant\causis_risk_suite
 factory_head: 639c55ee5320fc823620504bc6d4aa503100a7e8
-product_version: 1.4.21
+product_version: 1.4.26
 ---
 
 # BUG：可信 schema v1 基线阻断连续升级，native-memory hook 被跨项目解释器覆盖
@@ -25,6 +25,66 @@ BridgeForgeCodex 1.4.14 在真实下游 `D:\Quant\StratusAgent` 暴露了两个�
 前者使受支持的连续骨架升级进入“plan ready、apply 永远阻断”；后者使用户级 native-memory
 hook 没有稳定的单一所有者。两项都不能靠重复执行、手工改戳、手工编辑 hooks 或提交整个混杂
 工作区绕过。
+
+## 2026-08-20：1.4.26 分离 HEAD 与 current-before 的版本轴
+
+1.4.25 在 M2 闭环后重新运行真实 Causis Planner，`codex.hooks-config` G1 仍为
+`adaptation_eligible=false`。精确证据为 HEAD 的无 ID legacy dispatcher 无法命中可信历史；这些
+handler 的摘要实际登记在 HEAD 合同/旧戳版本，但实现错误使用冻结工作区 1.4.11 版本查询。
+
+1.4.26 保持三态 ownership 不变，只修正版本来源：HEAD handler 仅按 HEAD 合同解析出的
+`old_version` 查询 `historical_handler_sha256`；current-before handler 仍按冻结工作区合同的
+`_trusted_release_version` 验证。新增回归构造 HEAD=0.90.0 published handler、
+current-before=1.4.2 新 canonical handler，修复前精确失败、修复后通过；未知 HEAD payload 负例继续
+fail-closed。相关 `version_release` 模块 55/55 通过，真实 Causis 只读 Planner 为
+`safe=13 / risk=0 / gaps=0 / blockers=0 / G1/1 eligible`。
+
+## 2026-08-20：1.4.25 以 HEAD / before / after 三态关闭写后时态别名
+
+M2 在 1.4.24 上连续三次真实 Apply 均由事务完整回滚：先后暴露 README managed heading
+顺序、写后 current-before 旧戳缺失，以及旧 Hook 被错误地按目标版本 `1.4.24` 查询发布历史。
+第三次失败证明 `HEAD + 写后磁盘 + prospective stamp` 无法重建事务前现场；继续增加 stamp 或
+版本启发式会伪造 lineage。
+
+1.4.25 将显式适配 proof 升为唯一三态规则。同步器在任何写入前冻结受影响合同、旧/新版本戳与
+所选目标的原始字节，以 base64 仅写入 Git 忽略的本地事务收据，并把 snapshot fingerprint 纳入
+selection fingerprint。统一 `evaluate_release_transition()` 明确接收 Git HEAD provenance、不可变
+before snapshot 与 prospective/applied after snapshot：prospective 复核使用真实磁盘 before + 内存
+after；写后复核和 `$git-sync` 使用冻结 before + 真实磁盘 after。写前任一字节漂移、快照缺项、
+收据跨库/HEAD/contract/target 漂移或 ownership projection 改变均 fail-closed。
+
+旧错误测试“写后 current-before 应为目标版本”已改为同一旧现场在写前、写后都必须识别为
+`0.90.0`。最终真实 M2 零写 Planner 为 `safe=43 / risk=4 / gaps=0 / blockers=0`，一次列出
+`G1-G32` 且 `32/32 adaptation_eligible=true`，fingerprint 为
+`sha256:0f32d86b6f289920920f025b995089e775fc7e90cba95c1d272b3db4a39ca3a6`。
+
+产品完整测试 `311/311 OK`，downstream fixture `status=passed`，发布硬闸均 exit 0；最终独立复审
+`Blocker/High/Medium/Low=0/0/0/0`。真实 M2 Apply 返回 `completed/ready`，统一 preflight
+`passed/mixed`，`stamp_written_last=true`、`rollback_performed=false`；终态为新戳 `1.4.25`、旧戳
+退役，no-op replan 的 safe/risk/absorption/gap/blocker/G 均为 0。完整收据记录在四项目更新报告中。
+
+## 2026-08-20：M2 真实 Apply 补齐风险项预检与逐版本凭证
+
+M2 将 23 个项目适配 gap 清零后，1.4.23 Planner 错误报告 `ready / preflight=not_required`，但确认
+4 个 risk 后的 Apply 才由统一 evaluator 发现：M2 HEAD 的 `0.86.7` schema v1 contract hash 没有登记
+在 `contract_historical_sha256["0.86.7"]`。Apply 保持零写，旧戳与项目内容未被半更新。
+
+根因有两层。Planner 曾因“仍待用户确认 risk”而完全跳过推荐结果预检，Apply 却会物化已确认 risk
+后预检；历史生成器又跨版本去重相同 hash，导致内容未变的后续发布版本没有自己的版本键，而 evaluator
+按旧戳精确查版本。1.4.24 改为 Planner 先物化完整推荐动作集并共用固定点/evaluator，同时让 whole、
+AGENTS public、Markdown section 与 residual 历史逐版本留证。风险项仍需用户确认，未知或项目内容仍
+fail-closed；本修复只消除“Planner 看不见、Apply 才卡住”和合法发布版本缺凭证。
+
+永久回归覆盖“存在 risk 时 Planner 必须提前预检”及“相同字节在 0.86.0、0.86.7 都有版本凭证”。
+M2 的最终 Apply、validators、stamp-last 与 no-op replan 收据记录在四项目更新报告中。
+
+真实复验还发现非阻断 `N1 unsupported_legacy_notice` 被旧条件误当成“不得预检”的项目要求；1.4.24
+现只让 `affects_readiness=true` 的要求阻止预检。固定点随后一次展开 32 项：对于 HEAD、worktree 与
+prospective 都不存在的 current-only retirement，使用绑定三方 absent 的 no-write attest；对于 M2
+可信 schema-v1 current-before，先精确验证旧戳与该版本 contract hash，再仅按稳定 Hook ID 或明确
+Markdown ownership 重建项目/external baseline。任何未知 ID、重复 ID、错误 event/matcher/stage、
+未登记顶层字段、项目区变化、非可信旧合同或退休目标实际存在，仍然零写阻断。真实 M2 最新只读
+Planner 为 `safe=43 / risk=4 / gaps=0 / blockers=0 / G=32 / eligible=32`。
 
 ## 2026-08-19：问题 #1 的 plan/apply 双标准已在 1.4.15 修复
 
@@ -67,17 +127,75 @@ handler 与全部未知内容，并完成 before -> plan -> apply -> validators 
 当前未写 Causis、用户级 hooks、Git index 或 remote；因此 #8 的产品问题已关闭，但 Causis 下游
 验收仍未完成。
 
-## 2026-08-19：问题 #9 已更正为 #3 的 CBA 下游适配项
+## 2026-08-19：CBA 真实 Apply 证明问题 #9 仍是产品缺口
 
-#9 不是新的 BridgeForgeCodex 产品缺陷。问题 #3 已退役旧 marker 与历史 region hash，只接受当前
-marker 和当前 managed region hash。最新 ClaudeBridgeAssist 零写 Planner 的 `codex.precommit G1`
-表示其 HEAD 与工作区虽然都使用当前 marker，但 HEAD managed region 仍是旧版本内容；按已确认的
-唯一规则，同 marker 的 HEAD 不能用旧内容冒充 current ownership。
+先前把 #9 标记为“#3 已解决、只剩 CBA 下游适配”是不完整结论，现已由 1.4.22 正式路径推翻。
+Planner 能准确识别 `codex.precommit G1`，但 G 项被产品定义为不可执行 review 清单，CLI 没有任何
+参数能把用户已经批准的“采用当前 managed region、保留 PROJECT_EXTENSION”变成受 fingerprint
+保护的事务动作。结果是方案存在、执行器缺失。
 
-该项并入 #3 的真实下游关闭条件：最终更新 CBA 时显式适配当前 managed region、逐字保留
-`PROJECT_EXTENSION`，并完成 before -> plan -> apply -> validators -> stamp-last -> no-op replan。
-禁止恢复历史 region 规则、先提交混杂工作区或手工写戳。当前未写 CBA、Git index 或 remote；
-因此 #9 的产品问题已关闭，但 CBA 下游验收仍未完成。
+CBA 紧邻计划 fingerprint 为
+`sha256:04853d8dac6726f1cccd3908b080a0f2501d574808d3fe8a6c8bc42d5c5423c0`。正式 Apply 返回
+`planned release preflight rejected the prospective update; zero writes performed`，并记录
+`release_preflight_status=blocked`、`stamp_written_last=false`、`rollback_performed=false`。
+Apply 前后 HEAD、6 项 dirty 清单与 status SHA-256
+`1572749f3373a11f37d6601719dd6d8dbdf4ceed5db516df01f6fc4997a45739` 完全一致；pre-commit、
+版本戳、hooks.json 和 managed contract 的 SHA-256 也逐项未变。
+
+因此 #9 重新打开为产品缺口：必须提供可审计、可选择、纳入 aggregate/selection fingerprint，且由
+project-sync 与后续 `$git-sync` 共用的显式适配证明。禁止恢复历史 region hash、手工改受管区、
+先提交混杂工作区或写戳绕过。CBA 当前仍为 1.4.11，项目 Apply 未发生任何写入。
+
+## 2026-08-19：问题 #9 已在 1.4.23 实现，等待独立审计与 CBA 真实闭环
+
+Planner 现在为每个 G 输出稳定 ID 与 `adaptation_eligible`。只有用户逐项传入
+`--selected-adaptation GID` 才能执行；缺项、重复、未知、不可执行、重新编号或 fingerprint 漂移
+均整轮零写。普通 gap 不会因选择 G 被放行。
+
+Apply 与 `$git-sync` 继续只调用统一 `evaluate_release_transition()`。显式适配证明绑定项目根、
+Git HEAD、current contract、目标前后 hash、project/external projection、独立 transition
+fingerprint、aggregate fingerprint 和 selection fingerprint；每项必须真实消费一个 blocked
+transition，额外或未命中的证明会反向阻断。存在任何普通 gap 时显式适配整轮零写。成功 Apply
+将证明写入 Git 忽略的 `.runtime/bridgeforge-codex/explicit-adaptation.json`，commit 创建成功后才删除。
+
+首轮独立审计发现的项目区旁路、AGENTS CRLF、ordinary gap 未经预检写证明、覆盖不足与 aggregate
+无外部锚五项 finding 均已修复，等待同一审计 agent 复审。当前相关回归 116/116、完整自动测试
+300/300 与 downstream fixture 均通过；Template、dogfood、
+manifest 已传播到 1.4.23，manifest/mirror/instruction/structure/metadata/diff 硬闸均 exit 0。
+独立审计和真实 CBA `plan -> apply -> validators -> stamp-last -> no-op replan` 尚未执行，因此本节
+暂不宣称 #9 完全关闭。
+
+## 2026-08-20：问题 #9 的 Stratus retirement 与 Causis hooks 真实形态已闭合
+
+复审真实下游后补齐了两个不能只靠合成 fixture 证明的路径。Stratus 的 schema v1 退役 rule 现在只有
+在目标工作树已经删除且 HEAD 内容仍精确命中可信旧资产时，才生成绑定 before/after-null 的事务
+retirement；dirty、未知或未选择目标继续零写。Causis 的 hooks 适配改为由 HEAD 证明旧 managed
+dispatcher，另以 Apply 前当前工作树的 external handlers 为项目区基准，并在写前和 evaluator 消费时
+复算；其项目自有 `root_hygiene_check.py` 不再因为未出现在 HEAD 而被误判或吸收。
+
+按用户对实际内容的裁决，`.codex/hooks.json` 顶层 `description` 描述 BridgeForge 整套 Hook 注册，属于
+骨架 ownership。合同生成器现在从每个可信发布基线提取精确历史值；当前值或登记过的历史骨架值可以
+迁移到当前 canonical，任意未登记自定义值仍 fail-closed。Causis 的旧大小写描述已由其历史骨架提交
+和发布基线共同证明，不按项目自定义处理；无 ID 项目 handler 仍保持 external。
+
+当前真实 Causis 零写 Planner 为 `safe=13 / risk=0 / gaps=0 / blockers=0`，唯一 `G1` 已变为
+`adaptation_eligible=true`，计划 fingerprint 为
+`sha256:a3780f925a3bd6a329086b9ba439bd30ee7970b93f43067f5b0053097fff891b`。相关 project-sync、release
+evaluator 与 hooks 单一来源定向回归为 135/135，manifest `--check` 已 current。完整回归、独立复审
+和四个真实项目写入闭环仍待后续步骤，故本节只关闭 #9 的已知产品卡点，不提前宣称总 Bug resolved。
+
+独立复审随后在真实 Stratus 发现首层目录并非固定点：初始 Planner 只列 8 个 retirement，累计 proof
+通过后 evaluator 才暴露另外 24 个 transition issues。1.4.23 最终实现改为有界递归运行累计 proof，
+直到统一 evaluator 通过或无法新增；所有 G 只在完整 closure 通过时才标记 executable，并在固定点后
+一次性稳定编号。已是 current canonical 但 Git changed-path 未显式出现的目标使用 proof-only attest：
+绑定 HEAD/current/contract 与项目 projection，进入 validator 集但不执行同字节写入；`$git-sync`
+在真实无 snapshot 路径中也必须独立重算并消费该证明。
+
+真实 Stratus 最终只读 Planner 一次列出 32 个 G，`32/32 adaptation_eligible=true`，且仍为
+`gaps=0 / blockers=0`；CBA、Causis 均保持唯一 G1 可执行。M2 仍保留 23 个 ordinary gaps，即使其
+AGENTS G1 可适配也必须整轮零写。新增 partial-upgrade 回归复现“8 个 retirement 后暴露 proof-only
+目标”，验证清单固定点、selected apply、统一 evaluator、no-op replan 以及 attest 未进入
+`transaction.write`。
 
 ## 2026-08-19：问题 #6 已按项目 `.venv` 单一 Runtime 规则实现并通过独立复审
 

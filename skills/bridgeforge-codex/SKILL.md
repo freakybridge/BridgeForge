@@ -135,9 +135,11 @@ hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久�
 plan 必须零写入，并输出 fingerprint、safe、risk、absorption、gap、blocker 与
 `action_required_items`。当旧 `AGENTS.md` 无法可靠分类时，必须把
 `action_required_items` 按 G1、G2……逐项完整展示：来源行号、内容摘要、无法分类原因、
-推荐归属和推荐动作；禁止只显示 gap 数量后让用户再次追问。该清单只提供处置建议，
-原文件必须保持不写，且不得为它新增第二次确认。G 项是非执行 review 清单，不得与
-可执行的上游吸收 U 项混用；用户选 B 时，只有 U/R/P 等可执行 ID 可直接进入 apply。
+推荐归属和推荐动作；禁止只显示 gap 数量后让用户再次追问。只有明确标记
+`adaptation_eligible=true` 的 G 项可进入显式适配事务，且用户必须逐项点名；普通 gap 与
+未知 ownership 继续不可执行；只要仍有普通 gap，显式适配整轮零写。Apply 使用可重复的
+`--selected-adaptation G1`，禁止
+approve-all；任一 G 新增、消失、重排、内容或 fingerprint 漂移都必须整轮零写阻断。
 
 ## 6. 整轮最多一次确认
 
@@ -161,6 +163,10 @@ apply 必须传紧邻计划的 fingerprint 和唯一用户选择。禁止人工 
   prospective snapshot；只有通过才允许报告 `ready`；
 - Apply 与后续 `$git-sync` 的骨架 transition 必须直接调用同一个 evaluator，分别检查真实
   工作区和提交前快照；禁止另建近似判断；
+- 显式适配成功后必须生成 Git 忽略的
+  `.runtime/bridgeforge-codex/explicit-adaptation.json` 一次性证明；证明绑定项目根、HEAD、
+  contract、目标前后 hash、project/external projection、独立 transition fingerprint 与
+  aggregate/selection fingerprint，只供当前 `$git-sync` 复验，禁止加入 Git、手改或跨项目复用；
 - 先应用并验证资产，再用同一 evaluator 复核 Git 实际 changed paths，最后写
   `.codex/.bridgeforge_codex_version`；
 - 旧戳只有在确认、无 gap 且验证成功时才事务删除；

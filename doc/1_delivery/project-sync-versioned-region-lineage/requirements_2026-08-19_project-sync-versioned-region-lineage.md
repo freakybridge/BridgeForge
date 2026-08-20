@@ -162,18 +162,18 @@ source_bug: doc/2_bugs/BUG-project-sync-schema-v1-baseline-and-native-memory-hoo
   均未触碰。独立审计首次发现的 current-marker HEAD/current hash 与 dogfood 传播两个 High 均已
   修复；最终 Blocker / High / Medium / Low 均为 0。
 
-## 后续编号归并
+## 2026-08-19 CBA 真实 Apply 复验：显式适配没有事务入口
 
-- 原清单问题 #9 不是独立产品缺陷，而是本问题 #3 在 ClaudeBridgeAssist 的真实下游适配与
-  验收项。最新零写 Planner 稳定输出 `codex.precommit G1`：CBA 的 HEAD 与工作区都使用当前
-  marker，但 HEAD managed region 仍是旧版本内容，按当前唯一规则不能作为 current hash 放行。
-- 最终项目阶段必须显式适配当前 managed region、保留 `PROJECT_EXTENSION`，并执行完整事务闭环；
-  禁止恢复历史 region hash、先提交混杂工作区或手工写戳。当前未写 CBA、Git index 或 remote。
-
-## 后续编号归并
-
-- 原清单问题 #9 不是独立产品缺陷，而是本问题 #3 在 ClaudeBridgeAssist 的真实下游适配与
-  验收项。最新零写 Planner 稳定输出 `codex.precommit G1`：CBA 的 HEAD 与工作区都使用当前
-  marker，但 HEAD managed region 仍是旧版本内容，按当前唯一规则不能作为 current hash 放行。
-- 最终项目阶段必须显式适配当前 managed region、保留 `PROJECT_EXTENSION`，并执行完整事务闭环；
-  禁止恢复历史 region hash、先提交混杂工作区或手工写戳。当前未写 CBA、Git index 或 remote。
+- 先前把问题 #9 归并为“只有 CBA 下游尚未适配”是不完整结论，现由真实 Apply 推翻。1.4.22
+  Planner 能准确输出 `codex.precommit G1`，但 G 项按产品契约不可执行，CLI 也没有传入显式适配
+  决定的参数；因此用户已经批准当前单规则后，仍无法通过官方事务完成适配。
+- CBA 紧邻计划 fingerprint 为
+  `sha256:04853d8dac6726f1cccd3908b080a0f2501d574808d3fe8a6c8bc42d5c5423c0`；正式 Apply 返回
+  `planned release preflight rejected the prospective update; zero writes performed`，
+  `release_preflight_status=blocked`、`stamp_written_last=false`、`rollback_performed=false`。
+- Apply 前后 HEAD 均为 `eba2fe264b6870c5f865ac344e5f5f63f3bf9005`，dirty 路径数均为 6，
+  status SHA-256 均为
+  `1572749f3373a11f37d6601719dd6d8dbdf4ceed5db516df01f6fc4997a45739`；pre-commit、版本戳、
+  hooks.json 与 contract 四个关键文件 hash 逐项未变。
+- 关闭 #9 需要产品提供受 fingerprint 保护、可审计且能被 project-sync 与后续 `$git-sync` 共用的
+  显式适配路径；不得恢复历史 region 规则、手工改受管区、先提交混杂工作区或写戳绕过。

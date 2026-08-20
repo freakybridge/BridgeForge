@@ -151,3 +151,52 @@ source_bug: doc/2_bugs/BUG-project-sync-schema-v1-baseline-and-native-memory-hoo
   `git diff --check` 全部 exit 0；project structure 仅输出既有 archive advisory。
 - 最终独立复审：原 High 已关闭，未发现新的 Blocker / High；独立最小复测 3/3、
   `git diff --check`、Template / dogfood `version_release.py` 镜像均通过。产品实现可进入用户验收。
+
+## 2026-08-20 M2 现场补充验收
+
+- M2 的 1.4.23 Planner 在仍有 4 个待确认 risk 时跳过 release preflight，错误报告 ready；正式 Apply
+  物化同一批 risk 后才阻断。1.4.24 要求 Planner 对完整推荐动作集提前运行同一 evaluator，用户是否
+  确认仍只决定能否写入，不得决定 Planner 是否能看见阻断。
+- evaluator 按旧戳精确查询版本化凭证，因此生成器必须为每个可信发布版本写入其 whole、AGENTS
+  public、Markdown section 与 residual hash；相邻发布内容相同也不得跨版本去重。
+- 永久回归必须证明：存在 risk 时 Planner 已调用 preflight；同一 payload 在 `0.86.0` 与 `0.86.7`
+  两个版本键下均有凭证；M2 重新完成 plan -> apply -> validators -> stamp-last -> no-op replan。
+- `affects_readiness=false` 的 N 类通知不得关闭 Planner preflight。完整推荐 snapshot 必须同时包含 safe、
+  R 与 U 的实际 prospective 状态，但写入仍须原有 all/partial/decline 确认。
+- current-only retirement 仅在 HEAD/current/prospective 三方均 absent 时允许 no-write attest；可信
+  schema-v1 current-before 只有在旧戳和逐版本 contract hash 精确命中后，才能按稳定 Hook ID 或明确
+  Markdown ownership 生成项目基线，未知/重复/漂移内容继续 fail-closed。
+
+## 2026-08-20 M2 写后复核三态补充规则
+
+- 单一 `snapshot` 只表示 after 视图，禁止在资产已写入后用新磁盘和 prospective stamp 反推
+  current-before。
+- 显式适配的唯一 evaluator 输入必须分为 Git HEAD provenance、不可变 before snapshot 与 after
+  snapshot；before 至少覆盖受影响合同、合同声明的旧/新 stamp 和全部所选目标。
+- before snapshot 必须在任何事务写入前冻结并复验，其 fingerprint 必须进入 proof 和 selection
+  fingerprint；收据必须携带可由 `$git-sync` 独立重放的严格编码内容。
+- prospective 复核使用磁盘 before + 内存 after；post-apply 复核使用冻结 before + 真实磁盘 after；
+  两次必须调用同一 `evaluate_release_transition()` 并返回相同分类。
+- 禁止把旧 handler hash 补入目标版本历史、提前写 stamp，或用额外启发式猜旧版本。
+- 永久回归必须覆盖 `0.90.0` schema-v1 合同、dirty current-before、1.4.25 after 的完整
+  plan -> proof -> write -> post-apply 路径，并证明旧 Hook 在两个检查时点都按 `0.90.0` 验证。
+
+## 2026-08-20 M2 最终验收收据
+
+- 产品完整测试 `311/311 OK`；downstream fixture `status=passed`；manifest、mirror、structure、
+  instruction、skill metadata 与 diff 硬闸均通过；独立审计最终为 `0/0/0/0`。
+- 真实 M2 plan 为 `safe=43 / risk=4 / gaps=0 / blockers=0 / G=32/32 eligible`；按用户 A 选择
+  执行后为 `completed/ready`，统一 release preflight `passed/mixed`，无回滚并最后写入 1.4.25 戳。
+- 终态 no-op replan 为 `safe=0 / risk=0 / upstream_absorption=0 / gaps=0 / blockers=0 / G=0`。
+  项目结构硬闸另发现的两个项目自有 delivery 索引缺项已只补索引并复验 exit 0，不属于骨架
+  ownership 放宽。
+- Native Memory 使用 hook 实际指向的 installed product authority 串行验证：`enabled=true`、
+  `hookInstalled=true`、`pending=false`、`remoteConfigured=true`；本轮没有 reconcile 或远端写入。
+
+## 2026-08-20 Causis 三态版本轴补充规则
+
+- HEAD provenance 的 handler 历史必须按 HEAD 合同与旧戳解析出的版本查询；禁止借用 dirty
+  current-before 合同版本，也禁止用 current-before 已升级事实改写 HEAD 身份。
+- current-before handler 仍必须按冻结 before 合同/stamp 版本验证，两条版本轴不得互相替代。
+- 永久回归必须包含“HEAD 旧 published handler 仅登记在旧版本、current-before 为更高版本新
+  canonical handler”的正例，以及 HEAD/current-before 任一未知 payload 的零写负例。

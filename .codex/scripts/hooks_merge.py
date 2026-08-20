@@ -55,6 +55,34 @@ def _load_json(path: Path, default: dict | None = None) -> dict:
     return value
 
 
+def _managed_top_level_history(template_hooks: Path) -> dict[str, list[object]]:
+    contract_path = template_hooks.parent / "managed-skeleton.json"
+    if not contract_path.is_file():
+        return {}
+    contract = _load_json(contract_path)
+    assets = contract.get("assets")
+    if not isinstance(assets, list):
+        raise MergeBlocked("managed skeleton contract has no asset list")
+    matches = [
+        asset
+        for asset in assets
+        if isinstance(asset, dict) and asset.get("id") == "codex.hooks-config"
+    ]
+    if len(matches) != 1:
+        raise MergeBlocked("managed skeleton contract has no unique hooks asset")
+    validation = matches[0].get("merge_validation")
+    history = (
+        validation.get("managed_top_level_historical")
+        if isinstance(validation, dict)
+        else None
+    )
+    if history is None:
+        return {}
+    if not isinstance(history, dict):
+        raise MergeBlocked("managed top-level history is invalid")
+    return history
+
+
 def _append_unique_events(target: dict, source_events: object) -> None:
     if source_events is None:
         return
@@ -109,6 +137,9 @@ def build_plan(project_root: Path, template_hooks: Path) -> tuple[dict, dict, li
             label=str(hooks_path),
             managed_looking=lambda _handler: False,
             managed_top_level={"description": template.get("description")},
+            managed_top_level_historical=_managed_top_level_history(
+                template_hooks
+            ),
         )
     except HooksOwnershipError as exc:
         raise MergeBlocked(str(exc)) from exc

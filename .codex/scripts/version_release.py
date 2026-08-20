@@ -2,6 +2,7 @@
 """Plan and apply deterministic repository version releases for git-sync."""
 from __future__ import annotations
 
+import base64
 import copy
 import fnmatch
 import hashlib
@@ -142,7 +143,12 @@ def _normalized_snapshot(
             raise ReleaseError(f"invalid prospective snapshot path: {raw_path!r}")
         if payload is not None and not isinstance(payload, bytes):
             raise ReleaseError(f"invalid prospective snapshot payload: {raw_path!r}")
-        normalized[path.as_posix()] = payload
+        canonical_path = path.as_posix()
+        if canonical_path in normalized:
+            raise ReleaseError(
+                f"prospective snapshot path is duplicated: {canonical_path}"
+            )
+        normalized[canonical_path] = payload
     return normalized
 
 
@@ -162,6 +168,40 @@ def _current_bytes(
     return target.read_bytes() if target.is_file() else None
 
 
+def _current_before_bytes(
+    repo: Path,
+    path: str | Path,
+    before_snapshot: dict[str, bytes | None] | None,
+) -> bytes | None:
+    if before_snapshot is None:
+        return _current_bytes(repo, path, {})
+    normalized = _normalized_snapshot(before_snapshot)
+    relative = (
+        path.relative_to(repo).as_posix()
+        if isinstance(path, Path)
+        else PurePosixPath(path.replace("\\", "/")).as_posix()
+    )
+    if relative not in normalized:
+        raise ReleaseError(
+            f"explicit adaptation before snapshot is incomplete: {relative}"
+        )
+    return normalized[relative]
+
+
+def _lexical_entry_exists(repo: Path, path: str) -> bool:
+    relative = PurePosixPath(path.replace("\\", "/"))
+    if relative.is_absolute() or ".." in relative.parts or str(relative) in {"", "."}:
+        raise ReleaseError(f"invalid lexical target path: {path!r}")
+    target = repo.joinpath(*relative.parts)
+    try:
+        os.lstat(target)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
 def _git_blob_bytes(payload: bytes) -> bytes:
     if b"\0" in payload:
         return payload
@@ -170,6 +210,15 @@ def _git_blob_bytes(payload: bytes) -> bytes:
 
 def _sha256_bytes(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(_git_blob_bytes(payload)).hexdigest()
+
+
+def _canonical_json(value: object) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
 
 
 def _path_matches(path: str, pattern: str) -> bool:
@@ -859,6 +908,9 @@ def _legacy_contract_assets(
     legacy_contract: dict[str, object],
     current_contract: dict[str, object],
     old_version: str,
+    *,
+    explicit_retirements: set[tuple[str, str]] | None = None,
+    snapshot: dict[str, bytes | None] | None = None,
 ) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
     raw_patterns = legacy_contract.get("whole_files")
     raw_regions = legacy_contract.get("managed_regions")
@@ -947,6 +999,42 @@ def _legacy_contract_assets(
                 in _declared_asset_hashes(old_asset)
             )
             if not projection_managed and not trusted_whole:
+                current = _current_bytes(repo, target, snapshot)
+                expected_current = current_asset.get("current_sha256")
+                exact_current = (
+                    current is not None
+                    and isinstance(expected_current, str)
+                    and (
+                        _sha256_bytes(current)
+                        if strategy == "merge"
+                        else _asset_target_hash(current, current_asset, repo)
+                    )
+                    == expected_current
+                )
+                if (
+                    strategy == "retirement"
+                    and (asset_id, target) in (explicit_retirements or set())
+                    and current is None
+                ):
+                    old_asset["historical_sha256"] = {
+                        old_version: [_asset_target_hash(before, old_asset, repo)]
+                    }
+                    old_asset["_explicit_untrusted_retirement"] = True
+                    by_id[asset_id] = old_asset
+                    by_target[target] = old_asset
+                    continue
+                if (
+                    strategy in {"merge", "whole"}
+                    and (asset_id, target) in (explicit_retirements or set())
+                    and exact_current
+                ):
+                    old_asset["historical_sha256"] = {
+                        old_version: [_asset_target_hash(before, old_asset, repo)]
+                    }
+                    old_asset["_explicit_untrusted_current"] = True
+                    by_id[asset_id] = old_asset
+                    by_target[target] = old_asset
+                    continue
                 issues.append({
                     "asset_id": asset_id,
                     "target": target,
@@ -1120,6 +1208,13 @@ def _validate_codex_hooks_merge_target(
         or not isinstance(validation.get("required_handlers"), list)
         or not validation["required_handlers"]
         or not isinstance(validation.get("managed_top_level"), dict)
+        or (
+            validation.get("managed_top_level_historical") is not None
+            and not isinstance(
+                validation.get("managed_top_level_historical"),
+                dict,
+            )
+        )
     ):
         raise ReleaseError(f"current merge contract has no trusted managed projection: {target}")
     _current_codex_hooks_zones_parts(payload, asset, target)
@@ -1146,6 +1241,9 @@ def _current_codex_hooks_zones_parts(
             label=target,
             managed_looking=lambda handler: _dispatcher_stage(handler) is not None,
             managed_top_level=validation.get("managed_top_level"),
+            managed_top_level_historical=validation.get(
+                "managed_top_level_historical"
+            ),
         )
     except HooksOwnershipError as exc:
         raise ReleaseError(str(exc)) from exc
@@ -1470,6 +1568,11 @@ def _transition_asset_ownership(
                 managed_top_level=current_validation.get("managed_top_level")
                 if isinstance(current_validation, dict)
                 else None,
+                managed_top_level_historical=current_validation.get(
+                    "managed_top_level_historical"
+                )
+                if isinstance(current_validation, dict)
+                else None,
             )
         except HooksOwnershipError as exc:
             raise ReleaseError(str(exc)) from exc
@@ -1538,6 +1641,12 @@ def _transition_asset_ownership(
             raise ReleaseError(
                 f"HEAD asset does not match its trusted contract hash: {old_path}"
             )
+        if (
+            strategy == "retirement"
+            and old_asset is not None
+            and old_asset.get("_explicit_untrusted_retirement") is True
+        ):
+            raise ReleaseError("explicit retirement adaptation is required")
         if current is not None:
             expected = current_asset.get("current_sha256")
             if not isinstance(expected, str) or _asset_target_hash(
@@ -1594,6 +1703,8 @@ def _classify_contract_transition(
     head_payload: bytes,
     prospective_skeleton_version: str | None = None,
     snapshot: dict[str, bytes | None] | None = None,
+    explicit_adaptations: dict[tuple[str, str], dict[str, object]] | None = None,
+    consumed_adaptations: set[tuple[str, str]] | None = None,
 ) -> str:
     current_contract = _raw_contract(config_path, current_config)
     head_config = _parse_managed_config(
@@ -1674,6 +1785,8 @@ def _classify_contract_transition(
             head_contract,
             current_contract,
             old_version,
+            explicit_retirements=set(explicit_adaptations or {}),
+            snapshot=snapshot,
         )
     else:
         old_by_id, _old_by_target = _contract_assets(config_path, head_contract)
@@ -1733,6 +1846,11 @@ def _classify_contract_transition(
                     snapshot,
                 )
             except ReleaseError as exc:
+                adaptation_key = (asset_id, str(current_target))
+                if adaptation_key in (explicit_adaptations or {}):
+                    if consumed_adaptations is not None:
+                        consumed_adaptations.add(adaptation_key)
+                    continue
                 issues.append({
                     "asset_id": asset_id,
                     "target": str(current_target),
@@ -1765,6 +1883,11 @@ def _classify_contract_transition(
                         "unchanged AGENTS target has inconsistent project-zone ownership"
                     )
             except ReleaseError as exc:
+                adaptation_key = (asset_id, str(current_target))
+                if adaptation_key in (explicit_adaptations or {}):
+                    if consumed_adaptations is not None:
+                        consumed_adaptations.add(adaptation_key)
+                    continue
                 issues.append({
                     "asset_id": asset_id,
                     "target": str(current_target),
@@ -1776,6 +1899,16 @@ def _classify_contract_transition(
             and managed_strategy != "seed"
             and changed_asset_paths != asset_paths
         ):
+            adaptation_key = (
+                asset_id,
+                str(current_target or old_target or relative_config),
+            )
+            if adaptation_key in (explicit_adaptations or {}):
+                if consumed_adaptations is not None:
+                    consumed_adaptations.add(adaptation_key)
+                handled_paths.update(asset_paths)
+                managed.update(asset_paths)
+                continue
             missing = ", ".join(sorted(asset_paths - changed_asset_paths))
             issues.append({
                 "asset_id": asset_id,
@@ -1795,6 +1928,15 @@ def _classify_contract_transition(
                 snapshot,
             )
         except ReleaseError as exc:
+            adaptation_key = (
+                asset_id,
+                str(current_target or old_target or relative_config),
+            )
+            if adaptation_key in (explicit_adaptations or {}):
+                if consumed_adaptations is not None:
+                    consumed_adaptations.add(adaptation_key)
+                managed.update(changed_asset_paths)
+                continue
             issues.append({
                 "asset_id": asset_id,
                 "target": str(current_target or old_target or relative_config),
@@ -1828,6 +1970,8 @@ def _classify_snapshot(
     *,
     prospective_skeleton_version: str | None = None,
     snapshot: dict[str, bytes | None] | None = None,
+    explicit_adaptations: dict[tuple[str, str], dict[str, object]] | None = None,
+    consumed_adaptations: set[tuple[str, str]] | None = None,
 ) -> str:
     if is_bridgeforge_factory(repo):
         return "factory"
@@ -1857,6 +2001,8 @@ def _classify_snapshot(
             transitions[0][2],
             prospective_skeleton_version,
             snapshot,
+            explicit_adaptations,
+            consumed_adaptations,
         )
 
     changed_stamps: set[Path] = set()
@@ -1870,17 +2016,49 @@ def _classify_snapshot(
     owners_with_changes: set[Path] = set()
     managed_owners: dict[str, Path] = {}
     for path in changed_paths:
-        owner, managed_changed, project_changed = _change_ownership(
-            repo,
-            path,
-            configs,
-            snapshot,
-        )
+        matching_adaptations = [
+            key
+            for key in (explicit_adaptations or {})
+            if key[1] == path
+        ]
+        try:
+            owner, managed_changed, project_changed = _change_ownership(
+                repo,
+                path,
+                configs,
+                snapshot,
+            )
+        except ReleaseError as exc:
+            if len(matching_adaptations) != 1:
+                asset_id = "contract.managed-skeleton"
+                for config_path, config in configs:
+                    try:
+                        _by_id, by_target = _contract_assets(
+                            config_path,
+                            _raw_contract(config_path, config),
+                        )
+                    except ReleaseError:
+                        continue
+                    asset = by_target.get(path)
+                    if isinstance(asset, dict) and isinstance(asset.get("id"), str):
+                        asset_id = str(asset["id"])
+                        break
+                raise TransitionBlocked([{
+                    "asset_id": asset_id,
+                    "target": path,
+                    "reason": str(exc),
+                }]) from exc
+            if consumed_adaptations is not None:
+                consumed_adaptations.add(matching_adaptations[0])
+            owner, managed_changed, project_changed = None, True, False
         if managed_changed:
             managed.add(path)
-            if owner is not None:
+            if owner is not None and not matching_adaptations:
                 owners_with_changes.add(owner)
                 managed_owners[path] = owner
+            elif matching_adaptations:
+                if consumed_adaptations is not None:
+                    consumed_adaptations.add(matching_adaptations[0])
         if project_changed:
             project.add(path)
 
@@ -1963,16 +2141,1352 @@ def collect_changed_paths(repo: Path) -> set[str]:
     return paths
 
 
+def _head_commit(repo: Path) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={repo.resolve().as_posix()}",
+            "rev-parse",
+            "--verify",
+            "HEAD",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise ReleaseError(f"explicit adaptation cannot inspect HEAD: {detail}")
+    return result.stdout.strip()
+
+
+def _optional_payload_hash(payload: bytes | None) -> str | None:
+    return None if payload is None else _sha256_bytes(payload)
+
+
+def _explicit_adaptation_context(
+    repo: Path,
+    snapshot: dict[str, bytes | None],
+    before_snapshot: dict[str, bytes | None] | None,
+    asset_id: str,
+    target: str,
+    allowed_adaptations: set[tuple[str, str]],
+) -> tuple[
+    str | None,
+    str | None,
+    dict[str, object] | None,
+    dict[str, object] | None,
+    str,
+    dict[str, object] | None,
+]:
+    matches: list[
+        tuple[
+            str | None,
+            str | None,
+            dict[str, object] | None,
+            dict[str, object] | None,
+            str,
+            dict[str, object] | None,
+        ]
+    ] = []
+    for config_path, current_config in _load_managed_configs(repo, snapshot):
+        current_contract = _raw_contract(config_path, current_config)
+        current_by_id, _current_by_target = _contract_assets(
+            config_path,
+            current_contract,
+        )
+        head_payload = _head_bytes(repo, config_path.relative_to(repo).as_posix())
+        current_payload = _current_bytes(repo, config_path, snapshot)
+        old_by_id = current_by_id
+        old_version = str(current_contract.get("release_version", ""))
+        if (
+            head_payload is not None
+            and current_payload is not None
+            and _git_blob_bytes(head_payload) != _git_blob_bytes(current_payload)
+        ):
+            head_config = _parse_managed_config(
+                config_path,
+                head_payload,
+                allow_region_history=True,
+            )
+            head_contract, legacy_head = _transition_source_contract(
+                config_path,
+                head_config,
+            )
+            old_stamp = head_contract.get("stamp")
+            if not isinstance(old_stamp, str):
+                raise ReleaseError("explicit adaptation HEAD contract has no stamp")
+            old_version = _read_stamp(_head_bytes(repo, old_stamp), "HEAD")
+            if legacy_head:
+                old_by_id, _old_by_target = _legacy_contract_assets(
+                    repo,
+                    config_path,
+                    head_contract,
+                    current_contract,
+                    old_version,
+                    explicit_retirements=allowed_adaptations,
+                    snapshot=snapshot,
+                )
+            else:
+                old_by_id, _old_by_target = _contract_assets(
+                    config_path,
+                    head_contract,
+                )
+        old_asset = old_by_id.get(asset_id)
+        current_asset = current_by_id.get(asset_id)
+        old_target = str(old_asset["target"]) if old_asset is not None else None
+        current_target = (
+            str(current_asset["target"]) if current_asset is not None else None
+        )
+        if target not in {old_target, current_target}:
+            continue
+        current_before_asset = None
+        if (
+            current_asset is not None
+            and current_payload is not None
+            and (
+                current_asset.get("strategy") == "merge"
+                or isinstance(current_asset.get("managed_blocks"), dict)
+            )
+        ):
+            current_before_asset = _trusted_current_before_contract_asset(
+                repo,
+                config_path,
+                current_contract,
+                current_payload,
+                asset_id,
+                target,
+                snapshot,
+                before_snapshot,
+            )
+        matches.append(
+            (
+                old_target,
+                current_target,
+                old_asset,
+                current_asset,
+                old_version,
+                current_before_asset,
+            )
+        )
+    if len(matches) != 1:
+        raise ReleaseError(
+            f"explicit adaptation asset context is ambiguous: {asset_id}:{target}"
+        )
+    return matches[0]
+
+
+def _schema_v1_handler_map(
+    payload: bytes | None,
+    target: str,
+) -> dict[tuple[str, str, str], dict[str, object]]:
+    document = _load_hooks_document(payload, target)
+    hooks = document.get("hooks")
+    if not isinstance(hooks, dict):
+        raise ReleaseError("explicit adaptation schema v1 hooks are invalid")
+    result: dict[tuple[str, str, str], dict[str, object]] = {}
+    for event, groups in hooks.items():
+        if not isinstance(event, str) or not isinstance(groups, list):
+            raise ReleaseError(
+                "explicit adaptation schema v1 hook groups are invalid"
+            )
+        for group in groups:
+            if not isinstance(group, dict) or not isinstance(
+                group.get("hooks"), list
+            ):
+                raise ReleaseError(
+                    "explicit adaptation schema v1 hook group is invalid"
+                )
+            matcher = str(group.get("matcher", ""))
+            for handler in group["hooks"]:
+                if not isinstance(handler, dict):
+                    raise ReleaseError(
+                        "explicit adaptation schema v1 handler is invalid"
+                    )
+                stage = _dispatcher_stage(handler)
+                if stage is None:
+                    continue
+                key = (event, matcher, stage)
+                if key in result:
+                    raise ReleaseError(
+                        "explicit adaptation schema v1 dispatcher is duplicated"
+                    )
+                result[key] = copy.deepcopy(handler)
+    return result
+
+
+def _handler_without_managed_id_hash(handler: dict[str, object]) -> str:
+    normalized = copy.deepcopy(handler)
+    normalized.pop("bridgeforgeCodexId", None)
+    return _canonical_json_sha256(normalized)
+
+
+def _keyed_projection_rows(payload: bytes, heading: str) -> tuple[str, dict[str, str]]:
+    text = payload.decode("utf-8-sig")
+    lines = text.splitlines()
+    if len(lines) < 2 or not lines[1].startswith("header="):
+        raise ReleaseError(
+            f"explicit adaptation schema v1 keyed projection is invalid: {heading}"
+        )
+    return lines[1], {
+        line.split("=", 1)[0]: line
+        for line in lines[2:]
+        if line and "=" in line
+    }
+
+
+def _schema_v1_markdown_projection_hash(
+    current_before: bytes | None,
+    prospective: bytes | None,
+    asset: dict[str, object],
+    target: str,
+) -> str:
+    if current_before is None or prospective is None:
+        raise ReleaseError(
+            "explicit adaptation schema v1 current-before Markdown is missing"
+        )
+    managed_blocks = asset.get("managed_blocks")
+    if not isinstance(managed_blocks, dict) or asset.get("section_layout") is not None:
+        raise ReleaseError(
+            "explicit adaptation schema v1 Markdown ownership is unsupported"
+        )
+    headings = managed_blocks.get("headings", [])
+    additive = managed_blocks.get("additive_headings", [])
+    keyed = managed_blocks.get("keyed_tables", [])
+    if (
+        not isinstance(headings, list)
+        or not isinstance(additive, list)
+        or not isinstance(keyed, list)
+    ):
+        raise ReleaseError(
+            "explicit adaptation schema v1 Markdown contract is invalid"
+        )
+    owned_headings = [str(item) for item in headings + additive]
+    before_spans = _markdown_heading_spans(current_before, owned_headings)
+    prospective_spans = _markdown_heading_spans(prospective, owned_headings)
+    before_order = [
+        heading
+        for heading, _span in sorted(
+            before_spans.items(), key=lambda item: item[1][0]
+        )
+    ]
+    prospective_order = [
+        heading
+        for heading, _span in sorted(
+            prospective_spans.items(), key=lambda item: item[1][0]
+        )
+    ]
+    if before_order != [
+        heading for heading in prospective_order if heading in set(before_order)
+    ]:
+        raise ReleaseError(
+            "explicit adaptation schema v1 Markdown heading order drifted"
+        )
+    for heading, (start, finish) in before_spans.items():
+        prospective_span = prospective_spans.get(heading)
+        if prospective_span is None:
+            raise ReleaseError(
+                "explicit adaptation schema v1 Markdown heading is not current"
+            )
+        current_start, current_finish = prospective_span
+        if _git_blob_bytes(current_before[start:finish]).rstrip() != _git_blob_bytes(
+            prospective[current_start:current_finish]
+        ).rstrip():
+            raise ReleaseError(
+                "explicit adaptation schema v1 Markdown managed heading drifted"
+            )
+    for table in keyed:
+        if not isinstance(table, dict) or not isinstance(table.get("heading"), str):
+            raise ReleaseError(
+                "explicit adaptation schema v1 keyed-table contract is invalid"
+            )
+        heading = str(table["heading"])
+        managed_keys = table.get("managed_keys")
+        if not isinstance(managed_keys, list):
+            raise ReleaseError(
+                "explicit adaptation schema v1 keyed-table keys are invalid"
+            )
+        before_projection, _before_project = _keyed_table_parts(
+            current_before, heading, [str(item) for item in managed_keys]
+        )
+        current_projection, _current_project = _keyed_table_parts(
+            prospective, heading, [str(item) for item in managed_keys]
+        )
+        if before_projection is None or current_projection is None:
+            raise ReleaseError(
+                "explicit adaptation schema v1 keyed-table target is missing"
+            )
+        if before_projection == f"{heading}=<MISSING>".encode("utf-8"):
+            continue
+        before_header, before_rows = _keyed_projection_rows(
+            before_projection, heading
+        )
+        current_header, current_rows = _keyed_projection_rows(
+            current_projection, heading
+        )
+        if before_header != current_header or any(
+            current_rows.get(key) != value for key, value in before_rows.items()
+        ):
+            raise ReleaseError(
+                "explicit adaptation schema v1 keyed-table managed row drifted"
+            )
+    managed, project = _managed_blocks_parts(current_before, asset, target)
+    if managed is None or project is None:
+        raise ReleaseError(
+            "explicit adaptation schema v1 current-before Markdown is invalid"
+        )
+    return _sha256_bytes(managed)
+
+
+def _trusted_current_before_contract_asset(
+    repo: Path,
+    config_path: Path,
+    prospective_contract: dict[str, object],
+    prospective_payload: bytes,
+    asset_id: str,
+    target: str,
+    snapshot: dict[str, bytes | None],
+    before_snapshot: dict[str, bytes | None] | None = None,
+) -> dict[str, object]:
+    relative = config_path.relative_to(repo).as_posix()
+    current_before_payload = _current_before_bytes(
+        repo,
+        relative,
+        before_snapshot,
+    )
+    if current_before_payload is None:
+        raise ReleaseError("explicit adaptation current-before contract is missing")
+    current_before_config = _parse_managed_config(
+        config_path,
+        current_before_payload,
+        allow_region_history=True,
+    )
+    current_before_contract, current_before_legacy = _transition_source_contract(
+        config_path,
+        current_before_config,
+    )
+    stamp = current_before_contract.get("stamp")
+    if not isinstance(stamp, str):
+        raise ReleaseError(
+            "explicit adaptation current-before contract binding is incomplete"
+        )
+    release_version = current_before_contract.get("release_version")
+    if current_before_legacy:
+        release_version = _read_stamp(
+            _current_before_bytes(repo, stamp, before_snapshot),
+            "current-before",
+        )
+    elif (
+        current_before_contract.get("contract_target") != relative
+        or not isinstance(release_version, str)
+    ):
+        raise ReleaseError(
+            "explicit adaptation current-before contract target is invalid"
+        )
+    assert isinstance(release_version, str)
+    installed_version = _read_stamp(
+        _current_before_bytes(repo, stamp, before_snapshot),
+        "current-before",
+    )
+    if installed_version != release_version:
+        raise ReleaseError(
+            "explicit adaptation current-before contract stamp drifted"
+        )
+    current_before_hash = _sha256_bytes(current_before_payload)
+    if _git_blob_bytes(current_before_payload) != _git_blob_bytes(prospective_payload):
+        history = prospective_contract.get("contract_historical_sha256")
+        raw_history = history.get(installed_version) if isinstance(history, dict) else None
+        accepted = raw_history if isinstance(raw_history, list) else [raw_history]
+        if current_before_hash not in {
+            item for item in accepted if isinstance(item, str)
+        }:
+            raise ReleaseError(
+                "explicit adaptation current-before contract is not trusted "
+                "by the prospective contract"
+            )
+    contract_for_assets = (
+        prospective_contract if current_before_legacy else current_before_contract
+    )
+    current_before_by_id, _current_before_by_target = _contract_assets(
+        config_path,
+        contract_for_assets,
+    )
+    asset = current_before_by_id.get(asset_id)
+    if asset is None or asset.get("target") != target:
+        raise ReleaseError(
+            "explicit adaptation current-before asset is invalid"
+        )
+    result = copy.deepcopy(asset)
+    if current_before_legacy:
+        current_target_payload = _current_before_bytes(
+            repo,
+            target,
+            before_snapshot,
+        )
+        prospective_target_payload = _current_bytes(repo, target, snapshot)
+        validation = result.get("merge_validation")
+        if (
+            result.get("strategy") == "merge"
+            and isinstance(validation, dict)
+            and validation.get("format") == "codex-hooks-zones-v2"
+        ):
+            expected_required = validation.get("required_handlers")
+            if not isinstance(expected_required, list):
+                raise ReleaseError(
+                    "explicit adaptation schema v1 current-before hooks contract is invalid"
+                )
+            expected_ids = {
+                (
+                    str(item.get("event", "")),
+                    str(item.get("matcher", "")),
+                    str(item.get("stage", "")),
+                ): str(item.get("id", ""))
+                for item in expected_required
+                if isinstance(item, dict)
+            }
+            current_handlers = _schema_v1_handler_map(
+                current_target_payload, target
+            )
+            prospective_handlers = _schema_v1_handler_map(
+                prospective_target_payload, target
+            )
+            handler_history = validation.get("historical_handler_sha256")
+            observed: list[dict[str, str]] = []
+            seen_ids: set[str] = set()
+            for key, handler in current_handlers.items():
+                managed_id = handler.get("bridgeforgeCodexId")
+                if not isinstance(managed_id, str):
+                    continue
+                if expected_ids.get(key) != managed_id or managed_id in seen_ids:
+                    raise ReleaseError(
+                        "explicit adaptation schema v1 current-before managed handler drifted"
+                    )
+                stripped_hash = _handler_without_managed_id_hash(handler)
+                accepted_hashes = {
+                    _handler_without_managed_id_hash(candidate)
+                    for candidate in (prospective_handlers.get(key),)
+                    if isinstance(candidate, dict)
+                }
+                historical_by_version = (
+                    handler_history.get(managed_id)
+                    if isinstance(handler_history, dict)
+                    else None
+                )
+                if isinstance(historical_by_version, dict):
+                    accepted_hashes.update(
+                        _history_values_for_version(
+                            historical_by_version,
+                            installed_version,
+                        )
+                    )
+                if stripped_hash not in accepted_hashes:
+                    raise ReleaseError(
+                        "explicit adaptation schema v1 current-before managed handler "
+                        "does not match a trusted published or current canonical handler"
+                    )
+                seen_ids.add(managed_id)
+                observed.append({
+                    "id": managed_id,
+                    "event": key[0],
+                    "matcher": key[1],
+                    "stage": key[2],
+                    "handler_sha256": _canonical_json_sha256(handler),
+                })
+            observed.sort(
+                key=lambda item: (
+                    item["event"], item["matcher"], item["stage"], item["id"]
+                )
+            )
+            current_validation = copy.deepcopy(validation)
+            current_validation["required_handlers"] = observed
+            current_validation["current_projection_sha256"] = (
+                _canonical_json_sha256(observed)
+            )
+            result["merge_validation"] = current_validation
+        managed_blocks = result.get("managed_blocks")
+        if isinstance(managed_blocks, dict):
+            projection_hash = _schema_v1_markdown_projection_hash(
+                current_target_payload,
+                prospective_target_payload,
+                result,
+                target,
+            )
+            current_managed_blocks = copy.deepcopy(managed_blocks)
+            current_managed_blocks["current_projection_sha256"] = projection_hash
+            result["managed_blocks"] = current_managed_blocks
+    result["_trusted_release_version"] = release_version
+    return result
+
+
+def _adaptation_legacy_handlers(
+    required: list[object],
+    current_ids: dict[tuple[str, str, str], str],
+    *,
+    label: str,
+) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    current_id_values = set(current_ids.values())
+    for item in required:
+        if not isinstance(item, dict):
+            raise ReleaseError(f"{label} handler is invalid")
+        key = (
+            str(item.get("event", "")),
+            str(item.get("matcher", "")),
+            str(item.get("stage", "")),
+        )
+        managed_id = item.get("id") or current_ids.get(key)
+        digest = item.get("sha256") or item.get("handler_sha256")
+        if (
+            key in seen
+            or not isinstance(managed_id, str)
+            or not isinstance(digest, str)
+            or managed_id not in current_id_values
+        ):
+            raise ReleaseError(f"{label} handler cannot map to current id")
+        seen.add(key)
+        result.append({
+            "id": managed_id,
+            "event": key[0],
+            "matcher": key[1],
+            "handler_sha256": digest,
+        })
+    return result
+
+
+def _adaptation_hooks_project_parts(
+    before: bytes | None,
+    current_before: bytes | None,
+    current: bytes | None,
+    old_asset: dict[str, object] | None,
+    current_before_asset: dict[str, object] | None,
+    current_asset: dict[str, object],
+    old_release_version: str,
+    old_path: str,
+    current_path: str,
+) -> tuple[bytes, bytes]:
+    if (
+        before is None
+        or current_before is None
+        or current is None
+        or old_asset is None
+        or current_before_asset is None
+    ):
+        raise ReleaseError("explicit hooks adaptation target is missing")
+    current_required, prospective_project = _current_codex_hooks_zones_parts(
+        current,
+        current_asset,
+        current_path,
+    )
+    old_validation = old_asset.get("merge_validation")
+    old_required = (
+        old_validation.get("required_handlers")
+        if isinstance(old_validation, dict)
+        else None
+    )
+    current_ids = {
+        (
+            str(item["event"]),
+            str(item["matcher"]),
+            str(item["stage"]),
+        ): str(item["id"])
+        for item in current_required
+    }
+    legacy_handlers: list[dict[str, str]] = []
+    try:
+        prospective_document = _load_hooks_document(current, current_path)
+        current_groups = _expected_hooks_groups(
+            prospective_document,
+            managed_prefix="bridgeforge-codex.project-hook.v1:",
+        )
+        prospective_handlers = _schema_v1_handler_map(current, current_path)
+        old_document = _load_hooks_document(before, old_path)
+        if isinstance(old_required, list) and old_required:
+            legacy_handlers = _adaptation_legacy_handlers(
+                old_required,
+                current_ids,
+                label="explicit hooks adaptation HEAD",
+            )
+        else:
+            hooks = old_document.get("hooks")
+            if not isinstance(hooks, dict):
+                raise ReleaseError(
+                    "explicit hooks adaptation HEAD document has no hooks object"
+                )
+            observed_keys: set[tuple[str, str, str]] = set()
+            for event, groups in hooks.items():
+                if not isinstance(event, str) or not isinstance(groups, list):
+                    raise ReleaseError(
+                        "explicit hooks adaptation HEAD groups are invalid"
+                    )
+                for group in groups:
+                    if not isinstance(group, dict):
+                        raise ReleaseError(
+                            "explicit hooks adaptation HEAD group is invalid"
+                        )
+                    matcher = str(group.get("matcher", ""))
+                    handlers = group.get("hooks")
+                    if not isinstance(handlers, list):
+                        raise ReleaseError(
+                            "explicit hooks adaptation HEAD handlers are invalid"
+                        )
+                    for handler in handlers:
+                        if not isinstance(handler, dict):
+                            raise ReleaseError(
+                                "explicit hooks adaptation HEAD handler is invalid"
+                            )
+                        stage = _dispatcher_stage(handler)
+                        if stage is None:
+                            continue
+                        key = (event, matcher, str(stage))
+                        managed_id = current_ids.get(key)
+                        if managed_id is None or key in observed_keys:
+                            raise ReleaseError(
+                                "explicit hooks adaptation found ambiguous legacy dispatcher"
+                            )
+                        observed_keys.add(key)
+                        canonical_handler = prospective_handlers.get(key)
+                        trusted_hashes = {
+                            _handler_without_managed_id_hash(canonical_handler)
+                        } if isinstance(canonical_handler, dict) else set()
+                        current_validation = current_asset.get(
+                            "merge_validation"
+                        )
+                        handler_history = (
+                            current_validation.get(
+                                "historical_handler_sha256"
+                            )
+                            if isinstance(current_validation, dict)
+                            else None
+                        )
+                        historical_by_version = (
+                            handler_history.get(managed_id)
+                            if isinstance(handler_history, dict)
+                            else None
+                        )
+                        if (
+                            isinstance(historical_by_version, dict)
+                        ):
+                            trusted_hashes.update(
+                                _history_values_for_version(
+                                    historical_by_version,
+                                    old_release_version,
+                                )
+                            )
+                        if (
+                            _handler_without_managed_id_hash(handler)
+                            not in trusted_hashes
+                        ):
+                            raise ReleaseError(
+                                "explicit hooks adaptation HEAD dispatcher does not "
+                                "match a trusted published or current canonical handler"
+                            )
+                        legacy_handlers.append({
+                            "id": managed_id,
+                            "event": event,
+                            "matcher": matcher,
+                            "handler_sha256": _canonical_json_sha256(handler),
+                        })
+            if not legacy_handlers:
+                raise ReleaseError(
+                    "explicit hooks adaptation found no recognizable legacy dispatcher"
+                )
+        _canonical_old, _old_external, old_receipts = _canonicalize_hooks_zones(
+            old_document,
+            current_groups,
+            managed_prefixes=("bridgeforge-codex.project-hook.v1:",),
+            label=old_path,
+            managed_looking=lambda handler: _dispatcher_stage(handler) is not None,
+            legacy_handlers=legacy_handlers,
+            managed_top_level=(
+                current_asset.get("merge_validation", {}).get("managed_top_level")
+                if isinstance(current_asset.get("merge_validation"), dict)
+                else None
+            ),
+            managed_top_level_historical=(
+                current_asset.get("merge_validation", {}).get(
+                    "managed_top_level_historical"
+                )
+                if isinstance(current_asset.get("merge_validation"), dict)
+                else None
+            ),
+        )
+        trusted_head_ids = {item["id"] for item in legacy_handlers}
+        observed_head_ids = {
+            item["id"]
+            for item in old_receipts
+            if item["action"] != "add-missing"
+        }
+        if not trusted_head_ids.issubset(observed_head_ids):
+            raise ReleaseError(
+                "explicit hooks adaptation HEAD is missing a trusted managed handler"
+            )
+        current_before_document = _load_hooks_document(
+            current_before,
+            current_path,
+        )
+        current_before_validation = current_before_asset.get("merge_validation")
+        current_before_required = (
+            current_before_validation.get("required_handlers")
+            if isinstance(current_before_validation, dict)
+            else None
+        )
+        if not isinstance(current_before_required, list):
+            raise ReleaseError(
+                "explicit hooks adaptation current-before handlers are invalid"
+            )
+        declared_current_before_projection = current_before_validation.get(
+            "current_projection_sha256"
+        )
+        if (
+            declared_current_before_projection is not None
+            and (
+                not isinstance(declared_current_before_projection, str)
+                or _canonical_json_sha256(current_before_required)
+                != declared_current_before_projection
+            )
+        ):
+            raise ReleaseError(
+                "explicit hooks adaptation current-before contract projection drifted"
+            )
+        current_before_handlers = _adaptation_legacy_handlers(
+            current_before_required,
+            current_ids,
+            label="explicit hooks adaptation current-before",
+        )
+        current_validation = current_asset.get("merge_validation")
+        current_managed_top_level = (
+            current_validation.get("managed_top_level")
+            if isinstance(current_validation, dict)
+            else None
+        )
+        current_managed_top_level_historical = (
+            current_validation.get("managed_top_level_historical")
+            if isinstance(current_validation, dict)
+            else None
+        )
+        if isinstance(current_managed_top_level, dict):
+            for key, value in current_managed_top_level.items():
+                historical = (
+                    current_managed_top_level_historical.get(key, [])
+                    if isinstance(current_managed_top_level_historical, dict)
+                    else []
+                )
+                if (
+                    not isinstance(historical, list)
+                    or (
+                        current_before_document.get(key) != value
+                        and current_before_document.get(key) not in historical
+                    )
+                ):
+                    raise ReleaseError(
+                        "explicit hooks adaptation current-before managed top-level "
+                        f"field drifted: {key}"
+                    )
+        (
+            _canonical_current_before,
+            current_before_external,
+            current_before_receipts,
+        ) = _canonicalize_hooks_zones(
+            current_before_document,
+            current_groups,
+            managed_prefixes=("bridgeforge-codex.project-hook.v1:",),
+            label=current_path,
+            managed_looking=lambda handler: _dispatcher_stage(handler) is not None,
+            legacy_handlers=current_before_handlers,
+            managed_top_level=current_managed_top_level,
+            managed_top_level_historical=current_managed_top_level_historical,
+        )
+        trusted_current_before_ids = {
+            item["id"] for item in current_before_handlers
+        }
+        observed_current_before_ids = {
+            item["id"]
+            for item in current_before_receipts
+            if item["action"] != "add-missing"
+        }
+        if not trusted_current_before_ids.issubset(observed_current_before_ids):
+            raise ReleaseError(
+                "explicit hooks adaptation current-before target is missing a "
+                "trusted managed handler"
+            )
+    except HooksOwnershipError as exc:
+        raise ReleaseError(str(exc)) from exc
+    current_before_project = json.dumps(
+        current_before_external,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return current_before_project, prospective_project
+
+
+def _explicit_adaptation_ownership_evidence(
+    repo: Path,
+    snapshot: dict[str, bytes | None],
+    asset_id: str,
+    target: str,
+    category: str,
+    allowed_adaptations: set[tuple[str, str]],
+    require_lexical_absence: bool,
+    before_snapshot: dict[str, bytes | None] | None = None,
+) -> tuple[str, str]:
+    if require_lexical_absence and _lexical_entry_exists(repo, target):
+        raise ReleaseError(
+            "explicit no-target retirement has a lexical directory entry"
+        )
+    (
+        old_target,
+        current_target,
+        old_asset,
+        current_asset,
+        old_version,
+        current_before_asset,
+    ) = _explicit_adaptation_context(
+        repo,
+        snapshot,
+        (
+            None
+            if before_snapshot is None
+            else _normalized_snapshot(before_snapshot)
+        ),
+        asset_id,
+        target,
+        allowed_adaptations,
+    )
+    before = _head_bytes(repo, old_target) if old_target is not None else None
+    current_before = (
+        _current_before_bytes(repo, current_target, before_snapshot)
+        if current_target is not None
+        else None
+    )
+    current = (
+        _current_bytes(repo, current_target, snapshot)
+        if current_target is not None
+        else None
+    )
+    empty = _sha256_bytes(b"")
+    if current_asset is None:
+        if current is not None:
+            raise ReleaseError("explicit retirement adaptation target still exists")
+        return empty, empty
+
+    strategy = current_asset.get("strategy")
+    if isinstance(current_asset.get("agents_zones"), dict):
+        zones = current_asset["agents_zones"]
+        current_public, current_project = _agents_zone_release_parts(current, zones)
+        public = zones.get("public")
+        expected = public.get("current_sha256") if isinstance(public, dict) else None
+        if (
+            current_public is None
+            or current_project is None
+            or not isinstance(expected, str)
+            or _agents_public_hash(current_public) != expected
+        ):
+            raise ReleaseError(
+                "explicit AGENTS adaptation public zone is not current"
+            )
+        if category == "agents_ownership_review":
+            if before is None:
+                raise ReleaseError("explicit AGENTS adaptation HEAD target is missing")
+            legacy = _git_blob_bytes(before)
+            if current_project.count(legacy) != 1:
+                raise ReleaseError(
+                    "explicit AGENTS adaptation did not preserve HEAD bytes exactly once"
+                )
+            digest = _sha256_bytes(legacy)
+            return digest, digest
+        if old_asset is None or not isinstance(old_asset.get("agents_zones"), dict):
+            raise ReleaseError("explicit AGENTS transition has no zoned HEAD contract")
+        _old_public, old_project = _agents_zone_release_parts(
+            before,
+            old_asset["agents_zones"],
+        )
+        if old_project is None or old_project != current_project:
+            raise ReleaseError("explicit AGENTS adaptation changed the project zone")
+        return _sha256_bytes(old_project), _sha256_bytes(current_project)
+
+    if strategy == "region":
+        region = current_asset.get("region")
+        if not isinstance(region, dict):
+            raise ReleaseError("explicit region adaptation contract is invalid")
+        begin = region.get("begin")
+        end = region.get("end")
+        expected = region.get("current_sha256")
+        if not all(isinstance(item, str) for item in (begin, end, expected)):
+            raise ReleaseError("explicit region adaptation contract is incomplete")
+        current_managed, current_project = _region_parts(current, str(begin), str(end))
+        old_managed, old_project = _region_transition_parts(
+            before,
+            str(begin),
+            str(end),
+        )
+        if (
+            current_managed is None
+            or _sha256_bytes(current_managed) != expected
+            or old_managed is None
+            or old_project != current_project
+        ):
+            raise ReleaseError(
+                "explicit region adaptation changed its project extension"
+            )
+        return _sha256_bytes(old_project or b""), _sha256_bytes(current_project or b"")
+
+    if strategy == "merge" and current_asset.get("merge_policy") == "codex-hooks":
+        old_project, current_project = _adaptation_hooks_project_parts(
+            before,
+            current_before,
+            current,
+            old_asset,
+            current_before_asset,
+            current_asset,
+            old_version,
+            str(old_target),
+            str(current_target),
+        )
+        if old_project != current_project:
+            raise ReleaseError("explicit hooks adaptation changed external handlers")
+        return _sha256_bytes(old_project), _sha256_bytes(current_project)
+
+    if isinstance(current_asset.get("managed_blocks"), dict):
+        if (
+            current_before is None
+            or current is None
+            or current_before_asset is None
+            or not isinstance(current_before_asset.get("managed_blocks"), dict)
+        ):
+            raise ReleaseError("explicit managed Markdown adaptation target is missing")
+        current_managed, current_project = _managed_blocks_parts(
+            current,
+            current_asset,
+            str(current_target),
+        )
+        expected = _current_projection_hash(
+            current_asset["managed_blocks"],
+            f"explicit managed Markdown {current_target}",
+        )
+        if _sha256_bytes(current_managed or b"") != expected:
+            raise ReleaseError(
+                "explicit managed Markdown adaptation is not current"
+            )
+        current_before_managed, current_before_project = _managed_blocks_parts(
+            current_before,
+            current_before_asset,
+            str(current_target),
+        )
+        current_before_projection = _sha256_bytes(current_before_managed or b"")
+        current_before_contract = current_before_asset["managed_blocks"]
+        current_before_expected = current_before_contract.get(
+            "current_projection_sha256"
+        )
+        accepted_current_before = (
+            {current_before_expected}
+            if isinstance(current_before_expected, str)
+            else _history_values_for_version(
+                current_asset["managed_blocks"].get(
+                    "historical_projection_sha256"
+                ),
+                str(current_before_asset.get("_trusted_release_version", "")),
+            )
+        )
+        if current_before_projection not in accepted_current_before:
+            raise ReleaseError(
+                "explicit managed Markdown current-before projection drifted"
+            )
+        if current_before_project != current_project:
+            raise ReleaseError(
+                "explicit managed Markdown adaptation changed project content"
+            )
+        return (
+            _sha256_bytes(current_before_project or b""),
+            _sha256_bytes(current_project or b""),
+        )
+
+    if strategy in {"whole", "retirement"}:
+        if current is None:
+            if strategy != "retirement":
+                raise ReleaseError("explicit whole-file adaptation target is missing")
+        else:
+            expected = current_asset.get("current_sha256")
+            if (
+                not isinstance(expected, str)
+                or _asset_target_hash(current, current_asset, repo) != expected
+            ):
+                raise ReleaseError("explicit whole-file adaptation is not current")
+        return empty, empty
+
+    if strategy == "merge":
+        if current is None:
+            raise ReleaseError("explicit merge adaptation target is missing")
+        expected = current_asset.get("current_sha256")
+        if not isinstance(expected, str) or _sha256_bytes(current) != expected:
+            raise ReleaseError(
+                "explicit generic merge adaptation is not exact current content"
+            )
+        return empty, empty
+
+    raise ReleaseError(
+        f"unsupported explicit adaptation ownership strategy: {strategy!r}"
+    )
+
+
+def _contract_snapshot_targets(
+    config_path: Path,
+    payload: bytes | None,
+    selected_ids: set[str],
+    selected_targets: set[str],
+) -> set[str]:
+    if payload is None:
+        return set()
+    config = _parse_managed_config(
+        config_path,
+        payload,
+        allow_region_history=True,
+    )
+    contract, legacy = _transition_source_contract(config_path, config)
+    targets: set[str] = set()
+    stamp = contract.get("stamp")
+    if isinstance(stamp, str):
+        targets.add(stamp)
+    if not legacy:
+        by_id, _by_target = _contract_assets(config_path, contract)
+        targets.update(
+            str(asset["target"])
+            for asset_id, asset in by_id.items()
+            if asset_id in selected_ids
+            or str(asset["target"]) in selected_targets
+        )
+    return targets
+
+
+def freeze_explicit_adaptation_before_snapshot(
+    repo: Path,
+    snapshot: dict[str, bytes | None] | None,
+    raw_items: list[dict[str, object]],
+) -> dict[str, bytes | None]:
+    """Freeze every managed input needed to replay current-before evidence."""
+
+    normalized = _normalized_snapshot(snapshot)
+    selected_targets = {
+        str(raw["target"])
+        for raw in raw_items
+        if isinstance(raw, dict) and isinstance(raw.get("target"), str)
+    }
+    selected_ids = {
+        str(raw["asset_id"])
+        for raw in raw_items
+        if isinstance(raw, dict) and isinstance(raw.get("asset_id"), str)
+    }
+    targets = set(selected_targets)
+    for config_path, current_config in _load_managed_configs(repo, normalized):
+        relative = config_path.relative_to(repo).as_posix()
+        targets.add(relative)
+        current_payload = _current_bytes(repo, config_path, normalized)
+        targets.update(
+            _contract_snapshot_targets(
+                config_path,
+                current_payload,
+                selected_ids,
+                selected_targets,
+            )
+        )
+        targets.update(
+            _contract_snapshot_targets(
+                config_path,
+                _current_bytes(repo, config_path, {}),
+                selected_ids,
+                selected_targets,
+            )
+        )
+        targets.update(
+            _contract_snapshot_targets(
+                config_path,
+                _head_bytes(repo, relative),
+                selected_ids,
+                selected_targets,
+            )
+        )
+        current_contract = _raw_contract(config_path, current_config)
+        current_by_id, _current_by_target = _contract_assets(
+            config_path,
+            current_contract,
+        )
+        targets.update(
+            str(asset["target"])
+            for asset_id, asset in current_by_id.items()
+            if asset_id in selected_ids
+        )
+    return {
+        target: _current_bytes(repo, target, {})
+        for target in sorted(targets)
+    }
+
+
+def encode_explicit_adaptation_before_snapshot(
+    snapshot: dict[str, bytes | None],
+) -> dict[str, str | None]:
+    normalized = _normalized_snapshot(snapshot)
+    return {
+        path: (
+            None
+            if payload is None
+            else base64.b64encode(payload).decode("ascii")
+        )
+        for path, payload in sorted(normalized.items())
+    }
+
+
+def decode_explicit_adaptation_before_snapshot(
+    raw: object,
+) -> dict[str, bytes | None]:
+    if not isinstance(raw, dict):
+        raise ReleaseError("explicit adaptation proof before snapshot is missing")
+    decoded: dict[str, bytes | None] = {}
+    for raw_path, payload in raw.items():
+        if not isinstance(raw_path, str) or (
+            payload is not None and not isinstance(payload, str)
+        ):
+            raise ReleaseError("explicit adaptation proof before snapshot is invalid")
+        if payload is None:
+            value = None
+        else:
+            try:
+                value = base64.b64decode(payload.encode("ascii"), validate=True)
+            except (UnicodeEncodeError, ValueError) as exc:
+                raise ReleaseError(
+                    "explicit adaptation proof before snapshot payload is invalid"
+                ) from exc
+            if base64.b64encode(value).decode("ascii") != payload:
+                raise ReleaseError(
+                    "explicit adaptation proof before snapshot payload is not canonical"
+                )
+        normalized_entry = _normalized_snapshot({raw_path: value})
+        path, value = next(iter(normalized_entry.items()))
+        if path in decoded:
+            raise ReleaseError(
+                "explicit adaptation proof before snapshot path is duplicated"
+            )
+        decoded[path] = value
+    return decoded
+
+
+def explicit_adaptation_before_snapshot_fingerprint(
+    encoded: dict[str, str | None],
+) -> str:
+    return _sha256_bytes(_canonical_json(encoded))
+
+
+def build_explicit_adaptation_evidence(
+    repo: Path,
+    snapshot: dict[str, bytes | None] | None,
+    raw_items: list[dict[str, object]],
+    before_snapshot: dict[str, bytes | None] | None = None,
+) -> dict[str, object]:
+    normalized = _normalized_snapshot(snapshot)
+    normalized_before = (
+        None
+        if before_snapshot is None
+        else _normalized_snapshot(before_snapshot)
+    )
+    allowed_adaptations = {
+        (str(raw.get("asset_id")), str(raw.get("target")))
+        for raw in raw_items
+        if isinstance(raw, dict)
+        and isinstance(raw.get("asset_id"), str)
+        and isinstance(raw.get("target"), str)
+    }
+    items: list[dict[str, object]] = []
+    for raw in raw_items:
+        asset_id = raw.get("asset_id")
+        target = raw.get("target")
+        category = raw.get("category")
+        if (
+            not isinstance(asset_id, str)
+            or not isinstance(target, str)
+            or not isinstance(category, str)
+        ):
+            raise ReleaseError("explicit adaptation evidence item is invalid")
+        project_before, project_after = _explicit_adaptation_ownership_evidence(
+            repo,
+            normalized,
+            asset_id,
+            target,
+            category,
+            allowed_adaptations,
+            raw.get("before_sha256") is None
+            and raw.get("after_sha256") is None,
+            normalized_before,
+        )
+        if project_before != project_after:
+            raise ReleaseError("explicit adaptation changed project-owned content")
+        items.append({
+            **raw,
+            "project_before_sha256": project_before,
+            "project_after_sha256": project_after,
+        })
+    transition_fingerprint = _sha256_bytes(_canonical_json({
+        "head": _head_commit(repo),
+        "items": items,
+    }))
+    return {
+        "items": items,
+        "transition_fingerprint": transition_fingerprint,
+    }
+
+
+def _validated_explicit_adaptations(
+    repo: Path,
+    snapshot: dict[str, bytes | None],
+    proof: dict[str, object] | None,
+    before_snapshot: dict[str, bytes | None] | None = None,
+) -> dict[tuple[str, str], dict[str, object]]:
+    if proof is None:
+        return {}
+    if not isinstance(proof, dict) or proof.get("schema_version") != 2:
+        raise ReleaseError("explicit adaptation proof must use schema_version=2")
+    if proof.get("project_root") != str(repo.resolve()):
+        raise ReleaseError("explicit adaptation proof belongs to another project")
+    if proof.get("head") != _head_commit(repo):
+        raise ReleaseError("explicit adaptation proof HEAD drifted")
+    contract_target = proof.get("contract_target")
+    contract_sha256 = proof.get("contract_sha256")
+    if not isinstance(contract_target, str) or not isinstance(contract_sha256, str):
+        raise ReleaseError("explicit adaptation proof has no contract binding")
+    contract_payload = _current_bytes(repo, contract_target, snapshot)
+    if _optional_payload_hash(contract_payload) != contract_sha256:
+        raise ReleaseError("explicit adaptation proof contract hash drifted")
+    aggregate = proof.get("aggregate_fingerprint")
+    transition_fingerprint = proof.get("transition_fingerprint")
+    selection = proof.get("selection_fingerprint")
+    encoded_before = proof.get("before_snapshot")
+    before_fingerprint = proof.get("before_snapshot_fingerprint")
+    frozen_before = decode_explicit_adaptation_before_snapshot(encoded_before)
+    if (
+        not isinstance(encoded_before, dict)
+        or not isinstance(before_fingerprint, str)
+        or explicit_adaptation_before_snapshot_fingerprint(encoded_before)
+        != before_fingerprint
+    ):
+        raise ReleaseError("explicit adaptation proof before snapshot drifted")
+    if before_snapshot is not None and _normalized_snapshot(before_snapshot) != frozen_before:
+        raise ReleaseError("explicit adaptation evaluator before snapshot drifted")
+    raw_items = proof.get("items")
+    if (
+        not isinstance(aggregate, str)
+        or not isinstance(transition_fingerprint, str)
+        or not isinstance(selection, str)
+        or not isinstance(raw_items, list)
+        or not raw_items
+    ):
+        raise ReleaseError("explicit adaptation proof selection is incomplete")
+    selected_ids: list[str] = []
+    items: dict[tuple[str, str], dict[str, object]] = {}
+    canonical_items: list[dict[str, object]] = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            raise ReleaseError("explicit adaptation proof item is invalid")
+        item_id = raw.get("id")
+        asset_id = raw.get("asset_id")
+        target = raw.get("target")
+        category = raw.get("category")
+        before_sha256 = raw.get("before_sha256")
+        after_sha256 = raw.get("after_sha256")
+        project_before_sha256 = raw.get("project_before_sha256")
+        project_after_sha256 = raw.get("project_after_sha256")
+        if (
+            not isinstance(item_id, str)
+            or re.fullmatch(r"G[1-9][0-9]*", item_id) is None
+            or not isinstance(asset_id, str)
+            or not isinstance(target, str)
+            or category not in {
+                "release_transition_review",
+                "agents_ownership_review",
+            }
+            or (before_sha256 is not None and not isinstance(before_sha256, str))
+            or (after_sha256 is not None and not isinstance(after_sha256, str))
+            or not isinstance(project_before_sha256, str)
+            or not isinstance(project_after_sha256, str)
+        ):
+            raise ReleaseError("explicit adaptation proof item binding is invalid")
+        key = (asset_id, target)
+        if item_id in selected_ids or key in items:
+            raise ReleaseError("explicit adaptation proof contains duplicate items")
+        if _optional_payload_hash(_head_bytes(repo, target)) != before_sha256:
+            raise ReleaseError(f"explicit adaptation proof HEAD target drifted: {target}")
+        if _optional_payload_hash(_current_bytes(repo, target, snapshot)) != after_sha256:
+            raise ReleaseError(f"explicit adaptation proof current target drifted: {target}")
+        selected_ids.append(item_id)
+        canonical = {
+            "id": item_id,
+            "asset_id": asset_id,
+            "target": target,
+            "category": category,
+            "before_sha256": before_sha256,
+            "after_sha256": after_sha256,
+            "project_before_sha256": project_before_sha256,
+            "project_after_sha256": project_after_sha256,
+        }
+        canonical_items.append(canonical)
+        items[key] = canonical
+    evidence = build_explicit_adaptation_evidence(
+        repo,
+        snapshot,
+        canonical_items,
+        frozen_before,
+    )
+    if (
+        evidence.get("items") != canonical_items
+        or evidence.get("transition_fingerprint") != transition_fingerprint
+    ):
+        raise ReleaseError("explicit adaptation ownership evidence drifted")
+    expected_selection = _sha256_bytes(_canonical_json({
+        "aggregate_fingerprint": aggregate,
+        "transition_fingerprint": transition_fingerprint,
+        "before_snapshot_fingerprint": before_fingerprint,
+        "selected_adaptation_ids": selected_ids,
+        "items": canonical_items,
+    }))
+    if selection != expected_selection:
+        raise ReleaseError("explicit adaptation proof selection fingerprint drifted")
+    return items
+
+
 def evaluate_release_transition(
     repo: Path,
     snapshot: dict[str, bytes | None] | None = None,
     prospective_version: str | None = None,
     *,
     changed_paths: set[str] | None = None,
+    adaptation_proof: dict[str, object] | None = None,
+    before_snapshot: dict[str, bytes | None] | None = None,
 ) -> tuple[str, set[str]]:
     """Evaluate one transition standard over a real or prospective snapshot."""
 
     normalized = _normalized_snapshot(snapshot)
+    if prospective_version is not None:
+        for _config_path, current_config in _load_managed_configs(
+            repo,
+            normalized,
+        ):
+            current_contract = _raw_contract(_config_path, current_config)
+            current_stamp = current_contract.get("stamp")
+            if isinstance(current_stamp, str):
+                normalized.setdefault(
+                    current_stamp,
+                    (prospective_version + "\n").encode("utf-8"),
+                )
+    explicit_adaptations = _validated_explicit_adaptations(
+        repo,
+        normalized,
+        adaptation_proof,
+        before_snapshot,
+    )
+    consumed_adaptations: set[tuple[str, str]] = set()
     paths = (
         collect_changed_paths(repo)
         if changed_paths is None
@@ -2007,13 +3521,22 @@ def evaluate_release_transition(
             head_stamp = head_contract.get("stamp")
             if isinstance(head_stamp, str):
                 paths.add(head_stamp)
-    return (
-        _classify_snapshot(
+    classification = _classify_snapshot(
             repo,
             paths,
             prospective_skeleton_version=prospective_version,
             snapshot=normalized,
-        ),
+            explicit_adaptations=explicit_adaptations,
+            consumed_adaptations=consumed_adaptations,
+        )
+    unused = sorted(set(explicit_adaptations) - consumed_adaptations)
+    if unused:
+        raise ReleaseError(
+            "explicit adaptation proof did not match a blocked transition: "
+            + ", ".join(f"{asset_id}:{target}" for asset_id, target in unused)
+        )
+    return (
+        classification,
         paths,
     )
 
@@ -2257,11 +3780,18 @@ def _render_changelog(
     return text.encode("utf-8")
 
 
-def build_release_plan(repo: Path, message: str, changed_paths: set[str]) -> ReleasePlan | None:
+def build_release_plan(
+    repo: Path,
+    message: str,
+    changed_paths: set[str],
+    *,
+    adaptation_proof: dict[str, object] | None = None,
+) -> ReleasePlan | None:
     info = parse_commit_message(message)
     classification = evaluate_release_transition(
         repo,
         changed_paths=changed_paths,
+        adaptation_proof=adaptation_proof,
     )[0]
     if classification == "skeleton-only":
         return None

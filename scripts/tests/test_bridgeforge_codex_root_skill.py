@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -36,6 +37,10 @@ PASCAL_CASE_ALLOWED_SNIPPETS = (
     '"heading": "## 2 BridgeForgeCodex 协作骨架"',
     'replace("{{PROJECT_NAME}}", "BridgeForgeCodex")',
 )
+HISTORICAL_HOOK_DESCRIPTION = (
+    "BridgeForgeCodex project lifecycle hooks. "
+    "This is the only managed Codex hook registration source."
+)
 
 
 class BridgeForgeCodexRootSkillTests(unittest.TestCase):
@@ -70,8 +75,17 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
                     continue
                 with self.subTest(path=path, line=line_number):
                     self.assertNotIn("BridgeForge Codex", line)
+                    historical_contract_value = (
+                        path.name == "managed-skeleton.json"
+                        and line.strip().rstrip(",")
+                        == json.dumps(HISTORICAL_HOOK_DESCRIPTION)
+                    )
                     self.assertTrue(
-                        any(snippet in line for snippet in PASCAL_CASE_ALLOWED_SNIPPETS),
+                        historical_contract_value
+                        or any(
+                            snippet in line
+                            for snippet in PASCAL_CASE_ALLOWED_SNIPPETS
+                        ),
                         f"unexpected active PascalCase product name at {path}:{line_number}",
                     )
 
@@ -135,7 +149,7 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             "B：只执行用户列出的 ID",
             "C：不再执行风险动作",
             "`action_required_items` 按 G1、G2……逐项完整展示",
-            "G 项是非执行 review 清单",
+            "adaptation_eligible=true",
             "禁止只显示 gap 数量后让用户再次追问",
             "`repair-hook` 只能修改用户 hooks",
             "项目骨架更新禁止顺手执行完整 `reconcile`",
