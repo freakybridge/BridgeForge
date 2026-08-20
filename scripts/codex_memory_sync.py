@@ -35,9 +35,7 @@ CONSENT_POLICY_VERSION = 1
 CONSENT_SCOPE = "~/.codex/memories/**"
 CONSENT_SYNC_MODE = "bidirectional"
 HOOK_ID = "bridgeforge-codex.native-memory-sync.v1"
-LEGACY_HOOK_ID = "bridgeforge.codex-native-memory-sync.v1"
 HOOK_MARKER_KEY = "bridgeforgeCodexId"
-LEGACY_HOOK_MARKER_KEY = "bridgeforgeId"
 WORKDIR_PREFIX = "bridgeforge-codex-memory-sync-"
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.json"}
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
@@ -240,33 +238,6 @@ def codex_paths(home: Path | None = None) -> tuple[Path, Path, Path]:
     return codex, codex / "memories", codex / ".bridgeforge-codex" / "memory-sync"
 
 
-def _legacy_state_dir(codex: Path) -> Path:
-    return codex / ".bridgeforge" / "memory-sync"
-
-
-def _read_state_dir(codex: Path, current: Path) -> Path:
-    legacy = _legacy_state_dir(codex)
-    if current.exists() or not legacy.exists():
-        return current
-    return legacy
-
-
-def _migrate_state_dir(codex: Path, current: Path) -> Path:
-    legacy = _legacy_state_dir(codex)
-    if current.exists() and legacy.exists():
-        raise SyncError("native memories has both legacy and current state directories")
-    if not legacy.exists():
-        return current
-    _real_directory(legacy)
-    _real_directory(current.parent, create=True)
-    os.replace(legacy, current)
-    try:
-        legacy.parent.rmdir()
-    except OSError:
-        pass
-    return current
-
-
 def _normalize_remote(value: str) -> str:
     normalized = value.strip().rstrip("/")
     return normalized[:-4] if normalized.lower().endswith(".git") else normalized
@@ -305,10 +276,6 @@ def _authorization_payload(decision: str, remote: str | None) -> dict[str, objec
 
 
 def _validate_authorization(value: object) -> str:
-    if isinstance(value, str):
-        if value not in CONSENT_VALUES:
-            raise SyncError("managed ledger has invalid native memories consent")
-        return value
     if not isinstance(value, dict) or set(value) != {
         "decision",
         "policy_version",
@@ -375,7 +342,7 @@ def native_memories_consent(ledger_path: Path) -> str | None:
     return _validate_authorization(consents["native_memories"])
 
 
-def native_memories_authorization(ledger_path: Path) -> dict[str, object] | str | None:
+def native_memories_authorization(ledger_path: Path) -> dict[str, object] | None:
     data = managed_ledger(ledger_path)
     consents = data.get("consents")
     if not isinstance(consents, dict):
@@ -417,24 +384,12 @@ def _configured_remote(state_dir: Path) -> str:
 def require_runtime_authorization(
     ledger_path: Path,
     state_dir: Path,
-    *,
-    migrate_legacy: bool,
 ) -> dict[str, object]:
     value = native_memories_authorization(ledger_path)
     decision = _validate_authorization(value) if value is not None else None
     if decision != "approved":
         raise SyncError("native memories automatic synchronization is not approved")
     remote = _configured_remote(state_dir)
-    if isinstance(value, str):
-        authorization = _authorization_payload("approved", remote)
-        if migrate_legacy:
-            record_native_memories_consent(
-                ledger_path,
-                "approved",
-                confirmed=True,
-                remote=remote,
-            )
-        return authorization
     assert isinstance(value, dict)
     if _normalize_remote(str(value["remote"])) != remote:
         raise SyncError("native memories remote changed outside the approved scope")
@@ -536,36 +491,6 @@ def _hook_handler(event: str, script: Path) -> dict[str, object]:
     return handler
 
 
-def _trusted_legacy_handler(handler: dict[str, object], event: str, script: Path) -> bool:
-    current_id = f"{HOOK_ID}:{event}"
-    legacy_id = f"{LEGACY_HOOK_ID}:{event}"
-    marker_key: str | None = None
-    if handler.get(HOOK_MARKER_KEY) == current_id:
-        marker_key = HOOK_MARKER_KEY
-    elif handler.get(LEGACY_HOOK_MARKER_KEY) == legacy_id:
-        marker_key = LEGACY_HOOK_MARKER_KEY
-    if marker_key is None or handler.get("type") != "command":
-        return False
-    expected_keys = {"type", "command", marker_key}
-    expected_values: dict[str, object] = {}
-    if event == "Stop":
-        expected_keys.update({"async", "timeout"})
-        expected_values = {"async": True, "timeout": 120}
-    elif event == "SessionStart":
-        expected_keys.add("timeout")
-        expected_values = {"timeout": 120}
-    elif event == "SessionEnd":
-        expected_keys.add("timeout")
-        expected_values = {"timeout": 3}
-    if set(handler) != expected_keys or any(handler.get(key) != value for key, value in expected_values.items()):
-        return False
-    command = handler.get("command")
-    if not isinstance(command, str):
-        return False
-    suffix = f' "{script.resolve()}" {_hook_arguments(event)}'
-    return command.endswith(suffix) and command.startswith('"') and command.count('"') == 4
-
-
 def _read_optional_bytes(path: Path) -> bytes | None:
     return path.read_bytes() if path.is_file() else None
 
@@ -600,26 +525,6 @@ def _render_user_hooks(
             expected_document,
             managed_prefix=HOOK_ID + ":",
         )
-        legacy_handlers: list[dict[str, str]] = []
-        hooks = document.get("hooks")
-        if isinstance(hooks, dict):
-            for event, entries in hooks.items():
-                if not isinstance(entries, list):
-                    continue
-                for entry in entries:
-                    if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
-                        continue
-                    matcher = entry.get("matcher", "")
-                    if not isinstance(matcher, str):
-                        continue
-                    for handler in entry["hooks"]:
-                        if isinstance(handler, dict) and _trusted_legacy_handler(handler, event, script):
-                            legacy_handlers.append({
-                                "id": f"{HOOK_ID}:{event}",
-                                "event": event,
-                                "matcher": matcher,
-                                "handler_sha256": HOOKS_OWNERSHIP.canonical_json_sha256(handler),
-                            })
         document, _external, _receipts = HOOKS_OWNERSHIP.canonicalize(
             document,
             expected,
@@ -628,11 +533,7 @@ def _render_user_hooks(
             managed_looking=lambda handler: (
                 isinstance(handler.get(HOOK_MARKER_KEY), str)
                 and handler[HOOK_MARKER_KEY].startswith(HOOK_ID + ":")
-            ) or (
-                isinstance(handler.get(LEGACY_HOOK_MARKER_KEY), str)
-                and handler[LEGACY_HOOK_MARKER_KEY].startswith(LEGACY_HOOK_ID + ":")
             ),
-            legacy_handlers=legacy_handlers,
             replace_marked_drift=False,
         )
     except RuntimeError as exc:
@@ -685,9 +586,6 @@ def user_hooks_healthy(
             managed_looking=lambda handler: (
                 isinstance(handler.get(HOOK_MARKER_KEY), str)
                 and handler[HOOK_MARKER_KEY].startswith(HOOK_ID + ":")
-            ) or (
-                isinstance(handler.get(LEGACY_HOOK_MARKER_KEY), str)
-                and handler[LEGACY_HOOK_MARKER_KEY].startswith(LEGACY_HOOK_ID + ":")
             ),
         )
         return True
@@ -1236,12 +1134,9 @@ def repair_user_hooks(
             hooks_before: bytes | None = None
             ledger_before: bytes | None = None
             config_before: bytes | None = None
-            original_state_dir = current_state_dir
-            migrated_state = False
             mutated = False
             hook_written = False
             try:
-                original_state_dir = _read_state_dir(codex, current_state_dir)
                 if hooks_path.exists() and _is_link_or_reparse(hooks_path):
                     raise SyncError("native memories hooks target is a link or reparse point")
                 hooks_before = _read_optional_bytes(hooks_path)
@@ -1257,20 +1152,8 @@ def repair_user_hooks(
                 desired_hooks = _render_user_hooks(hooks_before, hooks_path, script)
                 require_runtime_authorization(
                     ledger_path,
-                    original_state_dir,
-                    migrate_legacy=False,
+                    current_state_dir,
                 )
-
-                migrated_state = original_state_dir != current_state_dir
-                state_dir = _migrate_state_dir(codex, current_state_dir)
-                mutated = migrated_state
-                ledger_pre_migration = ledger_path.read_bytes()
-                require_runtime_authorization(
-                    ledger_path,
-                    state_dir,
-                    migrate_legacy=True,
-                )
-                mutated = mutated or ledger_path.read_bytes() != ledger_pre_migration
 
                 current_hooks = _read_optional_bytes(hooks_path)
                 if current_hooks != hooks_before:
@@ -1300,9 +1183,6 @@ def repair_user_hooks(
                     if hook_written and not external_after_write:
                         _restore_optional_bytes(hooks_path, hooks_before)
                     _atomic_bytes(ledger_path, ledger_before)
-                    if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
-                        original_state_dir.parent.mkdir(parents=True, exist_ok=True)
-                        os.replace(current_state_dir, original_state_dir)
                 return HookRepairReceipt(
                     (
                         "rolled_back"
@@ -1338,19 +1218,12 @@ def validated_runtime_state(
     current_state_dir: Path,
     ledger_path: Path,
 ) -> tuple[Path, dict[str, object]]:
-    original_state_dir = _read_state_dir(codex, current_state_dir)
-    require_runtime_authorization(
-        ledger_path,
-        original_state_dir,
-        migrate_legacy=False,
-    )
-    state_dir = _migrate_state_dir(codex, current_state_dir)
+    del codex
     authorization = require_runtime_authorization(
         ledger_path,
-        state_dir,
-        migrate_legacy=True,
+        current_state_dir,
     )
-    return state_dir, authorization
+    return current_state_dir, authorization
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1381,7 +1254,7 @@ def main(argv: list[str] | None = None) -> int:
     project_command("status")
     args = parser.parse_args(argv)
     codex, memories, current_state_dir = codex_paths()
-    state_dir = _read_state_dir(codex, current_state_dir)
+    state_dir = current_state_dir
     ledger_path = codex / "bridgeforge-codex-managed.json"
     runtime_ready = False
     try:
@@ -1419,13 +1292,13 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 "consentPolicyVersion": (
                     authorization.get("policy_version")
-                    if isinstance(authorization, dict)
-                    else "legacy" if authorization is not None else None
+                    if authorization is not None
+                    else None
                 ),
                 "syncMode": (
                     authorization.get("sync_mode")
-                    if isinstance(authorization, dict)
-                    else CONSENT_SYNC_MODE if authorization == "approved" else None
+                    if authorization is not None
+                    else None
                 ),
             }, ensure_ascii=False))
             return 2 if runtime_drift_reason else 0
@@ -1493,9 +1366,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
             with user_hooks_lock(codex):
-                migrated_state = False
                 local_mutated = False
-                original_state_dir = _read_state_dir(codex, current_state_dir)
                 try:
                     if (
                         ledger_path.read_bytes() != ledger_snapshot
@@ -1503,10 +1374,8 @@ def main(argv: list[str] | None = None) -> int:
                         or _read_optional_bytes(config_path) != config_snapshot
                     ):
                         raise HookLockConflict("user configuration changed during setup preflight")
-                    original_state_dir = _read_state_dir(codex, current_state_dir)
-                    migrated_state = original_state_dir != current_state_dir
-                    state_dir = _migrate_state_dir(codex, current_state_dir)
-                    local_mutated = migrated_state
+                    state_dir = current_state_dir
+                    _real_directory(state_dir, create=True)
                     remote_path = state_dir / "remote.txt"
                     remote_snapshot = _read_optional_bytes(remote_path)
                     if not enabled:
@@ -1534,9 +1403,6 @@ def main(argv: list[str] | None = None) -> int:
                         _atomic_bytes(ledger_path, ledger_snapshot)
                         if "remote_path" in locals():
                             _restore_optional_bytes(remote_path, remote_snapshot)
-                        if migrated_state and current_state_dir.exists() and not original_state_dir.exists():
-                            original_state_dir.parent.mkdir(parents=True, exist_ok=True)
-                            os.replace(current_state_dir, original_state_dir)
                     raise
             print(
                 "[memory-sync] configured; "

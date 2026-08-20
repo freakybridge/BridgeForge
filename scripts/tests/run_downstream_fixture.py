@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Executable bridgeforge-codex Codex-only downstream regression fixture."""
+"""Executable current-only downstream regression fixture for bridgeforge-codex."""
 from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import asdict
+import venv
 from pathlib import Path
-from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,247 +17,195 @@ CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    if spec is None or spec.loader is None:
+        raise RuntimeError(path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
 
-sync = load("bridgeforge_codex_project_sync_fixture", ROOT / "scripts/bridgeforge_codex_project_sync.py")
-merge = load("bridgeforge_codex_precommit_merge_fixture", ROOT / "templates/scripts/precommit_merge.py")
-manifest_builder = load(
-    "bridgeforge_codex_manifest_builder_fixture",
-    ROOT / "scripts/rebuild_shared_skill_manifest.py",
+BASELINE = load(
+    "bridgeforge_current_downstream_baseline",
+    ROOT / "templates" / "scripts" / "current_baseline.py",
 )
 
 
-def _git_blob(revision: str, source: str) -> bytes | None:
+def project_python(project: Path) -> Path:
+    venv.EnvBuilder(with_pip=False).create(project / ".venv")
+    python = project / ".venv" / "Scripts" / "python.exe"
+    if not python.is_file():
+        python = project / ".venv" / "bin" / "python"
+    if not python.is_file():
+        raise RuntimeError("fixture project venv has no interpreter")
+    return python
+
+
+def cli(
+    python: Path,
+    project: Path,
+    mode: str,
+    *,
+    apply_fingerprint: str | None = None,
+    preserve: tuple[str, ...] = (),
+) -> dict[str, object]:
+    command = [
+        str(python),
+        "-B",
+        str(ROOT / "scripts" / "bridgeforge_codex_project_sync.py"),
+        "--project-root",
+        str(project),
+        "--template-root",
+        str(ROOT),
+        "--mode",
+        mode,
+    ]
+    if apply_fingerprint is not None:
+        command.extend(["--apply", "--plan-fingerprint", apply_fingerprint])
+        if preserve:
+            command.extend(["--confirmed-whitelist", "--confirmed-risk"])
+            for item in preserve:
+                command.extend(["--preserve-project-asset", item])
     result = subprocess.run(
-        ["git", "show", f"{revision}:{source}"],
-        cwd=ROOT,
+        command,
+        cwd=project,
         capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=180,
         check=False,
     )
-    return result.stdout if result.returncode == 0 else None
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or result.stdout)
+    return json.loads(result.stdout)
 
 
-def _prepare_project_runtime(project: Path) -> Path:
-    python = (
-        project / ".venv" / "Scripts" / "python.exe"
-        if sys.platform == "win32"
-        else project / ".venv" / "bin" / "python"
+def init_check(base: Path) -> dict[str, object]:
+    project = base / "init"
+    project.mkdir()
+    python = project_python(project)
+    plan = cli(python, project, "init")
+    receipt = cli(
+        python,
+        project,
+        "init",
+        apply_fingerprint=str(plan["aggregate_fingerprint"]),
     )
-    created = subprocess.run(
+    report = BASELINE.verify_current_baseline(project)
+    repeated = cli(python, project, "update")
+    return {
+        "name": "current-init-idempotent",
+        "ok": (
+            receipt["stamp_written_last"]
+            and report.version == CURRENT_VERSION
+            and not repeated["blockers"]
+            and not repeated["safe"]
+            and not repeated["risk"]
+        ),
+    }
+
+
+def rebuild_check(base: Path) -> dict[str, object]:
+    project = base / "rebuild"
+    hook = project / ".codex" / "hooks" / "project_only.py"
+    skill = project / ".codex" / "skills" / "project" / "SKILL.md"
+    hook.parent.mkdir(parents=True)
+    skill.parent.mkdir(parents=True)
+    python = project_python(project)
+    (project / ".codex" / ".bridgeforge_version").write_text(
+        "1.4.27\n",
+        encoding="utf-8",
+    )
+    hook.write_text("print('project')\n", encoding="utf-8")
+    skill.write_text(
+        "---\nname: project\ndescription: project skill\n---\n\n# Project\n",
+        encoding="utf-8",
+    )
+    skill_before = skill.read_bytes()
+    plan = cli(python, project, "auto")
+    hook_id = next(
+        item["id"]
+        for item in plan["project_asset_whitelist"]
+        if item.get("target") == ".codex/hooks/project_only.py"
+    )
+    receipt = cli(
+        python,
+        project,
+        "auto",
+        apply_fingerprint=str(plan["aggregate_fingerprint"]),
+        preserve=(str(hook_id),),
+    )
+    BASELINE.verify_current_baseline(project)
+    repeated = cli(python, project, "update")
+    return {
+        "name": "old-project-confirmed-rebuild",
+        "ok": (
+            plan["mode"] == "rebuild"
+            and receipt["mode"] == "rebuild"
+            and hook.is_file()
+            and skill.read_bytes() == skill_before
+            and not (project / ".codex" / ".bridgeforge_version").exists()
+            and not repeated["blockers"]
+            and not repeated["safe"]
+            and not repeated["risk"]
+        ),
+    }
+
+
+def drift_check(base: Path) -> dict[str, object]:
+    project = base / "drift"
+    project.mkdir()
+    python = project_python(project)
+    plan = cli(python, project, "init")
+    cli(
+        python,
+        project,
+        "init",
+        apply_fingerprint=str(plan["aggregate_fingerprint"]),
+    )
+    target = project / ".codex" / "hooks" / "requirements_check.py"
+    target.write_text("# drift\n", encoding="utf-8")
+    before = target.read_bytes()
+    result = subprocess.run(
         [
-            sys.executable,
-            "-m",
-            "venv",
-            "--without-pip",
-            str(project / ".venv"),
+            str(python),
+            "-B",
+            str(ROOT / "scripts" / "bridgeforge_codex_project_sync.py"),
+            "--project-root",
+            str(project),
+            "--template-root",
+            str(ROOT),
+            "--mode",
+            "update",
         ],
         cwd=project,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
+        timeout=180,
         check=False,
     )
-    if created.returncode != 0:
-        raise AssertionError(created.stdout + created.stderr)
-    return python
-
-
-def _materialize_published_project(
-    project: Path,
-    *,
-    version: str,
-    revision: str,
-    contract: dict[str, object],
-) -> None:
-    project.mkdir()
-    assets = contract["assets"]
-    assert isinstance(assets, list)
-    for raw_asset in assets:
-        assert isinstance(raw_asset, dict)
-        source = raw_asset.get("historical_source") or raw_asset.get("source")
-        target = raw_asset.get("target")
-        if not isinstance(source, str) or not isinstance(target, str):
-            continue
-        payload = _git_blob(revision, source)
-        if payload is None:
-            continue
-        if target == "AGENTS.md":
-            payload = payload.replace(b"{{PROJECT_NAME}}", project.name.encode("utf-8"))
-        destination = project / target
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(payload)
-    historical_contract = _git_blob(revision, "templates/codex/managed-skeleton.json")
-    if historical_contract is not None:
-        destination = project / ".codex/managed-skeleton.json"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(historical_contract)
-    stamp = project / ".codex/.bridgeforge_version"
-    stamp.parent.mkdir(parents=True, exist_ok=True)
-    stamp.write_text(version + "\n", encoding="utf-8")
-
-
-def _published_lineage_check(contract: dict[str, object]) -> dict[str, object]:
-    baselines = manifest_builder._baseline_revisions(ROOT)
-    results: list[dict[str, object]] = []
-    with tempfile.TemporaryDirectory() as raw:
-        base = Path(raw)
-        for version, revision in baselines.items():
-            project = base / f"published-{version.replace('.', '-')}"
-            try:
-                _materialize_published_project(
-                    project,
-                    version=version,
-                    revision=revision,
-                    contract=contract,
-                )
-                plan = sync.build_plan(project, ROOT, "update")
-                if plan.blockers or plan.gaps:
-                    explicit_adaptation = (
-                        not plan.blockers
-                        and len(plan.gaps) == 1
-                        and plan.gaps[0].asset_id == "codex.precommit"
-                        and "managed region markers" in plan.gaps[0].reason
-                    )
-                    results.append({
-                        "version": version,
-                        "ok": explicit_adaptation,
-                        "status": (
-                            "explicit-precommit-adaptation-required"
-                            if explicit_adaptation
-                            else "unexpected-gap"
-                        ),
-                        "blockers": list(plan.blockers),
-                        "gaps": [asdict(item) for item in plan.gaps],
-                    })
-                    continue
-                _prepare_project_runtime(project)
-                receipt = sync.apply_plan(
-                    plan,
-                    plan_fingerprint=plan.aggregate_fingerprint,
-                    confirmed_risk=True,
-                )
-                repeated = sync.build_plan(project, ROOT, "update")
-                results.append({
-                    "version": version,
-                    "ok": (
-                        receipt.stamp_written_last
-                        and (project / ".codex/.bridgeforge_codex_version").read_text(
-                            encoding="utf-8"
-                        ).strip() == CURRENT_VERSION
-                        and not (project / ".codex/.bridgeforge_version").exists()
-                        and not repeated.safe_actions
-                        and not repeated.risk_actions
-                        and not repeated.absorption_actions
-                        and not repeated.gaps
-                        and not repeated.blockers
-                    ),
-                    "status": receipt.status,
-                })
-            except Exception as exc:
-                results.append({"version": version, "ok": False, "error": str(exc)})
+    blocked = json.loads(result.stdout)
     return {
-        "name": "published-lineage-behavior",
-        "ok": bool(results) and all(bool(item["ok"]) for item in results),
-        "migrated_count": sum(item.get("status") == "completed" for item in results),
-        "explicit_adaptation_count": sum(
-            item.get("status") == "explicit-precommit-adaptation-required"
-            for item in results
+        "name": "current-drift-zero-write-block",
+        "ok": (
+            result.returncode == 2
+            and bool(blocked["blockers"])
+            and target.read_bytes() == before
         ),
-        "expected_count": len(baselines),
-        "results": results,
     }
 
 
 def main() -> int:
-    checks: list[dict[str, object]] = []
     with tempfile.TemporaryDirectory() as raw:
-        project = Path(raw)
-        legacy_claude = project / ".claude/private.txt"
-        legacy_claude.parent.mkdir()
-        legacy_claude.write_text("must stay opaque\n", encoding="utf-8")
-
-        original_read_text = Path.read_text
-        original_read_bytes = Path.read_bytes
-
-        def guarded_text(path: Path, *args, **kwargs):
-            if path == legacy_claude or legacy_claude.parent in path.parents:
-                raise AssertionError("Claude legacy content was read")
-            return original_read_text(path, *args, **kwargs)
-
-        def guarded_bytes(path: Path, *args, **kwargs):
-            if path == legacy_claude or legacy_claude.parent in path.parents:
-                raise AssertionError("Claude legacy content was read")
-            return original_read_bytes(path, *args, **kwargs)
-
-        with mock.patch.object(Path, "read_text", guarded_text), mock.patch.object(
-            Path, "read_bytes", guarded_bytes
-        ):
-            plan = sync.build_plan(project, ROOT, "init")
-        notice = [
-            item
-            for item in plan.project_requirements
-            if item.get("category") == "unsupported_legacy_notice"
+        base = Path(raw)
+        checks = [
+            init_check(base),
+            rebuild_check(base),
+            drift_check(base),
         ]
-        checks.append({"name": "claude-existence-only", "ok": len(notice) == 1})
-        _prepare_project_runtime(project)
-        receipt = sync.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
-        checks.append({
-            "name": "codex-init-stamp-last",
-            "ok": (
-                receipt.stamp_written_last
-                and (project / ".codex/.bridgeforge_codex_version").read_text(
-                    encoding="utf-8"
-                ).strip() == CURRENT_VERSION
-                and legacy_claude.read_text(encoding="utf-8") == "must stay opaque\n"
-            ),
-        })
-
-        legacy_hook = (
-            b"#!/bin/sh\n"
-            b"# >>> BRIDGEFORGE_MANAGED_BEGIN\nold-managed\n"
-            b"# <<< BRIDGEFORGE_MANAGED_END\n"
-            b"# >>> PROJECT_EXTENSION_BEGIN\nlocal-extension\n"
-            b"# <<< PROJECT_EXTENSION_END\n"
-        )
-        hook_path = project / ".githooks/pre-commit"
-        hook_path.parent.mkdir(exist_ok=True)
-        hook_path.write_bytes(legacy_hook)
-        merged = merge.build_plan(
-            project,
-            ROOT / "templates/.githooks/pre-commit",
-        )
-        checks.append({
-            "name": "legacy-marker-migration",
-            "ok": (
-                b"BRIDGEFORGE_CODEX_MANAGED_BEGIN" in merged.after
-                and b"BRIDGEFORGE_MANAGED_BEGIN" not in merged.after
-                and b"local-extension" in merged.after
-            ),
-        })
-
-    contract = json.loads(
-        (ROOT / "templates/managed-skeleton.json").read_text(encoding="utf-8-sig")
-    )
-    versions = set(contract["contract_historical_sha256"])
-    published = re.findall(
-        r"(?m)^## \[(0\.(?:8[6-9]|9\d)\.\d+)\]",
-        (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
-    )
-    lineage = _published_lineage_check(contract)
-    lineage["ok"] = bool(lineage["ok"]) and (
-        contract["minimum_supported_version"] == "0.86.0"
-        and len(set(published)) >= 19
-        and "0.86.0" in versions
-    )
-    lineage["versions"] = sorted(versions)
-    lineage["published_count"] = len(set(published))
-    checks.append(lineage)
     status = "passed" if all(bool(item["ok"]) for item in checks) else "failed"
     print(json.dumps({"status": status, "checks": checks}, ensure_ascii=False, indent=2))
     return 0 if status == "passed" else 1

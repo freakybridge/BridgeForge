@@ -14,30 +14,25 @@ Claude 骨架已经退役。遗留 `.claude/` 只报告存在，不读取正文�
 ## 2. 唯一流程
 
 1. 在目标项目运行 `$bridgeforge-codex`。
-2. 入口先刷新并验证 `~/.bridgeforge-codex`，再以同一个 Python 3.11+ 解释器生成：原生 memories、项目 `.agents` 旧布局和项目 schema v2 更新计划。
-3. 计划把动作分成：
-   - `safe`：受管资产的可信升级或缺失资产补齐；
-   - `risk`：删除、移动、旧戳迁移、首次外部授权；
-   - `U`：可由用户选择吸收的上游受管 Markdown 变动；
-   - `gap`：所有权不明、解析歧义或本地定制，保持原样并阻止写新版本戳。
-4. 没有 risk/U 时零确认；存在时整轮最多一次确认。A 全部执行，B 只执行列明项并接受逐项自定义，C 不再改动。
+2. 入口在 `.venv` bootstrap 前验证版本戳：缺戳、双戳、非法戳立即零写停止。
+3. `<1.4.28` 旧戳进入独立审计；用户逐项确认 rules、hooks、AGENTS 项目区后，再做一次破坏性重建风险确认。
+4. `>=1.4.28` 先由 schema 3 current baseline 验证真实公共资产；任一漂移或合同损坏阻断，禁止吸收或强制覆盖。
 5. apply 前重算聚合 fingerprint。任何漂移、验证失败或运行错误都必须零写入或事务回滚。
-6. 所有写入和验证完成后才最后写新版本戳；存在 gap 时保留旧戳。
+6. validators 与真实磁盘 current baseline 全部通过后，最后写新版本戳；旧项目成功时同事务删除旧戳。
 
 ## 3. 所有权边界
 
-- `whole` 资产只在当前内容命中可信发布谱系时替换。
-- `managed_blocks` 只处理明确标记的受管区块；区块外内容归项目。
-- `keyed_table` 按稳定键合并，禁止整表覆盖；损坏或歧义行 fail-closed。
+- `whole`、`merge`、`managed_blocks`、`region` 均只接受 schema 3 当前 hash/projection。
+- 旧项目不复用常规 merge；只把独立审计后选中的项目资产注入 fresh canonical。
 - `seed` 只在缺失时创建，既有内容归项目。
-- `.codex/memory/`、业务文档和未登记文件默认归项目；禁止凭版本戳推断所有权。
+- `.codex/memory/` 与 `.codex/skills/` 自动保留正文并执行当前兼容检查；其他未登记旧内容不继承。
 
 ## 4. 验收收据
 
 完成更新至少核对：
 
 - `status` 与 `readiness` 分开报告；
-- safe/risk/U/gap 清单与实际执行逐项对账；
+- actions/白名单/blocker 清单与实际执行逐项对账；
 - `stamp_written_last=true` 只在完整验证后出现；
 - 再次 plan 为 no-op；
 - `git diff --check`、manifest/schema、memory 与 hook 验证通过；

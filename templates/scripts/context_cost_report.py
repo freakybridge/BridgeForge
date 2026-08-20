@@ -17,7 +17,7 @@ def token_estimate(chars: int) -> int:
 
 
 def first_usage(transcript: Path) -> dict[str, int]:
-    """Read the first current or legacy usage record from a Codex JSONL transcript."""
+    """Read the first current token-count event from a Codex JSONL transcript."""
     with transcript.open("r", encoding="utf-8", errors="ignore") as handle:
         for line in handle:
             try:
@@ -34,14 +34,6 @@ def first_usage(transcript: Path) -> dict[str, int]:
                         "output_tokens": int(usage.get("output_tokens", 0) or 0),
                         "context_window": int(info.get("model_context_window", 0) or 0),
                     }
-            if item.get("type") == "assistant" and isinstance(item.get("usage"), dict):
-                usage = item["usage"]
-                return {
-                    "input_tokens": int(usage.get("input_tokens", 0) or 0),
-                    "cached_input_tokens": int(usage.get("cached_input_tokens", 0) or 0),
-                    "output_tokens": int(usage.get("output_tokens", 0) or 0),
-                    "context_window": 0,
-                }
     return {}
 
 

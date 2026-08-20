@@ -21,14 +21,14 @@ def skill_text(
     name: str,
     description: str = "compact discovery",
     body: str = "# Body\n",
-    legacy_invocation: bool = True,
+    invocation: bool = True,
 ) -> str:
-    invocation = "user_invocable: true\nargument: 无\n" if legacy_invocation else ""
+    invocation_metadata = "user_invocable: true\nargument: 无\n" if invocation else ""
     return (
         "---\n"
         f"name: {name}\n"
         f"description: {description}\n"
-        f"{invocation}"
+        f"{invocation_metadata}"
         "---\n\n"
         f"{body}"
     )
@@ -66,10 +66,10 @@ class SkillMetadataBudgetTests(unittest.TestCase):
 
     def test_openai_standard_frontmatter_passes(self) -> None:
         repo = self.make_repo()
-        self.write_skill(repo, "demo", skill_text("demo", legacy_invocation=False))
+        self.write_skill(repo, "demo", skill_text("demo", invocation=False))
         self.assertEqual(self.run_hook(repo).returncode, 0)
 
-    def test_incomplete_legacy_invocation_metadata_fails(self) -> None:
+    def test_incomplete_invocation_metadata_fails(self) -> None:
         repo = self.make_repo()
         text = (
             "---\n"
@@ -82,9 +82,9 @@ class SkillMetadataBudgetTests(unittest.TestCase):
         self.write_skill(repo, "demo", text)
         result = self.run_hook(repo)
         self.assertEqual(result.returncode, 2)
-        self.assertIn("legacy invocation metadata requires argument", result.stderr)
+        self.assertIn("invocation metadata requires argument", result.stderr)
 
-    def test_all_hook_copies_share_the_compatibility_contract(self) -> None:
+    def test_all_hook_copies_share_the_current_contract(self) -> None:
         for host_dir, source_hook in ALL_METADATA_HOOKS:
             with self.subTest(source_hook=source_hook):
                 repo = self.make_repo()
@@ -92,7 +92,7 @@ class SkillMetadataBudgetTests(unittest.TestCase):
                 hook_dir.mkdir(parents=True, exist_ok=True)
                 hook = hook_dir / "skill_metadata_check.py"
                 shutil.copy2(source_hook, hook)
-                self.write_skill(repo, "demo", skill_text("demo", legacy_invocation=False))
+                self.write_skill(repo, "demo", skill_text("demo", invocation=False))
                 standard = subprocess.run(
                     [sys.executable, "-B", str(hook)],
                     cwd=repo,
@@ -105,7 +105,7 @@ class SkillMetadataBudgetTests(unittest.TestCase):
 
                 incomplete = skill_text("demo").replace("argument: 无\n", "")
                 self.write_skill(repo, "demo", incomplete)
-                legacy = subprocess.run(
+                incomplete_result = subprocess.run(
                     [sys.executable, "-B", str(hook)],
                     cwd=repo,
                     capture_output=True,
@@ -113,8 +113,8 @@ class SkillMetadataBudgetTests(unittest.TestCase):
                     encoding="utf-8",
                     check=False,
                 )
-                self.assertEqual(legacy.returncode, 2, legacy.stderr)
-                self.assertIn("legacy invocation metadata requires argument", legacy.stderr)
+                self.assertEqual(incomplete_result.returncode, 2, incomplete_result.stderr)
+                self.assertIn("invocation metadata requires argument", incomplete_result.stderr)
 
     def test_long_description_body_and_dead_reference_fail(self) -> None:
         repo = self.make_repo()

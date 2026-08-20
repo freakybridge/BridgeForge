@@ -13,7 +13,6 @@ upstream, stash-pop conflicts, and push races stop for user handling.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -21,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from project_runtime import ProjectRuntimeError, validate_project_runtime
+from current_baseline import BaselineError, verify_current_baseline
 from version_release import ReleaseError, ReleasePlan, apply_release_plan, build_release_plan
 
 try:
@@ -29,10 +29,7 @@ try:
 except Exception:
     pass
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ADAPTATION_RECEIPT = REPO_ROOT / ".runtime" / "bridgeforge-codex" / "explicit-adaptation.json"
-
 
 class SyncStop(Exception):
     """Expected stop with a user-facing message and exit code."""
@@ -41,12 +38,10 @@ class SyncStop(Exception):
         super().__init__(message)
         self.code = code
 
-
 def _env() -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("PYTHONUTF8", "1")
     return env
-
 
 def _git(args: list[str], *, timeout: int = 120) -> subprocess.CompletedProcess[str]:
     cmd = ["git", "-c", f"safe.directory={REPO_ROOT.as_posix()}", *args]
@@ -61,7 +56,6 @@ def _git(args: list[str], *, timeout: int = 120) -> subprocess.CompletedProcess[
         env=_env(),
     )
 
-
 def _run_git(args: list[str], *, timeout: int = 120, label: str | None = None) -> subprocess.CompletedProcess[str]:
     result = _git(args, timeout=timeout)
     if result.returncode != 0:
@@ -70,10 +64,8 @@ def _run_git(args: list[str], *, timeout: int = 120, label: str | None = None) -
         raise SyncStop(f"{name} failed: {detail}", result.returncode or 1)
     return result
 
-
 def _status() -> str:
     return _run_git(["status", "--porcelain=v1"], label="git status").stdout.strip()
-
 
 def _changed_paths() -> set[str]:
     paths: set[str] = set()
@@ -87,48 +79,10 @@ def _changed_paths() -> set[str]:
         paths.update(line.strip().replace("\\", "/") for line in output.splitlines() if line.strip())
     return paths
 
-
-def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"duplicate JSON key: {key}")
-        result[key] = value
-    return result
-
-
-def _read_adaptation_proof() -> dict[str, object] | None:
-    if not ADAPTATION_RECEIPT.exists():
-        return None
-    if not ADAPTATION_RECEIPT.is_file():
-        raise SyncStop("explicit adaptation receipt is not a plain file", 2)
-    ignored = _git(
-        [
-            "check-ignore",
-            "--quiet",
-            "--",
-            ADAPTATION_RECEIPT.relative_to(REPO_ROOT).as_posix(),
-        ]
-    )
-    if ignored.returncode != 0:
-        raise SyncStop("explicit adaptation receipt is not ignored by Git", 2)
-    try:
-        payload = json.loads(
-            ADAPTATION_RECEIPT.read_text(encoding="utf-8-sig"),
-            object_pairs_hook=_reject_duplicate_keys,
-        )
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise SyncStop(f"explicit adaptation receipt is invalid: {exc}", 2) from exc
-    if not isinstance(payload, dict):
-        raise SyncStop("explicit adaptation receipt root must be an object", 2)
-    return payload
-
-
 @dataclass(frozen=True)
 class _FileSnapshot:
     worktree: bytes | None
     index_entry: tuple[str, str] | None
-
 
 def _snapshot_release_files(plan: ReleasePlan) -> dict[Path, _FileSnapshot]:
     snapshots: dict[Path, _FileSnapshot] = {}
@@ -147,7 +101,6 @@ def _snapshot_release_files(plan: ReleasePlan) -> dict[Path, _FileSnapshot]:
             parsed = (metadata[0], metadata[1])
         snapshots[path] = _FileSnapshot(worktree, parsed)
     return snapshots
-
 
 def _restore_release_files(
     plan: ReleasePlan, snapshots: dict[Path, _FileSnapshot]
@@ -180,11 +133,9 @@ def _restore_release_files(
             2,
         )
 
-
 def _has_staged_changes() -> bool:
     result = _git(["diff", "--cached", "--quiet"])
     return result.returncode == 1
-
 
 def _upstream() -> str:
     result = _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
@@ -192,13 +143,11 @@ def _upstream() -> str:
         raise SyncStop("no upstream branch; set upstream before running git-sync", 2)
     return result.stdout.strip()
 
-
 def _push_target() -> str:
     result = _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{push}"])
     if result.returncode != 0:
         raise SyncStop("no push target; configure the current branch before git-sync", 2)
     return result.stdout.strip()
-
 
 def _ahead_behind() -> tuple[int, int]:
     result = _git(["rev-list", "--left-right", "--count", "HEAD...@{u}"])
@@ -209,7 +158,6 @@ def _ahead_behind() -> tuple[int, int]:
     if len(parts) != 2:
         raise SyncStop(f"unexpected ahead/behind output: {result.stdout!r}", 1)
     return int(parts[0]), int(parts[1])
-
 
 def _print_diverged() -> None:
     print("[git-sync] branch diverged; manual decision required")
@@ -222,14 +170,12 @@ def _print_diverged() -> None:
         print("\n[git-sync] remote-only commits:")
         print(remote.stdout.strip())
 
-
 def _read_message(args: argparse.Namespace) -> str | None:
     if args.message_file:
         return Path(args.message_file).read_text(encoding="utf-8").strip()
     if args.message:
         return args.message.strip()
     return None
-
 
 def _check_factory_version_worktree() -> None:
     script = REPO_ROOT / ".codex" / "scripts" / "factory_version_check.py"
@@ -251,7 +197,6 @@ def _check_factory_version_worktree() -> None:
             f"factory_version_check.py --worktree failed: {detail}",
             result.returncode or 1,
         )
-
 
 def _rebuild_shared_skill_manifest() -> None:
     script = REPO_ROOT / "scripts" / "rebuild_shared_skill_manifest.py"
@@ -276,7 +221,6 @@ def _rebuild_shared_skill_manifest() -> None:
     if result.stdout.strip():
         print(result.stdout.strip())
 
-
 def _pull_ff_with_optional_stash(dirty: bool) -> None:
     stashed = False
     if dirty:
@@ -293,7 +237,6 @@ def _pull_ff_with_optional_stash(dirty: bool) -> None:
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise SyncStop(f"git stash pop failed; stash is kept for manual recovery: {detail}", 2)
-
 
 def sync(args: argparse.Namespace) -> int:
     if not (REPO_ROOT / ".git").exists():
@@ -329,13 +272,15 @@ def sync(args: argparse.Namespace) -> int:
     if dirty:
         if not message:
             raise SyncStop("commit message is required when local changes are staged", 2)
-        adaptation_proof = _read_adaptation_proof()
+        try:
+            verify_current_baseline(REPO_ROOT)
+        except (BaselineError, OSError, UnicodeDecodeError) as exc:
+            raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
         try:
             plan = build_release_plan(
                 REPO_ROOT,
                 message,
                 _changed_paths(),
-                adaptation_proof=adaptation_proof,
             )
         except ReleaseError as exc:
             raise SyncStop(f"automatic version release blocked: {exc}", 2) from exc
@@ -354,9 +299,6 @@ def sync(args: argparse.Namespace) -> int:
             if _has_staged_changes():
                 _run_git(["commit", "-m", message], timeout=180, label="git commit")
                 committed = True
-                if adaptation_proof is not None:
-                    ADAPTATION_RECEIPT.unlink()
-                    print("[git-sync] explicit adaptation receipt consumed")
                 ahead, behind = _ahead_behind()
                 if ahead and behind:
                     _print_diverged()
@@ -402,7 +344,6 @@ def sync(args: argparse.Namespace) -> int:
     print("ahead=0 behind=0")
     return 0
 
-
 def main() -> int:
     try:
         validate_project_runtime(REPO_ROOT, executable=sys.executable)
@@ -425,7 +366,6 @@ def main() -> int:
     except SyncStop as exc:
         print(f"[git-sync] {exc}", file=sys.stderr)
         return exc.code
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

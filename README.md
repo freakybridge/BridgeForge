@@ -3,7 +3,7 @@
 > 面向长期 Codex 项目的协作骨架工厂。
 
 bridgeforge-codex 将原生 AGENTS 指令、memory、hooks、文档生命周期和通用 skills 打包为
-一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.13`，最低支持 Python 3.11 和
+一套 Codex-only 下游模板。当前稳定产品边界为 `1.4.28`，最低支持 Python 3.11 和
 Windows。
 
 ## 快速开始
@@ -22,9 +22,9 @@ $bridgeforge-codex
 
 该入口会先把完整、可信的产品仓库安装到 `~/.bridgeforge-codex`，并只在
 `~/.codex/skills/bridgeforge-codex` 保留 Codex 可发现的薄入口；随后维护用户级受管
-skills，再根据项目状态选择 init、adopt 或 update。已有项目
-的 AGENTS、hooks、memory、skills、文档与项目定制按 schema v2 ownership 事务更新，未知或
-人工修改内容不会被静默覆盖。
+skills，再根据项目状态选择 init、旧项目破坏性重建或 current-only update。`<1.4.28`
+项目只凭合法旧戳进入独立审计与白名单重建；`>=1.4.28` 项目按 schema 3 单份当前基线
+更新。公共漂移、缺戳、双戳或损坏基线整轮零写阻断。
 
 旧 `$bridgeforge`、旧用户级 ledger、旧 `.bridgeforge` home 和 Claude 用户级资产不再受
 支持，也不会由当前产品读取、接管或删除。旧用户必须按当前安装流程重新安装

@@ -1,8 +1,8 @@
 # Codex project defaults managed by bridgeforge-codex.
 #
-# Keep model defaults here, not in .codex/settings.json. settings.json stays
-# responsible for hooks / permissions in this skeleton; Codex model defaults use
-# config.toml.
+# Keep model defaults here, not in .codex/settings.json. hooks are registered in
+# .codex/hooks.json; settings.json keeps permissions and other non-hook settings.
+# Codex model defaults use config.toml.
 
 [agents]
 max_threads = 6

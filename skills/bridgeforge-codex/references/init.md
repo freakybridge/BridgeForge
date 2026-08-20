@@ -3,7 +3,7 @@
 仅在根 skill 判定为 `init` 后读取。
 
 1. 只运行 `bridgeforge_codex_project_sync.py --mode init` 生成计划。
-2. safe 项可零确认应用；risk 与 absorption 并入根 skill 的唯一风险卡。
+2. 空项目的 current baseline 安装可零确认应用。
 3. apply 必须带紧邻 plan 的 aggregate fingerprint。
 4. 所有资产验证通过后，最后写 `.codex/.bridgeforge_codex_version`。
 

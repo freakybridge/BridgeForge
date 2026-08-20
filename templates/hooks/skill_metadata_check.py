@@ -7,10 +7,9 @@ Scope:
   so this hook self-gates to no-op there.
 
 Hard gates cover discoverability plus unsafe context growth: required metadata,
-single-line descriptions <= 500 chars, SKILL.md <= 500 lines, and live one-level
-`references/` links. Both OpenAI's `name`/`description` frontmatter and the
-legacy bridgeforge-codex invocation fields are accepted. Descriptions over 300 chars
-are soft warnings.
+single-line descriptions <= 500 chars, SKILL.md <= 500 lines, live one-level
+`references/` links, and bridgeforge-codex invocation metadata. Descriptions
+over 300 chars are soft warnings.
 """
 from __future__ import annotations
 
@@ -77,8 +76,13 @@ def _parse_frontmatter(path: Path) -> tuple[dict[str, str], list[str]]:
     return meta, issues
 
 
-def _validate_skill(skill_file: Path, expected_name: str | None = None) -> tuple[list[str], list[str]]:
-    rel = skill_file.relative_to(REPO_ROOT).as_posix()
+def _validate_skill(
+    skill_file: Path,
+    expected_name: str | None = None,
+    *,
+    report_root: Path = REPO_ROOT,
+) -> tuple[list[str], list[str]]:
+    rel = skill_file.relative_to(report_root).as_posix()
     meta, issues = _parse_frontmatter(skill_file)
     warnings: list[str] = []
     expected_name = expected_name or skill_file.parent.name
@@ -101,15 +105,15 @@ def _validate_skill(skill_file: Path, expected_name: str | None = None) -> tuple
         warnings.append(f"description exceeds recommended {DESCRIPTION_WARN_CHARS} chars ({len(description)})")
 
     if "user-invocable" in meta:
-        issues.append("use user_invocable, not legacy user-invocable")
+        issues.append("use current user_invocable, not user-invocable")
 
-    has_legacy_invocation = "user_invocable" in meta or "argument" in meta
-    if has_legacy_invocation:
+    has_invocation = "user_invocable" in meta or "argument" in meta
+    if has_invocation:
         if meta.get("user_invocable", "").lower() != "true":
-            issues.append("legacy invocation metadata requires user_invocable: true")
+            issues.append("invocation metadata requires user_invocable: true")
         if not meta.get("argument", ""):
             issues.append(
-                "legacy invocation metadata requires argument; "
+                "invocation metadata requires argument; "
                 "use `argument: 无` for no-argument skills"
             )
 
@@ -139,6 +143,22 @@ def _validate_skill(skill_file: Path, expected_name: str | None = None) -> tuple
 
     prefix = f"{rel}: "
     return [prefix + issue for issue in issues], [prefix + warning for warning in warnings]
+
+
+def validate_skill_tree(skills_dir: Path) -> tuple[list[str], list[str]]:
+    issues: list[str] = []
+    warnings: list[str] = []
+    if not skills_dir.is_dir():
+        return issues, warnings
+    report_root = skills_dir.parent
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        skill_issues, skill_warnings = _validate_skill(
+            skill_file,
+            report_root=report_root,
+        )
+        issues.extend(skill_issues)
+        warnings.extend(skill_warnings)
+    return issues, warnings
 
 
 def _validate_factory_routing() -> list[str]:

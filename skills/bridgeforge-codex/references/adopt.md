@@ -3,10 +3,8 @@
 仅在根 skill 判定为 `adopt` 后读取。
 
 1. 只运行 `bridgeforge_codex_project_sync.py --mode adopt` 生成计划。
-2. 先分类已有 AGENTS、rules、hooks、memory、doc 和配置的 ownership。
-3. project-owned、未知或人工修改内容逐字保留；只增补可证明缺失的受管资产。
-4. risk 与 absorption 并入唯一风险卡；fingerprint 漂移时零写入。
-5. 验证完成且无 gap 后，最后写 `.codex/.bridgeforge_codex_version`。
+2. 既有项目缺少 current 版本戳时必须零写阻断；禁止猜测其来源或自动补戳。
+3. 用户需要先安装当前骨架，或提供可识别的 `<1.4.28` current 版本戳进入重建流程。
 
 发现 `.claude/` 或 `CLAUDE.md` 时仅提示“Claude 骨架已停止支持”，不得读取、迁移、
-删除，也不得因此阻止 Codex 接入。
+删除。

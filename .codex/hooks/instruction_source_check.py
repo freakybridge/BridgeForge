@@ -22,14 +22,6 @@ PROJECT_NAME_CLONE_RE = re.compile(
     r"([A-Za-z0-9._-]+|\{\{PROJECT_NAME\}\})"
     r"( && cd )\2([ \t]*)$"
 )
-LEGACY_REQUIRED_HEADINGS = (
-    "### 1.1 架构红线",
-    "### 1.3 工具与证据红线",
-    "### 2.1 原生指令承载索引",
-    "### 2.3 文档管理",
-    "## 3 项目目录地图",
-    "### 5.2 鬼打墙觉察与渐进升级",
-)
 PUBLIC_REQUIRED_HEADINGS = (
     "## BridgeForge 公共区",
     "### 1.1 公共架构红线",
@@ -51,7 +43,7 @@ PUBLIC_END = "<!-- BRIDGEFORGE:PUBLIC:END -->"
 PROJECT_BEGIN = "<!-- BRIDGEFORGE:PROJECT:BEGIN -->"
 PROJECT_END = "<!-- BRIDGEFORGE:PROJECT:END -->"
 ZONE_MARKERS = (PUBLIC_BEGIN, PUBLIC_END, PROJECT_BEGIN, PROJECT_END)
-LEGACY_HEADINGS = ("规则文件索引", "Rule 文件索引")
+FORBIDDEN_RULE_HEADINGS = ("规则文件索引", "Rule 文件索引")
 POSITIVE_AUTOLOAD = (
     re.compile(r"详细规则按需加载自\s*[^\n]*rules", re.I),
     re.compile(r"Markdown[^\n]{0,80}(?:paths:|path)[^\n]{0,80}(?:自动|按需|始终)加载", re.I),
@@ -179,10 +171,7 @@ def _contract_public_hashes(root: Path) -> set[str]:
             contract = json.loads(path.read_text(encoding="utf-8-sig"))
             asset = next(item for item in contract["assets"] if item.get("id") == "root.agents")
             public = asset["agents_zones"]["public"]
-            hashes = {str(public["current_sha256"])}
-            for values in public.get("historical_sha256", {}).values():
-                hashes.update(str(item) for item in (values if isinstance(values, list) else [values]))
-            return hashes
+            return {str(public["current_sha256"])}
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             continue
     return set()
@@ -201,7 +190,6 @@ def _root_agents_issues(
     root: Path,
     *,
     label: str,
-    baseline_has_zones: bool,
 ) -> list[str]:
     issues: list[str] = []
     try:
@@ -209,9 +197,7 @@ def _root_agents_issues(
     except ValueError as exc:
         return [f"{label}: {exc}"]
     if parts is None:
-        if baseline_has_zones:
-            return [f"{label}: public/project zone markers were removed"]
-        return []
+        return [f"{label}: public/project zone markers are required"]
     public, project = parts
     try:
         public_headings = _visible_heading_positions(public, PUBLIC_REQUIRED_HEADINGS)
@@ -260,16 +246,12 @@ def instruction_source_issues(root: Path = ROOT) -> list[str]:
     if error:
         return [error]
     assert text is not None
-    head_text = _git_agents(root, "HEAD")
-    baseline_has_zones = bool(head_text and any(marker in head_text for marker in ZONE_MARKERS))
-    issues.extend(_root_agents_issues(
-        text, root, label="AGENTS.md", baseline_has_zones=baseline_has_zones
-    ))
+    issues.extend(_root_agents_issues(text, root, label="AGENTS.md"))
     has_zone_markers = any(marker in text for marker in ZONE_MARKERS)
     if has_zone_markers:
-        for legacy in LEGACY_HEADINGS:
-            if legacy in text:
-                issues.append(f"active Markdown rule index is forbidden: {legacy}")
+        for heading in FORBIDDEN_RULE_HEADINGS:
+            if heading in text:
+                issues.append(f"active Markdown rule index is forbidden: {heading}")
         if _claims_positive_autoload(text):
             issues.append("AGENTS.md claims unsupported Markdown paths auto-loading")
     for nested in sorted(root.rglob("AGENTS.md")):
@@ -305,14 +287,12 @@ def instruction_source_issues(root: Path = ROOT) -> list[str]:
 
 def _staged_agents_issues(root: Path) -> list[str]:
     staged = _git_agents(root, "INDEX")
-    head = _git_agents(root, "HEAD")
-    if staged is None or staged == head:
+    if staged is None or staged == _git_agents(root, "HEAD"):
         return []
     return _root_agents_issues(
         staged,
         root,
         label="staged AGENTS.md",
-        baseline_has_zones=bool(head and any(marker in head for marker in ZONE_MARKERS)),
     )
 
 

@@ -139,18 +139,15 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
             and any(path.is_file() for path in compatibility_root.rglob("*"))
         )
 
-    def test_one_risk_card_and_project_sync_contract_are_explicit(self) -> None:
+    def test_current_only_risk_and_project_sync_contract_are_explicit(self) -> None:
         text = SKILL.read_text(encoding="utf-8")
         for marker in (
-            "native memories、`.agents` 布局迁移、版本戳迁移、上游 absorption 和其他项目 risk 汇总成一张清单",
-            "整轮最多确认一次",
+            "destructive rebuild 必须先由独立 agent",
+            "用户逐项确认可",
             "plan-fingerprint",
-            "A：执行全部推荐项",
-            "B：只执行用户列出的 ID",
-            "C：不再执行风险动作",
-            "`action_required_items` 按 G1、G2……逐项完整展示",
-            "adaptation_eligible=true",
-            "禁止只显示 gap 数量后让用户再次追问",
+            "--confirmed-whitelist",
+            "--confirmed-risk",
+            "current baseline",
             "`repair-hook` 只能修改用户 hooks",
             "项目骨架更新禁止顺手执行完整 `reconcile`",
             "本地较新自动上传",
@@ -163,19 +160,17 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
-    def test_python_preflight_native_memory_and_layout_are_in_one_orchestration(self) -> None:
+    def test_python_preflight_native_memory_and_project_sync_are_in_one_orchestration(self) -> None:
         text = SKILL.read_text(encoding="utf-8")
         preflight = text.index("## 2. Python preflight")
         mode = text.index("按以下顺序只读判定并锁定 `$MODE`", preflight)
         bootstrap = text.index("project_runtime.py", mode)
         native_memory = text.index("codex_memory_sync.py", preflight)
-        layout = text.index("bridgeforge_codex_migrate_layout.py", native_memory)
-        project_sync = text.index("bridgeforge_codex_project_sync.py", layout)
+        project_sync = text.index("bridgeforge_codex_project_sync.py", native_memory)
         self.assertLess(preflight, mode)
         self.assertLess(mode, bootstrap)
         self.assertLess(bootstrap, native_memory)
-        self.assertLess(native_memory, layout)
-        self.assertLess(layout, project_sync)
+        self.assertLess(native_memory, project_sync)
         self.assertNotIn("\npython ", text)
         self.assertIn("status --project-root .", text)
         self.assertIn("禁止持久化任一项目的绝对 Python 路径", text)

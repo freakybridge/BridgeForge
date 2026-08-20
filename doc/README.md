@@ -46,6 +46,7 @@ delivery_layout: flat
 | `project-sync-explicit-adaptation-transaction` | 精确选择 G 项并以 fingerprint 和一次性本地收据贯通 project-sync Apply 与后续 `$git-sync`（2026-08-19） |
 | `project-sync-four-project-zero-blocker-rollout` | 闭合 #1～#9 后按共享 Git 与 Native Memory 串行约束推进四项目骨架更新，并记录 M2/Causis 现场补出的 1.4.24～1.4.26 三态凭证与全程收据（2026-08-20） |
 | `cba-bridgeforge-1-4-26-clean-reinstall` | ClaudeBridgeAssist 以项目白名单保留 vault hooks、skills、memory、映射和 AGENTS 项目区，放弃旧骨架谱系并一次性干净安装 BridgeForge 1.4.26（2026-08-20） |
+| `bridgeforge-1-4-28-clean-baseline` | 全仓删除仅服务 1.4.28 以前的历史兼容层，以旧项目白名单破坏性重建和 1.4.28+ current-only 本地基线建立长期恒定体积的干净骨架（2026-08-20） |
 | `user-skill-compatibility-retirement` | 彻底退役旧 `$bridgeforge` 用户级兼容 manifest、过渡入口与旧资产迁移链，只保留正式 active Skill 清单（2026-08-19） |
 | `bridgeforge-single-confirmation` | `init`、`adopt`、`update`、`switch` 的零确认安全路径、单次风险确认与 Codex 窄权限规则需求（2026-08-15） |
 | `bridgeforge-repository-structure-governance` | 文档五层结构机器检查、BridgeForge 测试迁入 `scripts/tests/**`，以及下游旧测试目录只报告不自动迁移（2026-08-16） |

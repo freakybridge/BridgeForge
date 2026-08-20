@@ -42,7 +42,7 @@ class DownstreamVersionSourceOfTruthTests(unittest.TestCase):
     def test_project_sync_is_only_stamp_writer(self) -> None:
         sync = (ROOT / "scripts/bridgeforge_codex_project_sync.py").read_text(encoding="utf-8")
         self.assertIn('CURRENT_STAMP = ".codex/.bridgeforge_codex_version"', sync)
-        self.assertIn('LEGACY_STAMP = ".codex/.bridgeforge_version"', sync)
+        self.assertIn('OBSOLETE_STAMP = ".codex/.bridgeforge_version"', sync)
         self.assertFalse((ROOT / "scripts/bridgeforge_project_finalize.py").exists())
 
 

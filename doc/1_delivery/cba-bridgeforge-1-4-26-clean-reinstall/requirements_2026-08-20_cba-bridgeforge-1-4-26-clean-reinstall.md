@@ -161,7 +161,9 @@ source: $confirm
   只读 Planner 为 `safe=0 / risk=0 / gaps=2 / blockers=0`，两个 gap 仅是已确认放弃旧谱系的
   managed contract 与 version-release whole-file 凭证；fingerprint
   `sha256:724766f8bfa257e862fbd0eb5a6235694988ab5caaecfe1ec0a994fbee441e12`。
-- CBA 白名单安装：未开始。
-- validators/no-op：未开始。
-- 独立审计：未开始。
-- 最终报告：未开始。
+- CBA 白名单安装：已完成。普通 transition 的 G1 明确不可执行；按用户批准的“摒弃历史”决定，
+  在白名单、canonical after 和 validators 独立证明后封存一次性 1.4.26 新基线，未伪造历史或补 hash。
+- validators/no-op：runtime、memory、config、instruction、structure、encoding、rule、mirror、Skill metadata
+  与 diff 硬闸均通过；终态 no-op 的 safe/risk/gap/blocker/G 全零。
+- 独立审计：待执行。
+- 最终报告：已创建 `report_2026-08-20_cba-bridgeforge-1-4-26-clean-reinstall.md`，待审计后补最终结论。

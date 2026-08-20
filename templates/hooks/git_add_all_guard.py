@@ -41,7 +41,7 @@ ALLOW_SUFFIXES = (".example", ".sample", ".template", ".dist")
 
 
 def get_command() -> str:
-    """Read Bash command from stdin JSON, then Codex env, then legacy env."""
+    """Read the Bash command from current Codex stdin or environment input."""
     try:
         raw = sys.stdin.read()
     except Exception:

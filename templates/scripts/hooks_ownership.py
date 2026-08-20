@@ -134,30 +134,15 @@ def canonicalize(
     managed_prefixes: tuple[str, ...],
     label: str,
     managed_looking: Callable[[dict[str, Any]], bool] | None = None,
-    legacy_handlers: Iterable[dict[str, str]] = (),
     replace_marked_drift: bool = False,
     managed_top_level: dict[str, Any] | None = None,
-    managed_top_level_historical: dict[str, list[Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, str]]]:
-    """Return canonical document, external projection, and migration receipts.
-
-    `legacy_handlers` is a bounded transition map. Each item declares the old
-    event/matcher/handler_sha256 and the current managed id it may become.
-    """
+    """Return the canonical document, external projection, and current receipts."""
     _validate_shape(document, label)
     specs = [copy.deepcopy(item) for item in expected]
     expected_by_id = {str(item["id"]): item for item in specs}
     if len(expected_by_id) != len(specs):
         raise HooksOwnershipError("expected hooks contain duplicate managed ids")
-    legacy_map = {
-        (
-            str(item["event"]),
-            str(item.get("matcher", "")),
-            str(item["handler_sha256"]),
-        ): str(item["id"])
-        for item in legacy_handlers
-    }
-
     external = copy.deepcopy(document)
     external_hooks = external["hooks"]
     receipts: list[dict[str, str]] = []
@@ -173,15 +158,10 @@ def canonicalize(
                 digest = canonical_json_sha256(handler)
                 raw_id = handler.get(MANAGED_ID_KEY)
                 managed_id: str | None = None
-                legacy = False
                 if isinstance(raw_id, str) and raw_id in expected_by_id:
                     managed_id = raw_id
-                    legacy = legacy_map.get((event, matcher, digest)) == managed_id
                 elif isinstance(raw_id, str) and raw_id.startswith(managed_prefixes):
                     raise HooksOwnershipError(f"unknown managed hook id: {raw_id}: {label}")
-                else:
-                    managed_id = legacy_map.get((event, matcher, digest))
-                    legacy = managed_id is not None
                 if managed_id is None:
                     if managed_looking is not None and managed_looking(handler):
                         raise HooksOwnershipError(
@@ -191,11 +171,11 @@ def canonicalize(
                     continue
 
                 spec = expected_by_id[managed_id]
-                if not legacy and (event != spec["event"] or matcher != spec["matcher"]):
+                if event != spec["event"] or matcher != spec["matcher"]:
                     raise HooksOwnershipError(
                         f"managed hook is registered in the wrong group: {managed_id}: {label}"
                     )
-                if not legacy and digest != spec["handler_sha256"] and not replace_marked_drift:
+                if digest != spec["handler_sha256"] and not replace_marked_drift:
                     raise HooksOwnershipError(f"managed hook content drifted: {managed_id}: {label}")
                 found[managed_id] = found.get(managed_id, 0) + 1
                 managed_count += 1
@@ -203,7 +183,7 @@ def canonicalize(
                     "id": managed_id,
                     "event": event,
                     "matcher": matcher,
-                    "action": "migrate-legacy" if legacy else "canonicalize",
+                    "action": "canonicalize",
                 })
             if kept_handlers:
                 kept_group = copy.deepcopy(group)
@@ -225,19 +205,9 @@ def canonicalize(
         bucket.append(copy.deepcopy(spec["group"]))
     if managed_top_level:
         for key, value in managed_top_level.items():
-            historical = (
-                managed_top_level_historical.get(key, [])
-                if isinstance(managed_top_level_historical, dict)
-                else []
-            )
-            if not isinstance(historical, list):
-                raise HooksOwnershipError(
-                    f"managed top-level history is invalid: {key}: {label}"
-                )
             if (
                 key in document
                 and document[key] != value
-                and document[key] not in historical
             ):
                 raise HooksOwnershipError(
                     f"managed top-level field has no trusted ownership: {key}: {label}"
@@ -263,7 +233,6 @@ def validate_current(
     label: str,
     managed_looking: Callable[[dict[str, Any]], bool] | None = None,
     managed_top_level: dict[str, Any] | None = None,
-    managed_top_level_historical: dict[str, list[Any]] | None = None,
 ) -> dict[str, Any]:
     canonical, external, _receipts = canonicalize(
         document,
@@ -272,7 +241,6 @@ def validate_current(
         label=label,
         managed_looking=managed_looking,
         managed_top_level=managed_top_level,
-        managed_top_level_historical=managed_top_level_historical,
     )
     if document != canonical:
         raise HooksOwnershipError(f"managed hooks zones are not canonical: {label}")

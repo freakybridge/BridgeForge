@@ -1,18 +1,14 @@
 #!/bin/sh
 # >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN
 # bridgeforge pre-commit 闸（多段，严格执行序；详见 docs/harness-engineering-design.md §2.1）:
-#   [factory-version] 工厂产品版本闸: templates/** 或 skills/** 有暂存改动时，根 VERSION 必须同次暂存
-#   [D8] dogfood 镜像闸: templates/<agent>/hooks/*.py 缺 .<agent>/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
-#   [D6] 规则闸: rule_size 读 staged blob + rule_index 读工作树 → 违规 exit 2
-#   [model] Codex 模型/effort 路由闸: .codex/config.toml 与 .codex/agents/*.toml 漂移 → exit 2
+#   [D8] dogfood 镜像闸: templates/hooks/*.py 缺 .codex/hooks/ 对应 → exit 2; 正文差异只 stderr 软提示
 #   [skills] 通用 skill metadata 闸: skills/<name>/SKILL.md 缺可调用 frontmatter → exit 2
 #   [既有] memory 索引重建: 提交前重建衍生索引(_stats.json/MEMORY.md/MEMORY_COLD.md)并纳入本次提交
 #          —— 卫生段，永 exit 0 兜底。杜绝"花名册欠账"溜过任意提交路径(git-sync/手动/IDE 都拦得住)。
 #
 # 硬闸原则: 只有明确判出违规才 exit 2; 脚本自身异常一律放行(宁漏不误伤)。
 #   · exit 2 段必须在受管区块内立即退出；项目扩展位于受管区块之后，保留其原有退出码。
-#   · 规则闸豁免走 CHANGELOG.md 顶部 [skip-rule-size]; 镜像闸豁免走 [dogfood-exempt: <hook> <因>]。
-#     (pre-commit 在 commit message 生成前触发，读不到 message，故豁免走已 staged 的 CHANGELOG 顶部)。
+#   · 镜像闸豁免走 CHANGELOG.md 顶部 [dogfood-exempt: <hook> <因>]。
 # Project CPython 3.11+ .venv is the only runtime; steady hooks never fall back to PATH.
 find_py() {
   if [ ! -e .venv ]; then
@@ -44,6 +40,7 @@ run_exit2_hook() {
     "$PY" "$SCRIPT" "$@"
     rc=$?
     [ "$rc" = 2 ] && exit 2
+    return 0
   fi
 }
 
@@ -56,18 +53,15 @@ run_exit2_hook ".codex/hooks/instruction_source_check.py"
 # ── [hooks-source] Codex lifecycle hook 唯一注册源硬闸 ──
 run_exit2_hook ".codex/hooks/config_health_check.py" --strict
 
-# ── [factory-version] 仅 bridgeforge-codex 工厂自身要求产品版本 bump；禁止下沉到模板 ──
-run_exit2_hook ".codex/scripts/factory_version_check.py"
+# ── [current-baseline] 1.4.28+ 当前公共骨架漂移硬闸 ──
+run_exit2_hook ".codex/scripts/current_baseline.py" --project-root .
+run_exit2_hook ".codex/scripts/current_baseline.py" --project-root . --index
 
 # [encoding] UTF-8 BOM is forbidden in bridgeforge-codex text surfaces.
 run_exit2_hook ".codex/hooks/encoding_check.py" --pre-commit
 
 # ── [layout] doc 五层索引 + scripts/tests 单一测试目录硬闸 ──
 run_exit2_hook ".codex/hooks/project_structure_check.py" --pre-commit
-
-# ── [D6] 规则闸(硬拦; 无 python 或脚本缺失则跳过, 不阻断) ──
-run_exit2_hook ".codex/hooks/rule_size_check.py" --pre-commit
-run_exit2_hook ".codex/hooks/rule_index_check.py" --pre-commit
 
 # ── [skills] 通用 skill metadata 闸(硬拦; 下游无 skills/ 则自门控 no-op) ──
 run_exit2_hook ".codex/hooks/skill_metadata_check.py" --pre-commit
@@ -83,4 +77,6 @@ done
 # <<< BRIDGEFORGE_CODEX_MANAGED_END
 
 # >>> PROJECT_EXTENSION_BEGIN
+# 工厂自身额外要求产品版本 bump；该闸不下沉到 Template。
+run_exit2_hook ".codex/scripts/factory_version_check.py"
 # <<< PROJECT_EXTENSION_END

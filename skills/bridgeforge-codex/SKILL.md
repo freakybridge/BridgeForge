@@ -42,13 +42,17 @@ $PROJECT_ENTRY_FILE = "AGENTS.md"
 
 在运行任何 Python planner、status 或 apply 前，先按以下顺序只读判定并锁定 `$MODE`：
 
-1. 新 `.codex/.bridgeforge_codex_version` 或旧 `.codex/.bridgeforge_version` 存在：update。
-2. `.codex/` 或 `AGENTS.md` 存在：adopt。
-3. 否则：init。
+1. current/obsolete 双戳：立即阻断。
+2. `.codex/.bridgeforge_codex_version` 是合法版本：update。
+3. `.codex/.bridgeforge_version` 是合法 `<1.4.28` 版本：adopt，并进入 destructive rebuild。
+4. 已有 `.codex/`、`AGENTS.md` 或 `.githooks/pre-commit` 但无可识别戳：立即阻断。
+5. 否则：init。
 
-双戳、异常值或旧版本低于 `0.86.0` 时必须在创建 `.venv` 前阻断且零写入。每个项目必须使用
+双戳、缺戳或异常值必须在创建 `.venv` 前阻断且零写入；禁止根据旧合同、目录或文件内容
+推断旧项目身份。每个项目必须使用
 自己的 CPython 3.11+ `.venv/Scripts/python.exe`。`.venv` 已存在时只能把它锁定为
-`$HOOK_PYTHON`；缺失时只有 init/adopt 可以从 PATH 选择一次经验证的 CPython 3.11+，并且
+`$HOOK_PYTHON`；缺失时只有空白 init 或已识别旧戳的 adopt 可以从 PATH 选择一次经验证的
+CPython 3.11+，并且
 该解释器只能执行：
 
 ```powershell
@@ -81,11 +85,7 @@ Python 命令只能使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换�
 - `consent=null + disabled`：把首次 `setup` 与 private 仓库、用户 hook 安装合并为本轮
   唯一 risk；拒绝后才运行 `decline --confirmed`，同意后才运行
   `setup --confirmed-enable`。
-- `consent=null + enabled`：健康时视为 `legacy_enabled`；不健康时保留并记 gap，禁止
-  擅自 repair。
-- 旧字符串 `approved`：只有本地 `remote.txt` 仍指向原
-  `bridgeforge-codex-memories` 仓库时，才允许无感迁移为当前长期授权；目标不一致时记
-  用户级 gap 并重新进入唯一 risk 卡。
+- `consent=null + enabled`：授权状态损坏，保留现场并阻断；禁止猜测修复或补写授权。
 
 首次 risk 卡必须明确披露：同步整个用户级 `~/.codex/memories/**`、本地较新自动上传、
 远端较新自动恢复、生命周期 hook 会持续自动同步、目标必须是指定 private 仓库。确认后
@@ -98,21 +98,7 @@ Python 命令只能使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换�
 生命周期 hook 独立触发，且每次同步前必须验证长期授权、远端身份与 private 状态。用户级
 hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久化任一项目的绝对 Python 路径。
 
-## 4. 当前项目遗留 `.agents/` planner
-
-只检查 cwd 根部 `.agents/`，禁止枚举其他项目。存在时先运行：
-
-```powershell
-& $HOOK_PYTHON `
-  (Join-Path $BRIDGEFORGE_CODEX_HOME "scripts\bridgeforge_codex_migrate_layout.py") `
-  --project-root . --dry-run
-```
-
-已知公共副本删除、无冲突项目私有 skill 移动进入本轮 risk；未知内容、目标冲突或归属不明
-内容保留为 gap。apply 必须使用同一计划的 `--plan-fingerprint` 与唯一确认；链接、路径逃逸
-或 planner 失败必须阻断。禁止用人工移动代替事务脚本。
-
-## 5. 模式与只读计划
+## 4. 模式与只读计划
 
 继续使用 Python preflight 已锁定的唯一 `$MODE` 和 `$HOOK_PYTHON`，禁止重新判定模式或切换
 解释器。按模式只读取一个手册：
@@ -132,58 +118,40 @@ hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久�
   --project-root . --template-root $BRIDGEFORGE_CODEX_HOME --mode $MODE
 ```
 
-plan 必须零写入，并输出 fingerprint、safe、risk、absorption、gap、blocker 与
-`action_required_items`。当旧 `AGENTS.md` 无法可靠分类时，必须把
-`action_required_items` 按 G1、G2……逐项完整展示：来源行号、内容摘要、无法分类原因、
-推荐归属和推荐动作；禁止只显示 gap 数量后让用户再次追问。只有明确标记
-`adaptation_eligible=true` 的 G 项可进入显式适配事务，且用户必须逐项点名；普通 gap 与
-未知 ownership 继续不可执行；只要仍有普通 gap，显式适配整轮零写。Apply 使用可重复的
-`--selected-adaptation G1`，禁止
-approve-all；任一 G 新增、消失、重排、内容或 fingerprint 漂移都必须整轮零写阻断。
+plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与旧项目白名单候选。
+空项目进入 init；旧 `.codex/.bridgeforge_version` 或 current 版本戳 `<1.4.28` 的已识别项目
+进入 destructive rebuild；`>=1.4.28` 只允许
+通过已安装 current baseline 检查后常规更新。current-only 项目缺戳、双戳、非法戳、合同损坏或公共
+资产漂移必须零写阻断；已识别旧戳只用于路由 destructive rebuild，不做增量迁移。
 
-## 6. 整轮最多一次确认
+## 5. 整轮最多一次确认
 
-把 native memories、`.agents` 布局迁移、版本戳迁移、上游 absorption 和其他项目 risk 汇总成一张清单。无 risk
-时零确认；有 risk 时整轮最多确认一次。必须一次展示全部冲突文件，并提供：
-
-- A：执行全部推荐项，包括吸收全部上游受管变更。
-- B：只执行用户列出的 ID，也接受自定义区块指令；强提示未选项会留下 gap。
-- C：不再执行风险动作；只应用无依赖 safe。
+常规 current baseline 更新无 risk 时零确认。旧项目 destructive rebuild 必须先由独立 agent
+逐项审计 rules、hooks、AGENTS 项目区、memory 与 Skills，再展示完整白名单；用户逐项确认可
+作为整轮最多一次确认的特例，但最终破坏性重装必须同时传
+`--confirmed-whitelist`，并且仍只接受一次 `--confirmed-risk`。
 
 apply 前必须重建 plan 并核对 fingerprint；漂移则零写入并重新展示。
 
-## 7. 事务边界
+## 6. 事务边界
 
-apply 必须传紧邻计划的 fingerprint 和唯一用户选择。禁止人工 copy、merge、删除或写戳。
+apply 必须传 `--apply --plan-fingerprint <fingerprint>` 和唯一用户选择。禁止人工
+copy、merge、删除或写戳。
 同步器必须：
 
-- 只修改 schema v2 逐资产登记的 Codex 目标；
-- 保留 project-owned、未知文件和人工定制；
-- Planner 必须先用产品侧可信 `version_release.py::evaluate_release_transition()` 检查内存中的
-  prospective snapshot；只有通过才允许报告 `ready`；
-- Apply 与后续 `$git-sync` 的骨架 transition 必须直接调用同一个 evaluator，分别检查真实
-  工作区和提交前快照；禁止另建近似判断；
-- 显式适配成功后必须生成 Git 忽略的
-  `.runtime/bridgeforge-codex/explicit-adaptation.json` 一次性证明；证明绑定项目根、HEAD、
-  contract、目标前后 hash、project/external projection、独立 transition fingerprint 与
-  aggregate/selection fingerprint，只供当前 `$git-sync` 复验，禁止加入 Git、手改或跨项目复用；
-- 先应用并验证资产，再用同一 evaluator 复核 Git 实际 changed paths，最后写
-  `.codex/.bridgeforge_codex_version`；
-- 旧戳只有在确认、无 gap 且验证成功时才事务删除；
-- release preflight 或其他验证失败时回滚本轮全部写入，并保留旧戳；
-- 当前骨架戳已等于目标版本但本轮修改了受管资产时，仍必须按真实 changed paths 运行 preflight；
-  禁止虚构 stamp 变化放行同版本修复；
+- 只修改 schema v3 current-only 合同逐资产登记的 Codex 目标；
+- 常规更新保留 project-owned、未知文件和人工定制；破坏性重建只保留用户确认的白名单资产；
+- Planner、Apply、`$git-sync` 与 pre-commit 必须调用同一 `current_baseline.py` 检查器；
+- memory 只允许只读兼容检查和派生索引重建，禁止 organize 或移动正文；
+- Skill 只允许确定性修复 frontmatter；缺少 description 或 routing 语义时必须阻断；
+- 先应用并验证资产，最后写 `.codex/.bridgeforge_codex_version`；
+- 任一失败必须回滚本事务全部写入，成功后不得保留 before 包；
 - Claude 项目遗留只提示，不读取、不修改。
 
-## 8. 收据
+## 7. 收据
 
-必须报告用户级刷新 commit、execution_status 与 target_readiness、applied/declined、
-gaps、`action_required_items`、blockers、版本戳终态、rollback、验证命令和工作区状态。
-项目同步计划与收据必须报告 `release_preflight_status`、ownership classification 与耗时；模拟
-预检阻断时必须在首次 plan 按 stable asset id/target/reason 显示 `G*` 清单，禁止先报告
-`ready` 或只返回聚合报错。
+必须报告用户级刷新 commit、execution_status、applied、preserved project asset IDs、
+blockers、版本戳终态、rollback、验证命令和工作区状态。
 Native Memory 必须另外报告 `project_readiness`、`user_native_memory_readiness`、长期授权
 状态、hook 修复结果和 `remote_reconcile=applied/declined/not_requested`；禁止用项目 ready
 掩盖用户级同步 gap，也禁止把本轮未执行的 reconcile 描述成已完成。
-`action_required_items` 必须使用上述逐项清单格式，不得折叠为一句“请人工处理”。不得把
-`completed_with_gaps` 描述成完美更新；应给出达到 ready 的剩余清单。

@@ -284,7 +284,11 @@ class NativeMemorySyncTests(unittest.TestCase):
     def test_status_reports_setup_hook_and_remote_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
-            self._write_ledger(codex, "approved")
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            self._write_ledger(
+                codex,
+                sync_mod._authorization_payload("approved", remote),
+            )
             (codex / "config.toml").write_text(
                 "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
                 encoding="utf-8",
@@ -297,7 +301,7 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertFalse(receipt["hookInstalled"])
             self.assertFalse(receipt["remoteConfigured"])
             self.assertEqual(receipt["consent"], "approved")
-            self.assertEqual(receipt["consentPolicyVersion"], "legacy")
+            self.assertEqual(receipt["consentPolicyVersion"], 1)
             self.assertEqual(receipt["syncMode"], "bidirectional")
             self.assertEqual(receipt["configuredRuntime"], sync_mod.DYNAMIC_HOOK_RUNTIME)
             self.assertEqual(receipt["actualRuntime"], str(Path(sync_mod.sys.executable).resolve()))
@@ -306,7 +310,10 @@ class NativeMemorySyncTests(unittest.TestCase):
     def test_status_is_strictly_read_only(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
-            self._write_ledger(codex, "declined")
+            self._write_ledger(
+                codex,
+                sync_mod._authorization_payload("declined", None),
+            )
             before = {
                 path.relative_to(codex).as_posix(): path.read_bytes()
                 for path in codex.rglob("*")
@@ -321,35 +328,20 @@ class NativeMemorySyncTests(unittest.TestCase):
             }
             self.assertEqual(after, before)
 
-    def test_legacy_enabled_status_keeps_null_consent_without_prompt_or_write(self) -> None:
+    def test_approved_enabled_repair_is_local_only(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
-            self._write_ledger(codex)
-            (codex / "config.toml").write_text(
-                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
-                encoding="utf-8",
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            self._write_ledger(
+                codex,
+                sync_mod._authorization_payload("approved", remote),
             )
-            before = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
-            output = io.StringIO()
-            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), contextlib.redirect_stdout(output):
-                self.assertEqual(sync_mod.main(self._args("status")), 0)
-            receipt = json.loads(output.getvalue())
-            self.assertTrue(receipt["enabled"])
-            self.assertIsNone(receipt["consent"])
-            after = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
-            self.assertEqual(after, before)
-
-    def test_approved_enabled_repair_is_local_only_and_migrates_legacy_consent(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            codex = Path(raw) / ".codex"
-            self._write_ledger(codex, "approved")
             (codex / "config.toml").write_text(
                 "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
                 encoding="utf-8",
             )
             state = codex / ".bridgeforge-codex" / "memory-sync"
             state.mkdir(parents=True)
-            remote = "https://github.com/example/bridgeforge-codex-memories.git"
             (state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
             output = io.StringIO()
             with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
@@ -475,115 +467,6 @@ class NativeMemorySyncTests(unittest.TestCase):
             hooks = (codex / "hooks.json").read_text(encoding="utf-8")
             self.assertTrue(all(str(project) not in hooks for project in projects))
             self.assertTrue(sync_mod.user_hooks_healthy(codex / "hooks.json", source))
-
-    def test_maintain_migrates_legacy_state_and_hook_markers(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            codex = Path(raw) / ".codex"
-            self._write_ledger(codex, "approved")
-            (codex / "config.toml").write_text(
-                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
-                encoding="utf-8",
-            )
-            legacy_state = codex / ".bridgeforge" / "memory-sync"
-            legacy_state.mkdir(parents=True)
-            remote = "https://github.com/example/bridgeforge-codex-memories.git"
-            (legacy_state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
-            script = Path(sync_mod.__file__).resolve()
-            hooks = {"hooks": {}}
-            for event in ("SessionStart", "Stop", "SessionEnd"):
-                handler = {
-                    sync_mod.LEGACY_HOOK_MARKER_KEY: f"{sync_mod.LEGACY_HOOK_ID}:{event}",
-                    "type": "command",
-                    "command": f'"C:/Python/python.exe" "{script}" {sync_mod._hook_arguments(event)}',
-                }
-                if event == "Stop":
-                    handler.update({"async": True, "timeout": 120})
-                elif event == "SessionStart":
-                    handler["timeout"] = 120
-                else:
-                    handler["timeout"] = 3
-                hooks["hooks"][event] = [{"hooks": [handler]}]
-            (codex / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
-            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
-                sync_mod,
-                "ensure_github_repository",
-                side_effect=AssertionError("maintain compatibility must stay local"),
-            ), mock.patch.object(
-                sync_mod,
-                "reconcile",
-                side_effect=AssertionError("maintain compatibility must not reconcile"),
-            ):
-                self.assertEqual(sync_mod.main(self._args("maintain")), 0)
-            current_state = codex / ".bridgeforge-codex" / "memory-sync"
-            self.assertFalse((codex / ".bridgeforge").exists())
-            self.assertEqual(
-                (current_state / "remote.txt").read_text(encoding="utf-8"),
-                remote + "\n",
-            )
-            document = json.loads((codex / "hooks.json").read_text(encoding="utf-8"))
-            managed = [
-                handler
-                for entries in document["hooks"].values()
-                for entry in entries
-                for handler in entry["hooks"]
-                if sync_mod.HOOK_MARKER_KEY in handler
-            ]
-            self.assertEqual(len(managed), 3)
-            self.assertFalse(any(
-                sync_mod.LEGACY_HOOK_MARKER_KEY in handler
-                for entries in document["hooks"].values()
-                for entry in entries
-                for handler in entry["hooks"]
-            ))
-
-    def test_repair_failure_restores_hooks_ledger_and_legacy_state(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            codex = Path(raw) / ".codex"
-            ledger = self._write_ledger(codex, "approved")
-            ledger_before = ledger.read_bytes()
-            (codex / "config.toml").write_text(
-                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
-                encoding="utf-8",
-            )
-            remote = "https://github.com/example/bridgeforge-codex-memories.git"
-            legacy_state = codex / ".bridgeforge/memory-sync"
-            legacy_state.mkdir(parents=True)
-            (legacy_state / "remote.txt").write_text(remote + "\n", encoding="utf-8")
-            hooks_path = codex / "hooks.json"
-            hooks_path.write_text('{"custom":"keep","hooks":{}}\n', encoding="utf-8")
-            hooks_before = hooks_path.read_bytes()
-            with mock.patch.dict(
-                sync_mod.os.environ,
-                {"CODEX_HOME": str(codex)},
-            ), mock.patch.object(
-                sync_mod,
-                "user_hooks_healthy",
-                return_value=False,
-            ):
-                self.assertEqual(sync_mod.main(self._args("repair-hook")), 2)
-            self.assertEqual(hooks_path.read_bytes(), hooks_before)
-            self.assertEqual(ledger.read_bytes(), ledger_before)
-            self.assertTrue(legacy_state.is_dir())
-            self.assertFalse((codex / ".bridgeforge-codex/memory-sync").exists())
-
-    def test_legacy_enabled_maintain_fails_closed_without_external_or_user_writes(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            codex = Path(raw) / ".codex"
-            self._write_ledger(codex)
-            (codex / "config.toml").write_text(
-                "[features]\nmemories = true\n[memories]\ngenerate_memories = true\nuse_memories = true\n",
-                encoding="utf-8",
-            )
-            before = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
-            with mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}), mock.patch.object(
-                sync_mod, "ensure_github_repository"
-            ) as github, mock.patch.object(sync_mod, "merge_user_hooks") as hooks:
-                self.assertEqual(sync_mod.main(self._args("maintain")), 2)
-            github.assert_not_called()
-            hooks.assert_not_called()
-            after = {path.name: path.read_bytes() for path in codex.iterdir() if path.is_file()}
-            self.assertEqual(after, before)
-            self.assertFalse((codex / ".bridgeforge-codex").exists())
 
     def test_status_is_read_only_even_when_codex_home_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -746,7 +629,6 @@ class NativeMemorySyncTests(unittest.TestCase):
                 sync_mod.require_runtime_authorization(
                     codex / "bridgeforge-codex-managed.json",
                     state,
-                    migrate_legacy=True,
                 )
 
     def test_automatic_reconcile_checks_private_authorization_before_sync(self) -> None:
@@ -920,36 +802,6 @@ class NativeMemorySyncTests(unittest.TestCase):
             result = sync_mod._default_run(["git", "fetch"])
         self.assertEqual(result.returncode, 124)
         self.assertIn("timed out", result.stderr)
-
-    def test_user_hook_merge_migrates_trusted_legacy_and_preserves_external(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            path = Path(raw) / "hooks.json"
-            old_venv = Path(raw) / "old-project/.venv/Scripts/python.exe"
-            legacy_managed_id = f"{sync_mod.LEGACY_HOOK_ID}:SessionStart"
-            managed_id = f"{sync_mod.HOOK_ID}:SessionStart"
-            script = Path(raw) / "runtime.py"
-            old_handler = {
-                sync_mod.LEGACY_HOOK_MARKER_KEY: legacy_managed_id,
-                "type": "command",
-                "command": f'"{old_venv}" "{script.resolve()}" reconcile --trigger sessionstart',
-                "timeout": 120,
-            }
-            path.write_text(
-                json.dumps({"hooks": {"SessionStart": [
-                    {"matcher": "keep", "hooks": [old_handler, {"command": "vendor"}]},
-                ]}}),
-                encoding="utf-8",
-            )
-            self.assertTrue(sync_mod.merge_user_hooks(path, script))
-            data = json.loads(path.read_text(encoding="utf-8"))
-            handlers = [handler for entry in data["hooks"]["SessionStart"] for handler in entry["hooks"]]
-            self.assertEqual(sum(handler.get(sync_mod.HOOK_MARKER_KEY) == managed_id for handler in handlers), 1)
-            self.assertFalse(any(sync_mod.LEGACY_HOOK_MARKER_KEY in handler for handler in handlers))
-            self.assertIn({"command": "vendor"}, handlers)
-            self.assertEqual(data["hooks"]["SessionStart"][0]["matcher"], "keep")
-            managed = next(handler for handler in handlers if handler.get(sync_mod.HOOK_MARKER_KEY) == managed_id)
-            self.assertIn("git rev-parse --show-toplevel", managed["command"])
-            self.assertNotIn(str(old_venv), managed["command"])
 
     def test_snapshot_excludes_temp_lock_metadata_and_detects_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

@@ -15,6 +15,20 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.29] - 2026-08-20
+
+### Changed
+
+- [product][repo][meta] 建立干净基线并简化项目重装
+
+## [1.4.28] - 2026-08-20
+
+### Changed
+
+- [product][repo][meta] 删除 1.4.28 以前的历史兼容、retirement 与显式适配谱系，旧项目改走白名单破坏性重建。
+- [product] 引入 current-only 项目本地基线，Planner、Apply、`$git-sync` 与 pre-commit 共用同一漂移检查器。
+- [product] 保留项目 rules、hooks、`AGENTS.md` 项目区、memory 与 Skills；memory/Skill 只允许机械兼容，不改业务正文。
+
 ## [1.4.27] - 2026-08-20
 
 ### Fixed

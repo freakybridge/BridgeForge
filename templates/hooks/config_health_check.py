@@ -245,6 +245,10 @@ def main(
         "single-hook-source",
         "memory-schema",
     }
+    if "--post-apply" in sys.argv:
+        # The sync CLI validates the project runtime before planning. Its
+        # transaction validator reuses this hook only for on-disk config.
+        strict_failures.discard("project-runtime")
     strict_mode = "--strict" in sys.argv if strict is None else strict
     return 2 if strict_mode and any(
         name in strict_failures for name, _msg in failures

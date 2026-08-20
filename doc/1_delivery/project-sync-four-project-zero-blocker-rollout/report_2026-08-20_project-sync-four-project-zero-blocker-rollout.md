@@ -91,6 +91,6 @@
 
 | 项目 | 当前状态 |
 |---|---|
-| `D:\Quant\ClaudeBridgeAssist` | 已完成：plan `safe=13 / risk=0 / G1 eligible`；Apply `completed/ready`、preflight `passed/skeleton-only`、stamp-last、无回滚；1.4.25 no-op 与全部项目硬闸通过，Native Memory healthy。 |
+| `D:\Quant\ClaudeBridgeAssist` | 已按用户确认放弃旧谱系并对白名单执行 1.4.26 一次性新基线安装：项目资产保留、公共 canonical 就位、validators 通过、stamp-last、no-op 全零；等待独立审计。 |
 | `D:\Quant\causis_risk_suite` | 1.4.26 已完成：13 safe + G1，preflight `passed/mixed`、stamp-last、无回滚；no-op、9 项项目硬闸与 Native Memory healthy。 |
 | `D:\Quant\StratusAgent` | 只读 Planner `0 gaps / 0 blockers`，32 项显式适配可执行；尚未 Apply。 |

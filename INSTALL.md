@@ -1,6 +1,6 @@
 # bridgeforge-codex 安装与迁移
 
-bridgeforge-codex 1.4.13 只支持 Codex。用户级产品入口为
+bridgeforge-codex 1.4.28 只支持 Codex。用户级产品入口为
 `~/.codex/skills/bridgeforge-codex/SKILL.md`，完整产品 home 为
 `~/.bridgeforge-codex`，项目产品面只有
 `AGENTS.md + .codex/`。
@@ -30,10 +30,11 @@ conflict 阻断，禁止借旧账本猜测 ownership。
 ## 项目版本戳
 
 - 当前戳：`.codex/.bridgeforge_codex_version`
-- 旧戳：`.codex/.bridgeforge_version`，仅作为 0.86.0+ 迁移输入
-- 双戳、非法戳：阻断并要求人工处理
-- 拒绝风险项、存在 gap 或应用失败：保留旧戳
-- 所有资产验证通过：最后写入新戳，再删除旧戳
+- 旧戳：`.codex/.bridgeforge_version`，仅用于识别 `<1.4.28` 破坏性重建
+- 缺戳、双戳、非法戳：在 `.venv` bootstrap 与 Planner 前零写阻断
+- 旧项目：独立审计后逐项确认 rules、hooks、AGENTS 项目区；memory/Skills 自动保留并检查
+- 所有写入与 validators 通过：删除旧戳并最后写入 1.4.28+ 当前戳
+- 1.4.28+：`.codex/managed-skeleton.json` 只保存当前 schema 3 ownership/hash
 
 ## 已退役能力
 

@@ -74,27 +74,6 @@ def prepare_dispatcher_runtime(project_root: Path) -> Path:
 
 
 class HookSingleSourceTest(unittest.TestCase):
-    def test_atomic_write_stages_outside_codex_directory(self) -> None:
-        module = load_module(
-            TEMPLATE / "scripts" / "hooks_merge.py",
-            "hooks_merge_atomic_write_staging",
-        )
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            codex = root / ".codex"
-            codex.mkdir()
-            target = codex / "hooks.json"
-            original_mkstemp = tempfile.mkstemp
-            with mock.patch.object(
-                module.tempfile,
-                "mkstemp",
-                wraps=original_mkstemp,
-            ) as staged:
-                module._atomic_write(target, '{"hooks": {}}\n')
-            self.assertEqual(Path(staged.call_args.kwargs["dir"]), root)
-            self.assertEqual(target.read_text(encoding="utf-8"), '{"hooks": {}}\n')
-            self.assertFalse(list(root.glob("hooks.json.*")))
-
     def test_positive_suite_uses_project_python_311_or_newer(self) -> None:
         self.assertGreaterEqual(sys.version_info, (3, 11))
         self.assertEqual(
@@ -161,16 +140,19 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertIn("project .venv is missing", result.stderr)
                 self.assertEqual(sentinel.read_text(encoding="utf-8"), "unchanged\n")
 
-    def test_handler_audit_maps_all_36_to_behavior(self) -> None:
+    def test_handler_audit_maps_every_current_handler_to_behavior(self) -> None:
         dispatcher_path = TEMPLATE / "hooks" / "hook_dispatcher.py"
         dispatcher = load_module(dispatcher_path, "hook_dispatcher_audit")
         audit = dispatcher.HANDLER_AUDIT
-        self.assertEqual([int(key.split(":", 1)[0]) for key in audit], list(range(1, 37)))
+        self.assertEqual(
+            [int(key.split(":", 1)[0]) for key in audit],
+            list(range(1, 14)) + list(range(16, 37)),
+        )
         counts = {
             decision: sum(value[0] == decision for value in audit.values())
             for decision in ("retain", "adapt", "delete")
         }
-        self.assertEqual(counts, {"retain": 16, "adapt": 18, "delete": 2})
+        self.assertEqual(counts, {"retain": 16, "adapt": 16, "delete": 2})
         self.assertEqual(dispatcher.handler_audit_errors(), [])
         self.assertNotIn(
             "hooks/target_cleanup.py",
@@ -233,7 +215,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertIn(reason, stderr.getvalue())
                 read_payload.assert_not_called()
 
-    def test_retired_context_budget_is_absent_from_active_user_prompt_contract(self) -> None:
+    def test_context_budget_is_absent_from_active_contract(self) -> None:
         template_hooks = json.loads(
             (TEMPLATE / "hooks.json").read_text(encoding="utf-8")
         )
@@ -262,13 +244,10 @@ class HookSingleSourceTest(unittest.TestCase):
         contract = json.loads(
             (TEMPLATE / "managed-skeleton.json").read_text(encoding="utf-8")
         )
-        context_warning = next(
-            asset
+        self.assertFalse(any(
+            asset["id"] == "codex.hook.context-warning"
             for asset in contract["assets"]
-            if asset["id"] == "codex.hook.context-warning"
-        )
-        self.assertEqual(context_warning["strategy"], "retirement")
-        self.assertNotIn("source", context_warning)
+        ))
 
     def test_template_registration_is_single_source_and_git_rooted(self) -> None:
         settings = json.loads((TEMPLATE / "settings.json").read_text(encoding="utf-8"))
@@ -543,167 +522,6 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertIn("memory_context skipped", result.stderr)
             self.assertIn("show_state.py", order)
 
-    def test_merge_preserves_third_party_and_never_changes_version_stamp(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            codex = root / ".codex"
-            codex.mkdir()
-            template = root / "template-hooks.json"
-            template.write_text(json.dumps({"hooks": {"SessionStart": [{"hooks": [{"type": "command", "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:session-start", "command": "python .codex/hooks/hook_dispatcher.py session-start"}]}]}}), encoding="utf-8")
-            collision_commands = [
-                "python vendor/show_state.py",
-                "python .codex/hooks/vendor/show_state.py",
-                "python show_state.py",
-                "python tools/memory_rebuild_then_lint.py",
-            ]
-            legacy_junction = "python .codex/hooks/memory_junction_check.py"
-            retired_memory_chain = [
-                "python .codex/hooks/memory_rebuild_then_lint.py",
-                "python .codex/scripts/memory_rebuild_then_lint.py",
-                "python .codex/hooks/target_cleanup.py",
-            ]
-            (codex / "hooks.json").write_text(json.dumps({"custom": 1, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "third-party-stop"}, {"type": "command", "command": legacy_junction}, *[{"type": "command", "command": item} for item in collision_commands], *[{"type": "command", "command": item} for item in retired_memory_chain]]}]}}), encoding="utf-8")
-            (codex / "settings.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}, "hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "third-party-prompt"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "python .codex/hooks/show_state.py session-start", "comment": "locally changed"}]}]}}), encoding="utf-8")
-            stamp = codex / ".bridgeforge_codex_version"
-            stamp.write_text("old\n", encoding="utf-8")
-            script = TEMPLATE / "scripts" / "hooks_merge.py"
-            base = [sys.executable, str(script), "--project-root", str(root), "--template-hooks", str(template)]
-            refused = run(base + ["--apply"], root)
-            self.assertEqual(refused.returncode, 2)
-            self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
-            applied = run(base + ["--apply", "--confirmed"], root)
-            self.assertEqual(applied.returncode, 0, applied.stderr)
-            settings = json.loads((codex / "settings.json").read_text(encoding="utf-8"))
-            hooks = json.loads((codex / "hooks.json").read_text(encoding="utf-8"))
-            self.assertNotIn("hooks", settings)
-            serialized = json.dumps(hooks, ensure_ascii=False)
-            self.assertIn("third-party-stop", serialized)
-            self.assertIn("third-party-prompt", serialized)
-            self.assertIn("hook_dispatcher.py", serialized)
-            for command in collision_commands:
-                self.assertIn(command, serialized)
-            self.assertIn(legacy_junction, serialized)
-            for command in retired_memory_chain:
-                self.assertIn(command, serialized)
-            self.assertIn("locally changed", serialized)
-            self.assertEqual(hooks["custom"], 1)
-            self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
-
-    def test_merge_rejects_duplicate_json_keys_without_writes(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            codex = root / ".codex"
-            codex.mkdir()
-            hooks = codex / "hooks.json"
-            settings = codex / "settings.json"
-            stamp = codex / ".bridgeforge_codex_version"
-            hooks.write_text(
-                '{"hooks": {}, "hooks": {"Stop": []}}\n',
-                encoding="utf-8",
-            )
-            settings.write_text('{"permissions": {}}\n', encoding="utf-8")
-            stamp.write_text("old\n", encoding="utf-8")
-            before = {
-                path: path.read_bytes()
-                for path in (hooks, settings, stamp)
-            }
-
-            result = run(
-                [
-                    sys.executable,
-                    str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                    "--project-root",
-                    str(root),
-                    "--template-hooks",
-                    str(TEMPLATE / "hooks.json"),
-                    "--apply",
-                    "--confirmed",
-                ],
-                root,
-            )
-
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("duplicate JSON key: hooks", result.stderr)
-            self.assertEqual(before, {path: path.read_bytes() for path in before})
-
-    def test_merge_initializes_new_project_from_template(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            codex = root / ".codex"
-            codex.mkdir()
-            shutil.copy2(TEMPLATE / "settings.json", codex / "settings.json")
-            result = run([
-                sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                "--project-root", str(root),
-                "--template-hooks", str(TEMPLATE / "hooks.json"),
-                "--apply", "--confirmed",
-            ], root)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("hooks", json.loads((codex / "settings.json").read_text(encoding="utf-8")))
-            self.assertIsInstance(json.loads((codex / "hooks.json").read_text(encoding="utf-8"))["hooks"], dict)
-            self.assertFalse((codex / ".bridgeforge_codex_version").exists())
-
-    def test_merge_rejects_retired_stamp_version_option_without_writes(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            codex = root / ".codex"
-            codex.mkdir()
-            template = root / "template.json"
-            template.write_text('{"hooks": {}}\n', encoding="utf-8")
-            result = run(
-                [
-                    sys.executable,
-                    str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                    "--project-root",
-                    str(root),
-                    "--template-hooks",
-                    str(template),
-                    "--stamp-version",
-                    "new",
-                ],
-                root,
-            )
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("unrecognized arguments: --stamp-version new", result.stderr)
-            self.assertEqual(list(codex.iterdir()), [])
-
-    def test_config_hooks_conflict_keeps_files_and_old_stamp(self) -> None:
-        forms = (
-            "[hooks]\n",
-            '["hooks"]\n',
-            "['hooks']\n",
-            '["ho\\u006fks"]\n',
-            "[[hooks.PreToolUse]]\n",
-            '[["hooks".PreToolUse]]\n',
-            '[["hooks".PreToolUse.hooks]]\n',
-            " [[ hooks . PreToolUse . hooks ]] # inline\n",
-            "hooks.PreToolUse = []\n",
-            "hooks = { PreToolUse = [] }\n",
-        )
-        for form in forms:
-            with self.subTest(form=form), tempfile.TemporaryDirectory() as raw:
-                root = Path(raw)
-                codex = root / ".codex"
-                codex.mkdir()
-                hooks = codex / "hooks.json"
-                settings = codex / "settings.json"
-                stamp = codex / ".bridgeforge_codex_version"
-                template = root / "template.json"
-                hooks.write_text('{"hooks": {}}\n', encoding="utf-8")
-                settings.write_text('{"permissions": {}}\n', encoding="utf-8")
-                stamp.write_text("old\n", encoding="utf-8")
-                template.write_text('{"hooks": {}}\n', encoding="utf-8")
-                (codex / "config.toml").write_text(form, encoding="utf-8")
-                before = (hooks.read_bytes(), settings.read_bytes(), stamp.read_bytes())
-                result = run([
-                    sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                    "--project-root", str(root), "--template-hooks", str(template),
-                    "--apply", "--confirmed",
-                ], root)
-                self.assertEqual(result.returncode, 2)
-                self.assertIn("forbidden hooks table", result.stderr)
-                self.assertEqual(before, (hooks.read_bytes(), settings.read_bytes(), stamp.read_bytes()))
-
     def test_strict_health_gate_rejects_both_illegal_sources(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -792,7 +610,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("config.toml contains a hooks table", result.stdout)
 
-    def test_quoted_non_hooks_tables_are_allowed_by_merge_and_health(self) -> None:
+    def test_quoted_non_hooks_tables_are_allowed_by_health(self) -> None:
         forms = (
             '["not-hooks"]\n',
             "[['not-hooks'.PreToolUse]]\n",
@@ -822,16 +640,9 @@ class HookSingleSourceTest(unittest.TestCase):
                     codex / "scripts" / "project_runtime.py",
                 )
                 (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
+                (codex / "hooks.json").write_bytes((TEMPLATE / "hooks.json").read_bytes())
                 (codex / "config.toml").write_text(form, encoding="utf-8")
                 project_python = prepare_project_runtime(root)
-                template = TEMPLATE / "hooks.json"
-                merged = run([
-                    sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                    "--project-root", str(root), "--template-hooks", str(template),
-                    "--apply", "--confirmed",
-                ], root)
-                self.assertEqual(merged.returncode, 0, merged.stderr)
-                self.assertFalse((codex / ".bridgeforge_codex_version").exists())
                 health = run([
                     str(project_python),
                     str(codex / "hooks" / "config_health_check.py"),
@@ -839,7 +650,7 @@ class HookSingleSourceTest(unittest.TestCase):
                 ], root)
                 self.assertEqual(health.returncode, 0, health.stdout + health.stderr)
 
-    def test_malformed_toml_header_fails_closed_in_merge_and_health(self) -> None:
+    def test_malformed_toml_header_fails_closed_in_health(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             codex = root / ".codex"
@@ -860,20 +671,7 @@ class HookSingleSourceTest(unittest.TestCase):
             (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
             (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
             (codex / "config.toml").write_text('["hooks\\q"]\n', encoding="utf-8")
-            stamp = codex / ".bridgeforge_codex_version"
-            stamp.write_text("old\n", encoding="utf-8")
-            template = root / "template.json"
-            template.write_text('{"hooks": {}}\n', encoding="utf-8")
             project_python = prepare_project_runtime(root)
-
-            merged = run([
-                sys.executable, str(TEMPLATE / "scripts" / "hooks_merge.py"),
-                "--project-root", str(root), "--template-hooks", str(template),
-                "--apply", "--confirmed",
-            ], root)
-            self.assertEqual(merged.returncode, 2)
-            self.assertIn("invalid table header", merged.stderr)
-            self.assertEqual(stamp.read_text(encoding="utf-8"), "old\n")
 
             health = run([
                 str(project_python),
@@ -883,39 +681,13 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertEqual(health.returncode, 2)
             self.assertIn("table header invalid", health.stdout)
 
-    def test_python_310_merge_dispatcher_and_health_fail_closed(self) -> None:
+    def test_python_310_dispatcher_and_health_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             codex = root / ".codex"
             (codex / "hooks").mkdir(parents=True)
             (codex / "hooks.json").write_text('{"hooks": {}}\n', encoding="utf-8")
             (codex / "settings.json").write_text('{"permissions": {}}\n', encoding="utf-8")
-            stamp = codex / ".bridgeforge_codex_version"
-            stamp.write_text("old\n", encoding="utf-8")
-            template = root / "template.json"
-            template.write_text('{"hooks": {}}\n', encoding="utf-8")
-            before = {
-                path: path.read_bytes()
-                for path in (codex / "hooks.json", codex / "settings.json", stamp)
-            }
-
-            merge = load_module(
-                TEMPLATE / "scripts" / "hooks_merge.py",
-                "hooks_merge_python_310",
-            )
-            merge_stderr = io.StringIO()
-            with redirect_stderr(merge_stderr):
-                merge_rc = merge.main([
-                "--project-root", str(root), "--template-hooks", str(template),
-                "--apply", "--confirmed",
-                ], (3, 10))
-            self.assertEqual(merge_rc, 2)
-            self.assertIn("Python 3.11", merge_stderr.getvalue())
-            self.assertEqual(
-                before,
-                {path: path.read_bytes() for path in before},
-            )
-
             dispatcher = load_module(
                 TEMPLATE / "hooks" / "hook_dispatcher.py",
                 "hook_dispatcher_python_310",

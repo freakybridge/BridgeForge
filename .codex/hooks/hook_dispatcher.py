@@ -43,7 +43,6 @@ RUNTIME_ROUTES = {
     "post-memory": ("scripts/memory_rebuild_index.py", "hooks/memory_lint.py"),
     "post-edit": (
         "hooks/instruction_source_check.py", "hooks/mirror_drift_check.py",
-        "hooks/rule_index_check.py", "hooks/rule_size_check.py",
         "hooks/requirements_check.py", "hooks/cargo_default_run_check.py",
         "hooks/fallback_smell_check.py",
     ),
@@ -80,8 +79,6 @@ HANDLER_AUDIT = {
     "11:PreTool:Edit|Write:memory_dup_check.py": ("adapt", "pre-edit", "hooks/memory_dup_check.py"),
     "12:PostTool:Edit|Write:memory_rebuild_index.py": ("adapt", "post-memory", "scripts/memory_rebuild_index.py"),
     "13:PostTool:Edit|Write:memory_lint.py": ("adapt", "post-memory", "hooks/memory_lint.py"),
-    "14:PostTool:Edit|Write:rule_index_check.py": ("adapt", "post-edit", "hooks/rule_index_check.py"),
-    "15:PostTool:Edit|Write:rule_size_check.py": ("adapt", "post-edit", "hooks/rule_size_check.py"),
     "16:PostTool:Edit|Write:requirements_check.py": ("adapt", "post-edit", "hooks/requirements_check.py"),
     "17:PostTool:Edit|Write:cargo_default_run_check.py": ("retain", "post-edit", "hooks/cargo_default_run_check.py"),
     "18:PostTool:Edit|Write:fallback_smell_check.py": ("retain", "post-edit", "hooks/fallback_smell_check.py"),
@@ -180,7 +177,7 @@ def _tool_input(payload: dict) -> dict:
 
 
 def _virtual_edit_payloads(payload: dict) -> list[tuple[str, dict, bytes]]:
-    """Normalize Codex apply_patch payloads to the legacy file hook contract."""
+    """Expand one Codex apply_patch event into per-file edit events."""
     name = _tool_name(payload)
     data = _tool_input(payload)
     command = str(data.get("command") or "")

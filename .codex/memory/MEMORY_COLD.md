@@ -1,4 +1,4 @@
-<!-- MEMORY_COLD.md — 冷区索引 | 用 /find-memory <关键词> 搜索 -->
+<!-- MEMORY_COLD.md — 冷区索引 | 用 $find-memory <关键词> 搜索 -->
 
 - [topics/codex-project-zone-ownership/summary](topics/codex-project-zone-ownership/summary.md) — BridgeForgeCodex 通过公共只读区与项目专区分离根 AGENTS ownership，并对旧项目执行零损失、fail-closed 迁移。
 - [topics/bridgeforge-actionable-readiness/summary](topics/bridgeforge-actionable-readiness/summary.md) — BridgeForge 更新反馈已采用双状态、可执行 R/C/M/B 清单和单次 A/B/C 部分确认，并由用户明确验收。

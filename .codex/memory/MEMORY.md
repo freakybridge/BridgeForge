@@ -1,6 +1,6 @@
 # Memory Index
 
-<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 /find-memory 搜。 -->
+<!-- 自动生成索引，勿手改（改动会被下次重建覆盖）。新增 memory：在 .codex/memory/ 下新建 .md 文件，本索引会自动收录；写法见 ~/.codex/AGENTS.md「auto memory」段。达到条目或字符预算后自动滚入冷区，用 $find-memory 搜。 -->
 
 > Active: 7 | Cold: 14
 
@@ -13,5 +13,5 @@
 - [engineering/skill-metadata-precommit-gate](engineering/skill-metadata-precommit-gate.md) — 通用 skill 可调用 metadata 漏标事故的制度化修复：用 pre-commit 硬闸检查 skills/*/SKILL.md。
 - [operations/codex-bridgeforge-slash-entry-debug](operations/codex-bridgeforge-slash-entry-debug.md) — Codex /bridgeforge slash 入口排障：旧 .codex/skills 残留、BOM frontmatter、~/.bridgeforge 完整工厂与薄 wrapper 的最终布局。
 
-## 🔍 Cold（14 条，用 /find-memory 搜索）
+## 🔍 Cold（14 条，用 $find-memory 搜索）
 详见 MEMORY_COLD.md

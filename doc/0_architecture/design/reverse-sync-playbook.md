@@ -23,7 +23,7 @@
    - 用户级命令与通用 skill 写入 `skills/`；
    - bridgeforge-codex 自身说明写入 `doc/`；
    - 通用 hook/settings 同轮镜像到 `.codex/` dogfood。
-5. 更新 schema v2 ownership、manifest、VERSION 与 `[product]` CHANGELOG；禁止只改模板正文而遗漏派生哈希。
+5. 更新 schema 3 current-only ownership/projection、manifest、VERSION 与 `[product]` CHANGELOG；禁止只改模板正文而遗漏派生哈希。
 6. 运行定向测试、完整 fixture、manifest `--check`、mirror drift、结构检查和独立审计。
 
 ## 3. 仲裁原则

@@ -35,12 +35,6 @@ Codex 项目使用 `.codex/scripts/codex_git_sync.py`。脚本存在时，主 ag
 
 需要审批时只为该项目脚本申请合理前缀，不分别为 fetch、add、commit 和 push 申请持久规则。脚本可执行 fetch、ahead / behind 判断、安全 stash、`pull --ff-only`、自动版本升级与原生版本同步、CHANGELOG 和衍生产物刷新、add、commit、push 和最终检查。它只在创建新提交时升级版本；纯 `$bridgeforge-codex` 骨架更新不升级项目版本。
 
-若存在 `.runtime/bridgeforge-codex/explicit-adaptation.json`，脚本必须严格验证其项目根、HEAD、
-contract、目标前后 hash、project/external projection、独立 transition fingerprint 与
-aggregate/selection fingerprint，并让统一 release evaluator 真实消费每一项。证明缺失、过期、
-跨仓库、漂移或存在未消费项时必须停止；成功创建 commit 后删除该
-Git 忽略收据，commit 前失败则保留供诊断。禁止手工删除收据来绕过 release preflight。
-
 若首次运行在 `git fetch`、`.git/FETCH_HEAD`、`Permission denied` 或 `Access is denied` 阶段失败，主 agent 必须立即以**完全相同的 repo-local 脚本命令**、`require_escalated` 重试。审批说明仅限：允许 Git 更新当前项目的 `.git/FETCH_HEAD` 等元数据，以完成用户已授权的同步。不得改走手工 Git 命令、修改 `.git` ACL 或扩大到无关目录。重试仍失败时保留原始错误与现场并停止；不得把网络、分叉或凭据错误伪报为权限恢复成功。
 
 除上述确定性的权限恢复外，任何分叉、冲突或失败必须返回主对话处理。
