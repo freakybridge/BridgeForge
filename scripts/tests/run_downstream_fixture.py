@@ -49,6 +49,7 @@ def cli(
     apply_fingerprint: str | None = None,
     preserve: tuple[str, ...] = (),
     delete: tuple[str, ...] = (),
+    allow_blocked: bool = False,
 ) -> dict[str, object]:
     command = [
         str(python),
@@ -83,6 +84,10 @@ def cli(
         check=False,
     )
     if result.returncode != 0:
+        if allow_blocked and result.stdout:
+            payload = json.loads(result.stdout)
+            if payload.get("status") == "blocked":
+                return payload
         raise RuntimeError(result.stderr or result.stdout)
     return json.loads(result.stdout)
 
@@ -115,17 +120,44 @@ def init_check(base: Path) -> dict[str, object]:
 def rebuild_check(base: Path) -> dict[str, object]:
     project = base / "rebuild"
     hook = project / ".codex" / "hooks" / "project_only"
+    scattered = project / ".codex" / "hooks" / "legacy_hook.py"
     skill = project / ".codex" / "skills" / "project" / "SKILL.md"
-    hook.mkdir(parents=True)
+    scattered.parent.mkdir(parents=True)
     skill.parent.mkdir(parents=True)
     python = project_python(project)
     (project / ".codex" / ".bridgeforge_version").write_text(
-        "1.4.27\n",
+        "1.4.30\n",
         encoding="utf-8",
     )
+    scattered.write_text("print('legacy')\n", encoding="utf-8")
+    hooks_json = project / ".codex" / "hooks.json"
+    hooks_json.write_text(
+        json.dumps({
+            "hooks": {
+                "SessionStart": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": (
+                            ".venv/Scripts/python.exe "
+                            ".codex/hooks/legacy_hook.py"
+                        ),
+                    }],
+                }],
+            },
+        }),
+        encoding="utf-8",
+    )
+    skill.write_text(
+        "---\nname: project\ndescription: project skill\n---\n\n# Project\n",
+        encoding="utf-8",
+    )
+    blocked = cli(python, project, "auto", allow_blocked=True)
+
+    scattered.unlink()
+    hook.mkdir()
     (hook / "entrypoint.py").write_text("print('project')\n", encoding="utf-8")
     (hook / "config.json").write_text('{"project": true}\n', encoding="utf-8")
-    (project / ".codex" / "hooks.json").write_text(
+    hooks_json.write_text(
         json.dumps({
             "hooks": {
                 "SessionStart": [{
@@ -139,10 +171,6 @@ def rebuild_check(base: Path) -> dict[str, object]:
                 }],
             },
         }),
-        encoding="utf-8",
-    )
-    skill.write_text(
-        "---\nname: project\ndescription: project skill\n---\n\n# Project\n",
         encoding="utf-8",
     )
     skill_before = skill.read_bytes()
@@ -171,7 +199,9 @@ def rebuild_check(base: Path) -> dict[str, object]:
     return {
         "name": "old-project-confirmed-rebuild",
         "ok": (
-            plan["mode"] == "rebuild"
+            bool(blocked["blockers"])
+            and "must be normalized first" in " ".join(blocked["blockers"])
+            and plan["mode"] == "rebuild"
             and receipt["mode"] == "rebuild"
             and (hook / "entrypoint.py").is_file()
             and (hook / "config.json").is_file()

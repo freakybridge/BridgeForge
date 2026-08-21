@@ -82,6 +82,7 @@ class Plan:
     mode: str
     current_version: str
     previous_version: str | None
+    current_stamp_before_sha256: str | None
     contract_sha256: str
     actions: list[Action]
     gaps: list[Gap]
@@ -185,13 +186,22 @@ def _semver(value: str, label: str) -> tuple[int, int, int]:
     return tuple(int(item) for item in match.groups())  # type: ignore[return-value]
 
 
-def _inside(root: Path, relative: str, label: str) -> Path:
+def _lexical_inside(root: Path, relative: str, label: str) -> Path:
     candidate = Path(relative)
     if candidate.is_absolute() or not relative or any(
         part in {"", ".", ".."} for part in candidate.parts
     ):
         raise SyncBlocked(f"{label} is not a safe relative path: {relative!r}")
-    resolved = (root / candidate).resolve()
+    target = root / candidate
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise SyncBlocked(f"{label} escapes its root: {relative!r}") from exc
+    return target
+
+
+def _inside(root: Path, relative: str, label: str) -> Path:
+    resolved = _lexical_inside(root, relative, label).resolve()
     try:
         resolved.relative_to(root)
     except ValueError as exc:
@@ -216,6 +226,23 @@ def _assert_plain_ancestors(root: Path, target: Path) -> None:
         current = current / part
         if current.exists() and _is_reparse(current):
             raise SyncBlocked(f"managed target has a link or reparse ancestor: {current}")
+
+
+def _optional_plain_file(
+    root: Path,
+    target: Path,
+    label: str,
+) -> bool:
+    _assert_plain_ancestors(root, target)
+    try:
+        os.lstat(target)
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise SyncBlocked(f"cannot inspect {label}: {target}") from exc
+    if not target.is_file() or _is_reparse(target):
+        raise SyncBlocked(f"{label} is not a plain file: {target}")
+    return True
 
 
 def _plain_root(path: Path, label: str) -> Path:
@@ -262,13 +289,15 @@ def _target_hash(payload: bytes, asset: dict[str, Any], project_root: Path) -> s
 def load_contract(template_root: Path) -> tuple[dict[str, Any], Path]:
     contract_path = template_root / "templates" / "managed-skeleton.json"
     checker = _trusted_current_baseline_module(template_root)
+    minimum_baseline = _minimum_current_baseline(checker)
     try:
         contract = checker.load_contract(contract_path)
     except Exception as exc:
         raise SyncBlocked(f"cannot read current-only Codex asset contract: {exc}") from exc
     release = str(contract.get("release_version", ""))
-    if _semver(release, "contract release version") < (1, 4, 28):
-        raise SyncBlocked("current-only contract must start at 1.4.28")
+    if _semver(release, "contract release version") < minimum_baseline:
+        rendered = ".".join(str(item) for item in minimum_baseline)
+        raise SyncBlocked(f"current-only contract must start at {rendered}")
     for asset in contract["assets"]:
         source = _inside(
             template_root,
@@ -809,6 +838,7 @@ def _fingerprint(plan: Plan) -> str:
         "mode": plan.mode,
         "current_version": plan.current_version,
         "previous_version": plan.previous_version,
+        "current_stamp_before_sha256": plan.current_stamp_before_sha256,
         "contract_sha256": plan.contract_sha256,
         "actions": [
             {
@@ -827,7 +857,6 @@ def _fingerprint(plan: Plan) -> str:
 
 OBSOLETE_STAMP = ".codex/.bridgeforge_version"
 CURRENT_STAMP = ".codex/.bridgeforge_codex_version"
-CURRENT_BASELINE = (1, 4, 28)
 
 
 def _detect_mode(project_root: Path, requested: str) -> str:
@@ -863,6 +892,17 @@ def _trusted_current_baseline_module(template_root: Path) -> Any:
     finally:
         sys.dont_write_bytecode = previous
     return module
+
+
+def _minimum_current_baseline(checker: Any) -> tuple[int, int, int]:
+    value = getattr(checker, "MINIMUM_CURRENT_BASELINE", None)
+    if (
+        not isinstance(value, tuple)
+        or len(value) != 3
+        or any(not isinstance(item, int) or item < 0 for item in value)
+    ):
+        raise SyncBlocked("current baseline checker has an invalid minimum baseline")
+    return value
 
 
 def _marker_block(payload: bytes, begin: str, end: str) -> tuple[int, int, bytes]:
@@ -1094,7 +1134,16 @@ def _project_asset_candidates(
     candidates: list[dict[str, Any]] = []
     blockers: list[str] = []
     agents = root / "AGENTS.md"
-    if agents.is_file():
+    try:
+        agents_present = _optional_plain_file(
+            root,
+            agents,
+            "AGENTS project asset",
+        )
+    except SyncBlocked as exc:
+        blockers.append(str(exc))
+        agents_present = False
+    if agents_present:
         try:
             _start, _stop, block = _marker_block(
                 agents.read_bytes(),
@@ -1191,7 +1240,16 @@ def _project_asset_candidates(
         )
 
     precommit = root / ".githooks" / "pre-commit"
-    if precommit.is_file():
+    try:
+        precommit_present = _optional_plain_file(
+            root,
+            precommit,
+            "pre-commit project asset",
+        )
+    except SyncBlocked as exc:
+        blockers.append(str(exc))
+        precommit_present = False
+    if precommit_present:
         extension = {
             "begin": "# >>> PROJECT_EXTENSION_BEGIN",
             "end": "# <<< PROJECT_EXTENSION_END",
@@ -1407,6 +1465,8 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     root = _plain_root(project_root, "project root")
     template = _plain_root(template_root, "template root")
     contract, contract_path = load_contract(template)
+    checker = _trusted_current_baseline_module(template)
+    minimum_baseline = _minimum_current_baseline(checker)
     selected_mode = _detect_mode(root, mode)
     current_version = (template / "VERSION").read_text(
         encoding="utf-8-sig"
@@ -1415,10 +1475,11 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         raise SyncBlocked(
             "bridgeforge-codex VERSION does not match current-only contract"
         )
-    stamp = _inside(root, CURRENT_STAMP, "version stamp")
-    old_stamp = _inside(root, OBSOLETE_STAMP, "obsolete version stamp")
+    stamp = _lexical_inside(root, CURRENT_STAMP, "version stamp")
+    old_stamp = _lexical_inside(root, OBSOLETE_STAMP, "obsolete version stamp")
     blockers: list[str] = []
     previous_version: str | None = None
+    current_stamp_before_sha256: str | None = None
 
     def blocked_plan() -> Plan:
         plan = Plan(
@@ -1427,6 +1488,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             mode=selected_mode,
             current_version=current_version,
             previous_version=previous_version,
+            current_stamp_before_sha256=current_stamp_before_sha256,
             contract_sha256=_sha256_path(contract_path),
             actions=[],
             gaps=[],
@@ -1444,16 +1506,30 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         blockers.append(
             "init requires a project with no existing skeleton identity; zero writes performed"
         )
-    if stamp.exists() and old_stamp.exists():
+    try:
+        stamp_present = _optional_plain_file(root, stamp, "version stamp path")
+    except SyncBlocked as exc:
+        blockers.append(str(exc))
+        stamp_present = False
+    if stamp_present:
+        current_stamp_before_sha256 = _sha256_path(stamp)
+    try:
+        old_stamp_present = _optional_plain_file(
+            root,
+            old_stamp,
+            "obsolete version stamp path",
+        )
+    except SyncBlocked as exc:
+        blockers.append(str(exc))
+        old_stamp_present = False
+    if stamp_present and old_stamp_present:
         blockers.append(
             "both current and obsolete version stamps exist; zero writes performed"
         )
-    elif old_stamp.is_file():
+    elif old_stamp_present:
         previous_version = old_stamp.read_text(encoding="utf-8-sig").strip()
-    elif stamp.is_file():
+    elif stamp_present:
         previous_version = stamp.read_text(encoding="utf-8-sig").strip()
-    elif stamp.exists() or old_stamp.exists():
-        blockers.append("version stamp path is not a plain file; zero writes performed")
     elif selected_mode != "init":
         blockers.append(
             "existing project has no recognized version stamp; zero writes performed"
@@ -1469,25 +1545,24 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             blockers.append(str(exc))
     current_semver = _semver(current_version, "current bridgeforge-codex version")
     if previous_semver is not None:
-        if old_stamp.is_file() and previous_semver >= CURRENT_BASELINE:
-            blockers.append(
-                "obsolete version stamp is only valid below 1.4.28; zero writes performed"
-            )
-        if stamp.is_file() and previous_semver < CURRENT_BASELINE:
-            blockers.append(
-                "current version stamp is only valid at 1.4.28 or newer; zero writes performed"
-            )
         if previous_semver > current_semver:
             blockers.append(
                 f"project version {previous_version} is newer than {current_version}"
             )
-    rebuild = bool(old_stamp.is_file() and previous_semver is not None)
+    rebuild = bool(
+        previous_semver is not None
+        and previous_semver < minimum_baseline
+    )
     if blockers:
         return blocked_plan()
     if previous_semver is not None and not rebuild and not blockers:
-        checker = _trusted_current_baseline_module(template)
         try:
-            checker.verify_current_baseline(root)
+            checker.verify_current_baseline(
+                root,
+                prospective_version=(
+                    previous_version if old_stamp_present else None
+                ),
+            )
         except Exception as exc:
             blockers.append(
                 f"current baseline drifted; zero writes performed: {exc}"
@@ -1503,6 +1578,17 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
 
     actions: list[Action] = []
     gaps: list[Gap] = []
+    if old_stamp_present:
+        actions.append(Action(
+            asset_id="stamp.remove-obsolete",
+            target=OBSOLETE_STAMP,
+            action="delete",
+            classification="safe",
+            reason="replace the obsolete stamp with the current stamp in one transaction",
+            before_sha256=_sha256_path(old_stamp),
+            after_sha256=None,
+            payload=None,
+        ))
     desired_targets: set[str] = {
         str(contract["contract_target"]),
         CURRENT_STAMP,
@@ -1531,7 +1617,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             action="create" if current is None else "replace",
             classification="safe",
             reason=(
-                "install current 1.4.28+ public asset"
+                "install the clean current public baseline"
                 if rebuild
                 else "advance verified current baseline"
             ),
@@ -1556,7 +1642,6 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
     )
     removed_current_targets: set[str] = set()
     if current_contract is not None and not rebuild:
-        checker = _trusted_current_baseline_module(template)
         try:
             installed_contract = checker.load_contract(current_contract_path)
         except Exception as exc:
@@ -1604,25 +1689,68 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                 for item in candidates
                 if item.get("disposition") == "user-decision"
             }
-            for path in sorted(
-                item for item in codex_root.rglob("*") if item.is_file()
-            ):
+            known_targets = (
+                desired_targets
+                | candidate_targets
+                | {
+                    OBSOLETE_STAMP,
+                    ".codex/memory",
+                    ".codex/skills",
+                    ".codex/rules",
+                }
+            )
+
+            def known_structure(relative: str) -> bool:
+                return any(
+                    relative == target
+                    or relative.startswith(target + "/")
+                    or target.startswith(relative + "/")
+                    for target in known_targets
+                )
+
+            for path in sorted(codex_root.rglob("*")):
                 relative = path.relative_to(root).as_posix()
+                if _is_reparse(path):
+                    blockers.append(
+                        "unknown or unsafe .codex structure blocks rebuild: "
+                        + relative
+                    )
+                    continue
+                if path.is_dir():
+                    if not known_structure(relative):
+                        blockers.append(
+                            "unknown .codex structure must be classified before rebuild: "
+                            + relative
+                        )
+                    continue
+                if not path.is_file():
+                    blockers.append(
+                        "unknown or unsafe .codex structure blocks rebuild: "
+                        + relative
+                    )
+                    continue
                 if (
                     relative in desired_targets
+                    or relative == OBSOLETE_STAMP
                     or relative.startswith(".codex/memory/")
                     or relative.startswith(".codex/skills/")
                 ):
                     continue
-                classification = "risk" if any(
+                selected_project_asset = any(
                     relative == target or relative.startswith(target + "/")
                     for target in candidate_targets
-                ) else "safe"
+                )
+                if not selected_project_asset:
+                    blockers.append(
+                        "unknown .codex structure must be classified before rebuild: "
+                        + relative
+                    )
+                    continue
                 actions.append(Action(
                     asset_id=f"rebuild.remove.{relative.replace('/', '.')}",
                     target=relative,
                     action="delete",
-                    classification=classification,
+                    classification="risk",
                     reason=(
                         "remove old skeleton content during destructive rebuild"
                     ),
@@ -1637,6 +1765,7 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
         mode=selected_mode,
         current_version=current_version,
         previous_version=previous_version,
+        current_stamp_before_sha256=current_stamp_before_sha256,
         contract_sha256=_sha256_path(contract_path),
         actions=actions,
         gaps=gaps,
@@ -2118,12 +2247,30 @@ def _apply_rebuilt_plan(
     )
     for bundle_path in deleted_bundle_paths:
         transaction.snapshot_tree(bundle_path)
-    stamp = _inside(root, CURRENT_STAMP, "version stamp")
+    stamp = _lexical_inside(root, CURRENT_STAMP, "version stamp")
+    stamp_present = _optional_plain_file(root, stamp, "version stamp path")
+    stamp_before_sha256 = _sha256_path(stamp) if stamp_present else None
+    if stamp_before_sha256 != rebuilt.current_stamp_before_sha256:
+        raise SyncBlocked(
+            "current version stamp drifted after replan; zero writes performed"
+        )
     stamp_written = False
     rollback_performed = False
     try:
         for action in actions:
-            target = _inside(root, action.target, f"action {action.asset_id}")
+            if action.asset_id == "stamp.remove-obsolete":
+                target = _lexical_inside(
+                    root,
+                    action.target,
+                    f"action {action.asset_id}",
+                )
+                _optional_plain_file(
+                    root,
+                    target,
+                    "obsolete version stamp path",
+                )
+            else:
+                target = _inside(root, action.target, f"action {action.asset_id}")
             if checkpoint is not None:
                 checkpoint(f"before-action:{action.asset_id}")
             if action.before_sha256 is None:
@@ -2197,6 +2344,10 @@ def _apply_rebuilt_plan(
                 raise SyncBlocked("temporary preservation manifest cleanup failed")
         if checkpoint is not None:
             checkpoint("after-preservation-manifest-clear")
+        stamp_present = _optional_plain_file(root, stamp, "version stamp path")
+        stamp_before_sha256 = _sha256_path(stamp) if stamp_present else None
+        if stamp_before_sha256 != rebuilt.current_stamp_before_sha256:
+            raise SyncBlocked("current version stamp drifted during apply")
         transaction.write(
             stamp,
             (rebuilt.current_version + "\n").encode("utf-8"),
@@ -2244,6 +2395,7 @@ def _plan_payload(
         "mode": plan.mode,
         "previous_version": plan.previous_version,
         "current_version": plan.current_version,
+        "current_stamp_before_sha256": plan.current_stamp_before_sha256,
         "safe": [
             {
                 key: value

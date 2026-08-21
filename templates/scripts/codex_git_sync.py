@@ -25,7 +25,11 @@ from types import ModuleType
 from typing import Iterator
 
 from project_runtime import ProjectRuntimeError, validate_project_runtime
-from current_baseline import BaselineError, verify_current_baseline
+from current_baseline import (
+    BaselineError,
+    detect_repository_role,
+    verify_current_baseline,
+)
 from memory_rebuild_index import render_memory_indexes
 from version_release import ReleaseError, ReleasePlan, build_release_plan
 
@@ -383,10 +387,11 @@ def sync(args: argparse.Namespace) -> int:
         if not message:
             raise SyncStop("commit message is required when local changes are staged", 2)
         with _sync_lock():
-            try:
-                verify_current_baseline(REPO_ROOT)
-            except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
-                raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
+            if detect_repository_role(REPO_ROOT).kind != "factory":
+                try:
+                    verify_current_baseline(REPO_ROOT)
+                except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
+                    raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
             plan = _build_sync_write_plan(message, _changed_paths())
             snapshot = _snapshot_sync_plan(plan)
             expected_index = snapshot.index_bytes

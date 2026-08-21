@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "release_version": "1.4.31",
+  "release_version": "1.4.32",
   "host": "codex",
   "stamp": ".codex/.bridgeforge_codex_version",
   "contract_target": ".codex/managed-skeleton.json",
@@ -386,11 +386,11 @@
       "source": "templates/.githooks/pre-commit",
       "target": ".githooks/pre-commit",
       "strategy": "region",
-      "current_sha256": "sha256:3bf8c6c19e9edd063fd0de92831a2403378239884788f92c8a4a8beae9871075",
+      "current_sha256": "sha256:b5ba701af8bf567175fe3bdc3df577f37acfd54f9e677155e930fc1e83dc6f94",
       "region": {
         "begin": "# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN",
         "end": "# <<< BRIDGEFORGE_CODEX_MANAGED_END",
-        "current_sha256": "sha256:e3f63c159daa1a9ed781586088e9ba3ad2f897fa67bbdd8d53e5a07a1774135a"
+        "current_sha256": "sha256:f65093bc363fdf656bff0c597d2194e864a6abcdf83264171b4ecc8169d730f0"
       }
     },
     {
@@ -580,14 +580,14 @@
       "source": "templates/scripts/current_baseline.py",
       "target": ".codex/scripts/current_baseline.py",
       "strategy": "whole",
-      "current_sha256": "sha256:2438a65a069fa90d01feefdb06bec5c02f860ab413f273a0662b0bbd960bda0d"
+      "current_sha256": "sha256:cbaf3b10667bb5f53e19da582f81dc53edbf29275620f53bf331e91726d599ec"
     },
     {
       "id": "codex.script.codex-git-sync",
       "source": "templates/scripts/codex_git_sync.py",
       "target": ".codex/scripts/codex_git_sync.py",
       "strategy": "whole",
-      "current_sha256": "sha256:4ecd30f86653dfe685f45aedaebba2f0f45a43b1ff0f91ebb01e9be26b8beac8"
+      "current_sha256": "sha256:ebebb8d15ee6bb44ce5c97eee8437f8a14811aa1e46f939bd34b82dfe90f5017"
     },
     {
       "id": "codex.script.hook-config-policy",
@@ -657,7 +657,7 @@
       "source": "templates/scripts/version_release.py",
       "target": ".codex/scripts/version_release.py",
       "strategy": "whole",
-      "current_sha256": "sha256:5a432be69f211ccc0593a8ef880419e1802f054461188ae0fd86374363e05dd8"
+      "current_sha256": "sha256:d57299b05a9363d86908b7672d4c65f231fa4d5dcc207d6064e5f12a0f84c106"
     }
   ],
   "baseline_model": "current-only"

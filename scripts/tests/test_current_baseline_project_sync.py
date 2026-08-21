@@ -7,10 +7,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
 CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
+LEGACY_VERSION = "1.4.30"
+CLEAN_BASELINE_VERSION = "1.4.31"
 
 
 def load_module(name: str, path: Path):
@@ -40,6 +43,7 @@ class CurrentBaselineContractTests(unittest.TestCase):
         self.assertEqual(contract["schema_version"], 3)
         self.assertEqual(contract["release_version"], CURRENT_VERSION)
         self.assertEqual(contract["baseline_model"], "current-only")
+        self.assertEqual(BASELINE.MINIMUM_CURRENT_BASELINE, (1, 4, 31))
         self.assertNotIn("minimum_supported_version", contract)
         text = path.read_text(encoding="utf-8")
         self.assertLessEqual(len(text.splitlines()), 2148)
@@ -200,6 +204,19 @@ class CurrentProjectSyncTests(unittest.TestCase):
         )
         return installed, incoming, str(asset["target"])
 
+    def template_at_version(self, version: str) -> Path:
+        template = self.template_base / f"baseline-{version}"
+        shutil.copytree(ROOT / "templates", template / "templates")
+        (template / "VERSION").write_text(version + "\n", encoding="utf-8")
+        contract_path = template / "templates" / "managed-skeleton.json"
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        contract["release_version"] = version
+        contract_path.write_text(
+            json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return template
+
     def test_init_installs_a_verified_current_baseline(self) -> None:
         plan = SYNC.build_plan(self.project, ROOT, "init")
         self.assertFalse(plan.blockers)
@@ -231,7 +248,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
         (codex / "rules").mkdir()
         (codex / "skills" / "project-skill").mkdir(parents=True)
         old_stamp = codex / ".bridgeforge_version"
-        old_stamp.write_text("1.4.27\n", encoding="utf-8")
+        old_stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         project_hook = self.write_project_hook_bundle("project_only")
         project_rule = codex / "rules" / "project_only.md"
         project_skill = codex / "skills" / "project-skill" / "SKILL.md"
@@ -259,13 +276,16 @@ class CurrentProjectSyncTests(unittest.TestCase):
 
         plan = SYNC.build_plan(self.project, ROOT, "auto")
         self.assertEqual(plan.mode, "rebuild")
-        self.assertEqual(plan.previous_version, "1.4.27")
+        self.assertEqual(plan.previous_version, LEGACY_VERSION)
         with self.assertRaisesRegex(
             SYNC.SyncBlocked,
             "confirmed-preservation-manifest",
         ):
             self.apply(plan)
-        self.assertEqual(old_stamp.read_text(encoding="utf-8").strip(), "1.4.27")
+        self.assertEqual(
+            old_stamp.read_text(encoding="utf-8").strip(),
+            LEGACY_VERSION,
+        )
 
         preserve = tuple(
             item["id"]
@@ -318,6 +338,8 @@ class CurrentProjectSyncTests(unittest.TestCase):
         self.apply(SYNC.build_plan(self.project, ROOT, "init"))
         plan = SYNC.build_plan(self.project, ROOT, "update")
         self.assertFalse(plan.blockers)
+        self.assertEqual(plan.mode, "update")
+        self.assertEqual(plan.previous_version, CURRENT_VERSION)
         self.assertEqual(plan.actions, [])
         receipt = self.apply(plan)
         self.assertEqual(receipt.applied, ())
@@ -501,7 +523,10 @@ class CurrentProjectSyncTests(unittest.TestCase):
     def test_rebuild_drops_every_unselected_project_surface(self) -> None:
         codex = self.project / ".codex"
         (codex / "hooks").mkdir(parents=True)
-        (codex / ".bridgeforge_version").write_text("1.4.27\n", encoding="utf-8")
+        (codex / ".bridgeforge_version").write_text(
+            LEGACY_VERSION + "\n",
+            encoding="utf-8",
+        )
         project_hook = self.write_project_hook_bundle("project_only")
         (codex / "settings.json").write_text(
             '{"projectOnly": true}\n', encoding="utf-8"
@@ -560,7 +585,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
         skill = self.project / ".codex" / "skills" / "broken" / "SKILL.md"
         skill.parent.mkdir(parents=True)
         (self.project / SYNC.OBSOLETE_STAMP).write_text(
-            "1.4.27\n",
+            LEGACY_VERSION + "\n",
             encoding="utf-8",
         )
         skill.write_text("---\nname: broken\n---\n", encoding="utf-8")
@@ -576,7 +601,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
 
         stamp = self.project / ".codex" / ".bridgeforge_version"
         stamp.parent.mkdir(parents=True)
-        stamp.write_text("1.4.27\n", encoding="utf-8")
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         rebuild = SYNC.build_plan(self.project, ROOT, "auto")
         with self.assertRaisesRegex(SYNC.SyncBlocked, "unknown or non-selectable"):
             self.apply(
@@ -607,7 +632,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
 
         stamp.write_text(CURRENT_VERSION + "\n", encoding="utf-8")
         obsolete = self.project / ".codex" / ".bridgeforge_version"
-        obsolete.write_text("1.4.27\n", encoding="utf-8")
+        obsolete.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         double = SYNC.build_plan(self.project, ROOT, "update")
         self.assertIn("both current and obsolete", " ".join(double.blockers))
 
@@ -622,7 +647,10 @@ class CurrentProjectSyncTests(unittest.TestCase):
         memory = codex / "memory" / "engineering"
         hooks.mkdir(parents=True)
         memory.mkdir(parents=True)
-        (codex / ".bridgeforge_version").write_text("1.4.27\n", encoding="utf-8")
+        (codex / ".bridgeforge_version").write_text(
+            LEGACY_VERSION + "\n",
+            encoding="utf-8",
+        )
         (codex / ".bridgeforge_codex_version").write_text(
             CURRENT_VERSION + "\n",
             encoding="utf-8",
@@ -644,43 +672,293 @@ class CurrentProjectSyncTests(unittest.TestCase):
         self.assertEqual(self.snapshot_tree(), before)
         self.assertFalse((self.project / "MALICIOUS-WRITE").exists())
 
-    def test_stamp_filename_version_matrix_fails_closed(self) -> None:
-        cases = (
-            (SYNC.OBSOLETE_STAMP, "1.4.28", "obsolete version stamp"),
-            (SYNC.CURRENT_STAMP, "1.4.27", "current version stamp"),
-            (SYNC.CURRENT_STAMP, "999.0.0", "newer than"),
-            (SYNC.OBSOLETE_STAMP, "invalid", "not stable SemVer"),
+    def test_both_stamp_names_route_legacy_version_to_rebuild(self) -> None:
+        for stamp_name in (SYNC.OBSOLETE_STAMP, SYNC.CURRENT_STAMP):
+            with self.subTest(stamp=stamp_name):
+                with tempfile.TemporaryDirectory() as raw:
+                    project = Path(raw)
+                    stamp = project / stamp_name
+                    stamp.parent.mkdir(parents=True)
+                    stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+
+                    plan = SYNC.build_plan(project, ROOT, "auto")
+
+                    self.assertFalse(plan.blockers)
+                    self.assertEqual(plan.mode, "rebuild")
+                    self.assertEqual(plan.previous_version, LEGACY_VERSION)
+
+    def test_obsolete_clean_stamp_migrates_to_current_and_replans_noop(self) -> None:
+        baseline_template = self.template_at_version(CLEAN_BASELINE_VERSION)
+        self.apply(SYNC.build_plan(self.project, baseline_template, "init"))
+        current = self.project / SYNC.CURRENT_STAMP
+        obsolete = self.project / SYNC.OBSOLETE_STAMP
+        current_plan = SYNC.build_plan(
+            self.project,
+            baseline_template,
+            "update",
         )
-        for stamp_name, version, expected in cases:
+        self.assertFalse(current_plan.blockers)
+        self.assertEqual(current_plan.mode, "update")
+        self.assertEqual(current_plan.previous_version, CLEAN_BASELINE_VERSION)
+        current.replace(obsolete)
+        self.assertEqual(
+            obsolete.read_text(encoding="utf-8").strip(),
+            CLEAN_BASELINE_VERSION,
+        )
+
+        plan = SYNC.build_plan(self.project, baseline_template, "auto")
+
+        self.assertFalse(plan.blockers)
+        self.assertEqual(plan.mode, "update")
+        self.assertIn(
+            "stamp.remove-obsolete",
+            [item.asset_id for item in plan.actions],
+        )
+        receipt = self.apply(plan)
+        self.assertEqual(receipt.mode, "update")
+        self.assertFalse(obsolete.exists())
+        self.assertEqual(
+            current.read_text(encoding="utf-8").strip(),
+            CLEAN_BASELINE_VERSION,
+        )
+        repeated = SYNC.build_plan(
+            self.project,
+            baseline_template,
+            "update",
+        )
+        self.assertFalse(repeated.blockers)
+        self.assertEqual(repeated.actions, [])
+
+    def test_legacy_rebuild_ignores_missing_or_damaged_old_contract(self) -> None:
+        for damage in ("missing", "damaged"):
+            with self.subTest(damage=damage):
+                with tempfile.TemporaryDirectory() as raw:
+                    project = Path(raw)
+                    stamp = project / SYNC.CURRENT_STAMP
+                    stamp.parent.mkdir(parents=True)
+                    stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+                    if damage == "damaged":
+                        (project / ".codex" / "managed-skeleton.json").write_text(
+                            "{not-json}\n",
+                            encoding="utf-8",
+                        )
+
+                    plan = SYNC.build_plan(project, ROOT, "auto")
+
+                    self.assertFalse(plan.blockers)
+                    self.assertEqual(plan.mode, "rebuild")
+                    receipt = SYNC.apply_plan(
+                        plan,
+                        plan_fingerprint=plan.aggregate_fingerprint,
+                        confirmed_preservation_manifest=True,
+                        confirmed_risk=True,
+                    )
+                    self.assertEqual(receipt.mode, "rebuild")
+                    BASELINE.verify_current_baseline(project)
+
+    def test_unknown_codex_structure_blocks_rebuild_without_writes(self) -> None:
+        stamp = self.project / SYNC.OBSOLETE_STAMP
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        unknown = self.project / ".codex" / "unclassified" / "payload.txt"
+        unknown.parent.mkdir()
+        unknown.write_text("project data\n", encoding="utf-8")
+        before = self.snapshot_tree()
+
+        plan = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertIn("unknown .codex structure", " ".join(plan.blockers))
+        self.assertEqual(self.snapshot_tree(), before)
+
+    def test_reparse_codex_directory_blocks_rebuild_without_writes(self) -> None:
+        stamp = self.project / SYNC.OBSOLETE_STAMP
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        linked = self.project / ".codex" / "rules" / "linked"
+        linked.mkdir(parents=True)
+        before = self.snapshot_tree()
+        original = SYNC._is_reparse
+
+        with mock.patch.object(
+            SYNC,
+            "_is_reparse",
+            side_effect=lambda path: path == linked or original(path),
+        ):
+            plan = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertIn("unsafe .codex structure", " ".join(plan.blockers))
+        self.assertEqual(self.snapshot_tree(), before)
+
+    def test_reparse_project_asset_leaf_blocks_rebuild_without_writes(self) -> None:
+        sources = {
+            "AGENTS.md": ROOT / "templates" / "AGENTS.md",
+            ".githooks/pre-commit": (
+                ROOT / "templates" / ".githooks" / "pre-commit"
+            ),
+        }
+        original = SYNC._is_reparse
+        for relative, source in sources.items():
+            with self.subTest(relative=relative):
+                with tempfile.TemporaryDirectory() as raw:
+                    project = Path(raw)
+                    stamp = project / SYNC.OBSOLETE_STAMP
+                    stamp.parent.mkdir(parents=True)
+                    stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+                    leaf = project / relative
+                    leaf.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, leaf)
+                    before = leaf.read_bytes()
+
+                    with mock.patch.object(
+                        SYNC,
+                        "_is_reparse",
+                        side_effect=(
+                            lambda path, target=leaf: (
+                                path == target or original(path)
+                            )
+                        ),
+                    ):
+                        plan = SYNC.build_plan(project, ROOT, "auto")
+
+                    self.assertIn("not a plain file", " ".join(plan.blockers))
+                    self.assertEqual(leaf.read_bytes(), before)
+
+    def test_scattered_hook_blocks_until_normalized_bundle_is_confirmed(self) -> None:
+        codex = self.project / ".codex"
+        hooks_root = codex / "hooks"
+        hooks_root.mkdir(parents=True)
+        (codex / ".bridgeforge_version").write_text(
+            LEGACY_VERSION + "\n",
+            encoding="utf-8",
+        )
+        scattered = hooks_root / "legacy_hook.py"
+        scattered.write_text("print('legacy')\n", encoding="utf-8")
+        (codex / "hooks.json").write_text(
+            json.dumps({
+                "hooks": {
+                    "SessionStart": [{
+                        "hooks": [{
+                            "type": "command",
+                            "command": (
+                                ".venv/Scripts/python.exe "
+                                ".codex/hooks/legacy_hook.py"
+                            ),
+                        }],
+                    }],
+                },
+            }),
+            encoding="utf-8",
+        )
+        before = self.snapshot_tree()
+
+        blocked = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertIn("must be normalized first", " ".join(blocked.blockers))
+        self.assertEqual(self.snapshot_tree(), before)
+
+        scattered.unlink()
+        bundle = self.write_project_hook_bundle("project_legacy")
+        plan = SYNC.build_plan(self.project, ROOT, "auto")
+        self.assertFalse(plan.blockers)
+        bundle_id = next(
+            item["id"]
+            for item in plan.preservation_entries
+            if item.get("target") == ".codex/hooks/project_legacy"
+        )
+        receipt = self.apply(
+            plan,
+            confirmed_preservation_manifest=True,
+            confirmed_risk=True,
+            preserved_project_asset_ids=(bundle_id,),
+        )
+        self.assertEqual(receipt.mode, "rebuild")
+        self.assertTrue((bundle / "entrypoint.py").is_file())
+        repeated = SYNC.build_plan(self.project, ROOT, "update")
+        self.assertFalse(repeated.blockers)
+        self.assertEqual(repeated.actions, [])
+
+    def test_obsolete_stamp_migration_failure_restores_old_identity(self) -> None:
+        baseline_template = self.template_at_version(CLEAN_BASELINE_VERSION)
+        self.apply(SYNC.build_plan(self.project, baseline_template, "init"))
+        current = self.project / SYNC.CURRENT_STAMP
+        obsolete = self.project / SYNC.OBSOLETE_STAMP
+        current.replace(obsolete)
+        plan = SYNC.build_plan(self.project, baseline_template, "update")
+        before = self.snapshot_tree()
+
+        def fail_after_obsolete_delete(label: str) -> None:
+            if label == "after-action:stamp.remove-obsolete":
+                raise RuntimeError("injected obsolete-stamp failure")
+
+        with self.assertRaisesRegex(SYNC.SyncBlocked, "rolled back"):
+            self.apply(plan, checkpoint=fail_after_obsolete_delete)
+        self.assertEqual(self.snapshot_tree(), before)
+        self.assertFalse(current.exists())
+        self.assertEqual(
+            obsolete.read_text(encoding="utf-8").strip(),
+            CLEAN_BASELINE_VERSION,
+        )
+
+    def test_reparse_obsolete_stamp_blocks_current_migration_without_writes(
+        self,
+    ) -> None:
+        baseline_template = self.template_at_version(CLEAN_BASELINE_VERSION)
+        self.apply(SYNC.build_plan(self.project, baseline_template, "init"))
+        current = self.project / SYNC.CURRENT_STAMP
+        obsolete = self.project / SYNC.OBSOLETE_STAMP
+        current.replace(obsolete)
+        before = self.snapshot_tree()
+        original = SYNC._is_reparse
+
+        with mock.patch.object(
+            SYNC,
+            "_is_reparse",
+            side_effect=lambda path: path == obsolete or original(path),
+        ):
+            plan = SYNC.build_plan(
+                self.project,
+                baseline_template,
+                "update",
+            )
+
+        self.assertIn("not a plain file", " ".join(plan.blockers))
+        self.assertEqual(plan.actions, [])
+        self.assertEqual(self.snapshot_tree(), before)
+
+    def test_stamp_identity_errors_block_without_writes(self) -> None:
+        cases = (
+            (SYNC.CURRENT_STAMP, "999.0.0", False, "newer than"),
+            (SYNC.OBSOLETE_STAMP, "invalid", False, "not stable SemVer"),
+            (SYNC.CURRENT_STAMP, "", True, "not a plain file"),
+        )
+        for stamp_name, version, directory, expected in cases:
             with self.subTest(stamp=stamp_name, version=version):
                 with tempfile.TemporaryDirectory() as raw:
                     project = Path(raw)
                     stamp = project / stamp_name
                     stamp.parent.mkdir(parents=True)
-                    stamp.write_text(version + "\n", encoding="utf-8")
-                    before = {
-                        path.relative_to(project).as_posix(): path.read_bytes()
+                    if directory:
+                        stamp.mkdir()
+                    else:
+                        stamp.write_text(version + "\n", encoding="utf-8")
+                    before = tuple(sorted(
+                        path.relative_to(project).as_posix()
                         for path in project.rglob("*")
-                        if path.is_file()
-                    }
-                    plan = SYNC.build_plan(project, ROOT, "auto")
-                    self.assertIn(expected, " ".join(plan.blockers))
-                    after = {
-                        path.relative_to(project).as_posix(): path.read_bytes()
-                        for path in project.rglob("*")
-                        if path.is_file()
-                    }
-                    self.assertEqual(after, before)
+                    ))
 
-        valid_old = self.project / SYNC.OBSOLETE_STAMP
-        valid_old.parent.mkdir(parents=True)
-        valid_old.write_text("1.4.27\n", encoding="utf-8")
-        self.assertEqual(SYNC.build_plan(self.project, ROOT, "auto").mode, "rebuild")
+                    plan = SYNC.build_plan(project, ROOT, "auto")
+
+                    self.assertIn(expected, " ".join(plan.blockers))
+                    after = tuple(sorted(
+                        path.relative_to(project).as_posix()
+                        for path in project.rglob("*")
+                    ))
+                    self.assertEqual(after, before)
 
     def test_unknown_agents_and_precommit_markers_block_rebuild(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP
         stamp.parent.mkdir(parents=True)
-        stamp.write_text("1.4.27\n", encoding="utf-8")
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         (self.project / "AGENTS.md").write_text(
             "# project without canonical ownership markers\n",
             encoding="utf-8",
@@ -704,7 +982,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
     def test_project_hook_bundle_and_registration_must_be_a_closed_pair(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP
         stamp.parent.mkdir(parents=True)
-        stamp.write_text("1.4.27\n", encoding="utf-8")
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         hooks = self.project / ".codex" / "hooks.json"
         hooks.write_text(
             json.dumps({
@@ -751,7 +1029,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
     def test_rebuild_requires_explicit_disposition_for_every_project_asset(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP
         stamp.parent.mkdir(parents=True)
-        stamp.write_text("1.4.27\n", encoding="utf-8")
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         self.write_project_hook_bundle()
         plan = SYNC.build_plan(self.project, ROOT, "auto")
         before = self.snapshot_tree()
@@ -766,7 +1044,7 @@ class CurrentProjectSyncTests(unittest.TestCase):
     def test_bundle_delete_failure_restores_the_complete_directory(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP
         stamp.parent.mkdir(parents=True)
-        stamp.write_text("1.4.27\n", encoding="utf-8")
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
         self.write_project_hook_bundle()
         plan = SYNC.build_plan(self.project, ROOT, "auto")
         delete = tuple(
@@ -833,6 +1111,24 @@ class CurrentProjectSyncTests(unittest.TestCase):
         self.assertFalse(
             (self.project / ".codex" / "memory" / "MEMORY_COLD.md").exists()
         )
+
+    def test_current_stamp_drift_during_apply_is_not_absorbed(self) -> None:
+        self.apply(SYNC.build_plan(self.project, ROOT, "init"))
+        plan = SYNC.build_plan(self.project, ROOT, "update")
+        stamp = self.project / SYNC.CURRENT_STAMP
+        self.assertEqual(
+            plan.current_stamp_before_sha256,
+            SYNC._sha256_path(stamp),
+        )
+
+        def drift_stamp_after_index(label: str) -> None:
+            if label == "after-memory-index":
+                stamp.write_text("1.4.30\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(SYNC.SyncBlocked, "rolled back"):
+            self.apply(plan, checkpoint=drift_stamp_after_index)
+
+        self.assertEqual(stamp.read_text(encoding="utf-8").strip(), "1.4.30")
 
 
 if __name__ == "__main__":

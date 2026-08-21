@@ -161,10 +161,32 @@ def _head_payload(repo: Path, relative: str) -> bytes | None:
         raise ReleaseError(f"cannot read HEAD ownership payload: {relative}: {exc}") from exc
     return result.stdout if result.returncode == 0 else None
 
+
+def _verify_prospective_factory_baseline(
+    repo: Path,
+    contract_path: Path,
+    prospective_version: str,
+) -> None:
+    contract = load_contract(contract_path)
+    contract["release_version"] = prospective_version
+    with tempfile.TemporaryDirectory() as raw:
+        prospective = Path(raw) / "managed-skeleton.json"
+        prospective.write_text(
+            json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        verify_current_baseline(
+            repo,
+            expected_version=prospective_version,
+            contract_path=prospective,
+            prospective_version=prospective_version,
+        )
+
 def evaluate_release_transition(
     repo: Path,
     *,
     changed_paths: set[str] | None = None,
+    prospective_version: str | None = None,
 ) -> tuple[str, set[str]]:
     """Evaluate the live or prospective current-only ownership state."""
     paths = (
@@ -182,7 +204,14 @@ def evaluate_release_transition(
     contract_path = repo / ".codex" / "managed-skeleton.json"
     if contract_path.is_file():
         try:
-            verify_current_baseline(repo)
+            if role.kind == "factory" and prospective_version is not None:
+                _verify_prospective_factory_baseline(
+                    repo,
+                    contract_path,
+                    prospective_version,
+                )
+            else:
+                verify_current_baseline(repo)
         except (BaselineError, OSError, UnicodeDecodeError) as exc:
             raise TransitionBlocked([{
                 "asset_id": "contract.current-baseline",
@@ -459,9 +488,22 @@ def build_release_plan(
     changed_paths: set[str],
 ) -> ReleasePlan | None:
     info = parse_commit_message(message)
+    role = detect_repository_role(repo)
+    factory_old_version: str | None = None
+    factory_new_version: str | None = None
+    if role.kind == "factory":
+        factory_version = repo / "VERSION"
+        if not factory_version.is_file():
+            raise ReleaseError("factory root VERSION is missing")
+        factory_old_version = factory_version.read_text(
+            encoding="utf-8-sig"
+        ).strip()
+        parse_semver(factory_old_version)
+        factory_new_version = bump_semver(factory_old_version, info.level)
     classification = evaluate_release_transition(
         repo,
         changed_paths=changed_paths,
+        prospective_version=factory_new_version,
     )[0]
     if classification == "skeleton-only":
         return None
@@ -469,7 +511,9 @@ def build_release_plan(
     version_path = repo / "VERSION"
     native = _discover_native_targets(repo)
     writes: dict[Path, bytes] = {}
-    if version_path.is_file():
+    if factory_old_version is not None:
+        old_version = factory_old_version
+    elif version_path.is_file():
         old_version = version_path.read_text(encoding="utf-8-sig").strip()
         parse_semver(old_version)
     else:
@@ -479,7 +523,7 @@ def build_release_plan(
         if len(values) != 1:
             raise ReleaseError("root VERSION is missing and native version candidates conflict")
         old_version = next(iter(values))
-    new_version = bump_semver(old_version, info.level)
+    new_version = factory_new_version or bump_semver(old_version, info.level)
     writes[version_path] = f"{new_version}\n".encode("utf-8")
 
     for path, current, keys, format_name in native:

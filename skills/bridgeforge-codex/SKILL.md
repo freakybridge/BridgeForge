@@ -43,10 +43,9 @@ $PROJECT_ENTRY_FILE = "AGENTS.md"
 在运行任何 Python planner、status 或 apply 前，先按以下顺序只读判定并锁定 `$MODE`：
 
 1. current/obsolete 双戳：立即阻断。
-2. `.codex/.bridgeforge_codex_version` 是合法版本：update。
-3. `.codex/.bridgeforge_version` 是合法 `<1.4.28` 版本：adopt，并进入 destructive rebuild。
-4. 已有 `.codex/`、`AGENTS.md` 或 `.githooks/pre-commit` 但无可识别戳：立即阻断。
-5. 否则：init。
+2. `.codex/.bridgeforge_codex_version` 与 `.codex/.bridgeforge_version` 中恰好一个存在且版本合法：`<1.4.31` 时 adopt 并进入 destructive rebuild，`>=1.4.31` 时 update；两个戳文件名使用同一版本规则。
+3. 已有 `.codex/`、`AGENTS.md` 或 `.githooks/pre-commit` 但无可识别戳：立即阻断。
+4. 否则：init。
 
 双戳、缺戳或异常值必须在创建 `.venv` 前阻断且零写入；禁止根据旧合同、目录或文件内容
 推断旧项目身份。每个项目必须使用
@@ -120,10 +119,10 @@ hook 必须通过当前 Git 根动态调用当前项目 `.venv`；禁止持久�
 
 plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与一次性
 `PreservationManifest`。
-空项目进入 init；旧 `.codex/.bridgeforge_version` 或 current 版本戳 `<1.4.28` 的已识别项目
-进入 destructive rebuild；`>=1.4.28` 只允许
+空项目进入 init；任一合法单戳版本 `<1.4.31` 的已识别项目进入 destructive rebuild；
+`>=1.4.31` 只允许
 通过已安装 current baseline 检查后常规更新。current-only 项目缺戳、双戳、非法戳、合同损坏或公共
-资产漂移必须零写阻断；已识别旧戳只用于路由 destructive rebuild，不做增量迁移。
+资产漂移必须零写阻断；旧戳文件名在通过 current-only 校验后由同一事务删除，最后只写当前戳。
 
 ## 5. 整轮最多一次确认
 
@@ -132,6 +131,11 @@ plan 必须零写入，并输出 fingerprint、safe、risk、gap、blocker 与�
 `PreservationManifest`；所有用户决策项必须显式选择 preserve 或 delete。用户逐项确认可
 作为整轮最多一次确认的特例，但最终破坏性重装必须同时传
 `--confirmed-preservation-manifest`，并且仍只接受一次 `--confirmed-risk`。
+
+发现散落 Hook、非 canonical 命令或无法闭合的目录时，同步器必须零写阻断，禁止猜测依赖。
+独立 Agent 只能先在临时副本或受控前置步骤中把它整理为
+`.codex/hooks/project_XXXX/entrypoint.py` 自包含目录并闭合 `.codex/hooks.json` 注册，再重新生成
+`PreservationManifest` 逐项确认。
 
 apply 前必须重建 plan 并核对 fingerprint；漂移则零写入并重新展示。
 
@@ -142,8 +146,8 @@ copy、merge、删除或写戳。
 同步器必须：
 
 - 只修改 schema v3 current-only 合同逐资产登记的 Codex 目标；
-- 常规更新保留 project-owned、未知文件和人工定制；破坏性重建严格执行用户确认的
-  `PreservationManifest`；
+- 常规更新保留 project-owned、未知文件和人工定制；破坏性重建对未知 `.codex/**` 结构
+  零写阻断，并严格执行用户确认的 `PreservationManifest`；
 - Planner、Apply、`$git-sync` 与 pre-commit 必须调用同一 `current_baseline.py` 检查器；
 - memory 只允许只读兼容检查和派生索引重建，禁止 organize 或移动正文；
 - Skill 只允许确定性修复 frontmatter；缺少 description 或 routing 语义时必须阻断；

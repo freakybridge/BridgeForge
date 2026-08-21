@@ -17,7 +17,7 @@
             {
               "source": "skills/bridgeforge-codex/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:03f61ed068fed0f1bac331409cd1b7f80d8275460b48d6ea77fae5bcec0a55fc"
+              "sha256": "sha256:c51c1a3716f1d13cbcda82b76298d8104e14ae8334605db5be6762cbdffcb4fc"
             },
             {
               "source": "skills/bridgeforge-codex/agents/openai.yaml",
@@ -27,7 +27,7 @@
             {
               "source": "skills/bridgeforge-codex/references/adopt.md",
               "target": "references/adopt.md",
-              "sha256": "sha256:4a1a6e988a693a74814ccd6d8c043430e152f233e249f783a6c10d75dbbcd750"
+              "sha256": "sha256:c32e7e82503b76c16dcff5da90f9e085f36fe9795e2bb118606bda473d4707fd"
             },
             {
               "source": "skills/bridgeforge-codex/references/init.md",
@@ -37,7 +37,7 @@
             {
               "source": "skills/bridgeforge-codex/references/update.md",
               "target": "references/update.md",
-              "sha256": "sha256:36b53c9dcddd753599d5d00b95a2554491e43a61357bac54b59419aa862b3b01"
+              "sha256": "sha256:498edf1bf7087594e606f29a53a2c030b2913fc1970cd35bac89e546b9192438"
             },
             {
               "source": "skills/bridgeforge-codex/references/user-skill-maintenance.md",

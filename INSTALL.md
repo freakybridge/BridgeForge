@@ -1,6 +1,6 @@
 # bridgeforge-codex 安装与迁移
 
-bridgeforge-codex 1.4.30 只支持 Codex。用户级产品入口为
+bridgeforge-codex 只支持 Codex；最低清洁基线为 `1.4.31`。用户级产品入口为
 `~/.codex/skills/bridgeforge-codex/SKILL.md`，完整产品 home 为
 `~/.bridgeforge-codex`，项目产品面只有
 `AGENTS.md + .codex/`。
@@ -30,12 +30,12 @@ conflict 阻断，禁止借旧账本猜测 ownership。
 ## 项目版本戳
 
 - 当前戳：`.codex/.bridgeforge_codex_version`
-- 旧戳：`.codex/.bridgeforge_version`，仅用于识别 `<1.4.28` 破坏性重建
+- 单一合法版本戳只按版本路由：`<1.4.31` 破坏性重建，`>=1.4.31` current-only 更新；旧戳文件名在成功事务中迁移为当前戳
 - 缺戳、双戳、非法戳：在 `.venv` bootstrap 与 Planner 前零写阻断
-- 旧项目：独立审计后逐项确认 rules、AGENTS 项目区、pre-commit 项目扩展，以及 `.codex/hooks/project_XXXX/` 自包含 Hook 目录；memory/Skills 自动保留并检查
+- 旧项目：独立审计后逐项确认 rules、AGENTS 项目区、pre-commit 项目扩展，以及 `.codex/hooks/project_XXXX/` 自包含 Hook 目录；散落 Hook 必须先由独立 Agent 在临时副本或受控前置步骤中整理为这种目录，memory/Skills 自动保留并检查
 - 每个可选项目资产必须明确选择保留或删除；临时保留清单不会写入项目，完成更新前即清空
-- 所有写入与 validators 通过：删除旧戳并最后写入 1.4.28+ 当前戳
-- 1.4.28+：`.codex/managed-skeleton.json` 只保存当前 schema 3 ownership/hash
+- 所有写入与 validators 通过：删除旧戳并最后写入 1.4.31+ 当前戳
+- 1.4.31+：`.codex/managed-skeleton.json` 只保存当前 schema 3 ownership/hash
 
 ## 已退役能力
 

@@ -167,9 +167,11 @@ class CurrentReleaseTests(unittest.TestCase):
                 CURRENT.verify_current_baseline(project)
 
     def test_factory_uses_the_current_baseline_evaluator(self) -> None:
+        current = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
         classification, changed = RELEASE.evaluate_release_transition(
             ROOT,
             changed_paths={"templates/AGENTS.md", "doc/README.md"},
+            prospective_version=RELEASE.bump_semver(current, "patch"),
         )
         self.assertEqual(classification, "factory")
         self.assertEqual(changed, {"templates/AGENTS.md", "doc/README.md"})
@@ -441,7 +443,7 @@ class CurrentReleaseTests(unittest.TestCase):
         self.assertFalse(hasattr(RELEASE, "preflight_contract_transition"))
         plan = RELEASE.build_release_plan(
             ROOT,
-            "refactor: 建立 1.4.28 干净基线",
+            "refactor: 建立 1.4.31 干净基线",
             {"scripts/bridgeforge_codex_project_sync.py"},
         )
         self.assertIsNotNone(plan)

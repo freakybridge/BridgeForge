@@ -48,7 +48,7 @@ run_exit2_hook ".codex/hooks/instruction_source_check.py"
 # ── [hooks-source] Codex lifecycle hook 唯一注册源硬闸 ──
 run_exit2_hook ".codex/hooks/config_health_check.py" --strict
 
-# ── [current-baseline] 1.4.28+ 当前公共骨架漂移硬闸 ──
+# ── [current-baseline] 1.4.31+ 当前公共骨架漂移硬闸 ──
 run_exit2_hook ".codex/scripts/current_baseline.py" --project-root .
 run_exit2_hook ".codex/scripts/current_baseline.py" --project-root . --index
 

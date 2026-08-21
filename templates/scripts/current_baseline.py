@@ -19,7 +19,7 @@ from typing import Any
 
 
 SCHEMA_VERSION = 3
-MINIMUM_CURRENT_BASELINE = (1, 4, 28)
+MINIMUM_CURRENT_BASELINE = (1, 4, 31)
 MANAGED_HOOK_PREFIX = "bridgeforge-codex.project-hook.v1:"
 FACTORY_MANIFEST = "bridgeforge-codex-manifest.json"
 FACTORY_MANIFEST_REMOTE = "https://github.com/freakybridge/BridgeForgeCodex.git"
@@ -293,7 +293,7 @@ def load_contract(path: Path) -> dict[str, Any]:
         raise BaselineError("current baseline identity is invalid")
     version = str(contract.get("release_version", ""))
     if _semver(version, "current baseline release_version") < MINIMUM_CURRENT_BASELINE:
-        raise BaselineError("current baseline predates 1.4.28")
+        raise BaselineError("current baseline predates 1.4.31")
     assets = contract.get("assets")
     if not isinstance(assets, list) or not assets:
         raise BaselineError("current baseline has no assets")
