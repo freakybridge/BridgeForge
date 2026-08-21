@@ -44,9 +44,11 @@ def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 class GitSyncTransactionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.original_root = SYNC.REPO_ROOT
+        self.original_receipt = SYNC.ADAPTATION_RECEIPT
 
     def tearDown(self) -> None:
         SYNC.REPO_ROOT = self.original_root
+        SYNC.ADAPTATION_RECEIPT = self.original_receipt
 
     def _repository(self, root: Path) -> None:
         self.assertEqual(git(root, "init", "-q").returncode, 0)
@@ -239,6 +241,64 @@ class GitSyncTransactionTests(unittest.TestCase):
             after_head = git(project, "rev-parse", "HEAD").stdout.strip()
             self.assertNotEqual(after_head, before_head)
             self.assertEqual(git(project, "status", "--porcelain=v1").stdout, "")
+
+    def test_obsolete_receipt_is_retired_only_after_current_only_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            project = self._repository_with_remote(base)
+            receipt = base / "explicit-adaptation.json"
+            receipt.write_text("{}\n", encoding="utf-8")
+            (project / "tracked.txt").write_text("user change\n", encoding="utf-8")
+            receipt_payload = {"schema_version": 2}
+            plan = SYNC.SyncWritePlan({}, None)
+            SYNC.REPO_ROOT = project
+            SYNC.ADAPTATION_RECEIPT = receipt
+
+            with mock.patch.object(SYNC, "verify_current_baseline"), \
+                    mock.patch.object(
+                        SYNC,
+                        "_read_adaptation_proof",
+                        return_value=receipt_payload,
+                    ), \
+                    mock.patch.object(
+                        SYNC,
+                        "_build_sync_write_plan",
+                        return_value=plan,
+                    ) as build_plan, \
+                    mock.patch.object(SYNC, "_check_factory_version_worktree"):
+                self.assertEqual(SYNC.sync(self._args("fix: consume receipt")), 0)
+
+            self.assertFalse(receipt.exists())
+            self.assertEqual(len(build_plan.call_args.args), 2)
+
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            project = self._repository_with_remote(base)
+            receipt = base / "explicit-adaptation.json"
+            receipt.write_text("{}\n", encoding="utf-8")
+            (project / "tracked.txt").write_text("user change\n", encoding="utf-8")
+            hook = project / ".git" / "hooks" / "pre-commit"
+            hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8", newline="\n")
+            os.chmod(hook, 0o755)
+            SYNC.REPO_ROOT = project
+            SYNC.ADAPTATION_RECEIPT = receipt
+
+            with mock.patch.object(SYNC, "verify_current_baseline"), \
+                    mock.patch.object(
+                        SYNC,
+                        "_read_adaptation_proof",
+                        return_value={"schema_version": 2},
+                    ), \
+                    mock.patch.object(
+                        SYNC,
+                        "_build_sync_write_plan",
+                        return_value=SYNC.SyncWritePlan({}, None),
+                    ), \
+                    mock.patch.object(SYNC, "_check_factory_version_worktree"):
+                with self.assertRaisesRegex(SYNC.SyncStop, "git commit failed"):
+                    SYNC.sync(self._args("fix: reject commit"))
+
+            self.assertTrue(receipt.is_file())
 
     def test_linked_worktree_uses_its_own_git_reported_index(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

@@ -1,14 +1,36 @@
 ---
-status: current-only-product-fix-awaiting-real-downstream-validation
+status: 1.4.37-product-fix-awaiting-real-downstream-validation
 severity: high
 scope: bridgeforge-codex project release preflight and user-level native-memory hook ownership
 reported_at: 2026-08-19
 downstream: D:\Quant\StratusAgent; D:\Quant\causis_risk_suite
 factory_head: 639c55ee5320fc823620504bc6d4aa503100a7e8
-product_version: 1.4.30
+product_version: 1.4.37
 ---
 
 # BUG：可信 schema v1 基线阻断连续升级，native-memory hook 被跨项目解释器覆盖
+
+## 2026-08-21：跨合同发布分类改为当前事实单一规则
+
+1.4.35 在 Causis 真实工作区暴露了一个 current-only 后续缺口：Git HEAD 与工作区使用不同版本的
+ownership contract 时，发布分类曾用当前 contract 解释两边，导致合法的旧骨架内容被错误当成项目
+修改；旧 `explicit-adaptation.json` 又一度被考虑作为纠正分类的依据。这会重新建立一条可漂移、
+可伪造的第二规则。
+
+1.4.37 的唯一规则是：先独立验证当前 contract；HEAD payload 只用 HEAD contract 解析，当前
+payload 只用当前 contract 解析，两边按稳定 asset id 对齐。当前 contract 损坏必须阻断；只有旧侧
+无法由自身 contract 证明时，保守归类 `mixed`，禁止降为 `skeleton-only`。缺少 HEAD contract
+表示合同首次引入，不再错误要求 HEAD 已包含当前受管资产。
+
+`explicit-adaptation.json` 不再进入 `evaluate_release_transition()` 或 `build_release_plan()`，其旧
+校验器及回归测试已删除。同步器只做语法与本地忽略检查，并且仅在 current-only evaluator 独立通过、
+Git commit 成功后退休该废弃文件；分类失败或 commit 失败必须保留现场。该规则需经完整 factory、
+fixture、发布硬闸和独立审计后发布，再以 Causis 完成真实 plan -> apply -> validators ->
+stamp-last -> no-op replan 与 `$git-sync` 作为关闭证据。
+
+发布前收据：定向发布回归 `32/32`、Native Memory wrapper 回归 `49/49`、完整 unittest
+`266/266`、downstream fixture 三场景及全部发布硬闸通过；最终独立审计
+Blocker / High / Medium / Low = `0/0/0/0`。真实 Causis 闭环仍待 1.4.37 发布后执行。
 
 ## 2026-08-21：1.4.30 current-only 边界取代历史 transition 修复路线
 

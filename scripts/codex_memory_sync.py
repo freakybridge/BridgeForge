@@ -36,6 +36,9 @@ CONSENT_SCOPE = "~/.codex/memories/**"
 CONSENT_SYNC_MODE = "bidirectional"
 HOOK_ID = "bridgeforge-codex.native-memory-sync.v1"
 HOOK_MARKER_KEY = "bridgeforgeCodexId"
+HOOK_EVENTS = ("SessionStart", "Stop", "SessionEnd")
+HOOK_RUNTIME_REVISION = 2
+WINDOWS_HOOK_WRAPPER_NAME = "codex_memory_sync_hook.cmd"
 WORKDIR_PREFIX = "bridgeforge-codex-memory-sync-"
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.json"}
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
@@ -456,14 +459,24 @@ def enable_memories(config_path: Path, *, confirmed: bool) -> bool:
     return False
 
 
-def _hook_arguments(event: str) -> str:
-    if event == "SessionEnd":
-        return "kick --trigger session-end"
-    return f"reconcile --trigger {event.lower()}"
+def _windows_hook_command(script: Path, event: str) -> str:
+    wrapper = script.resolve().with_name(WINDOWS_HOOK_WRAPPER_NAME)
+    raw_wrapper = str(wrapper).replace('"', '""')
+    return f'cmd.exe /d /c call "{raw_wrapper}" {event}'
 
 
-def _hook_handler(event: str, script: Path) -> dict[str, object]:
-    args = _hook_arguments(event)
+def _legacy_inline_powershell_hook_handler(
+    event: str,
+    script: Path,
+) -> dict[str, object]:
+    """Reconstruct the exact v1 handler that is safe to migrate in place."""
+    if event not in HOOK_EVENTS:
+        raise SyncError(f"unsupported hook event: {event}")
+    args = (
+        "kick --trigger session-end"
+        if event == "SessionEnd"
+        else f"reconcile --trigger {event.lower()}"
+    )
     managed_script = script.resolve()
     posix_script = shlex.quote(str(managed_script))
     powershell_script = "'" + str(managed_script).replace("'", "''") + "'"
@@ -491,6 +504,57 @@ def _hook_handler(event: str, script: Path) -> dict[str, object]:
     return handler
 
 
+def _hook_handler(event: str, script: Path) -> dict[str, object]:
+    if event not in HOOK_EVENTS:
+        raise SyncError(f"unsupported hook event: {event}")
+    managed_script = script.resolve()
+    posix_script = shlex.quote(str(managed_script))
+    handler: dict[str, object] = {
+        "type": "command",
+        "command": (
+            'root="$(git rev-parse --show-toplevel)" && '
+            f'"$root/.venv/Scripts/python.exe" {posix_script} hook-run '
+            f'--event {event} '
+            '--project-root "$root"'
+        ),
+        "commandWindows": _windows_hook_command(script, event),
+        HOOK_MARKER_KEY: f"{HOOK_ID}:{event}",
+    }
+    if event == "Stop":
+        handler["async"] = True
+        handler["timeout"] = 120
+    if event == "SessionStart":
+        handler["timeout"] = 120
+    if event == "SessionEnd":
+        handler["timeout"] = 3
+    return handler
+
+
+def _migrate_exact_legacy_hook_handlers(
+    document: dict[str, object],
+    script: Path,
+) -> None:
+    """Upgrade only exact factory v1 handlers; edited drift stays fail-closed."""
+    hooks = document.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+    for event in HOOK_EVENTS:
+        groups = hooks.get(event)
+        if not isinstance(groups, list):
+            continue
+        legacy = _legacy_inline_powershell_hook_handler(event, script)
+        current = _hook_handler(event, script)
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            handlers = group.get("hooks")
+            if not isinstance(handlers, list):
+                continue
+            for index, handler in enumerate(handlers):
+                if handler == legacy:
+                    handlers[index] = current.copy()
+
+
 def _read_optional_bytes(path: Path) -> bytes | None:
     return path.read_bytes() if path.is_file() else None
 
@@ -514,10 +578,11 @@ def _render_user_hooks(
             raise SyncError(f"invalid user hooks.json: {exc}") from exc
     else:
         document = {"hooks": {}}
+    _migrate_exact_legacy_hook_handlers(document, script)
     expected_document = {
         "hooks": {
             event: [{"hooks": [_hook_handler(event, script)]}]
-            for event in ("SessionStart", "Stop", "SessionEnd")
+            for event in HOOK_EVENTS
         }
     }
     try:
@@ -571,7 +636,7 @@ def user_hooks_healthy(
         expected_document = {
             "hooks": {
                 event: [{"hooks": [_hook_handler(event, script)]}]
-                for event in ("SessionStart", "Stop", "SessionEnd")
+                for event in HOOK_EVENTS
             }
         }
         expected = HOOKS_OWNERSHIP.expected_groups(
@@ -730,6 +795,101 @@ def launch_background_reconcile(trigger: str, project_root: Path) -> None:
     else:
         kwargs["start_new_session"] = True
     subprocess.Popen(command, **kwargs)
+
+
+def _hook_runtime_receipt_path(state_dir: Path, event: str) -> Path:
+    if event not in HOOK_EVENTS:
+        raise SyncError(f"unsupported hook event: {event}")
+    return state_dir / f"hook-runtime-{event.lower()}.json"
+
+
+def latest_hook_runtime_receipt(state_dir: Path) -> dict[str, object] | None:
+    receipts: list[dict[str, object]] = []
+    for event in HOOK_EVENTS:
+        path = _hook_runtime_receipt_path(state_dir, event)
+        if not path.is_file() or _is_link_or_reparse(path):
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(value, dict):
+            receipts.append(value)
+    if not receipts:
+        return None
+    return max(
+        receipts,
+        key=lambda item: str(item.get("completedUtc") or item.get("startedUtc") or ""),
+    )
+
+
+def hook_runtime_verified(receipt: dict[str, object] | None) -> bool:
+    return bool(
+        receipt
+        and receipt.get("handlerRevision") == HOOK_RUNTIME_REVISION
+        and receipt.get("status") == "succeeded"
+    )
+
+
+def run_hook_event(
+    event: str,
+    codex: Path,
+    memories: Path,
+    state_dir: Path,
+    ledger_path: Path,
+    project_root: Path,
+) -> int:
+    _real_directory(state_dir, create=True)
+    receipt_path = _hook_runtime_receipt_path(state_dir, event)
+    receipt: dict[str, object] = {
+        "handlerRevision": HOOK_RUNTIME_REVISION,
+        "event": event,
+        "projectRoot": str(project_root.resolve()),
+        "status": "started",
+        "startedUtc": utc_now(),
+    }
+    _atomic_json(receipt_path, receipt)
+    try:
+        enabled, _ = memory_switches(codex / "config.toml")
+        if not enabled:
+            action = "disabled"
+        elif event == "SessionEnd":
+            validated_runtime_state(codex, state_dir, ledger_path)
+            mark_pending(state_dir, "session-end")
+            launch_background_reconcile("session-end", project_root)
+            action = "kicked"
+        else:
+            state_dir, authorization = validated_runtime_state(
+                codex,
+                state_dir,
+                ledger_path,
+            )
+            remote = str(authorization["remote"])
+            verify_private_github_repository(remote)
+            action = reconcile(memories, state_dir, remote)
+        receipt.update({
+            "status": "succeeded",
+            "action": action,
+            "completedUtc": utc_now(),
+        })
+        _atomic_json(receipt_path, receipt)
+        return 0
+    except Exception as exc:
+        try:
+            mark_pending(state_dir, event.lower())
+        except Exception:
+            pass
+        receipt.update({
+            "status": "failed",
+            "error": str(exc),
+            "completedUtc": utc_now(),
+        })
+        try:
+            _atomic_json(receipt_path, receipt)
+        except Exception:
+            pass
+        print(f"[memory-sync] WARNING: {exc}", file=sys.stderr)
+        return 0
 
 
 def _default_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -1247,6 +1407,8 @@ def main(argv: list[str] | None = None) -> int:
     project_command("repair-hook")
     reconcile_cmd = project_command("reconcile")
     reconcile_cmd.add_argument("--trigger", default="bridgeforge-codex")
+    hook_run = project_command("hook-run")
+    hook_run.add_argument("--event", choices=HOOK_EVENTS, required=True)
     mark = project_command("mark")
     mark.add_argument("--trigger", required=True)
     kick = project_command("kick")
@@ -1275,9 +1437,12 @@ def main(argv: list[str] | None = None) -> int:
                     codex / "hooks.json",
                     Path(__file__).resolve(),
                 )
+                hook_runtime = latest_hook_runtime_receipt(state_dir)
             print(json.dumps({
                 "enabled": enabled,
                 "hookInstalled": hook_installed,
+                "hookRuntimeVerified": hook_runtime_verified(hook_runtime),
+                "hookRuntimeReceipt": hook_runtime,
                 "pending": (state_dir / "pending.json").exists(),
                 "projectRoot": str(project_root),
                 "runtimeContract": HOOK_RUNTIME_CONTRACT,
@@ -1316,6 +1481,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[memory-sync] native memories declined; changed={str(changed).lower()}")
             return 0
         _real_directory(codex, create=True)
+        if args.command == "hook-run":
+            return run_hook_event(
+                args.event,
+                codex,
+                memories,
+                current_state_dir,
+                ledger_path,
+                project_root,
+            )
         if args.command in {"maintain", "repair-hook"}:
             receipt = repair_user_hooks(
                 codex,

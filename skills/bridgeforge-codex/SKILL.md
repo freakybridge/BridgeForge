@@ -78,8 +78,12 @@ Python 命令只能使用 `& $HOOK_PYTHON`，禁止裸 `python` 或中途切换�
 ```
 
 - `declined`：只记用户级 gap，禁止再次询问或改配置。
-- 当前策略的 `approved + enabled + healthy`：no-op；hook 有漂移时把本地-only
-  `repair-hook` 归为 safe。该 safe 来自用户已保存的长期授权，不是项目更新授权。
+- 当前策略的 `approved + enabled + hookInstalled + hookRuntimeVerified`：no-op。
+- `approved + enabled + hookInstalled + !hookRuntimeVerified`：只记用户级 runtime gap；
+  禁止把“已安装”描述成“健康”，禁止重复 repair 或触发 reconcile，等待下一次真实生命周期
+  事件产生当前 handler revision 的运行收据。
+- `approved + enabled + !hookInstalled`：把本地-only `repair-hook` 归为 safe。该 safe 来自
+  用户已保存的长期授权，不是项目更新授权。
 - `approved + disabled_by_user`：保留现状并记 gap，禁止擅自重开。
 - `consent=null + disabled`：把首次 `setup` 与 private 仓库、用户 hook 安装合并为本轮
   唯一 risk；拒绝后才运行 `decline --confirmed`，同意后才运行
@@ -160,5 +164,6 @@ copy、merge、删除或写戳。
 必须报告用户级刷新 commit、execution_status、applied、preserved project asset IDs、
 blockers、版本戳终态、rollback、验证命令和工作区状态。
 Native Memory 必须另外报告 `project_readiness`、`user_native_memory_readiness`、长期授权
-状态、hook 修复结果和 `remote_reconcile=applied/declined/not_requested`；禁止用项目 ready
-掩盖用户级同步 gap，也禁止把本轮未执行的 reconcile 描述成已完成。
+状态、`hookInstalled`、`hookRuntimeVerified`、最近运行收据、hook 修复结果和
+`remote_reconcile=applied/declined/not_requested`；禁止用项目 ready 掩盖用户级同步 gap，
+也禁止把本轮未执行的 reconcile 描述成已完成。

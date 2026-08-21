@@ -510,6 +510,10 @@ def _verify_hooks(
                 "hooks.json",
             )
         return
+    _verify_hooks_document(actual, asset)
+
+
+def _verify_hooks_document(actual: dict[str, Any], asset: dict[str, Any]) -> None:
     validation = asset.get("merge_validation")
     required = validation.get("required_handlers") if isinstance(validation, dict) else None
     if not isinstance(required, list):
@@ -763,6 +767,48 @@ def ownership_projection(
         return OwnershipProjection(empty, _sha(payload))
     if strategy == "whole":
         return OwnershipProjection(_sha(payload), empty)
+    raise BaselineError(f"unsupported ownership strategy: {strategy}")
+
+
+def verify_contract_payload(
+    asset: dict[str, Any],
+    payload: bytes,
+    project_root: Path,
+) -> None:
+    """Verify one payload against the ownership evidence stored in its contract."""
+
+    projection = ownership_projection(asset, payload, project_root)
+    zones = asset.get("agents_zones")
+    if isinstance(zones, dict):
+        public = zones["public"]
+        public_block = _marker_block(payload, public["begin"], public["end"])
+        if _normalized_render_hash(public_block, asset, project_root) != public.get(
+            "current_sha256"
+        ):
+            raise BaselineError("managed AGENTS public zone drifted")
+        return
+    managed = asset.get("managed_blocks")
+    if isinstance(managed, dict):
+        if projection.public_sha256 != managed.get("current_projection_sha256"):
+            raise BaselineError("managed Markdown projection drifted")
+        return
+    strategy = str(asset.get("strategy"))
+    if strategy == "region":
+        region = asset.get("region")
+        if not isinstance(region, dict) or projection.public_sha256 != region.get("current_sha256"):
+            raise BaselineError("managed region drifted")
+        return
+    if strategy == "whole":
+        if _normalized_render_hash(payload, asset, project_root) != asset.get("current_sha256"):
+            raise BaselineError("managed whole asset drifted")
+        return
+    if strategy == "merge":
+        document = _json_payload(payload, str(asset.get("target", "managed JSON")))
+        if asset.get("merge_policy") == "codex-hooks":
+            _verify_hooks_document(document, asset)
+        return
+    if strategy == "seed":
+        return
     raise BaselineError(f"unsupported ownership strategy: {strategy}")
 
 

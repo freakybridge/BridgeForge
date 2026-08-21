@@ -277,9 +277,26 @@ class NativeMemorySyncTests(unittest.TestCase):
         self.assertIn('git rev-parse --show-toplevel', handler["command"])
         self.assertIn('$root/.venv/Scripts/python.exe', handler["command"])
         self.assertIn("--project-root", handler["command"])
-        self.assertIn(".venv/Scripts/python.exe", handler["commandWindows"])
+        self.assertIn("cmd.exe /d /c", handler["commandWindows"])
+        self.assertIn(sync_mod.WINDOWS_HOOK_WRAPPER_NAME, handler["commandWindows"])
+        self.assertIn("SessionStart", handler["commandWindows"])
+        self.assertNotIn("powershell", handler["commandWindows"].lower())
         self.assertNotIn(str(ROOT), handler["command"])
         self.assertNotIn(str(Path(sys.executable).resolve()), handler["command"])
+
+        spaced = sync_mod._windows_hook_command(
+            Path("C:/Users/Example User/product/scripts/codex_memory_sync.py"),
+            "Stop",
+        )
+        self.assertIn('call "C:\\Users\\Example User', spaced)
+        self.assertTrue(spaced.endswith('codex_memory_sync_hook.cmd" Stop'))
+
+        metachar = sync_mod._windows_hook_command(
+            Path("C:/Users/A&B/product/scripts/codex_memory_sync.py"),
+            "Stop",
+        )
+        self.assertIn('call "C:\\Users\\A&B', metachar)
+        self.assertTrue(metachar.endswith('codex_memory_sync_hook.cmd" Stop'))
 
     def test_status_reports_setup_hook_and_remote_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -299,6 +316,8 @@ class NativeMemorySyncTests(unittest.TestCase):
             receipt = json.loads(output.getvalue())
             self.assertTrue(receipt["enabled"])
             self.assertFalse(receipt["hookInstalled"])
+            self.assertFalse(receipt["hookRuntimeVerified"])
+            self.assertIsNone(receipt["hookRuntimeReceipt"])
             self.assertFalse(receipt["remoteConfigured"])
             self.assertEqual(receipt["consent"], "approved")
             self.assertEqual(receipt["consentPolicyVersion"], 1)
@@ -327,6 +346,116 @@ class NativeMemorySyncTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(after, before)
+
+    def test_hook_run_records_success_and_failure_without_invalid_stdout(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            codex = base / ".codex"
+            project = base / "project"
+            project.mkdir()
+            self._write_enabled_authorized_home(codex)
+            remote = "https://github.com/example/bridgeforge-codex-memories.git"
+            output = io.StringIO()
+            errors = io.StringIO()
+            common = (
+                mock.patch.dict(sync_mod.os.environ, {"CODEX_HOME": str(codex)}),
+                mock.patch.object(
+                    sync_mod,
+                    "_validated_project_runtime",
+                    return_value=(project.resolve(), project / ".venv/Scripts/python.exe"),
+                ),
+                mock.patch.object(
+                    sync_mod,
+                    "require_runtime_authorization",
+                    return_value={"remote": remote},
+                ),
+                mock.patch.object(sync_mod, "verify_private_github_repository"),
+            )
+            with common[0], common[1], common[2], common[3], mock.patch.object(
+                sync_mod,
+                "reconcile",
+                return_value="noop",
+            ), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                self.assertEqual(
+                    sync_mod.main(
+                        self._args(
+                            "hook-run",
+                            "--event",
+                            "SessionStart",
+                            project_root=project,
+                        )
+                    ),
+                    0,
+                )
+            self.assertEqual(output.getvalue(), "")
+            self.assertEqual(errors.getvalue(), "")
+            state = codex / ".bridgeforge-codex/memory-sync"
+            receipt = json.loads(
+                (state / "hook-runtime-sessionstart.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "succeeded")
+            self.assertEqual(receipt["action"], "noop")
+            self.assertTrue(sync_mod.hook_runtime_verified(receipt))
+
+            with common[0], common[1], common[2], common[3], mock.patch.object(
+                sync_mod,
+                "reconcile",
+                side_effect=sync_mod.SyncError("fixture failure"),
+            ), contextlib.redirect_stderr(errors):
+                self.assertEqual(
+                    sync_mod.main(
+                        self._args(
+                            "hook-run",
+                            "--event",
+                            "Stop",
+                            project_root=project,
+                        )
+                    ),
+                    0,
+                )
+            failed = json.loads(
+                (state / "hook-runtime-stop.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(failed["status"], "failed")
+            self.assertIn("fixture failure", failed["error"])
+            self.assertFalse(sync_mod.hook_runtime_verified(failed))
+            self.assertTrue((state / "pending.json").is_file())
+
+    @unittest.skipUnless(os.name == "nt", "Windows cmd wrapper integration")
+    def test_windows_hook_wrapper_reaches_project_python(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            codex = Path(raw) / ".codex"
+            state = codex / ".bridgeforge-codex/memory-sync"
+            state.mkdir(parents=True)
+            (codex / "config.toml").write_text(
+                "[features]\nmemories = false\n",
+                encoding="utf-8",
+            )
+            environment = os.environ.copy()
+            environment["CODEX_HOME"] = str(codex)
+            completed = subprocess.run(
+                [
+                    "cmd.exe",
+                    "/d",
+                    "/c",
+                    str(ROOT / "scripts/codex_memory_sync_hook.cmd"),
+                    "SessionStart",
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            dispatch = (state / "hook-dispatch.log").read_text(encoding="utf-8")
+            self.assertIn("stage=wrapper-start", dispatch)
+            self.assertIn("stage=python-exit-0", dispatch)
+            receipt = json.loads(
+                (state / "hook-runtime-sessionstart.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["status"], "succeeded")
+            self.assertEqual(receipt["action"], "disabled")
 
     def test_approved_enabled_repair_is_local_only(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -728,16 +857,88 @@ class NativeMemorySyncTests(unittest.TestCase):
             ]
             self.assertEqual(len(handlers), 3)
             self.assertTrue(all("git rev-parse --show-toplevel" in handler["command"] for handler in handlers))
-            self.assertTrue(all("--project-root" in handler["commandWindows"] for handler in handlers))
+            self.assertTrue(all("cmd.exe /d /c" in handler["commandWindows"] for handler in handlers))
+            self.assertTrue(all(sync_mod.WINDOWS_HOOK_WRAPPER_NAME in handler["commandWindows"] for handler in handlers))
             session_end = next(h for h in handlers if h[sync_mod.HOOK_MARKER_KEY].endswith(":SessionEnd"))
             stop = next(h for h in handlers if h[sync_mod.HOOK_MARKER_KEY].endswith(":Stop"))
             session_start = next(h for h in handlers if h[sync_mod.HOOK_MARKER_KEY].endswith(":SessionStart"))
             self.assertEqual(session_end["timeout"], 3)
             self.assertNotIn("async", session_end)
-            self.assertIn("kick --trigger session-end", session_end["command"])
+            self.assertIn("hook-run --event SessionEnd", session_end["command"])
             self.assertTrue(stop["async"])
             self.assertEqual(stop["timeout"], 120)
             self.assertEqual(session_start["timeout"], 120)
+
+    def test_exact_legacy_hooks_upgrade_but_edited_legacy_drift_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base = Path(raw)
+            path = base / "hooks.json"
+            script = base / "runtime.py"
+            third_party = {
+                "matcher": "*",
+                "hooks": [{"type": "command", "command": "third-party"}],
+            }
+            legacy_document = {
+                "custom": "keep",
+                "hooks": {
+                    "SessionStart": [
+                        third_party,
+                        {
+                            "hooks": [
+                                sync_mod._legacy_inline_powershell_hook_handler(
+                                    "SessionStart", script
+                                )
+                            ]
+                        },
+                    ],
+                    "Stop": [
+                        {
+                            "hooks": [
+                                sync_mod._legacy_inline_powershell_hook_handler(
+                                    "Stop", script
+                                )
+                            ]
+                        }
+                    ],
+                    "SessionEnd": [
+                        {
+                            "hooks": [
+                                sync_mod._legacy_inline_powershell_hook_handler(
+                                    "SessionEnd", script
+                                )
+                            ]
+                        }
+                    ],
+                },
+            }
+            path.write_text(json.dumps(legacy_document), encoding="utf-8")
+            self.assertFalse(sync_mod.user_hooks_healthy(path, script))
+            self.assertTrue(sync_mod.merge_user_hooks(path, script))
+            self.assertTrue(sync_mod.user_hooks_healthy(path, script))
+            upgraded = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(upgraded["custom"], "keep")
+            self.assertEqual(upgraded["hooks"]["SessionStart"][0], third_party)
+            self.assertFalse(sync_mod.merge_user_hooks(path, script))
+
+            edited = base / "edited-legacy.json"
+            edited_handler = sync_mod._legacy_inline_powershell_hook_handler(
+                "SessionStart", script
+            )
+            edited_handler["commandWindows"] += " user-edit"
+            edited.write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            "SessionStart": [{"hooks": [edited_handler]}]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            before = edited.read_bytes()
+            with self.assertRaisesRegex(sync_mod.SyncError, "content drifted"):
+                sync_mod.merge_user_hooks(edited, script)
+            self.assertEqual(edited.read_bytes(), before)
 
     def test_user_hook_duplicate_key_and_managed_drift_are_zero_write(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

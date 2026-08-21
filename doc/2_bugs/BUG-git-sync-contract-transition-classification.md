@@ -1,11 +1,12 @@
 ---
-status: resolved-awaiting-user-acceptance
+status: regression-fixed-awaiting-real-downstream
 severity: high
 scope: downstream git-sync version classification after bridgeforge-codex contract migration
 reported_at: 2026-08-17
 downstream: D:\Quant\ClaudeBridgeAssist
 factory_head: f82e0b6accaeaece4bf5565125655c2a30022fda
-product_version: 1.4.4
+product_version: 1.4.35
+fix_target: 1.4.37
 ---
 
 # BUG：`$git-sync` 无法分类跨 ownership contract 的骨架更新
@@ -199,3 +200,62 @@ HEAD 旧 contract、无 zone
 
 - `doc/1_delivery/codex-project-zone-ownership/requirements_2026-08-17_codex-project-zone-ownership.md`
 - `doc/1_delivery/git-sync-version-automation/requirements_2026-08-12_git-sync-version-automation.md`
+
+## 2026-08-21 current-only 重构回归与修复
+
+### 真实回归
+
+CausisRiskSuite 已通过 BridgeForgeCodex 1.4.35 完成受治理重建并达到 no-op，但随后执行标准
+`$git-sync` 时在自动版本发布阶段再次被阻断：
+
+```text
+ownership contract transition is blocked: codex.precommit:
+managed markers are missing or duplicated:
+# >>> BRIDGEFORGE_CODEX_MANAGED_BEGIN / # <<< BRIDGEFORGE_CODEX_MANAGED_END
+```
+
+现场证明工作树与 index 都各有一组合法新 marker，HEAD 则各有一组合法旧 marker；HEAD、stash
+和远端均未变化，失败发生在 commit/push 前。1.4.31 current-only 重构删除旧 transition
+classifier 后，`evaluate_release_transition()` 又用当前 asset 同时投影 HEAD 与工作树，重新引入
+本卡原始根因。
+
+### 1.4.37 修复
+
+- 只有 HEAD contract 与当前 contract 不同时，发布器才读取 HEAD contract；普通同合同提交继续
+  使用当前快速路径。
+- HEAD payload 使用 HEAD asset 的 marker / ownership strategy，工作树 payload 使用当前 asset；
+  stable asset id 用于同 target 或 target 迁移时对齐；当前合同存在重复 id/target、坏 JSON 或
+  非对象资产时继续 fail-closed。
+- 同合同下，旧基线损坏仍然 fail-closed。跨合同升级时，无法用旧合同证明的 HEAD 内容不再成为
+  永久历史卡点，而是保守分类为 `mixed`；这样会触发正常业务版本升级，但绝不会被洗成
+  `skeleton-only`。
+- contract target 与新旧 stamp 归入骨架变化；两侧 managed/project projection 分别比较。纯 marker
+  迁移分类为 `skeleton-only`，叠加业务文件分类为 `mixed`。
+- 当前工作树仍先通过 `verify_current_baseline()`；缺失、重复或漂移的新 marker 没有放宽。
+- `$git-sync` 仍识别 `.runtime/bridgeforge-codex/explicit-adaptation.json`，但旧收据不再参与或覆盖
+  ownership 分类。独立审计证明旧 schema-2 fingerprint 只是自洽校验、不是不可伪造的信任根；继续
+  用它放行会允许项目修改被洗成 `skeleton-only`。
+- 发布器只使用当前合同与真实 HEAD/工作树内容给出结果。当前规则独立通过并成功 commit 后，
+  `$git-sync` 才删除过期收据；当前规则阻断或 commit 失败时收据原样保留。
+- 这保留一套 current-only 规则：旧收据既不能放宽 fail-closed，也不会让已经能由当前规则安全
+  分类为 `mixed` 的 Causis 永久卡住。
+
+### 当前验证
+
+- 精确回归与 parser 反例覆盖旧 marker、跨合同 HEAD 漂移保守转 `mixed`、stable-id target rename、
+  同 target 换 id、无 HEAD contract 的首次安装，以及伪造旧收据不能进入正式 evaluator。
+- Git 事务回归证明过期收据不会传给发布 evaluator，只在 current-only commit 成功后清理；commit
+  失败时保留且自动写入回滚。
+- 使用修复后的 Template 模块只读分类真实 `D:\Quant\causis_risk_suite`：返回 `mixed`，不再报告
+  marker 缺失；未 stage、commit 或 push。
+- 完整 unittest `266/266` 通过；downstream fixture 三场景通过；manifest、mirror、structure、
+  instruction、skill metadata 与 `git diff --check` 全部 exit 0。最终独立审计为
+  Blocker / High / Medium / Low = `0/0/0/0`。
+- 真实 Causis `$git-sync` 须在 1.4.37 发布并重新更新后复验，复验前不得关闭本回归。
+
+### 历史边界
+
+本轮不恢复 schema-v1 `whole_files` / `managed_regions` 历史兼容包，也不恢复一套长期并存的旧
+transition classifier。当前 contract 始终是唯一安装标准；跨合同旧侧无法证明时统一降级为
+`mixed`，同合同当前基线损坏仍 fail-closed。旧显式适配收据仅作为待退休运行时产物，不再是
+ownership 证明或骨架事实源。

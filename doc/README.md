@@ -79,6 +79,7 @@ delivery_layout: flat
 
 ## Bug records
 
+- [`BUG-codex-desktop-native-memory-powershell-hook-not-entering-python.md`](2_bugs/BUG-codex-desktop-native-memory-powershell-hook-not-entering-python.md)
 - [`BUG-legacy-head-contract-missing-release-blocks-rebuild.md`](2_bugs/BUG-legacy-head-contract-missing-release-blocks-rebuild.md)
 - [`BUG-rebuild-drops-project-doc-index.md`](2_bugs/BUG-rebuild-drops-project-doc-index.md)
 - [`BUG-project-sync-schema-v1-baseline-and-native-memory-hook-race.md`](2_bugs/BUG-project-sync-schema-v1-baseline-and-native-memory-hook-race.md)

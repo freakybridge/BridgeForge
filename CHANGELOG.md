@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.37] - 2026-08-21
+
+### Fixed
+
+- [product][repo][meta] 统一跨合同分类并完善 Native Memory Hook
+
+## [1.4.36] - 2026-08-21
+
+### Fixed
+
+- [product][meta] 修复 Windows Codex App 能派发生命周期 hook、但内联 PowerShell `commandWindows` 未进入 Native Memory Python 同步脚本的问题：改用独立 `cmd.exe` wrapper 动态解析当前 Git 根与项目 `.venv`，新增 wrapper/Python/reconcile 三层运行收据，并让状态明确区分 `hookInstalled` 与 `hookRuntimeVerified`；升级时只替换内容完全匹配的官方旧版 handler，人工漂移仍拒绝覆盖。
+
 ## [1.4.35] - 2026-08-21
 
 ### Fixed

@@ -2,6 +2,7 @@
 """Plan and apply deterministic repository version releases for git-sync."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -11,7 +12,7 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -21,6 +22,7 @@ from current_baseline import (  # noqa: E402
     detect_repository_role,
     load_contract,
     ownership_projection,
+    verify_contract_payload,
     verify_current_baseline,
 )
 
@@ -162,6 +164,45 @@ def _head_payload(repo: Path, relative: str) -> bytes | None:
     return result.stdout if result.returncode == 0 else None
 
 
+def _contract_assets_by_target(
+    payload: bytes,
+    *,
+    label: str,
+) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate key {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        contract = json.loads(
+            payload.decode("utf-8-sig"),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise BaselineError(f"{label} contract is unreadable: {exc}") from exc
+    if not isinstance(contract, dict) or not isinstance(contract.get("assets"), list):
+        raise BaselineError(f"{label} contract must contain an assets list")
+    assets: dict[str, dict[str, object]] = {}
+    asset_ids: set[str] = set()
+    for raw_asset in contract["assets"]:
+        if not isinstance(raw_asset, dict):
+            raise BaselineError(f"{label} contract contains a non-object asset")
+        asset_id = raw_asset.get("id")
+        target = raw_asset.get("target")
+        if not isinstance(asset_id, str) or not isinstance(target, str):
+            raise BaselineError(f"{label} contract asset identity is invalid")
+        normalized = target.replace("\\", "/")
+        if asset_id in asset_ids or normalized in assets:
+            raise BaselineError(f"{label} contract asset identity is duplicated: {asset_id}")
+        asset_ids.add(asset_id)
+        assets[normalized] = raw_asset
+    return contract, assets
+
+
 def _verify_prospective_factory_baseline(
     repo: Path,
     contract_path: Path,
@@ -230,38 +271,131 @@ def evaluate_release_transition(
         contract = load_contract(contract_path)
     except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
         raise ReleaseError(f"cannot read current-only baseline: {exc}") from exc
-    assets = {
+    current_assets = {
         str(asset["target"]).replace("\\", "/"): asset
         for asset in contract["assets"]
         if isinstance(asset, dict) and isinstance(asset.get("target"), str)
     }
+    current_assets_by_id = {
+        str(asset["id"]): asset for asset in current_assets.values()
+    }
+    contract_target = str(contract.get("contract_target", ".codex/managed-skeleton.json"))
+    current_contract_bytes = contract_path.read_bytes()
+    head_contract_bytes = _head_payload(repo, contract_target)
+    head_contract = contract
+    head_assets = current_assets
+    unverifiable_head_contract = False
+    contract_transition = head_contract_bytes is None or (
+        head_contract_bytes.replace(b"\r\n", b"\n")
+        != current_contract_bytes.replace(b"\r\n", b"\n")
+    )
+    if head_contract_bytes is None:
+        head_contract = {}
+        head_assets = {}
+    elif contract_transition:
+        try:
+            head_contract, head_assets = _contract_assets_by_target(
+                head_contract_bytes,
+                label="HEAD ownership",
+            )
+        except BaselineError:
+            head_contract = {}
+            head_assets = {}
+            unverifiable_head_contract = True
+    head_assets_by_id = {
+        str(asset["id"]): asset for asset in head_assets.values()
+    }
+    transition_paths = {contract_target}
+    for candidate in (contract.get("stamp"), head_contract.get("stamp")):
+        if isinstance(candidate, str):
+            transition_paths.add(candidate.replace("\\", "/"))
     relevant = paths - AUTO_EXCLUDED_PATHS
-    public_changed = False
-    project_changed = False
+    public_changed = unverifiable_head_contract
+    project_changed = unverifiable_head_contract
+    handled_asset_ids: set[str] = set()
     for relative in sorted(relevant):
-        asset = assets.get(relative)
-        if asset is None:
+        if relative in transition_paths:
+            public_changed = True
+            continue
+        asset = current_assets.get(relative)
+        head_asset = head_assets.get(relative)
+        if asset is not None and head_asset is None:
+            head_asset = head_assets_by_id.get(str(asset.get("id")))
+        if head_asset is not None and asset is None:
+            asset = current_assets_by_id.get(str(head_asset.get("id")))
+        if asset is None and head_asset is None:
             project_changed = True
             continue
-        target = repo / Path(relative)
-        current = target.read_bytes() if target.is_file() else b""
-        before = _head_payload(repo, relative)
-        if before is None:
-            if asset.get("strategy") == "whole" and not asset.get("agents_zones") and not asset.get("managed_blocks"):
-                public_changed = True
-            elif asset.get("strategy") == "seed":
-                project_changed = True
-            else:
-                project_changed = True
+        if asset is None:
+            head_relative = str(head_asset["target"]).replace("\\", "/")
+            before = _head_payload(repo, head_relative)
+            if before is None:
+                if contract_transition:
+                    public_changed = True
+                    project_changed = True
+                    continue
+                raise TransitionBlocked([{
+                    "asset_id": str(head_asset.get("id", relative)),
+                    "target": head_relative,
+                    "reason": "HEAD managed asset is missing",
+                }])
+            try:
+                verify_contract_payload(head_asset, before, repo)
+            except BaselineError as exc:
+                if contract_transition:
+                    public_changed = True
+                    project_changed = True
+                    continue
+                raise TransitionBlocked([{
+                    "asset_id": str(head_asset.get("id", relative)),
+                    "target": head_relative,
+                    "reason": f"HEAD ownership baseline is invalid: {exc}",
+                }]) from exc
+            public_changed = True
+            project_changed = project_changed or head_asset.get("strategy") != "whole"
             continue
+        if head_asset is None:
+            public_changed = public_changed or asset.get("strategy") != "seed"
+            project_changed = project_changed or asset.get("strategy") != "whole"
+            continue
+        asset_id = str(asset.get("id", relative))
+        if asset_id != str(head_asset.get("id", relative)):
+            raise TransitionBlocked([{
+                "asset_id": asset_id,
+                "target": relative,
+                "reason": "HEAD and current ownership identities disagree for one target",
+            }])
+        if asset_id in handled_asset_ids:
+            continue
+        handled_asset_ids.add(asset_id)
+        current_relative = str(asset["target"]).replace("\\", "/")
+        head_relative = str(head_asset["target"]).replace("\\", "/")
+        target = repo / Path(current_relative)
+        current = target.read_bytes() if target.is_file() else b""
+        before = _head_payload(repo, head_relative)
+        if before is None:
+            if contract_transition:
+                public_changed = True
+                project_changed = True
+                continue
+            raise TransitionBlocked([{
+                "asset_id": asset_id,
+                "target": head_relative,
+                "reason": "HEAD managed asset is missing",
+            }])
         try:
-            old_projection = ownership_projection(asset, before, repo)
+            verify_contract_payload(head_asset, before, repo)
+            old_projection = ownership_projection(head_asset, before, repo)
             new_projection = ownership_projection(asset, current, repo)
         except BaselineError as exc:
+            if contract_transition:
+                public_changed = True
+                project_changed = True
+                continue
             raise TransitionBlocked([{
                 "asset_id": str(asset.get("id", relative)),
-                "target": relative,
-                "reason": str(exc),
+                "target": current_relative,
+                "reason": f"HEAD ownership baseline is invalid: {exc}",
             }]) from exc
         public_changed = public_changed or (
             old_projection.public_sha256 != new_projection.public_sha256

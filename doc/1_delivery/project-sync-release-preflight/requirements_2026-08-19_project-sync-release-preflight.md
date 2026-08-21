@@ -1,6 +1,6 @@
 ---
-status: implemented-awaiting-user-acceptance
-next: user_acceptance
+status: regression-fixed-awaiting-real-downstream
+next: publish_1.4.37_and_retest_causis_git_sync
 scale: M
 source_bug: doc/2_bugs/BUG-bridgeforge-codex-145-end-to-end-acceptance-gaps.md
 ---
@@ -89,6 +89,29 @@ source_bug: doc/2_bugs/BUG-bridgeforge-codex-145-end-to-end-acceptance-gaps.md
 - Git changed-path 扫描必须与 repo-local `$git-sync` 的 unstaged、staged、untracked 三类集合语义一致。
 - 当前未提交的 native-memory 改动不属于本需求，但机械 manifest/version 传播可能与其共享文件；必须合并保留，不得回退。
 - 真实 ClaudeBridgeAssist/causis_risk_suite 复验需要单独授权；未运行时必须标记未验证。
+
+## 2026-08-21 回归补充
+
+1. 1.4.31 current-only 重构保留了统一 `evaluate_release_transition()` 入口，但删除双 contract
+   projection 后又让当前 asset 解析 HEAD 旧 marker，CausisRiskSuite 1.4.35 首次 `$git-sync`
+   在版本发布前 fail-closed。
+2. 1.4.37 恢复最小双 contract 语义，不恢复历史兼容包：HEAD 只读取同一 Git HEAD 自带的 contract，
+   当前侧仍只读取 current-only contract。
+3. 两侧资产按 stable id 对齐并分别投影；当前 contract 坏 JSON、重复 id/target、资产非对象或
+   当前基线漂移时仍阻断。
+4. 同合同旧基线漂移继续阻断；跨合同旧侧无法用旧证据解释时必须保守归入 `mixed`，不得归为
+   `skeleton-only`，也不得要求永久维护旧 parser。
+5. schema-2 显式适配收据不得进入 `evaluate_release_transition()` 或降低 current-only 分类。旧
+   fingerprint 只证明字段自洽，不构成 ownership 信任根；任何项目修改都必须由当前合同和真实
+   HEAD/工作树内容重新分类。
+6. `$git-sync` 只把 ignored 普通 JSON 收据识别为过期运行时产物。current-only evaluator 独立通过
+   且 commit 成功后才删除；evaluator 阻断、JSON 异常或 commit 失败时必须保留。
+7. 无 HEAD contract、当前有合法 contract 的首次安装属于 contract introduction；旧侧资产集合为空，
+   不得错误要求 HEAD 已存在当前 whole asset。当前 baseline 仍须严格通过。
+8. 精确 fixture 同时断言纯 marker 迁移为 `skeleton-only`、叠加项目源码为 `mixed`；真实 Causis
+   dirty 现场只读返回 `mixed`。
+9. 本卡只有在 1.4.37 发布、Causis 更新、标准 `$git-sync` 完成 commit/push 且最终 clean、0/0 后
+   才能再次进入用户验收状态。
 
 ## 实施记录
 

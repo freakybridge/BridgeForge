@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -40,6 +41,9 @@ except Exception:
     pass
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+ADAPTATION_RECEIPT = (
+    REPO_ROOT / ".runtime" / "bridgeforge-codex" / "explicit-adaptation.json"
+)
 
 class SyncStop(Exception):
     """Expected stop with a user-facing message and exit code."""
@@ -88,6 +92,36 @@ def _changed_paths() -> set[str]:
         output = _run_git(command, label="git changed-path scan").stdout
         paths.update(line.strip().replace("\\", "/") for line in output.splitlines() if line.strip())
     return paths
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _read_adaptation_proof() -> dict[str, object] | None:
+    if not ADAPTATION_RECEIPT.exists():
+        return None
+    if not ADAPTATION_RECEIPT.is_file():
+        raise SyncStop("explicit adaptation receipt is not a plain file", 2)
+    relative = ADAPTATION_RECEIPT.relative_to(REPO_ROOT).as_posix()
+    ignored = _git(["check-ignore", "--quiet", "--", relative])
+    if ignored.returncode != 0:
+        raise SyncStop("explicit adaptation receipt is not ignored by Git", 2)
+    try:
+        payload = json.loads(
+            ADAPTATION_RECEIPT.read_text(encoding="utf-8-sig"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise SyncStop(f"explicit adaptation receipt is invalid: {exc}", 2) from exc
+    if not isinstance(payload, dict):
+        raise SyncStop("explicit adaptation receipt root must be an object", 2)
+    return payload
 
 @dataclass(frozen=True)
 class SyncWritePlan:
@@ -180,7 +214,11 @@ def _build_sync_write_plan(
     changed_paths: set[str],
 ) -> SyncWritePlan:
     try:
-        release = build_release_plan(REPO_ROOT, message, changed_paths)
+        release = build_release_plan(
+            REPO_ROOT,
+            message,
+            changed_paths,
+        )
     except ReleaseError as exc:
         raise SyncStop(f"automatic version release blocked: {exc}", 2) from exc
     writes: dict[Path, bytes] = {}
@@ -392,7 +430,11 @@ def sync(args: argparse.Namespace) -> int:
                     verify_current_baseline(REPO_ROOT)
                 except (BaselineError, OSError, UnicodeDecodeError, ValueError) as exc:
                     raise SyncStop(f"current baseline blocked git-sync: {exc}", 2) from exc
-            plan = _build_sync_write_plan(message, _changed_paths())
+            obsolete_adaptation_receipt = _read_adaptation_proof()
+            plan = _build_sync_write_plan(
+                message,
+                _changed_paths(),
+            )
             snapshot = _snapshot_sync_plan(plan)
             expected_index = snapshot.index_bytes
             expected_index_tree: str | None = None
@@ -414,6 +456,12 @@ def sync(args: argparse.Namespace) -> int:
                 if _has_staged_changes():
                     _run_git(["commit", "-m", message], timeout=180, label="git commit")
                     committed = True
+                    if obsolete_adaptation_receipt is not None:
+                        ADAPTATION_RECEIPT.unlink()
+                        print(
+                            "[git-sync] obsolete adaptation receipt retired after "
+                            "current-only evaluation"
+                        )
                     ahead, behind = _ahead_behind()
                     if ahead and behind:
                         _print_diverged()

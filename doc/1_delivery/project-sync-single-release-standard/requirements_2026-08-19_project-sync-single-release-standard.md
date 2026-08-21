@@ -7,6 +7,19 @@ source_bug: doc/2_bugs/BUG-project-sync-schema-v1-baseline-and-native-memory-hoo
 
 # Project Sync 单一 Release 验收标准需求
 
+## 2026-08-21 current-only 跨合同发布补充标准
+
+- 发布分类必须先验证当前 ownership contract，再分别用 Git HEAD contract 解析 HEAD、用当前
+  contract 解析当前工作区；跨版本资产只能按稳定 asset id 对齐，禁止用任一侧合同代替另一侧。
+- 当前 contract 损坏必须 fail-closed；旧侧 contract 不可验证时必须保守归类 `mixed`，禁止推断为
+  `skeleton-only`。HEAD contract 缺失视为合同首次引入，不得要求 HEAD 已持有当前受管资产。
+- `explicit-adaptation.json` 及任何历史适配收据不得作为 release evaluator 输入，也不得覆盖
+  current-only 分类。产品不得保留并行旧判定器。
+- 废弃收据只能在 current-only evaluator 独立通过且 Git commit 成功后退休；任何预检、分类或
+  commit 失败都必须保留现场，不得借删除收据绕过阻断。
+- 真实下游仍必须完成 plan -> apply -> validators -> stamp-last -> no-op replan；只有随后运行项目
+  自带 `$git-sync` 并证明工作区与远端同步，才算端到端关闭。
+
 ## 原始需求摘要
 
 修复 `bridgeforge-codex` Planner 先报告 `ready`、Apply 才被严格 release preflight

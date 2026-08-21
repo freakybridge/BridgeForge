@@ -283,6 +283,233 @@ class CurrentReleaseTests(unittest.TestCase):
         self.assertEqual(project_only, "project-only")
         self.assertEqual(project_with_source, "project-only")
 
+    def test_contract_transition_uses_head_markers_for_head_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            plan = SYNC.build_plan(project, ROOT, "init")
+            SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+            precommit_path = project / ".githooks" / "pre-commit"
+            contract_path = project / ".codex" / "managed-skeleton.json"
+            stamp_path = project / ".codex" / ".bridgeforge_codex_version"
+            current_precommit = precommit_path.read_bytes()
+            current_contract = contract_path.read_bytes()
+            current_stamp = stamp_path.read_bytes()
+
+            old_precommit = current_precommit.replace(
+                b"BRIDGEFORGE_CODEX_MANAGED_",
+                b"BRIDGEFORGE_MANAGED_",
+            )
+            old_contract = json.loads(current_contract.decode("utf-8"))
+            major, minor, patch = map(int, old_contract["release_version"].split("."))
+            old_version = f"{major}.{minor}.{patch - 1}"
+            old_contract["release_version"] = old_version
+            old_asset = next(
+                item for item in old_contract["assets"] if item["id"] == "codex.precommit"
+            )
+            old_asset["region"]["begin"] = "# >>> BRIDGEFORGE_MANAGED_BEGIN"
+            old_asset["region"]["end"] = "# <<< BRIDGEFORGE_MANAGED_END"
+            old_asset["current_sha256"] = CURRENT._normalized_render_hash(
+                old_precommit,
+                old_asset,
+                project,
+            )
+            old_asset["region"]["current_sha256"] = CURRENT._sha(
+                CURRENT._marker_block(
+                    old_precommit,
+                    old_asset["region"]["begin"],
+                    old_asset["region"]["end"],
+                )
+            )
+            precommit_path.write_bytes(old_precommit)
+            contract_path.write_text(
+                json.dumps(old_contract, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            stamp_path.write_text(old_version + "\n", encoding="utf-8")
+            commit_baseline(project)
+
+            precommit_path.write_bytes(current_precommit)
+            contract_path.write_bytes(current_contract)
+            stamp_path.write_bytes(current_stamp)
+            skeleton_paths = {
+                ".githooks/pre-commit",
+                ".codex/managed-skeleton.json",
+                ".codex/.bridgeforge_codex_version",
+            }
+            classification = RELEASE.evaluate_release_transition(
+                project,
+                changed_paths=skeleton_paths,
+            )[0]
+            self.assertEqual(classification, "skeleton-only")
+
+            source = project / "src" / "strategy.py"
+            source.parent.mkdir()
+            source.write_text("PROJECT_CHANGE = True\n", encoding="utf-8")
+            classification = RELEASE.evaluate_release_transition(
+                project,
+                changed_paths=skeleton_paths | {"src/strategy.py"},
+            )[0]
+            self.assertEqual(classification, "mixed")
+
+    def test_head_contract_parser_rejects_ambiguous_assets(self) -> None:
+        scenarios = (
+            (b'{"assets": [], "assets": []}', "duplicate key"),
+            (b'[]', "must contain an assets list"),
+            (b'{"whole_files": [], "managed_regions": []}', "assets list"),
+            (
+                b'{"assets":[{"id":"same","target":"a","strategy":"whole"},'
+                b'{"id":"same","target":"b","strategy":"whole"}]}',
+                "identity is duplicated",
+            ),
+        )
+        for payload, message in scenarios:
+            with self.subTest(message=message), self.assertRaisesRegex(
+                CURRENT.BaselineError,
+                message,
+            ):
+                RELEASE._contract_assets_by_target(payload, label="HEAD ownership")
+
+    def test_contract_transition_conservatively_mixes_drifted_head_region(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            plan = SYNC.build_plan(project, ROOT, "init")
+            SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+            target = project / ".githooks" / "pre-commit"
+            contract_path = project / ".codex" / "managed-skeleton.json"
+            stamp_path = project / ".codex" / ".bridgeforge_codex_version"
+            current_payload = target.read_bytes()
+            current_contract = contract_path.read_bytes()
+            current_stamp = stamp_path.read_bytes()
+            old_payload = current_payload.replace(
+                b"BRIDGEFORGE_CODEX_MANAGED_",
+                b"BRIDGEFORGE_MANAGED_",
+            )
+            old_contract = json.loads(current_contract)
+            major, minor, patch = map(int, old_contract["release_version"].split("."))
+            old_version = f"{major}.{minor}.{patch - 1}"
+            old_contract["release_version"] = old_version
+            old_asset = next(
+                item for item in old_contract["assets"] if item["id"] == "codex.precommit"
+            )
+            old_asset["region"]["begin"] = "# >>> BRIDGEFORGE_MANAGED_BEGIN"
+            old_asset["region"]["end"] = "# <<< BRIDGEFORGE_MANAGED_END"
+            old_asset["current_sha256"] = CURRENT._normalized_render_hash(
+                old_payload, old_asset, project
+            )
+            old_asset["region"]["current_sha256"] = CURRENT._sha(
+                CURRENT._marker_block(
+                    old_payload,
+                    old_asset["region"]["begin"],
+                    old_asset["region"]["end"],
+                )
+            )
+            drifted = old_payload.replace(
+                b"# >>> BRIDGEFORGE_MANAGED_BEGIN",
+                b"# >>> BRIDGEFORGE_MANAGED_BEGIN\n# unauthorized HEAD drift",
+                1,
+            )
+            target.write_bytes(drifted)
+            contract_path.write_text(
+                json.dumps(old_contract, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            stamp_path.write_text(old_version + "\n", encoding="utf-8")
+            commit_baseline(project)
+            target.write_bytes(current_payload)
+            contract_path.write_bytes(current_contract)
+            stamp_path.write_bytes(current_stamp)
+
+            classification = RELEASE.evaluate_release_transition(
+                project,
+                changed_paths={
+                    ".githooks/pre-commit",
+                    ".codex/managed-skeleton.json",
+                    ".codex/.bridgeforge_codex_version",
+                },
+            )[0]
+            self.assertEqual(classification, "mixed")
+
+    def test_contract_introduction_does_not_require_head_managed_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            (project / "src").mkdir()
+            (project / "src" / "strategy.py").write_text(
+                "UNCHANGED = True\n",
+                encoding="utf-8",
+            )
+            commit_baseline(project)
+            plan = SYNC.build_plan(project, ROOT, "init")
+            SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+            classification = RELEASE.evaluate_release_transition(
+                project,
+                changed_paths={
+                    ".codex/scripts/audit_user_allow.py",
+                    ".codex/managed-skeleton.json",
+                    ".codex/.bridgeforge_codex_version",
+                },
+            )[0]
+            self.assertEqual(classification, "skeleton-only")
+
+    def test_contract_transition_aligns_target_rename_by_stable_id(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            plan = SYNC.build_plan(project, ROOT, "init")
+            SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+            commit_baseline(project)
+            contract_path = project / ".codex" / "managed-skeleton.json"
+            stamp_path = project / ".codex" / ".bridgeforge_codex_version"
+            contract = json.loads(contract_path.read_bytes())
+            major, minor, patch = map(int, contract["release_version"].split("."))
+            forward = f"{major}.{minor}.{patch + 1}"
+            contract["release_version"] = forward
+            asset = next(
+                item
+                for item in contract["assets"]
+                if item["id"] == "codex.script.audit-user-allow"
+            )
+            old_target = str(asset["target"])
+            new_target = old_target.replace("audit_user_allow.py", "audit_user_allow_v2.py")
+            (project / new_target).parent.mkdir(parents=True, exist_ok=True)
+            (project / new_target).write_bytes((project / old_target).read_bytes())
+            (project / old_target).unlink()
+            asset["target"] = new_target
+            contract_path.write_text(
+                json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            stamp_path.write_text(forward + "\n", encoding="utf-8")
+            classification = RELEASE.evaluate_release_transition(
+                project,
+                changed_paths={
+                    old_target,
+                    new_target,
+                    ".codex/managed-skeleton.json",
+                    ".codex/.bridgeforge_codex_version",
+                },
+            )[0]
+            self.assertEqual(classification, "skeleton-only")
+
+            (project / old_target).write_bytes((project / new_target).read_bytes())
+            (project / new_target).unlink()
+            asset["target"] = old_target
+            asset["id"] = "codex.script.audit-user-allow-v2"
+            contract_path.write_text(
+                json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                RELEASE.TransitionBlocked,
+                "identities disagree",
+            ):
+                RELEASE.evaluate_release_transition(
+                    project,
+                    changed_paths={
+                        old_target,
+                        new_target,
+                        ".codex/managed-skeleton.json",
+                    },
+                )
+
     def test_hook_event_and_matcher_are_part_of_current_identity(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             project = Path(raw)
