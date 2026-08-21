@@ -31,6 +31,10 @@ PROJECT_HOOK_COMMAND_RE = re.compile(
     r"^\.venv/Scripts/python\.exe "
     r"\.codex/hooks/(project_[A-Za-z0-9][A-Za-z0-9_-]*)/entrypoint\.py$"
 )
+REQUIRED_PROJECT_MAPS = (
+    ("R:project-map:find-doc", ".codex/find-doc.map.md"),
+    ("R:project-map:sync-docs", ".codex/sync-docs.map.md"),
+)
 
 
 class SyncBlocked(RuntimeError):
@@ -1274,6 +1278,29 @@ def _project_asset_candidates(
                     "disposition": "user-decision",
                 })
 
+    for asset_id, relative in REQUIRED_PROJECT_MAPS:
+        if relative in desired_targets:
+            continue
+        target = root / relative
+        try:
+            target_present = _optional_plain_file(
+                root,
+                target,
+                f"required project mapping {relative}",
+            )
+        except SyncBlocked as exc:
+            blockers.append(str(exc))
+            continue
+        if target_present:
+            candidates.append({
+                "id": asset_id,
+                "kind": "project-map",
+                "target": relative,
+                "sha256": _sha256_path(target),
+                "recommended": "preserve",
+                "disposition": "required-preserve",
+            })
+
     rules = root / ".codex" / "rules"
     if rules.is_dir() and not _is_reparse(rules):
         for path in sorted(item for item in rules.rglob("*") if item.is_file()):
@@ -1695,7 +1722,16 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             candidate_targets = {
                 str(item["target"])
                 for item in candidates
+            }
+            user_decision_targets = {
+                str(item["target"])
+                for item in candidates
                 if item.get("disposition") == "user-decision"
+            }
+            required_preserve_targets = {
+                str(item["target"])
+                for item in candidates
+                if item.get("disposition") == "required-preserve"
             }
             known_targets = (
                 desired_targets
@@ -1742,11 +1778,15 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
                     or relative == OBSOLETE_STAMP
                     or relative.startswith(".codex/memory/")
                     or relative.startswith(".codex/skills/")
+                    or any(
+                        relative == target or relative.startswith(target + "/")
+                        for target in required_preserve_targets
+                    )
                 ):
                     continue
                 selected_project_asset = any(
                     relative == target or relative.startswith(target + "/")
-                    for target in candidate_targets
+                    for target in user_decision_targets
                 )
                 if not selected_project_asset:
                     blockers.append(
@@ -2069,6 +2109,32 @@ def _build_preservation_manifest(
     )
 
 
+def _verify_required_preserve_files(
+    root: Path,
+    candidates: Iterable[dict[str, Any]],
+) -> None:
+    for item in candidates:
+        if (
+            item.get("disposition") != "required-preserve"
+            or item.get("kind") != "project-map"
+        ):
+            continue
+        relative = str(item["target"])
+        target = _inside(root, relative, "required-preserve project file")
+        if not _optional_plain_file(
+            root,
+            target,
+            f"required-preserve project file {relative}",
+        ):
+            raise SyncBlocked(
+                f"required-preserve project file disappeared: {relative}"
+            )
+        if _sha256_path(target) != str(item["sha256"]):
+            raise SyncBlocked(
+                f"required-preserve project file drifted: {relative}"
+            )
+
+
 def apply_plan(
     planned: Plan,
     *,
@@ -2244,6 +2310,7 @@ def _apply_rebuilt_plan(
     transaction = _Transaction(root)
     memory_root = root / ".codex" / "memory"
     transaction.snapshot_tree(memory_root)
+    _verify_required_preserve_files(root, candidate_by_id.values())
     deleted_bundle_paths = tuple(
         _inside(
             root,
@@ -2341,6 +2408,7 @@ def _apply_rebuilt_plan(
             expected_version=rebuilt.current_version,
             prospective_version=rebuilt.current_version,
         )
+        _verify_required_preserve_files(root, candidate_by_id.values())
         if preservation_manifest is not None:
             preservation_manifest.clear()
             if (
@@ -2352,6 +2420,7 @@ def _apply_rebuilt_plan(
                 raise SyncBlocked("temporary preservation manifest cleanup failed")
         if checkpoint is not None:
             checkpoint("after-preservation-manifest-clear")
+        _verify_required_preserve_files(root, candidate_by_id.values())
         stamp_present = _optional_plain_file(root, stamp, "version stamp path")
         stamp_before_sha256 = _sha256_path(stamp) if stamp_present else None
         if stamp_before_sha256 != rebuilt.current_stamp_before_sha256:
@@ -2363,6 +2432,7 @@ def _apply_rebuilt_plan(
         stamp_written = True
         if stamp.read_text(encoding="utf-8-sig").strip() != rebuilt.current_version:
             raise SyncBlocked("current baseline version stamp verification failed")
+        _verify_required_preserve_files(root, candidate_by_id.values())
     except Exception as exc:
         transaction.rollback()
         rollback_performed = True

@@ -129,6 +129,12 @@ def rebuild_check(base: Path) -> dict[str, object]:
         "1.4.30\n",
         encoding="utf-8",
     )
+    project_maps = {
+        project / ".codex" / "find-doc.map.md": b"# find-doc project map\n",
+        project / ".codex" / "sync-docs.map.md": b"# sync-docs project map\n",
+    }
+    for path, payload in project_maps.items():
+        path.write_bytes(payload)
     scattered.write_text("print('legacy')\n", encoding="utf-8")
     hooks_json = project / ".codex" / "hooks.json"
     hooks_json.write_text(
@@ -175,6 +181,12 @@ def rebuild_check(base: Path) -> dict[str, object]:
     )
     skill_before = skill.read_bytes()
     plan = cli(python, project, "auto")
+    required_map_targets = {
+        str(item["target"])
+        for item in plan["preservation_manifest"]
+        if item.get("kind") == "project-map"
+        and item.get("disposition") == "required-preserve"
+    }
     hook_id = next(
         item["id"]
         for item in plan["preservation_manifest"]
@@ -206,6 +218,14 @@ def rebuild_check(base: Path) -> dict[str, object]:
             and (hook / "entrypoint.py").is_file()
             and (hook / "config.json").is_file()
             and skill.read_bytes() == skill_before
+            and required_map_targets == {
+                ".codex/find-doc.map.md",
+                ".codex/sync-docs.map.md",
+            }
+            and all(
+                path.read_bytes() == payload
+                for path, payload in project_maps.items()
+            )
             and not (project / ".codex" / ".bridgeforge_version").exists()
             and not repeated["blockers"]
             and not repeated["safe"]

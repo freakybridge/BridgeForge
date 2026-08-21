@@ -888,6 +888,125 @@ class CurrentProjectSyncTests(unittest.TestCase):
         self.assertIn("unknown .codex structure", " ".join(plan.blockers))
         self.assertEqual(self.snapshot_tree(), before)
 
+    def test_required_project_maps_survive_rebuild_byte_identically(self) -> None:
+        stamp = self.project / SYNC.OBSOLETE_STAMP
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        payloads = {
+            ".codex/find-doc.map.md": b"# find-doc project map\n",
+            ".codex/sync-docs.map.md": b"# sync-docs project map\n",
+        }
+        for relative, payload in payloads.items():
+            target = self.project / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload)
+
+        plan = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertFalse(plan.blockers)
+        entries = {
+            str(item["target"]): item
+            for item in plan.preservation_entries
+            if item.get("kind") == "project-map"
+        }
+        self.assertEqual(set(entries), set(payloads))
+        self.assertTrue(all(
+            item.get("disposition") == "required-preserve"
+            for item in entries.values()
+        ))
+        self.assertFalse(any(
+            action.action == "delete" and action.target in payloads
+            for action in plan.actions
+        ))
+
+        receipt = self.apply(
+            plan,
+            confirmed_preservation_manifest=True,
+            confirmed_risk=True,
+        )
+
+        self.assertEqual(receipt.mode, "rebuild")
+        for relative, payload in payloads.items():
+            self.assertEqual((self.project / relative).read_bytes(), payload)
+        BASELINE.verify_current_baseline(self.project)
+        repeated = SYNC.build_plan(self.project, ROOT, "update")
+        self.assertFalse(repeated.blockers)
+        self.assertEqual(repeated.actions, [])
+
+    def test_unsafe_required_project_map_blocks_without_writes(self) -> None:
+        stamp = self.project / SYNC.OBSOLETE_STAMP
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        target = self.project / ".codex" / "find-doc.map.md"
+        target.write_text("# project map\n", encoding="utf-8")
+        before = self.snapshot_tree()
+        original = SYNC._is_reparse
+
+        with mock.patch.object(
+            SYNC,
+            "_is_reparse",
+            side_effect=lambda path: path == target or original(path),
+        ):
+            plan = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertIn("required project mapping", " ".join(plan.blockers))
+        self.assertEqual(self.snapshot_tree(), before)
+
+    def test_required_project_map_drift_rolls_back_without_stamping(self) -> None:
+        obsolete_stamp = self.project / SYNC.OBSOLETE_STAMP
+        obsolete_stamp.parent.mkdir(parents=True)
+        obsolete_stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        target = self.project / ".codex" / "find-doc.map.md"
+        target.write_bytes(b"original\n")
+        plan = SYNC.build_plan(self.project, ROOT, "auto")
+        changed = False
+
+        def drift_before_first_action(label: str) -> None:
+            nonlocal changed
+            if not changed and label.startswith("before-action:"):
+                target.write_bytes(b"drifted\n")
+                changed = True
+
+        with self.assertRaisesRegex(
+            SYNC.SyncBlocked,
+            "required-preserve project file drifted",
+        ):
+            self.apply(
+                plan,
+                confirmed_preservation_manifest=True,
+                confirmed_risk=True,
+                checkpoint=drift_before_first_action,
+            )
+
+        self.assertTrue(changed)
+        self.assertEqual(target.read_bytes(), b"drifted\n")
+        self.assertEqual(
+            obsolete_stamp.read_text(encoding="utf-8").strip(),
+            LEGACY_VERSION,
+        )
+        self.assertFalse((self.project / SYNC.CURRENT_STAMP).exists())
+
+    def test_rebuild_memory_compatibility_plan_is_zero_write(self) -> None:
+        stamp = self.project / SYNC.OBSOLETE_STAMP
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(LEGACY_VERSION + "\n", encoding="utf-8")
+        note = self.project / ".codex" / "memory" / "note.md"
+        note.parent.mkdir(parents=True)
+        note.write_text(
+            "---\ncategory: engineering\nstatus: active\n"
+            "description: project note\n---\n\n# Note\n",
+            encoding="utf-8",
+        )
+        before = self.snapshot_tree()
+
+        plan = SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertIn(
+            "project memory compatibility check failed",
+            " ".join(plan.blockers),
+        )
+        self.assertEqual(self.snapshot_tree(), before)
+
     def test_reparse_codex_directory_blocks_rebuild_without_writes(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP
         stamp.parent.mkdir(parents=True)

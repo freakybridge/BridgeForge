@@ -33,6 +33,24 @@ SYNC = load_module(
 )
 
 
+def previous_supported_semver(value: str) -> str:
+    current = tuple(map(int, value.split(".")))
+    minimum = tuple(CURRENT.MINIMUM_CURRENT_BASELINE)
+    if current <= minimum:
+        raise ValueError(f"{value} has no prior supported current baseline")
+    major, minor, patch = current
+    if patch > 0:
+        candidate = (major, minor, patch - 1)
+    elif minor > 0:
+        candidate = (major, minor - 1, 0)
+    elif major > 0:
+        candidate = (major - 1, 0, 0)
+    else:
+        raise ValueError("0.0.0 has no previous stable SemVer")
+    candidate = max(candidate, minimum)
+    return ".".join(str(part) for part in candidate)
+
+
 def commit_baseline(project: Path) -> None:
     subprocess.run(["git", "init", "-q"], cwd=project, check=True)
     subprocess.run(["git", "add", "-A"], cwd=project, check=True)
@@ -300,8 +318,9 @@ class CurrentReleaseTests(unittest.TestCase):
                 b"BRIDGEFORGE_MANAGED_",
             )
             old_contract = json.loads(current_contract.decode("utf-8"))
-            major, minor, patch = map(int, old_contract["release_version"].split("."))
-            old_version = f"{major}.{minor}.{patch - 1}"
+            old_version = previous_supported_semver(
+                old_contract["release_version"]
+            )
             old_contract["release_version"] = old_version
             old_asset = next(
                 item for item in old_contract["assets"] if item["id"] == "codex.precommit"
@@ -385,8 +404,9 @@ class CurrentReleaseTests(unittest.TestCase):
                 b"BRIDGEFORGE_MANAGED_",
             )
             old_contract = json.loads(current_contract)
-            major, minor, patch = map(int, old_contract["release_version"].split("."))
-            old_version = f"{major}.{minor}.{patch - 1}"
+            old_version = previous_supported_semver(
+                old_contract["release_version"]
+            )
             old_contract["release_version"] = old_version
             old_asset = next(
                 item for item in old_contract["assets"] if item["id"] == "codex.precommit"

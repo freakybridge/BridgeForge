@@ -152,6 +152,8 @@ copy、merge、删除或写戳。
 - 只修改 schema v3 current-only 合同逐资产登记的 Codex 目标；
 - 常规更新保留 project-owned、未知文件和人工定制；破坏性重建对未知 `.codex/**` 结构
   零写阻断，并严格执行用户确认的 `PreservationManifest`；
+- 破坏性重建必须把精确路径 `.codex/find-doc.map.md` 与 `.codex/sync-docs.map.md` 作为
+  required-preserve 项目映射原样保留；禁止用 glob 扩大该所有权边界；
 - Planner、Apply、`$git-sync` 与 pre-commit 必须调用同一 `current_baseline.py` 检查器；
 - memory 只允许只读兼容检查和派生索引重建，禁止 organize 或移动正文；
 - Skill 只允许确定性修复 frontmatter；缺少 description 或 routing 语义时必须阻断；

@@ -30,9 +30,11 @@ adaptation proof 与 glob ownership。
 
 破坏性重建不读取旧 `.codex/managed-skeleton.json`，也不会复用常规 merge。它先生成 fresh canonical，再只放回确认的 AGENTS 项目区、
 pre-commit 项目扩展、项目 rules 与 `.codex/hooks/project_XXXX/` 自包含 Python Hook 目录，
-以及自动保留并通过当前检查的 `.codex/memory/**` 和 `.codex/skills/**`。每个可选资产必须
-显式选择保留或删除；临时 `PreservationManifest` 只存在于本次事务内，在写最终戳前清空，
-不生成持久 before 包或迁移账本。
+以及自动保留并通过当前检查的 `.codex/memory/**`、`.codex/skills/**`、
+`.codex/find-doc.map.md` 和 `.codex/sync-docs.map.md`。两个项目映射只按精确路径识别并作为
+required-preserve 原样保留；其他未知 `.codex/**` 仍 fail-closed。每个可选资产必须显式选择
+保留或删除；临时 `PreservationManifest` 只存在于本次事务内，在写最终戳前清空，不生成持久
+before 包或迁移账本。
 
 ## Current-only 事务
 
@@ -64,4 +66,5 @@ pre-commit 直接复用 `current_baseline.py`。pre-commit 只读检查 worktree
 - schema 3 merge/Markdown/region/AGENTS 都携带当前可验证 projection；真实下游不存在
   `templates/**` 时也不得跳过。
 - 项目 memory/Skills 正文不得语义改写；只允许派生索引重建和 current metadata 校验。
+- 项目 `find-doc` / `sync-docs` 映射是精确登记的 required-preserve 数据，重建前后必须字节不变。
 - Claude、switch、project finalizer 与 harness parity 不属于当前产品面，也不保留识别谱系。
