@@ -1,6 +1,6 @@
 # BUG：Windows Codex App 的 Native Memory PowerShell hook 未进入 Python
 
-**状态**：source-and-local-fixture-fixed-installed-runtime-pending  
+**状态**：resolved-and-runtime-verified  
 **发现日期**：2026-08-21  
 **影响版本**：BridgeForge `1.4.35` 及更早使用内联 PowerShell 用户 hook 的版本  
 **影响范围**：Windows Codex App 中已授权的用户级 Native Memory 自动同步
@@ -74,13 +74,13 @@ reconcile，未访问或修改 GitHub。
 | 类别 | 当前状态 |
 |---|---|
 | 源码 | wrapper、`hook-run`、runtime status 与精确旧版迁移已实现；60 项定向测试通过 |
-| 产品传播 | `VERSION` / `CHANGELOG` / Skill / manifest 已更新且 manifest check 通过 |
-| dogfood | 工厂用户级正式 hook 未安装修复版，未验证 |
+| 产品传播 | BridgeForge `1.4.37`、源码 commit `9012df5`、CHANGELOG、Skill 与 manifest 已发布 |
+| dogfood | 正式用户 hook 已安装并重新信任；wrapper 与 Python exit 0 收据已生成 |
 | fixture | Windows 真实 `cmd.exe` wrapper 已调用项目 `.venv` 并写出 Python 成功收据 |
-| 真实下游 | 当前 BridgeForge App canary 已证明三个生命周期事件可派发 |
-| runtime | canary 已验证；修复版正式 hook smoke 待发布、安装和重新信任 |
+| 真实下游 | Codex App 的 `SessionStart` / `Stop` 已自动进入正式 wrapper；未使用手动 reconcile |
+| runtime | `hookRuntimeVerified=true`，pending 不存在，revision `11 -> 12`，本地与 GitHub `main` 均为 `5d568f3b5e93859b5b6040f5be38c77688781644` |
 
-缺少 dogfood 与修复版 runtime smoke，因此本 Bug 禁止标记为关闭。
+用户已执行 `$summary 同意验收`。六类证据齐全，本 Bug 关闭。
 
 本地验证收据：
 
