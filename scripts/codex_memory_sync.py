@@ -37,8 +37,9 @@ CONSENT_SYNC_MODE = "bidirectional"
 HOOK_ID = "bridgeforge-codex.native-memory-sync.v1"
 HOOK_MARKER_KEY = "bridgeforgeCodexId"
 HOOK_EVENTS = ("SessionStart", "Stop", "SessionEnd")
-HOOK_RUNTIME_REVISION = 2
-WINDOWS_HOOK_WRAPPER_NAME = "codex_memory_sync_hook.cmd"
+HOOK_RUNTIME_REVISION = 3
+WINDOWS_HOOK_WRAPPER_NAME = "codex_memory_sync_hook.ps1"
+LEGACY_WINDOWS_HOOK_WRAPPER_NAME = "codex_memory_sync_hook.cmd"
 WORKDIR_PREFIX = "bridgeforge-codex-memory-sync-"
 EXCLUDED_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini", "snapshot-manifest.json"}
 EXCLUDED_SUFFIXES = {".tmp", ".temp", ".lock", ".lck", ".swp", ".part"}
@@ -461,6 +462,15 @@ def enable_memories(config_path: Path, *, confirmed: bool) -> bool:
 
 def _windows_hook_command(script: Path, event: str) -> str:
     wrapper = script.resolve().with_name(WINDOWS_HOOK_WRAPPER_NAME)
+    raw_wrapper = str(wrapper).replace('"', '`"')
+    return (
+        "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden "
+        f'-ExecutionPolicy Bypass -File "{raw_wrapper}" {event}'
+    )
+
+
+def _legacy_cmd_hook_command(script: Path, event: str) -> str:
+    wrapper = script.resolve().with_name(LEGACY_WINDOWS_HOOK_WRAPPER_NAME)
     raw_wrapper = str(wrapper).replace('"', '""')
     return f'cmd.exe /d /c call "{raw_wrapper}" {event}'
 
@@ -530,6 +540,33 @@ def _hook_handler(event: str, script: Path) -> dict[str, object]:
     return handler
 
 
+def _legacy_cmd_hook_handler(event: str, script: Path) -> dict[str, object]:
+    """Reconstruct the exact visible-console v2 handler for safe migration."""
+    if event not in HOOK_EVENTS:
+        raise SyncError(f"unsupported hook event: {event}")
+    managed_script = script.resolve()
+    posix_script = shlex.quote(str(managed_script))
+    handler: dict[str, object] = {
+        "type": "command",
+        "command": (
+            'root="$(git rev-parse --show-toplevel)" && '
+            f'"$root/.venv/Scripts/python.exe" {posix_script} hook-run '
+            f'--event {event} '
+            '--project-root "$root"'
+        ),
+        "commandWindows": _legacy_cmd_hook_command(script, event),
+        HOOK_MARKER_KEY: f"{HOOK_ID}:{event}",
+    }
+    if event == "Stop":
+        handler["async"] = True
+        handler["timeout"] = 120
+    if event == "SessionStart":
+        handler["timeout"] = 120
+    if event == "SessionEnd":
+        handler["timeout"] = 3
+    return handler
+
+
 def _migrate_exact_legacy_hook_handlers(
     document: dict[str, object],
     script: Path,
@@ -542,7 +579,8 @@ def _migrate_exact_legacy_hook_handlers(
         groups = hooks.get(event)
         if not isinstance(groups, list):
             continue
-        legacy = _legacy_inline_powershell_hook_handler(event, script)
+        legacy_inline = _legacy_inline_powershell_hook_handler(event, script)
+        legacy_cmd = _legacy_cmd_hook_handler(event, script)
         current = _hook_handler(event, script)
         for group in groups:
             if not isinstance(group, dict):
@@ -551,7 +589,7 @@ def _migrate_exact_legacy_hook_handlers(
             if not isinstance(handlers, list):
                 continue
             for index, handler in enumerate(handlers):
-                if handler == legacy:
+                if handler in (legacy_inline, legacy_cmd):
                     handlers[index] = current.copy()
 
 

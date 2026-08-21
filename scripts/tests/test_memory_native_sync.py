@@ -277,10 +277,13 @@ class NativeMemorySyncTests(unittest.TestCase):
         self.assertIn('git rev-parse --show-toplevel', handler["command"])
         self.assertIn('$root/.venv/Scripts/python.exe', handler["command"])
         self.assertIn("--project-root", handler["command"])
-        self.assertIn("cmd.exe /d /c", handler["commandWindows"])
+        self.assertTrue(handler["commandWindows"].startswith("powershell.exe "))
+        self.assertIn("-NonInteractive", handler["commandWindows"])
+        self.assertIn("-WindowStyle Hidden", handler["commandWindows"])
+        self.assertIn("-ExecutionPolicy Bypass", handler["commandWindows"])
         self.assertIn(sync_mod.WINDOWS_HOOK_WRAPPER_NAME, handler["commandWindows"])
         self.assertIn("SessionStart", handler["commandWindows"])
-        self.assertNotIn("powershell", handler["commandWindows"].lower())
+        self.assertNotIn("cmd.exe /d /c", handler["commandWindows"].lower())
         self.assertNotIn(str(ROOT), handler["command"])
         self.assertNotIn(str(Path(sys.executable).resolve()), handler["command"])
 
@@ -288,15 +291,30 @@ class NativeMemorySyncTests(unittest.TestCase):
             Path("C:/Users/Example User/product/scripts/codex_memory_sync.py"),
             "Stop",
         )
-        self.assertIn('call "C:\\Users\\Example User', spaced)
-        self.assertTrue(spaced.endswith('codex_memory_sync_hook.cmd" Stop'))
+        self.assertIn('-File "C:\\Users\\Example User', spaced)
+        self.assertTrue(spaced.endswith('codex_memory_sync_hook.ps1" Stop'))
 
         metachar = sync_mod._windows_hook_command(
             Path("C:/Users/A&B/product/scripts/codex_memory_sync.py"),
             "Stop",
         )
-        self.assertIn('call "C:\\Users\\A&B', metachar)
-        self.assertTrue(metachar.endswith('codex_memory_sync_hook.cmd" Stop'))
+        self.assertIn('-File "C:\\Users\\A&B', metachar)
+        self.assertTrue(metachar.endswith('codex_memory_sync_hook.ps1" Stop'))
+
+    def test_legacy_cmd_handler_is_independent_of_current_builder(self) -> None:
+        script = Path("C:/Users/Example/product/scripts/codex_memory_sync.py")
+        expected = sync_mod._legacy_cmd_hook_handler("Stop", script)
+        with mock.patch.object(
+            sync_mod,
+            "_hook_handler",
+            return_value={"future": "current-builder-changed"},
+        ):
+            actual = sync_mod._legacy_cmd_hook_handler("Stop", script)
+        self.assertEqual(actual, expected)
+        self.assertEqual(actual["timeout"], 120)
+        self.assertTrue(actual["async"])
+        self.assertIn("hook-run --event Stop", actual["command"])
+        self.assertIn("cmd.exe /d /c", actual["commandWindows"])
 
     def test_status_reports_setup_hook_and_remote_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -421,8 +439,35 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertFalse(sync_mod.hook_runtime_verified(failed))
             self.assertTrue((state / "pending.json").is_file())
 
-    @unittest.skipUnless(os.name == "nt", "Windows cmd wrapper integration")
-    def test_windows_hook_wrapper_reaches_project_python(self) -> None:
+    @unittest.skipUnless(os.name == "nt", "Windows hidden wrapper integration")
+    def test_windows_hidden_hook_command_handles_metachar_path_and_io(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            scripts = Path(raw) / "A&B Product" / "scripts"
+            scripts.mkdir(parents=True)
+            script = scripts / "codex_memory_sync.py"
+            wrapper = scripts / sync_mod.WINDOWS_HOOK_WRAPPER_NAME
+            wrapper.write_text(
+                "param([Parameter(Mandatory=$true)][string]$Event)\n"
+                "$payload = [Console]::In.ReadToEnd()\n"
+                "[Console]::Out.Write(\"event=$Event;input=$payload\")\n"
+                "[Console]::Error.Write(\"probe-error\")\n"
+                "exit 7\n",
+                encoding="utf-8-sig",
+            )
+            completed = subprocess.run(
+                sync_mod._windows_hook_command(script, "Stop"),
+                input="probe-input",
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=True,
+            )
+        self.assertEqual(completed.returncode, 7)
+        self.assertEqual(completed.stdout, "event=Stop;input=probe-input")
+        self.assertEqual(completed.stderr, "probe-error")
+
+    @unittest.skipUnless(os.name == "nt", "Windows hidden wrapper integration")
+    def test_windows_hidden_hook_wrapper_reaches_project_python(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             codex = Path(raw) / ".codex"
             state = codex / ".bridgeforge-codex/memory-sync"
@@ -433,19 +478,18 @@ class NativeMemorySyncTests(unittest.TestCase):
             )
             environment = os.environ.copy()
             environment["CODEX_HOME"] = str(codex)
+            handler = sync_mod._hook_handler(
+                "SessionStart",
+                ROOT / "scripts/codex_memory_sync.py",
+            )
             completed = subprocess.run(
-                [
-                    "cmd.exe",
-                    "/d",
-                    "/c",
-                    str(ROOT / "scripts/codex_memory_sync_hook.cmd"),
-                    "SessionStart",
-                ],
+                str(handler["commandWindows"]),
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,
                 text=True,
                 timeout=30,
+                shell=True,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             dispatch = (state / "hook-dispatch.log").read_text(encoding="utf-8")
@@ -857,7 +901,8 @@ class NativeMemorySyncTests(unittest.TestCase):
             ]
             self.assertEqual(len(handlers), 3)
             self.assertTrue(all("git rev-parse --show-toplevel" in handler["command"] for handler in handlers))
-            self.assertTrue(all("cmd.exe /d /c" in handler["commandWindows"] for handler in handlers))
+            self.assertTrue(all("-WindowStyle Hidden" in handler["commandWindows"] for handler in handlers))
+            self.assertTrue(all("cmd.exe /d /c" not in handler["commandWindows"] for handler in handlers))
             self.assertTrue(all(sync_mod.WINDOWS_HOOK_WRAPPER_NAME in handler["commandWindows"] for handler in handlers))
             session_end = next(h for h in handlers if h[sync_mod.HOOK_MARKER_KEY].endswith(":SessionEnd"))
             stop = next(h for h in handlers if h[sync_mod.HOOK_MARKER_KEY].endswith(":Stop"))
@@ -919,6 +964,38 @@ class NativeMemorySyncTests(unittest.TestCase):
             self.assertEqual(upgraded["custom"], "keep")
             self.assertEqual(upgraded["hooks"]["SessionStart"][0], third_party)
             self.assertFalse(sync_mod.merge_user_hooks(path, script))
+
+            legacy_cmd = base / "legacy-cmd.json"
+            legacy_cmd.write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            event: [
+                                {
+                                    "hooks": [
+                                        sync_mod._legacy_cmd_hook_handler(
+                                            event,
+                                            script,
+                                        )
+                                    ]
+                                }
+                            ]
+                            for event in sync_mod.HOOK_EVENTS
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertFalse(sync_mod.user_hooks_healthy(legacy_cmd, script))
+            self.assertTrue(sync_mod.merge_user_hooks(legacy_cmd, script))
+            self.assertTrue(sync_mod.user_hooks_healthy(legacy_cmd, script))
+            migrated_cmd = json.loads(legacy_cmd.read_text(encoding="utf-8"))
+            for event in sync_mod.HOOK_EVENTS:
+                command = migrated_cmd["hooks"][event][0]["hooks"][0][
+                    "commandWindows"
+                ]
+                self.assertIn("-WindowStyle Hidden", command)
+                self.assertNotIn("cmd.exe /d /c", command)
 
             edited = base / "edited-legacy.json"
             edited_handler = sync_mod._legacy_inline_powershell_hook_handler(

@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "release_version": "1.5.1",
+  "release_version": "1.5.2",
   "host": "codex",
   "stamp": ".codex/.bridgeforge_codex_version",
   "contract_target": ".codex/managed-skeleton.json",
@@ -15,7 +15,7 @@
         "public": {
           "begin": "<!-- BRIDGEFORGE:PUBLIC:BEGIN -->",
           "end": "<!-- BRIDGEFORGE:PUBLIC:END -->",
-          "current_sha256": "sha256:26a284c1e535afddd4ccaa0e8cce21df831b0d83b3d25d4aed6b54c185ca6121"
+          "current_sha256": "sha256:a797fd0bad4cdb065fa95cd70e77359ded59a26435ca00ac561f0304cae02b26"
         },
         "project": {
           "begin": "<!-- BRIDGEFORGE:PROJECT:BEGIN -->",
@@ -35,7 +35,7 @@
           ]
         }
       },
-      "current_sha256": "sha256:5a2d6650df4cae3169a2865b99a170e0a018e52310b47776ec294412d7d7678c",
+      "current_sha256": "sha256:d4aa39102cf7b8357cbbdbd76c35bd4c15b3773a0b01cc2aa61845d0b64446aa",
       "render": "project-name"
     },
     {
@@ -43,7 +43,7 @@
       "source": "templates/hooks.json",
       "target": ".codex/hooks.json",
       "strategy": "merge",
-      "current_sha256": "sha256:869f8f6c5061e062f63181ca6b7a05a91a15cfa3c5d372183a1ecf401d88b56e",
+      "current_sha256": "sha256:15be0b6f9531c21f305a1ae3765a508729ced070d3209e3ab26fb7aefd69d382",
       "merge_policy": "codex-hooks",
       "merge_validation": {
         "format": "codex-hooks-current-v1",
@@ -53,56 +53,56 @@
             "event": "PostCompact",
             "matcher": "",
             "stage": "post-compact",
-            "sha256": "sha256:544e19b2950c5aef9085363c3748e3e2e936c26b769ffdeed2697da3ba0e2d17"
+            "sha256": "sha256:cee5ce1f8c3042f4aec16044e02d7f708eab594dadfdb44b8ae1ea063fcb9948"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:post-read",
             "event": "PostToolUse",
             "matcher": "*",
             "stage": "post-read",
-            "sha256": "sha256:ad45eaf1553eb9d3d20bbebe4d518bd09bd2df3ceeafc05f314ecedb9de70897"
+            "sha256": "sha256:5ba165859ef63e7487318bd3b306d52357331266a263cd571a4e182fb1b5103f"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:post-shell",
             "event": "PostToolUse",
             "matcher": "Bash",
             "stage": "post-shell",
-            "sha256": "sha256:689c595435b66968a58206db08932f41f08b78d7a2393d3e4b7d2513f6d29f70"
+            "sha256": "sha256:e849ee7b676176402cbcdaa43c1f79e4eae8d5c2e83cea3cfe567e78dca70f35"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:post-edit",
             "event": "PostToolUse",
             "matcher": "Edit|Write",
             "stage": "post-edit",
-            "sha256": "sha256:d2d5736d4ef0de1cbaeb3dd6d336ecf7d86d4c53a9e0a5276dc6f7dcfffa60e9"
+            "sha256": "sha256:010733a106bb7cd4ad24e13a75273d4bf69e5ee77126bba149bb93bd7527d006"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:pre-tool",
             "event": "PreToolUse",
             "matcher": "Bash|Edit|Write",
             "stage": "pre-tool",
-            "sha256": "sha256:e998c44d411032a8ae25c26857c3b8288e32bed27107778226ab93ceefb324c1"
+            "sha256": "sha256:44aa3fbc933f372fbfa9e5e159e88cc0d7da2957d51472be85810930bc441e9f"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:session-start",
             "event": "SessionStart",
             "matcher": "",
             "stage": "session-start",
-            "sha256": "sha256:a5dd8f1b1675f4245523e18dfdee6c75fabbbe28563fac7b8fd46f0d0a50071c"
+            "sha256": "sha256:98a1c661f7374095b060db0e474633dd8b600f9fb1419d201eec258a4ecb93cc"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:stop",
             "event": "Stop",
             "matcher": "",
             "stage": "stop",
-            "sha256": "sha256:b7ed4af870fcd66613b0d0c7fadfcf3ab65a5cb87923e5980f4eb83eae46d703"
+            "sha256": "sha256:90123395a1c6deaa14d761a2670c7feb7a07018a82ef0c592af7c1f1756e1c01"
           },
           {
             "id": "bridgeforge-codex.project-hook.v1:user-prompt",
             "event": "UserPromptSubmit",
             "matcher": "",
             "stage": "user-prompt",
-            "sha256": "sha256:7a5db6e71b530bbeac7c99c5fd90585de3aaa4ab48a6e778015ecb8b5314c6a0"
+            "sha256": "sha256:e4668a889f6f1f5936434d54c29eb13ea2cbaf5f055d089bdd365c7f053f1d48"
           }
         ],
         "managed_top_level": {

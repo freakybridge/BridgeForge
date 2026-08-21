@@ -30,6 +30,7 @@
 - 必须在项目虚拟环境中安装依赖；禁止隐式写入用户级配置或使用全局安装代替项目依赖。新依赖必须同步可复现的依赖清单。
 - 每个项目必须自建 CPython 3.11+ `.venv`；所有骨架脚本与 hook 只能使用当前项目 `.venv`。仅 init/adopt 且 `.venv` 完全缺失时允许用 PATH 中经验证的 CPython 3.11+ 创建它，创建后必须立即切换，其他场景禁止回退 PATH。
 - 非 ASCII 正文禁止经 shell 字符串中转写入或动态执行；配置、hook 与入口脚本的编码和注册必须通过项目硬闸。
+- Windows 上由 GUI、Codex Hook 或后台任务启动非交互、无人值守命令时，必须使用可验证的无可见控制台窗口入口，并保持 stdin、stdout、stderr、退出码与 timeout 语义；除非用户明确要求可见交互窗口，禁止让 cmd、PowerShell 或 Python 控制台弹到用户桌面。
 
 ## 2 bridgeforge-codex 协作骨架
 

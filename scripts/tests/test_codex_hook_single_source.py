@@ -248,6 +248,12 @@ class HookSingleSourceTest(unittest.TestCase):
             self.assertIn("git rev-parse --show-toplevel", hook["command"])
             self.assertIn("git rev-parse --show-toplevel", hook["commandWindows"])
             self.assertIn("hook_dispatcher.py", hook["command"])
+            self.assertTrue(hook["commandWindows"].startswith("powershell.exe "))
+            self.assertIn("-NonInteractive", hook["commandWindows"])
+            self.assertIn("-WindowStyle Hidden", hook["commandWindows"])
+            self.assertTrue(
+                hook["commandWindows"].endswith('; exit $LASTEXITCODE"')
+            )
         session_start = hooks["hooks"]["SessionStart"][0]["hooks"][0]
         self.assertEqual(session_start["additionalContextLimit"], 0)
 
@@ -266,6 +272,39 @@ class HookSingleSourceTest(unittest.TestCase):
                         "(Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe')",
                         hook["commandWindows"],
                     )
+                    self.assertIn("-WindowStyle Hidden", hook["commandWindows"])
+
+    def test_public_agents_requires_hidden_windows_hook_launches(self) -> None:
+        template = (TEMPLATE / "AGENTS.md").read_text(encoding="utf-8")
+        dogfood = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        requirement = "启动非交互、无人值守命令时，必须使用可验证的无可见控制台窗口入口"
+        self.assertIn(requirement, template)
+        self.assertIn(requirement, dogfood)
+        self.assertIn("除非用户明确要求可见交互窗口", template)
+
+    @unittest.skipUnless(os.name == "nt", "Windows hidden process semantics")
+    def test_hidden_windows_launcher_preserves_native_exit_code(self) -> None:
+        command = (
+            f"& '{sys.executable}' -c 'import sys; sys.exit(2)'; "
+            "exit $LASTEXITCODE"
+        )
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                command,
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2, completed.stderr)
 
     def test_dispatcher_orders_memory_chain_and_skips_lint_after_rebuild_failure(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

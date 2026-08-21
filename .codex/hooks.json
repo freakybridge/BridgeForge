@@ -9,7 +9,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:pre-tool",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" pre-tool",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') pre-tool\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') pre-tool; exit $LASTEXITCODE\"",
             "comment": "Sequential dispatcher for shell safety guards and apply_patch write boundaries."
           }
         ]
@@ -23,7 +23,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:post-read",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-read",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-read\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-read; exit $LASTEXITCODE\"",
             "comment": "Observes all supported tools, then records only successful read-like calls for project-memory Markdown bodies."
           }
         ]
@@ -35,7 +35,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:post-edit",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-edit",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-edit\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-edit; exit $LASTEXITCODE\"",
             "comment": "Normalizes apply_patch payloads and runs dependent edit checks in an explicit order."
           }
         ]
@@ -47,7 +47,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:post-shell",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-shell",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-shell\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-shell; exit $LASTEXITCODE\"",
             "comment": "Records test-command receipts after shell execution."
           }
         ]
@@ -60,7 +60,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:post-compact",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" post-compact",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-compact\""
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') post-compact; exit $LASTEXITCODE\""
           }
         ]
       }
@@ -72,7 +72,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:stop",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" stop",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') stop\""
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') stop; exit $LASTEXITCODE\""
           }
         ]
       }
@@ -84,7 +84,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:user-prompt",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" user-prompt",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') user-prompt\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') user-prompt; exit $LASTEXITCODE\"",
             "comment": "Routes 3-5 project-memory candidates, then injects repository state, clarification, and focus signals."
           }
         ]
@@ -97,7 +97,7 @@
             "type": "command",
             "bridgeforgeCodexId": "bridgeforge-codex.project-hook.v1:session-start",
             "command": "\"$(git rev-parse --show-toplevel)/.venv/Scripts/python.exe\" \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_dispatcher.py\" session-start",
-            "commandWindows": "powershell -NoProfile -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') session-start\"",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"& (Join-Path (git rev-parse --show-toplevel) '.venv/Scripts/python.exe') (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/hook_dispatcher.py') session-start; exit $LASTEXITCODE\"",
             "additionalContextLimit": 0,
             "comment": "Rebuilds and injects the bounded project-memory index before repository state, cleanup, and managed-skill checks."
           }
