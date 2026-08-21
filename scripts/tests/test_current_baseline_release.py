@@ -166,6 +166,84 @@ class CurrentReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(CURRENT.BaselineError, "trusted HEAD"):
                 CURRENT.verify_current_baseline(project)
 
+    def test_legacy_head_release_fallback_public_paths_fail_closed(self) -> None:
+        scenarios = (
+            ({"current": "same"}, "forward release transition"),
+            ({"obsolete": "invalid"}, "not MAJOR.MINOR.PATCH"),
+            ({}, "not MAJOR.MINOR.PATCH"),
+            (
+                {"current": "1.4.30", "obsolete": "0.94.2"},
+                "conflicting",
+            ),
+        )
+        for stamps, expected in scenarios:
+            with self.subTest(stamps=stamps), tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                plan = SYNC.build_plan(project, ROOT, "init")
+                SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+                codex = project / ".codex"
+                contract_path = codex / "managed-skeleton.json"
+                canonical_contract = contract_path.read_bytes()
+                current_stamp = codex / ".bridgeforge_codex_version"
+                obsolete_stamp = codex / ".bridgeforge_version"
+                current_version = current_stamp.read_text(encoding="utf-8").strip()
+                legacy_contract = json.loads(canonical_contract)
+                legacy_contract["schema_version"] = 2
+                legacy_contract.pop("release_version")
+                legacy_contract["stamp"] = ".codex/.bridgeforge_version"
+                contract_path.write_text(
+                    json.dumps(legacy_contract, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                current_stamp.unlink()
+                if "current" in stamps:
+                    head_current = (
+                        current_version
+                        if stamps["current"] == "same"
+                        else stamps["current"]
+                    )
+                    current_stamp.write_text(
+                        head_current + "\n",
+                        encoding="utf-8",
+                    )
+                if "obsolete" in stamps:
+                    obsolete_stamp.write_text(
+                        stamps["obsolete"] + "\n",
+                        encoding="utf-8",
+                    )
+                commit_baseline(project)
+                contract_path.write_bytes(canonical_contract)
+                current_stamp.write_text(current_version + "\n", encoding="utf-8")
+                if obsolete_stamp.exists():
+                    obsolete_stamp.unlink()
+
+                with self.assertRaisesRegex(CURRENT.BaselineError, expected):
+                    CURRENT.verify_current_baseline(project)
+                subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+                with self.assertRaisesRegex(CURRENT.BaselineError, expected):
+                    CURRENT.verify_index_baseline(project)
+
+    def test_non_object_head_contract_uses_controlled_error(self) -> None:
+        version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
+        current = json.dumps({"release_version": version}).encode("utf-8")
+        with self.assertRaises(CURRENT.BaselineError):
+            CURRENT._verify_contract_anchor(current, b"[]")
+
+    def test_valid_head_contract_does_not_read_invalid_legacy_stamp(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            plan = SYNC.build_plan(project, ROOT, "init")
+            SYNC.apply_plan(plan, plan_fingerprint=plan.aggregate_fingerprint)
+            stamp = project / ".codex" / ".bridgeforge_codex_version"
+            current_version = stamp.read_text(encoding="utf-8").strip()
+            stamp.write_text("invalid\n", encoding="utf-8")
+            commit_baseline(project)
+            stamp.write_text(current_version + "\n", encoding="utf-8")
+
+            CURRENT.verify_current_baseline(project)
+            subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+            CURRENT.verify_index_baseline(project)
+
     def test_factory_uses_the_current_baseline_evaluator(self) -> None:
         current = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
         classification, changed = RELEASE.evaluate_release_transition(

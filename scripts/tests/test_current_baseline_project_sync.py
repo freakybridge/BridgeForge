@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -815,6 +816,63 @@ class CurrentProjectSyncTests(unittest.TestCase):
                     )
                     self.assertEqual(receipt.mode, "rebuild")
                     BASELINE.verify_current_baseline(project)
+
+    def test_legacy_rebuild_ignores_head_contract_without_release(self) -> None:
+        codex = self.project / ".codex"
+        codex.mkdir()
+        legacy_contract = json.loads(
+            (ROOT / "templates" / "managed-skeleton.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        legacy_contract["schema_version"] = 2
+        legacy_contract.pop("release_version")
+        legacy_contract["stamp"] = ".codex/.bridgeforge_version"
+        contract_path = codex / "managed-skeleton.json"
+        contract_path.write_text(
+            json.dumps(legacy_contract, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        legacy_stamp = codex / ".bridgeforge_version"
+        legacy_stamp.write_text("0.94.2\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q"], cwd=self.project, check=True)
+        subprocess.run(
+            [
+                "git",
+                "add",
+                ".codex/managed-skeleton.json",
+                ".codex/.bridgeforge_version",
+            ],
+            cwd=self.project,
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=BridgeForge Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-qm",
+                "legacy contract",
+            ],
+            cwd=self.project,
+            check=True,
+        )
+
+        plan = SYNC.build_plan(self.project, ROOT, "update")
+        self.assertFalse(plan.blockers)
+        self.assertEqual(plan.mode, "rebuild")
+        receipt = self.apply(
+            plan,
+            confirmed_preservation_manifest=True,
+            confirmed_risk=True,
+        )
+
+        self.assertEqual(receipt.mode, "rebuild")
+        self.assertTrue(receipt.stamp_written_last)
+        BASELINE.verify_current_baseline(self.project)
 
     def test_unknown_codex_structure_blocks_rebuild_without_writes(self) -> None:
         stamp = self.project / SYNC.OBSOLETE_STAMP

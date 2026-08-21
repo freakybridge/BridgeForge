@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "release_version": "1.4.34",
+  "release_version": "1.4.35",
   "host": "codex",
   "stamp": ".codex/.bridgeforge_codex_version",
   "contract_target": ".codex/managed-skeleton.json",
@@ -580,7 +580,7 @@
       "source": "templates/scripts/current_baseline.py",
       "target": ".codex/scripts/current_baseline.py",
       "strategy": "whole",
-      "current_sha256": "sha256:cbaf3b10667bb5f53e19da582f81dc53edbf29275620f53bf331e91726d599ec"
+      "current_sha256": "sha256:2fb5476b3ae35d853e3e469bee1a694d800d19f833bcb0e037fcd045c87a6d4e"
     },
     {
       "id": "codex.script.codex-git-sync",

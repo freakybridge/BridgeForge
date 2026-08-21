@@ -807,19 +807,10 @@ def _normalized_render_hash(payload: bytes, asset: dict[str, Any], project_root:
     return _sha(text.encode("utf-8"))
 
 
-def _head_contract_bytes(project_root: Path) -> bytes | None:
+def _head_file_bytes(project_root: Path, relative: str) -> bytes | None:
     try:
-        head = subprocess.run(
-            ["git", "rev-parse", "--verify", "HEAD"],
-            cwd=project_root,
-            capture_output=True,
-            timeout=30,
-            check=False,
-        )
-        if head.returncode != 0:
-            return None
         result = subprocess.run(
-            ["git", "show", "HEAD:.codex/managed-skeleton.json"],
+            ["git", "show", f"HEAD:{relative}"],
             cwd=project_root,
             capture_output=True,
             timeout=30,
@@ -830,20 +821,64 @@ def _head_contract_bytes(project_root: Path) -> bytes | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def _verify_contract_anchor(contract_bytes: bytes, anchor_bytes: bytes | None) -> None:
+def _head_contract_bytes(project_root: Path) -> bytes | None:
+    return _head_file_bytes(project_root, ".codex/managed-skeleton.json")
+
+
+def _head_release_version(project_root: Path) -> str | None:
+    versions: list[str] = []
+    for relative in (
+        ".codex/.bridgeforge_codex_version",
+        ".codex/.bridgeforge_version",
+    ):
+        payload = _head_file_bytes(project_root, relative)
+        if payload is None:
+            continue
+        try:
+            version = payload.decode("utf-8-sig").strip()
+        except UnicodeDecodeError as exc:
+            raise BaselineError(f"trusted HEAD stamp is unreadable: {relative}") from exc
+        _semver(version, f"HEAD stamp {relative}")
+        versions.append(version)
+    if len(set(versions)) > 1:
+        raise BaselineError("trusted HEAD contains conflicting version stamps")
+    return versions[0] if versions else None
+
+
+def _verify_contract_anchor(
+    contract_bytes: bytes,
+    anchor_bytes: bytes | None,
+    anchor_release_version: str | None = None,
+) -> None:
     if anchor_bytes is None or _git_bytes(contract_bytes) == _git_bytes(anchor_bytes):
         return
     try:
         current = _loads_json(contract_bytes.decode("utf-8-sig"))
         anchor = _loads_json(anchor_bytes.decode("utf-8-sig"))
         current_version = _semver(current.get("release_version"), "current release")
-        anchor_version = _semver(anchor.get("release_version"), "HEAD release")
+        raw_anchor_version = anchor.get("release_version")
+        if raw_anchor_version is None:
+            raw_anchor_version = anchor_release_version
+        anchor_version = _semver(raw_anchor_version, "HEAD release")
     except (UnicodeDecodeError, ValueError, AttributeError) as exc:
         raise BaselineError(f"trusted HEAD baseline is unreadable: {exc}") from exc
     if current_version <= anchor_version:
         raise BaselineError(
             "current contract differs from trusted HEAD without a forward release transition"
         )
+
+
+def _anchor_needs_release_fallback(
+    contract_bytes: bytes,
+    anchor_bytes: bytes | None,
+) -> bool:
+    if anchor_bytes is None or _git_bytes(contract_bytes) == _git_bytes(anchor_bytes):
+        return False
+    try:
+        anchor = _loads_json(anchor_bytes.decode("utf-8-sig"))
+        return isinstance(anchor, dict) and anchor.get("release_version") is None
+    except (UnicodeDecodeError, ValueError, AttributeError):
+        return False
 
 
 def _verify_source_contract(
@@ -891,15 +926,18 @@ def verify_current_baseline(
     contract_path: Path | None = None,
     prospective_version: str | None = None,
     anchor_contract: bytes | None = None,
+    anchor_release_version: str | None = None,
     use_git_anchor: bool = True,
 ) -> BaselineReport:
     root = project_root.resolve()
     path = contract_path or root / ".codex" / "managed-skeleton.json"
     contract = load_contract(path)
-    _verify_contract_anchor(
-        path.read_bytes(),
-        _head_contract_bytes(root) if use_git_anchor and anchor_contract is None else anchor_contract,
-    )
+    contract_bytes = path.read_bytes()
+    if use_git_anchor and anchor_contract is None:
+        anchor_contract = _head_contract_bytes(root)
+        if _anchor_needs_release_fallback(contract_bytes, anchor_contract):
+            anchor_release_version = _head_release_version(root)
+    _verify_contract_anchor(contract_bytes, anchor_contract, anchor_release_version)
     version = str(contract["release_version"])
     stamp = _inside(root, contract.get("stamp"), "current baseline stamp")
     repository_role = detect_repository_role(root)
@@ -1040,10 +1078,18 @@ def verify_index_baseline(
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise BaselineError(f"cannot export Git index: {detail}")
+        index_contract = export_root / ".codex" / "managed-skeleton.json"
+        anchor_release_version = None
+        if index_contract.is_file() and _anchor_needs_release_fallback(
+            index_contract.read_bytes(),
+            anchor,
+        ):
+            anchor_release_version = _head_release_version(root)
         return verify_current_baseline(
             export_root,
             expected_version=expected_version,
             anchor_contract=anchor,
+            anchor_release_version=anchor_release_version,
             use_git_anchor=False,
         )
 
