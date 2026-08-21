@@ -271,6 +271,34 @@ class CurrentProjectSyncTests(unittest.TestCase):
             1,
         )
         (self.project / "AGENTS.md").write_text(agents, encoding="utf-8")
+        doc_readme = (ROOT / "templates" / "doc" / "README.md").read_text(
+            encoding="utf-8"
+        )
+        managed_row = (
+            "| [`M1/feature_x/`](1_delivery/M1/feature_x/) | "
+            "milestone：按里程碑组织的需求包 |\n"
+        )
+        project_row = (
+            "| [`project_topic/`](1_delivery/project_topic/) | "
+            "PROJECT-DOC-INDEX-SENTINEL |\n"
+        )
+        self.assertIn(managed_row, doc_readme)
+        legacy_managed_row = managed_row.replace(
+            "milestone：按里程碑组织的需求包",
+            "OLD-MANAGED-DESCRIPTION",
+        )
+        project_heading = (
+            "\n## 项目文档入口\n\n"
+            "PROJECT-DOC-HEADING-SENTINEL\n"
+        )
+        doc_readme = doc_readme.replace(
+            managed_row,
+            legacy_managed_row + project_row,
+            1,
+        ) + project_heading
+        doc_readme_path = self.project / "doc" / "README.md"
+        doc_readme_path.parent.mkdir()
+        doc_readme_path.write_text(doc_readme, encoding="utf-8")
         skill_before = project_skill.read_bytes()
         memory_before = memory.read_bytes()
 
@@ -332,7 +360,39 @@ class CurrentProjectSyncTests(unittest.TestCase):
             "PROJECT-ZONE-SENTINEL",
             (self.project / "AGENTS.md").read_text(encoding="utf-8"),
         )
+        self.assertIn(
+            project_row.strip(),
+            doc_readme_path.read_text(encoding="utf-8"),
+        )
+        rebuilt_readme = doc_readme_path.read_text(encoding="utf-8")
+        self.assertIn(project_heading.strip(), rebuilt_readme)
+        self.assertIn(managed_row.strip(), rebuilt_readme)
+        self.assertNotIn("OLD-MANAGED-DESCRIPTION", rebuilt_readme)
         BASELINE.verify_current_baseline(self.project)
+
+    def test_old_rebuild_rejects_ambiguous_managed_markdown_without_writes(self) -> None:
+        codex = self.project / ".codex"
+        codex.mkdir()
+        (codex / ".bridgeforge_version").write_text(
+            LEGACY_VERSION + "\n",
+            encoding="utf-8",
+        )
+        doc_readme = (ROOT / "templates" / "doc" / "README.md").read_text(
+            encoding="utf-8"
+        )
+        doc_readme += "\n## 1_delivery/\n\n| duplicate | table |\n|---|---|\n"
+        doc_readme_path = self.project / "doc" / "README.md"
+        doc_readme_path.parent.mkdir()
+        doc_readme_path.write_text(doc_readme, encoding="utf-8")
+        before = self.snapshot_tree()
+
+        with self.assertRaisesRegex(
+            SYNC.SyncBlocked,
+            "managed block ownership is ambiguous",
+        ):
+            SYNC.build_plan(self.project, ROOT, "auto")
+
+        self.assertEqual(self.snapshot_tree(), before)
 
     def test_current_update_is_idempotent(self) -> None:
         self.apply(SYNC.build_plan(self.project, ROOT, "init"))

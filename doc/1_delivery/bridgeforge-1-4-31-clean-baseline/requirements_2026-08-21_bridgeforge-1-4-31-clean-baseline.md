@@ -3,7 +3,7 @@ status: validated-audited-awaiting-user-trial
 next: user-trial-or-git-sync
 scale: L
 budget: 230_minutes_75k_tokens_unmeasured_3_agents_4_validation_rounds
-target_release: 1.4.32
+target_release: 1.4.33
 clean_baseline: 1.4.31
 ---
 
@@ -134,6 +134,7 @@ clean_baseline: 1.4.31
 - 2026-08-21：独立审计发现关键叶子 reparse 校验不完整；同步器改为在解析链接前检查版本戳、`AGENTS.md` 与 `.githooks/pre-commit` 的词法路径、祖先和叶子，Planner 与 Apply 均 fail-closed。
 - 2026-08-21：README/INSTALL 将 `1.4.31` 改述为长期有效的“最低清洁基线”，避免最终 `$git-sync` 发布 `1.4.32` 后活动文档立即过期。
 - 2026-08-21：Plan 新增 current stamp 的预期缺失状态或 SHA256，并纳入 aggregate fingerprint；Apply 开始和最终写戳前均重新检查 lexical 路径、plain-file 状态与 hash，事务中途漂移时回滚本事务且不吸收外部戳修改。
+- 2026-08-21：真实 ClaudeBridgeAssist 重建暴露 `doc/README.md` 项目索引丢失；1.4.33 让 rebuild 对 `managed_blocks` 继续复用 schema 3 ownership 合并，公共行升级、项目标题与非受管索引行保留，详见 `BUG-rebuild-drops-project-doc-index.md`。
 
 ## 验证记录
 
@@ -156,4 +157,6 @@ clean_baseline: 1.4.31
 - 第二次窄复核确认原两个 Medium 已关闭，但发现 current stamp 在事务中途可被外部改写并于最后静默覆盖；修复定向测试注入 `after-memory-index` 漂移，验证 Apply 回滚且外部 `1.4.30` 戳原样保留，project-sync 38/38 通过。
 - 第四轮完整验收：全量 unittest 252/252、downstream fixture 3/3、manifest unchanged、project structure `errors=[]`、三组 Template/dogfood 镜像零差异、`git diff --check` 全部通过。
 - 最终独立窄复核：Blocker 0 / High 0 / Medium 0 / Low 0；独立注入 `after-memory-index: 1.4.31 -> 1.4.30` 后，Apply 以 `current version stamp drifted during apply` 阻断，本事务回滚且外部 `1.4.30` 原样保留。未运行真实 `$git-sync`。
-- 四个真实下游未写入，真实 apply/runtime smoke 仍按范围标记为未验证。
+- 真实下游验证状态已更新：ClaudeBridgeAssist 后续已完成 1.4.26 → 1.4.32 重建并暴露文档索引缺陷；本需求内其余三个真实 checkout 仍不得据此宣称已完成 apply/runtime smoke。
+- 1.4.33 文档索引修复定向用例通过；project-sync 39/39、release 16/16、补测后全量 unittest 253/253、downstream fixture 3/3、manifest unchanged、project structure `errors=[]`、Template/dogfood contract 零差异、`git diff --check` 均通过。
+- 第一轮独立审计为 Blocker 0 / High 0 / Medium 2 / Low 0；补齐项目标题、公共行升级、歧义 Markdown 零写回归和真实下游记录后，最终独立窄复核为 Blocker 0 / High 0 / Medium 0 / Low 0。

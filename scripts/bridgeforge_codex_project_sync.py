@@ -1604,7 +1604,15 @@ def build_plan(project_root: Path, template_root: Path, mode: str = "auto") -> P
             f"asset {asset['id']} source",
         ).read_bytes()
         current = target.read_bytes() if target.is_file() else None
-        merge_current = current if not rebuild or asset.get("strategy") == "seed" else None
+        merge_current = (
+            current
+            if (
+                not rebuild
+                or asset.get("strategy") == "seed"
+                or isinstance(asset.get("managed_blocks"), dict)
+            )
+            else None
+        )
         try:
             desired = _desired_payload(asset, source, merge_current, root)
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:

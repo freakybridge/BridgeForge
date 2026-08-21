@@ -15,6 +15,18 @@
 
 > **追溯说明**：v0.1.0 - v0.7.0 基于 git log 历史回溯标记，**git tag 仅从 v0.8.0 开始打**。早期未启用版本号管理是 setup_agent 自打脸问题（要求下游用但自己没用），v0.8.0 修补。
 
+## [1.4.34] - 2026-08-21
+
+### Fixed
+
+- [product][repo][meta] 保留旧项目重建的文档索引
+
+## [1.4.33] - 2026-08-21
+
+### Fixed
+
+- [product][meta] 修复 `<1.4.31` 旧项目清洁重建把 `doc/README.md` 项目自有标题与非受管索引行替换为空公共模板的问题；重建现在复用 schema 3 `managed_blocks` ownership，仅刷新公共受管行并逐字保留项目索引，避免更新成功后被 `project_structure_check.py` 立即判为未索引。
+
 ## [1.4.32] - 2026-08-21
 
 ### Changed
