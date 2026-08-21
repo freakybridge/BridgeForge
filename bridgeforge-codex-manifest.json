@@ -17,7 +17,7 @@
             {
               "source": "skills/bridgeforge-codex/SKILL.md",
               "target": "SKILL.md",
-              "sha256": "sha256:4da405270f54dba386820b2659b9303a34e238012f4ceaa3774d8ad5b196ccd3"
+              "sha256": "sha256:1d782d3ecf9010929f93100eecc914a490b62c633dfc48fd7ce7d0feaa66c538"
             },
             {
               "source": "skills/bridgeforge-codex/agents/openai.yaml",

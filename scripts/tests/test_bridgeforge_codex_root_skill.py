@@ -160,6 +160,27 @@ class BridgeForgeCodexRootSkillTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
+    def test_default_result_is_conclusion_first_and_hides_raw_receipt(self) -> None:
+        text = SKILL.read_text(encoding="utf-8")
+        result_contract = text[text.index("## 7. 用户结果与技术收据") :]
+        for marker in (
+            "结论、待处理事项、下一步",
+            "本次操作已结束，无需继续处理",
+            "骨架升级已完成，当前骨架版本为 {version}",
+            "本次升级产生的 {count} 个骨架文件尚未保存到 GitHub",
+            "当前 Codex 对话框运行 $git-sync",
+            "骨架升级未完成",
+            "无关且无需操作的 advisory 默认隐藏",
+            "Native Memory 健康且无需用户操作时默认不单列",
+            "只有用户追问原因、证据或技术细节时",
+        ):
+            self.assertIn(marker, result_contract)
+
+        hidden_receipt = result_contract.index("### 7.2 内部技术收据")
+        self.assertGreater(result_contract.index("`execution_status`"), hidden_receipt)
+        self.assertGreater(result_contract.index("preserved project asset IDs"), hidden_receipt)
+        self.assertGreater(result_contract.index("rollback 字段"), hidden_receipt)
+
     def test_preservation_manifest_is_the_only_old_project_decision_term(self) -> None:
         skill = SKILL.read_text(encoding="utf-8")
         sync = (

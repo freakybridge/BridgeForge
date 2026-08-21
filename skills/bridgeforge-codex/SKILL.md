@@ -159,11 +159,50 @@ copy、merge、删除或写戳。
 - 任一失败必须回滚本事务全部写入，成功后不得保留 before 包；
 - Claude 项目遗留只提示，不读取、不修改。
 
-## 7. 收据
+## 7. 用户结果与技术收据
 
-必须报告用户级刷新 commit、execution_status、applied、preserved project asset IDs、
-blockers、版本戳终态、rollback、验证命令和工作区状态。
-Native Memory 必须另外报告 `project_readiness`、`user_native_memory_readiness`、长期授权
-状态、`hookInstalled`、`hookRuntimeVerified`、最近运行收据、hook 修复结果和
+必须先在本轮内部核对完整技术收据，再把用户可见结果翻译为“结论、待处理事项、下一步”三段。
+默认回复只帮助用户做决定和继续操作，禁止直接倾倒原始字段、内部枚举或验证流水。
+
+### 7.1 默认用户结果
+
+第一段必须用一句白话说明本轮是否完成，并在成功时给出当前骨架版本。第二段只说明仍会影响
+用户的未完成事项；第三段给出现在要执行的唯一动作。动作必须说明在哪里执行、执行什么，以及
+完成后会得到什么结果。没有待处理事项时必须明确写“本次操作已结束，无需继续处理”。
+
+- 升级成功且存在本轮产生、尚未提交的骨架文件时，使用以下句式；`{version}` 与 `{count}`
+  必须来自本轮真实收据，禁止猜测：
+
+  ```text
+  骨架升级已完成，当前骨架版本为 {version}。
+  本次升级产生的 {count} 个骨架文件尚未保存到 GitHub。
+  现在请在当前 Codex 对话框运行 $git-sync，提交并推送这些文件。
+  ```
+
+- 已是最新版本且没有待处理事项时，直接说明当前版本和“无需继续处理”，禁止展示 no-op 的
+  planner、validator 或 Native Memory 明细。
+- 阻断或失败时，必须先说“骨架升级未完成”；再用白话说明一个最关键原因、是否发生写入或
+  是否已回滚；最后只给当前能安全执行的一个动作。禁止把内部失败状态码、blocker 列表或
+  traceback 当成用户结论。
+- 需要用户确认 risk 时，仍必须披露做决定所必需的范围、影响、保留项和不可恢复边界；但必须
+  改写成白话决策题，禁止用 safe/risk/gap、fingerprint 或 asset ID 代替影响说明。
+- gap 或 advisory 只有在会影响当前结果、需要用户操作或会改变后续行为时才显示。与本轮目标
+  无关且无需操作的 advisory 默认隐藏。
+- Native Memory 健康且无需用户操作时默认不单列。未完成验证但无需操作时，只说明“仍在等待
+  下一次正常使用完成验证”；需要用户决定或修复时，只说明影响和唯一下一步。禁止默认展示
+  `hookInstalled`、`hookRuntimeVerified`、handler revision、最近运行收据或
+  `remote_reconcile` 枚举。
+- 工作区中无法证明由本轮产生的既有改动，禁止归为“本次升级产生”；必须明确区分本轮骨架
+  文件与升级前已有改动。
+
+### 7.2 内部技术收据
+
+用户未追问时，以下内容只用于内部核对，禁止出现在默认回复：用户级刷新 commit、
+`execution_status`、applied、preserved project asset IDs、blockers 原文、版本戳路径与终态、
+rollback 字段、验证命令和逐文件工作区清单。
+
+Native Memory 技术收据必须内部核对 `project_readiness`、`user_native_memory_readiness`、
+长期授权状态、`hookInstalled`、`hookRuntimeVerified`、最近运行收据、hook 修复结果和
 `remote_reconcile=applied/declined/not_requested`；禁止用项目 ready 掩盖用户级同步 gap，
-也禁止把本轮未执行的 reconcile 描述成已完成。
+也禁止把本轮未执行的 reconcile 描述成已完成。只有用户追问原因、证据或技术细节时，才按
+问题范围展开对应字段，禁止一次性补发整份技术清单。
